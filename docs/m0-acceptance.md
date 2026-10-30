@@ -63,13 +63,13 @@ Use tray > **Open fixtures folder** to find the files (they are named `<sim>-<UT
 
 iRacing (one continuous recording is best):
 
-- [ ] A full weekend in one go: practice, then qualifying, then race (mark "quali -> race" at each transition). A short session length is fine.
+- [X] A full weekend in one go: practice, then qualifying, then race (mark "quali -> race" at each transition). A short session length is fine.
 - [ ] A pit stop with refuel (mark "pit stop" on entry).
 - [ ] An offline test session (a few laps).
 
 LMU:
 
-- [ ] A hybrid car (with virtual energy), a few laps plus a pit stop.
+- [ ] A hybrid car (with virtual energy), a few laps plus a pit stop. - partial, getting FFB issues unrelated to the overlay
 - [ ] A GT3 car (plain fuel), a few laps plus a pit stop with refuel.
 - [ ] Rain, if you can get it (a wet or changing-weather session).
 - [ ] One online session (practice or race), if possible.
