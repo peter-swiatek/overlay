@@ -9,6 +9,8 @@ import type { TelemetrySourceChoice } from "../shared/telemetry-types";
 import { AutoSelector, DETECT_INTERVAL_MS, type LiveSim } from "./auto-select";
 import type { LiveSource, TelemetrySource } from "./source";
 
+/** Never poll a source faster than this when it had nothing new, so a stuck event cannot spin. */
+const MIN_IDLE_POLL_MS = 1;
 /** After a failed read, wait this long before trying again. */
 const ERROR_RETRY_MS = 250;
 
@@ -26,6 +28,8 @@ export interface EngineDeps {
   createMock(): TelemetrySource;
   publish(frame: TelemetryFrame): void;
   onStatus?(status: TelemetryFrame["status"], source: SimSource | null, error: string | null): void;
+  /** Calculators to use; tests pass their own to inspect them. */
+  deriver?: Deriver;
   /** Reads the clock. Defaults to Date.now, which fake timers control. */
   nowMs?(): number;
 }
@@ -36,7 +40,7 @@ export interface EngineDeps {
  * (AutoSelector, the sources, Deriver) so each can be tested alone.
  */
 export class TelemetryEngine {
-  private readonly deriver = new Deriver();
+  private readonly deriver: Deriver;
   private selector = new AutoSelector();
   private selection: SourceSelection = { source: "auto" };
   private active: TelemetrySource | null = null;
@@ -46,8 +50,13 @@ export class TelemetryEngine {
   private detectTimer: ReturnType<typeof setInterval> | undefined;
   private lastSource: SimSource | null = null;
   private lastReported = "";
+  /** The source whose frames the Deriver last saw; it is reset only when this changes. */
+  private lastActivated: TelemetrySource | null = null;
+  private stallReported = false;
 
-  constructor(private readonly deps: EngineDeps) {}
+  constructor(private readonly deps: EngineDeps) {
+    this.deriver = deps.deriver ?? new Deriver();
+  }
 
   get activeSource(): SimSource | null {
     return this.active?.id ?? null;
@@ -71,13 +80,22 @@ export class TelemetryEngine {
   }
 
   setSource(selection: SourceSelection): void {
+    if (sameSelection(this.selection, selection)) return;
     this.selection = selection;
     if (this.running) this.applySelection();
   }
 
   private applySelection(): void {
-    this.releaseActive();
     const { source } = this.selection;
+    const order: readonly LiveSim[] =
+      source === "auto"
+        ? ["iracing", "lmu"]
+        : source === "iracing" || source === "lmu"
+          ? [source]
+          : [];
+    // A live sim that is still wanted keeps running through a change of selection.
+    const keep = this.active?.id === "iracing" || this.active?.id === "lmu" ? this.active.id : null;
+    if (keep === null || !order.includes(keep)) this.releaseActive();
     if (source === "replay") {
       const path = this.selection.replayPath;
       if (path === undefined) return this.publishWaiting("Replay needs a file path");
@@ -91,7 +109,7 @@ export class TelemetryEngine {
     } else if (source === "mock") {
       this.activate(this.deps.createMock());
     } else {
-      this.selector = new AutoSelector(source === "auto" ? ["iracing", "lmu"] : [source]);
+      this.selector = new AutoSelector(order, keep !== null && order.includes(keep) ? keep : null);
       this.detect();
     }
   }
@@ -119,12 +137,16 @@ export class TelemetryEngine {
       const next = chosen === null ? undefined : this.deps.live[chosen];
       if (next) this.activate(next);
     }
-    if (this.active === null) this.publishWaiting(null);
+    if (this.active === null || this.active.stalled === true) this.publishWaiting(null);
   }
 
   private activate(source: TelemetrySource): void {
-    this.deriver.reset();
+    // Coming back to the same sim (a pause, a short outage) keeps the fuel history; the Deriver
+    // detects a real new session itself.
+    if (source !== this.lastActivated) this.deriver.reset();
+    this.lastActivated = source;
     this.active = source;
+    this.stallReported = false;
     this.scheduleRead(0);
   }
 
@@ -150,10 +172,18 @@ export class TelemetryEngine {
       const sourceFrame = await source.read();
       if (this.active !== source) return;
       if (sourceFrame) {
+        this.stallReported = false;
         if (sourceFrame.restart) this.deriver.reset();
         this.emitFrame(source.id, sourceFrame.state, sourceFrame.error ?? null);
-      } else if (source.ended) {
-        return this.publishWaiting(null);
+      } else {
+        if (source.ended) return this.publishWaiting(null);
+        // A sim that stopped ticking (a crash) shows as waiting at once; only switching to
+        // another sim waits for the 5 s hysteresis.
+        if (source.stalled === true && !this.stallReported) {
+          this.stallReported = true;
+          this.publishWaiting(null);
+        }
+        delay = Math.max(delay, MIN_IDLE_POLL_MS);
       }
     } catch (error) {
       if (this.active !== source) return;
@@ -194,4 +224,14 @@ export class TelemetryEngine {
       this.deps.onStatus?.(status, status === "waiting" ? null : source, error);
     }
   }
+}
+
+function sameSelection(a: SourceSelection, b: SourceSelection): boolean {
+  if (a.source !== b.source) return false;
+  if (a.source !== "replay") return true;
+  return (
+    a.replayPath === b.replayPath &&
+    a.replaySpeed === b.replaySpeed &&
+    a.replayLoop === b.replayLoop
+  );
 }

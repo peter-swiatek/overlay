@@ -16,6 +16,8 @@ import type { LiveSource, SourceFrame } from "./source";
 
 /** Longest the sampling loop blocks on IRSDKDataValidEvent. */
 export const IRACING_EVENT_WAIT_MS = 20;
+/** Ticks that stop for this long while the sim says "connected" mean it hung or crashed. */
+export const IRACING_STALL_MS = 2000;
 /** Used when the event cannot be opened: about 60 Hz. */
 const NO_EVENT_POLL_MS = 8;
 
@@ -52,6 +54,11 @@ export class IracingLiveSource implements LiveSource {
     private readonly clock: Clock,
     private readonly parser: SessionParser,
   ) {}
+
+  /** Connected but no new tick for 2 s. */
+  get stalled(): boolean {
+    return this.map !== undefined && !this.live;
+  }
 
   get pollIntervalMs(): number {
     return this.event ? 0 : NO_EVENT_POLL_MS;
@@ -99,7 +106,7 @@ export class IracingLiveSource implements LiveSource {
     this.event = undefined;
     this.adapter = undefined;
     this.live = false;
-    this.parser.reset();
+    this.parser.close();
   }
 
   private ensureOpen(now: number): void {
@@ -131,7 +138,8 @@ export class IracingLiveSource implements LiveSource {
     // Our own handle keeps the mapping alive after the sim exits, so require the connected bit
     // and ticks that still advance.
     this.live =
-      (header.status & IRSDK_ST_CONNECTED) !== 0 && now - this.lastTickChangeMono <= STALE_CLOSE_MS;
+      (header.status & IRSDK_ST_CONNECTED) !== 0 &&
+      now - this.lastTickChangeMono <= IRACING_STALL_MS;
     if (this.live) this.lastLiveMono = now;
   }
 

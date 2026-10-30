@@ -37,6 +37,11 @@ export interface WorkerLike {
   terminate(): unknown;
 }
 
+/** A parse that takes longer than this is considered hung and its worker is replaced. */
+export const PARSE_TIMEOUT_MS = 2000;
+/** Tries per YAML text after worker failures, so a crashing worker cannot loop forever. */
+const MAX_ATTEMPTS = 3;
+
 export class WorkerSessionParser implements SessionParser {
   private worker: WorkerLike | undefined;
   private info: SessionInfo | null = null;
@@ -44,17 +49,25 @@ export class WorkerSessionParser implements SessionParser {
   /** Id of the job whose result is wanted; older results are stale. */
   private wantedId = 0;
   private running = false;
+  /** The text being parsed, kept so a failed worker can be retried. */
+  private current: Uint8Array | undefined;
+  private attempts = 0;
   private queued: Uint8Array | undefined;
-  /** Last parse error, for diagnostics. */
+  private timer: ReturnType<typeof setTimeout> | undefined;
+  /** Last parse error or timeout, for diagnostics. */
   lastError: string | null = null;
 
-  constructor(private readonly spawn: () => WorkerLike) {}
+  constructor(
+    private readonly spawn: () => WorkerLike,
+    private readonly timeoutMs = PARSE_TIMEOUT_MS,
+  ) {}
 
   request(bytes: Uint8Array): void {
     if (this.running) {
       this.queued = bytes;
       return;
     }
+    this.attempts = 0;
     this.dispatch(bytes);
   }
 
@@ -65,14 +78,20 @@ export class WorkerSessionParser implements SessionParser {
   reset(): void {
     this.info = null;
     this.queued = undefined;
+    this.current = undefined;
     this.wantedId = 0;
+    this.running = false;
+    clearTimeout(this.timer);
   }
 
   close(): void {
     this.reset();
+    this.dropWorker();
+  }
+
+  private dropWorker(): void {
     void this.worker?.terminate();
     this.worker = undefined;
-    this.running = false;
   }
 
   private dispatch(bytes: Uint8Array): void {
@@ -80,6 +99,10 @@ export class WorkerSessionParser implements SessionParser {
     const id = this.nextId++;
     this.wantedId = id;
     this.running = true;
+    this.current = bytes;
+    this.attempts++;
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.onFailure(id, "parse timed out"), this.timeoutMs);
     // A copy: the caller reuses its buffer, and the worker needs its own to transfer or clone.
     worker.postMessage({ id, bytes: Uint8Array.from(bytes) });
   }
@@ -89,24 +112,38 @@ export class WorkerSessionParser implements SessionParser {
     const worker = this.spawn();
     worker.on("message", (result) => this.onResult(result));
     worker.on("error", (error) => {
-      this.lastError = error.message;
-      this.worker = undefined;
-      this.running = false;
+      if (this.worker === worker) this.onFailure(this.wantedId, error.message);
     });
     this.worker = worker;
     return worker;
   }
 
-  private onResult(result: SessionJobResult): void {
+  /** The worker hung or died: replace it and run the newest text again (a limited number of times). */
+  private onFailure(id: number, message: string): void {
+    if (id !== this.wantedId || !this.running) return;
+    this.lastError = message;
+    clearTimeout(this.timer);
+    this.dropWorker();
     this.running = false;
-    if ("info" in result) {
-      if (result.id === this.wantedId) this.info = result.info;
-    } else {
-      this.lastError = result.error;
-    }
+    const retry = this.queued ?? (this.attempts < MAX_ATTEMPTS ? this.current : undefined);
+    this.queued = undefined;
+    if (retry === undefined) return;
+    if (retry !== this.current) this.attempts = 0;
+    this.dispatch(retry);
+  }
+
+  private onResult(result: SessionJobResult): void {
+    if (result.id !== this.wantedId) return; // stale: from before a reset or a replaced worker
+    clearTimeout(this.timer);
+    this.running = false;
+    if ("info" in result) this.info = result.info;
+    else this.lastError = result.error;
     const queued = this.queued;
     this.queued = undefined;
-    if (queued !== undefined) this.dispatch(queued);
+    if (queued !== undefined) {
+      this.attempts = 0;
+      this.dispatch(queued);
+    }
   }
 }
 
