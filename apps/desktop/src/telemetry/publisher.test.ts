@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { emptyDerived, emptySimState, type TelemetryFrame } from "@overlay/sim-core";
 import { TelemetryPublisher } from "./publisher";
 import { FakePort } from "./testing";
@@ -113,5 +113,76 @@ describe("TelemetryPublisher", () => {
     expect(port.seqs).toEqual([1, 2]);
     port.ack(2);
     expect(port.seqs).toEqual([1, 2, 3]);
+  });
+
+  describe("held frames", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("sends the newest throttled frame when the rate window opens", async () => {
+      vi.useFakeTimers();
+      const publisher = new TelemetryPublisher(() => Date.now());
+      const port = new FakePort();
+      publisher.addSubscriber(port, 1);
+      publisher.publish(frame(1), Date.now());
+      port.ack(1);
+      // Within the one-second window: held, not lost, and only the newest survives.
+      vi.advanceTimersByTime(100);
+      publisher.publish(frame(2), Date.now());
+      publisher.publish(frame(3), Date.now());
+      expect(port.seqs).toEqual([1]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(port.seqs).toEqual([1, 3]);
+    });
+
+    it("always delivers a changed status, even inside the rate window", () => {
+      vi.useFakeTimers();
+      const publisher = new TelemetryPublisher(() => Date.now());
+      const port = new FakePort();
+      publisher.addSubscriber(port, 1);
+      publisher.publish(frame(1), Date.now());
+      port.ack(1);
+      publisher.publish({ ...frame(2), status: "waiting" }, Date.now());
+      expect(port.seqs).toEqual([1, 2]);
+      port.ack(2);
+      publisher.publish({ ...frame(3), status: "error", error: "boom" }, Date.now());
+      expect(port.seqs).toEqual([1, 2, 3]);
+      port.ack(3);
+      // Same status and error again: throttled as usual.
+      publisher.publish({ ...frame(4), status: "error", error: "boom" }, Date.now());
+      expect(port.seqs).toEqual([1, 2, 3]);
+      // A different error text is a change.
+      publisher.publish({ ...frame(5), status: "error", error: "other" }, Date.now());
+      expect(port.seqs).toEqual([1, 2, 3, 5]);
+    });
+
+    it("keeps a changed-status frame for the next ack when two frames are unacked", () => {
+      vi.useFakeTimers();
+      const publisher = new TelemetryPublisher(() => Date.now());
+      const port = new FakePort();
+      publisher.addSubscriber(port, 60);
+      publisher.publish(frame(1), Date.now());
+      vi.advanceTimersByTime(20);
+      publisher.publish(frame(2), Date.now());
+      vi.advanceTimersByTime(20);
+      publisher.publish({ ...frame(3), status: "waiting" }, Date.now());
+      expect(port.seqs).toEqual([1, 2]);
+      port.ack(1);
+      expect(port.seqs).toEqual([1, 2, 3]);
+    });
+
+    it("does not send a held frame after the port closed", async () => {
+      vi.useFakeTimers();
+      const publisher = new TelemetryPublisher(() => Date.now());
+      const port = new FakePort();
+      publisher.addSubscriber(port, 1);
+      publisher.publish(frame(1), Date.now());
+      port.ack(1);
+      publisher.publish(frame(2), Date.now());
+      port.close();
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(port.seqs).toEqual([1]);
+    });
   });
 });

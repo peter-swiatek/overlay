@@ -15,6 +15,11 @@ export interface TelemetrySource {
   readonly pollIntervalMs: number;
   /** The next frame, or null when there is none yet (or a torn one was dropped). */
   read(): Promise<SourceFrame | null>;
+  /**
+   * True when a connected source has stopped delivering new data for a while (a sim that
+   * crashed or hung); the engine then publishes "waiting" at once.
+   */
+  readonly stalled?: boolean;
   /** True once a non-looping source has delivered everything. */
   readonly ended?: boolean;
   /** Releases handles and workers; the source can be used again, it reopens on demand. */

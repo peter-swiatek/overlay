@@ -37,6 +37,11 @@ export class LmuLiveSource implements LiveSource {
     private readonly clock: Clock,
   ) {}
 
+  /** The buffer has not changed for 5 s: paused, in a menu, or a dead game. */
+  get stalled(): boolean {
+    return this.map !== undefined && !this.live;
+  }
+
   private get live(): boolean {
     return (
       this.map !== undefined && this.clock.monoMs() - this.lastChangeMono <= LMU_LIVE_WINDOW_MS

@@ -6,6 +6,7 @@ import type { LiveSource, SourceFrame, TelemetrySource } from "./source";
 
 class FakeLive implements LiveSource {
   live = false;
+  stalled = false;
   probes = 0;
   closed = 0;
   reads = 0;
@@ -143,17 +144,127 @@ describe("TelemetryEngine auto-detect", () => {
     engine.stop();
   });
 
-  it("resets the calculators when the source switches", async () => {
+  it("resets the calculators when switching to a different sim, not when the same sim returns", async () => {
     const reset = vi.spyOn(Deriver.prototype, "reset");
     const { engine, iracing, lmu } = setup();
     iracing.live = true;
     engine.start();
     await vi.advanceTimersByTimeAsync(1500);
-    const afterStart = reset.mock.calls.length;
+    expect(reset).toHaveBeenCalledTimes(1); // first activation
+
+    // iRacing drops out for 7 s (waiting) and comes back: same sim, history kept.
+    iracing.live = false;
+    await vi.advanceTimersByTimeAsync(7000);
+    iracing.live = true;
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(reset).toHaveBeenCalledTimes(1);
+
+    // Now LMU takes over after iRacing has been gone for 5 s: a real switch.
     iracing.live = false;
     lmu.live = true;
     await vi.advanceTimersByTimeAsync(7000);
-    expect(reset.mock.calls.length).toBeGreaterThan(afterStart);
+    expect(reset).toHaveBeenCalledTimes(2);
+
+    // And back to iRacing: another switch.
+    lmu.live = false;
+    iracing.live = true;
+    await vi.advanceTimersByTimeAsync(7000);
+    expect(reset).toHaveBeenCalledTimes(3);
+    engine.stop();
+  });
+
+  it("keeps the derived history through a paused sim (LMU not live for over 10 s)", async () => {
+    const reset = vi.spyOn(Deriver.prototype, "reset");
+    const { engine, lmu, last } = setup();
+    lmu.live = true;
+    engine.start();
+    await vi.advanceTimersByTimeAsync(1500);
+    lmu.live = false;
+    await vi.advanceTimersByTimeAsync(12_000);
+    expect(last()?.status).toBe("waiting");
+    lmu.live = true;
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(last()?.status).toBe("live");
+    expect(reset).toHaveBeenCalledTimes(1);
+    engine.stop();
+  });
+
+  it("treats the same setSource again as a no-op and keeps a live sim on auto", async () => {
+    const reset = vi.spyOn(Deriver.prototype, "reset");
+    const { engine, iracing, lmu, last } = setup();
+    lmu.live = true;
+    engine.start();
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(last()?.source).toBe("lmu");
+    const reads = lmu.reads;
+
+    engine.setSource({ source: "auto" });
+    engine.setSource({ source: "auto" });
+    // iRacing is live too, but LMU is current and live, so it stays; auto -> lmu keeps it as well.
+    iracing.live = true;
+    engine.setSource({ source: "lmu" });
+    engine.setSource({ source: "lmu" });
+    engine.setSource({ source: "auto" });
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(last()?.source).toBe("lmu");
+    expect(lmu.reads).toBeGreaterThan(reads);
+    expect(iracing.reads).toBe(0);
+    expect(reset).toHaveBeenCalledTimes(1);
+
+    const mockEngine = setup();
+    mockEngine.engine.setSource({ source: "mock" });
+    mockEngine.engine.start();
+    await vi.advanceTimersByTimeAsync(100);
+    const count = reset.mock.calls.length;
+    mockEngine.engine.setSource({ source: "mock" });
+    await vi.advanceTimersByTimeAsync(100);
+    expect(reset.mock.calls.length).toBe(count);
+    mockEngine.engine.stop();
+    engine.stop();
+  });
+
+  it("publishes waiting at once when the active sim stalls, before the 5 s switch", async () => {
+    const { engine, iracing, last, frames } = setup();
+    iracing.live = true;
+    engine.start();
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(last()?.status).toBe("live");
+    const before = frames.length;
+    iracing.live = false;
+    iracing.stalled = true;
+    await vi.advanceTimersByTimeAsync(100);
+    expect(frames.length).toBeGreaterThan(before);
+    expect(last()?.status).toBe("waiting");
+    // Not yet switched or dropped: it comes back without a gap in the selection.
+    iracing.live = true;
+    iracing.stalled = false;
+    await vi.advanceTimersByTimeAsync(500);
+    expect(last()?.status).toBe("live");
+    engine.stop();
+  });
+
+  it("never polls an idle source faster than once a millisecond", async () => {
+    let reads = 0;
+    const source: TelemetrySource = {
+      id: "replay",
+      pollIntervalMs: 0,
+      async read() {
+        reads++;
+        return null;
+      },
+      close() {},
+    };
+    const engine = new TelemetryEngine({
+      live: {},
+      createReplay: () => source,
+      createMock: () => source,
+      publish: () => undefined,
+    });
+    engine.setSource({ source: "replay", replayPath: "x" });
+    engine.start();
+    await vi.advanceTimersByTimeAsync(100);
+    expect(reads).toBeGreaterThan(10);
+    expect(reads).toBeLessThanOrEqual(102);
     engine.stop();
   });
 

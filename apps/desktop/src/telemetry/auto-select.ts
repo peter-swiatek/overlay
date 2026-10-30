@@ -11,10 +11,16 @@ export const DETECT_INTERVAL_MS = 1000;
  * Pure: the caller supplies the time and each sim's liveness.
  */
 export class AutoSelector {
-  private current: LiveSim | null = null;
+  private current: LiveSim | null;
   private notLiveSince: number | null = null;
 
-  constructor(private readonly order: readonly LiveSim[] = ["iracing", "lmu"]) {}
+  /** `initial` is the sim already being read, which stays selected while it is live. */
+  constructor(
+    private readonly order: readonly LiveSim[] = ["iracing", "lmu"],
+    initial: LiveSim | null = null,
+  ) {
+    this.current = initial;
+  }
 
   get selected(): LiveSim | null {
     return this.current;

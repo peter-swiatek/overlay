@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { FIXTURE_DIR, loadSlice, toStates } from "../adapters/iracing/slice-support";
 import { emptyCar, emptySimState, type SessionPhase, type SimState } from "../model";
 import { Deriver } from "./derive";
+import { emptyDerived, type Derived } from "./frame";
 
 function simState(over: {
   type?: "race" | "practice";
@@ -131,7 +132,7 @@ describe("end to end on the iRacing race-start slice", () => {
 
     const phases: string[] = [];
     let crossedAtS: number | null = null;
-    let last = deriver.next(states[0] as SimState);
+    let last: Derived = emptyDerived();
     states.forEach((state, i) => {
       last = deriver.next(state);
       const phase = state.session.phase;

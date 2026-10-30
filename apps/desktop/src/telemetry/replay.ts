@@ -19,6 +19,8 @@ export class ReplayRecordDecoder {
   private info: iracing.IracingSessionInfo | null = null;
   private lmuDecoder = new lmu.LmuDecoder();
   private headers = 0;
+  /** Session YAML texts parsed so far; tests use it to leave parses out of timings. */
+  yamlParses = 0;
 
   /** The frame this record completes, if any. */
   accept(record: FixtureRecord): SourceFrame | null {
@@ -34,6 +36,7 @@ export class ReplayRecordDecoder {
         this.adapter = iracing.IracingAdapter.fromHeaderBytes(record.payload);
         return null;
       case RecordKind.IracingSessionYaml:
+        this.yamlParses++;
         this.info = iracing.parseSessionYaml(iracing.decodeSessionYaml(record.payload));
         return null;
       case RecordKind.IracingVarBuffer:
@@ -82,21 +85,35 @@ export class ReplayTelemetrySource implements TelemetrySource {
   readonly pollIntervalMs = 0;
   ended = false;
 
-  private readonly abort = new AbortController();
-  private readonly decoder = new ReplayRecordDecoder();
-  private readonly iterator: AsyncIterator<FixtureRecord>;
+  readonly decoder = new ReplayRecordDecoder();
 
-  constructor(open: ByteSourceFactory, options: ReplayOptions = {}) {
+  private constructor(
+    private readonly iterator: AsyncIterator<FixtureRecord>,
+    private readonly abortSignal: AbortController,
+  ) {}
+
+  static fromFile(path: string, options: ReplayOptions = {}): ReplayTelemetrySource {
+    return ReplayTelemetrySource.fromBytes(fileSource(path), options);
+  }
+
+  static fromBytes(open: ByteSourceFactory, options: ReplayOptions = {}): ReplayTelemetrySource {
+    const abort = new AbortController();
     const replay = new ReplaySource(open, {
       speed: options.speed ?? 1,
       loop: options.loop ?? true,
-      signal: this.abort.signal,
+      signal: abort.signal,
     });
-    this.iterator = replay[Symbol.asyncIterator]();
+    return new ReplayTelemetrySource(replay[Symbol.asyncIterator](), abort);
   }
 
-  static fromFile(path: string, options: ReplayOptions = {}): ReplayTelemetrySource {
-    return new ReplayTelemetrySource(fileSource(path), options);
+  /** Already-read records, played without pacing: for tests that must leave file IO out. */
+  static fromRecords(records: readonly FixtureRecord[]): ReplayTelemetrySource {
+    return new ReplayTelemetrySource(
+      (async function* () {
+        yield* records;
+      })(),
+      new AbortController(),
+    );
   }
 
   async read(): Promise<SourceFrame | null> {
@@ -113,7 +130,7 @@ export class ReplayTelemetrySource implements TelemetrySource {
   }
 
   close(): void {
-    this.abort.abort();
+    this.abortSignal.abort();
     this.ended = true;
     void this.iterator.return?.();
   }

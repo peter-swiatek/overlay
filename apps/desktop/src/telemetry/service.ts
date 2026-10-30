@@ -12,10 +12,11 @@ export interface ServiceDeps extends Omit<EngineDeps, "publish" | "onStatus"> {
 
 /** The logic of the telemetry process without Electron: commands in, frames and events out. */
 export class TelemetryService {
-  readonly publisher = new TelemetryPublisher();
+  readonly publisher: TelemetryPublisher;
   readonly engine: TelemetryEngine;
 
   constructor(private readonly deps: ServiceDeps) {
+    this.publisher = new TelemetryPublisher(deps.monoMs);
     this.engine = new TelemetryEngine({
       ...deps,
       publish: (frame) => this.publisher.publish(frame, deps.monoMs()),
