@@ -32,10 +32,12 @@ describe("local iRacing recording (Ferrari 296 GT3)", () => {
         `race samples=${samples} laps=${tracker.lapRecords.length} valid=${out.validLapCount} ` +
           `fuelAvgLap=${out.fuelAvgLap} fuelMaxLap=${out.fuelMaxLap}\n${table}`,
       );
-      // 14 records: parade lap (paceLap), 12 racing laps, one cooldown lap.
+      // Parade lap, 12 racing laps, cooldown lap, then two post-race car resets to the pits.
       expect(tracker.lapRecords.map((l) => l.reason).filter((r) => r !== null)).toEqual([
         "paceLap",
         "cooldown",
+        "reset",
+        "reset",
       ]);
       expect(out.validLapCount).toBe(12);
       expect(out.fuelAvgLap).toBeGreaterThan(1);

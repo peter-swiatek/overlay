@@ -27,7 +27,7 @@ describe("The reference doc example", () => {
     feed(t, new FakeDriver(12.5, 2.5), 2);
     const out = t.snapshot({ lapsToGo: 10, tankCapacityL: 15 });
     // total 12 laps, 6 laps per tank: start max(2, ceil(12 - 6)), end floor(2 + 3 - 1)
-    expect(out.pitWindow).toEqual({ start: 6, end: 4 });
+    expect(out.pitWindow).toEqual({ start: 6, end: 4, feasible: false });
     expect(out.tankCapacityL).toBe(15);
   });
 
@@ -181,16 +181,22 @@ describe("invalid laps", () => {
     expect(t.snapshot({ lapsToGo: 1 }).fuelAvgLap).toBeNull();
   });
 
-  it("a lap counter decrease voids the lap but keeps history", () => {
+  it("a lap counter decrease is a session change: history, refuel flag and tank estimate reset", () => {
     const t = new FuelTracker();
     const d = new FakeDriver(50, 2);
     feed(t, d, 3);
+    d.fuelL += 10; // refuel seen before the reset
+    t.update(d.sample());
     d.lap = 0;
     d.pct = 0.5;
     t.update(d.sample());
+    expect(t.lapRecords).toHaveLength(0);
     for (let i = 0; i < 5; i++) t.update(d.step());
-    expect(t.lapRecords.map((l) => l.reason)).toEqual([null, null, null, "sessionChange"]);
-    expect(t.snapshot({ lapsToGo: 1 }).validLapCount).toBe(3);
+    expect(t.lapRecords.map((l) => l.reason)).toEqual(["sessionChange"]);
+    expect(t.snapshot({ lapsToGo: 1 }).validLapCount).toBe(0);
+    // Fresh session: the tank estimate is live again (refuel flag cleared).
+    for (let i = 0; i < 10; i++) t.update(d.step());
+    expect(t.snapshot({ lapsToGo: 1 }).tankCapacityL).not.toBeNull();
   });
 });
 
@@ -292,5 +298,82 @@ describe("session state laps", () => {
     run(5);
     run(6);
     expect(t.lapRecords.map((l) => l.reason)).toEqual(["paceLap", "paceLap", null, "cooldown"]);
+  });
+});
+
+describe("review fixes", () => {
+  it("a tow into the stall voids the lap and the next real crossing still counts", () => {
+    const t = new FuelTracker();
+    const d = new FakeDriver(50, 2);
+    feed(t, d, 2);
+    for (let i = 0; i < 8; i++) t.update(d.step()); // pct 0.8
+    d.pct = 0.05;
+    d.onPitRoad = true;
+    d.inPitStall = true;
+    t.update(d.sample());
+    d.onPitRoad = false;
+    d.inPitStall = false;
+    for (let i = 0; i < 40; i++) t.update(d.step());
+    expect(t.lapRecords[2]?.reason).toBe("reset");
+    expect(t.lapRecords.length).toBeGreaterThanOrEqual(4);
+    expect(t.lapRecords.at(-1)?.valid).toBe(true);
+  });
+
+  it("a counter jump of two laps is voided, not merged", () => {
+    const t = new FuelTracker();
+    const d = new FakeDriver(50, 2);
+    feed(t, d, 2);
+    d.lap += 2;
+    d.fuelL -= 4;
+    t.update(d.sample());
+    for (let i = 0; i < 10; i++) t.update(d.step());
+    expect(t.lapRecords.map((l) => l.reason)).toEqual([null, null, "skipped", null]);
+    expect(t.snapshot({ lapsToGo: 5 }).fuelAvgLap).toBeCloseTo(2, 6);
+  });
+
+  it("a slow stall fill is a refuel by cumulative rise", () => {
+    const t = new FuelTracker();
+    const d = new FakeDriver(10, 2);
+    feed(t, d, 1);
+    t.update(d.step());
+    d.onPitRoad = true;
+    d.inPitStall = true;
+    for (let i = 0; i < 25; i++) {
+      d.fuelL += 0.04; // 1 L in total, each tick under any per-tick threshold
+      t.update(d.sample());
+    }
+    d.onPitRoad = false;
+    d.inPitStall = false;
+    for (let i = 0; i < 9; i++) t.update(d.step());
+    expect(t.lapRecords[1]?.reason).toBe("refuel");
+  });
+
+  it("timed-race window start counts the fraction of the lap in progress", () => {
+    // completed 5, pct 0.9, 10.1 to go: 16 laps in total; 5.5 laps per tank -> start 11
+    const t = new FuelTracker();
+    const d = new FakeDriver(50, 2);
+    feed(t, d, 5);
+    for (let i = 0; i < 9; i++) t.update(d.step());
+    const out = t.snapshot({ lapsToGo: 10.1, tankCapacityL: 11 });
+    expect(out.pitWindow?.start).toBe(11);
+  });
+
+  it("a feasible window is flagged feasible", () => {
+    const t = new FuelTracker();
+    feed(t, new FakeDriver(12.5, 2.5), 2);
+    const out = t.snapshot({ lapsToGo: 3, tankCapacityL: 15 });
+    expect(out.pitWindow).toEqual({ start: 2, end: 4, feasible: true });
+  });
+});
+
+describe("post-race reset", () => {
+  it("a counter drop after the flag keeps the finished race's history", () => {
+    const t = new FuelTracker();
+    const d = new FakeDriver(50, 2);
+    feed(t, d, 3);
+    d.lap = 0;
+    d.pct = 0;
+    t.update({ ...d.sample(), sessionState: 6 });
+    expect(t.snapshot({ lapsToGo: 0 }).validLapCount).toBe(3);
   });
 });

@@ -19,8 +19,9 @@ const MID_LAP_START_MIN = 0.05;
 const MID_LAP_START_MAX = 0.95;
 /** Pct falling by more than this in one tick is an S/F wrap (not a tow or reset to a nearby spot). */
 const WRAP_DROP = 0.5;
-/** Rise in a pit stall that counts as filling even below the refuel jump. */
-const STALL_FILL_EPSILON = 0.05;
+/** A wrap only counts as an S/F crossing when it runs from beyond HIGH to below LOW. */
+const WRAP_HIGH = 0.9;
+const WRAP_LOW = 0.1;
 /** iRacing SessionState: 3 parade laps, 5 checkered, 6 cooldown. */
 const PARADE_STATE = 3;
 const COOLDOWN_STATE = 5;
@@ -29,6 +30,8 @@ interface CurrentLap {
   startFuelL: number;
   startedOnPitRoad: boolean;
   startState: number;
+  /** Lowest fuel seen this lap; refuel is judged by the cumulative rise above it. */
+  minFuelL: number;
   refuelled: boolean;
   paceLap: boolean;
   /** Set by a session change or a lap counter reset; forces the lap invalid. */
@@ -43,6 +46,7 @@ export class FuelTracker {
   private readonly minUse: number;
   private readonly maxUse: number;
   private readonly refuelJump: number;
+  private readonly pitRefuelJump: number;
   private readonly maxWindow: number;
 
   private laps: FuelLapRecord[] = [];
@@ -59,6 +63,7 @@ export class FuelTracker {
     this.minUse = options.minLapUse ?? 0.5;
     this.maxUse = options.maxLapUse ?? 50;
     this.refuelJump = options.refuelJump ?? 1;
+    this.pitRefuelJump = options.pitRefuelJump ?? 0.2;
     this.maxWindow = options.maxLapWindow ?? 5;
   }
 
@@ -80,17 +85,35 @@ export class FuelTracker {
       return;
     }
     if (s.lap < prev.lap) {
-      // Counter went backwards: history stays, the lap in progress is void.
-      this.expectWrap = false;
-      this.expectCounter = false;
+      if (s.sessionState >= COOLDOWN_STATE) {
+        // After the flag the sim resets the car to the pits (the counter drops, as seen in real
+        // recordings); keep the finished race's figures.
+        this.voidLap(s, "reset");
+        return;
+      }
+      // Counter went backwards mid-session: treated like a session change.
+      this.resetSession();
       this.beginLap(s, "sessionChange");
       return;
     }
 
-    this.observe(s, prev);
+    this.observe(s);
+
+    if (s.lap - prev.lap >= 2) {
+      // Samples were missed: two or more laps merged would poison the average.
+      this.voidLap(s, "skipped");
+      return;
+    }
 
     const counterTicked = s.lap > prev.lap;
-    const wrapped = prev.lapDistPct - s.lapDistPct > WRAP_DROP;
+    const dropped = prev.lapDistPct - s.lapDistPct > WRAP_DROP;
+    const wrapped =
+      dropped && prev.lapDistPct > WRAP_HIGH && s.lapDistPct < WRAP_LOW && !s.inPitStall;
+    if (dropped && !wrapped && !counterTicked) {
+      // Position jumped back without crossing the line: tow or reset to the pits.
+      this.voidLap(s, "reset");
+      return;
+    }
     let crossed = false;
     if (counterTicked) {
       if (this.expectCounter) {
@@ -112,16 +135,35 @@ export class FuelTracker {
     if (crossed) this.finishLap(s);
   }
 
-  private observe(s: FuelSample, prev: FuelSample): void {
+  private observe(s: FuelSample): void {
     const cur = this.current;
     if (cur === null) return;
-    const jumped = s.fuelL > cur.startFuelL + this.refuelJump;
-    const filling = s.inPitStall && s.fuelL > prev.fuelL + STALL_FILL_EPSILON;
-    if (jumped || filling) {
+    const rise = s.fuelL - cur.minFuelL;
+    cur.minFuelL = Math.min(cur.minFuelL, s.fuelL);
+    const inPits = s.inPitStall || s.onPitRoad;
+    if (rise > this.refuelJump || (inPits && rise > this.pitRefuelJump)) {
       cur.refuelled = true;
       this.sawRefuel = true;
     }
     if (s.isPaceLap) cur.paceLap = true;
+  }
+
+  /** Records the lap in progress as invalid and starts a fresh lap at `s`. */
+  private voidLap(s: FuelSample, reason: FuelInvalidReason): void {
+    const cur = this.current;
+    if (cur !== null) {
+      this.laps.push({
+        lapNumber: s.lap,
+        startState: cur.startState,
+        endState: s.sessionState,
+        usedL: cur.startFuelL - s.fuelL,
+        valid: false,
+        reason,
+      });
+    }
+    this.expectWrap = false;
+    this.expectCounter = false;
+    this.beginLap(s, null);
   }
 
   private finishLap(s: FuelSample): void {
@@ -155,6 +197,7 @@ export class FuelTracker {
   private beginLap(s: FuelSample, forced: FuelInvalidReason | null): void {
     this.current = {
       startFuelL: s.fuelL,
+      minFuelL: s.fuelL,
       startedOnPitRoad: s.onPitRoad,
       startState: s.sessionState,
       refuelled: false,
@@ -222,7 +265,7 @@ export class FuelTracker {
           ? computeFuelPitWindow({
               currentFuelL: currentFuel,
               currentLap: completed,
-              totalLaps: completed + lapsToGo,
+              totalLaps: completed + last.lapDistPct + lapsToGo,
               fuelAvgLap: avg,
               tankCapacityL: tank,
             })

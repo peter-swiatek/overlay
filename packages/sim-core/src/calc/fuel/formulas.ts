@@ -21,7 +21,7 @@ export function computePlusOneLapTarget(currentFuelL: number, lapsRemainingAvg: 
 
 /**
  * The reference pit window. `currentLap` is completed laps, `totalLaps` the race distance in laps
- * (completed + laps to go). End keeps a one-lap buffer; start is the earliest lap from which one
+ * (completed + lap fraction + laps to go). End keeps a one-lap buffer; start is the earliest lap from which one
  * full tank still reaches the finish.
  */
 export function computeFuelPitWindow(args: {
@@ -35,10 +35,14 @@ export function computeFuelPitWindow(args: {
   if (!(fuelAvgLap > 0)) return null;
   const maxLapsPerTank = tankCapacityL / fuelAvgLap;
   const lapsUntilEmpty = currentFuelL / fuelAvgLap;
-  return {
-    start: Math.max(currentLap, Math.ceil(totalLaps - maxLapsPerTank)),
-    end: Math.floor(currentLap + lapsUntilEmpty - 1),
-  };
+  // Round away float noise so an exact whole number of laps does not tip ceil() up a lap.
+  const start = Math.max(currentLap, Math.ceil(round9(totalLaps - maxLapsPerTank)));
+  const end = Math.floor(round9(currentLap + lapsUntilEmpty - 1));
+  return { start, end, feasible: start <= end };
+}
+
+function round9(v: number): number {
+  return Math.round(v * 1e9) / 1e9;
 }
 
 /** The reference tank estimate; only right before the first refuel. */

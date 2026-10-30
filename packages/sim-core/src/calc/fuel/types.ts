@@ -24,7 +24,9 @@ export type FuelInvalidReason =
   | "refuel"
   | "sessionChange"
   | "unknownStart"
-  | "cooldown";
+  | "cooldown"
+  | "reset"
+  | "skipped";
 
 export interface FuelLapRecord {
   /** Completed-lap counter value after this lap finished. */
@@ -43,7 +45,9 @@ export interface FuelTrackerOptions {
   minLapUse?: number;
   /** Laps using more than this are data errors. Default 50. */
   maxLapUse?: number;
-  /** Fuel rising more than this above the lap start fuel is a refuel. Default 1. */
+  /** Fuel rising more than this above the lap's lowest level while on pit road or in a stall is a refuel. Default 0.2. */
+  pitRefuelJump?: number;
+  /** Fuel rising more than this above the lap's lowest level anywhere is a refuel. Default 1. */
   refuelJump?: number;
   /** How many recent valid laps feed `fuelMaxLap`. Default 5. */
   maxLapWindow?: number;
@@ -51,8 +55,9 @@ export interface FuelTrackerOptions {
 
 export interface FuelContext {
   /**
-   * Racing laps still to run from the current position, may be fractional and includes the lap in
-   * progress. Lap-limited race: laps left. Timed race: use `estimateRaceLapsRemaining`.
+   * Racing laps still to run from the car's current position (fractional; the rest of the lap in
+   * progress counts). Same definition for both race types: a lap-limited race passes
+   * `raceLaps - completed - lapDistPct`, a timed race `estimateRaceLapsRemaining(...)`.
    */
   lapsToGo: number | null;
   /** Real tank capacity from the sim. When absent, the reference estimate is used until the first refuel. */
@@ -64,6 +69,8 @@ export interface FuelContext {
 export interface FuelPitWindow {
   start: number;
   end: number;
+  /** False when start is after end: one stop cannot reach the finish. */
+  feasible: boolean;
 }
 
 export interface FuelOutputs {
