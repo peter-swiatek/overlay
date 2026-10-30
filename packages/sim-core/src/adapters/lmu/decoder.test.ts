@@ -4,12 +4,21 @@ import { describe, expect, it } from "vitest";
 import { RecordKind } from "../../fixtures/format";
 import { FixtureReader } from "../../fixtures/reader";
 import { isSimState } from "../../model";
-import { LmuDecoder, phaseOf, sessionTypeOf, type LmuDecodeResult } from "./decoder";
+import {
+  LmuDecoder,
+  numberFromVehicleName,
+  phaseOf,
+  sessionTypeOf,
+  type LmuDecodeResult,
+} from "./decoder";
 import {
   HEADER,
   LMU_MAPPING_BYTES,
   SCORING_BASE,
   SESSION,
+  VEHICLE,
+  VEHICLE_ROWS_OFFSET,
+  VEHICLE_STRIDE,
   TELEM,
   TELEMETRY,
   TELEMETRY_BASE,
@@ -136,6 +145,14 @@ describe("LmuDecoder on the on-track slice", () => {
       expect(car?.lapsCompleted).toBe(row["lapsCompleted"]);
       expect(car?.className).toBe(row["carClass"]);
       expect(car?.isPlayer).toBe(row["player"]);
+      expect(car?.carNumber).toBe(row["carNumber"]);
+      // Nobody has finished a lap yet: both sides say "no lap time".
+      expect(car?.lastLapS).toBeNull();
+      expect(row["lastLapTime"]).toBe(0);
+      expect(car?.bestLapS).toBeNull();
+      expect(row["bestLapTime"]).toBe(-1);
+      // Time into the lap is polled up to a second apart.
+      expect(Math.abs((car?.estTimeS ?? 0) - (row["timeIntoLap"] as number))).toBeLessThan(2);
       expect(car?.onPitRoad).toBe(row["pitting"]);
       const meters = (car?.lapDistPct ?? 0) * (first.session.trackLengthM ?? 0);
       // REST is polled a moment before the buffer: cars move up to ~100 m/s * 1 s.
@@ -178,15 +195,15 @@ describe("LmuDecoder on the burst slice", () => {
     const distinctEt = new Set<number>();
     for (const { raw } of burst.frames) {
       const v = view(raw);
-      const et = v.getFloat64(SCORING_BASE + SESSION.currentEt, true);
+      const et = v.getFloat64(SCORING_BASE + SESSION.currentEventTime, true);
       expect(et).toBeGreaterThanOrEqual(lastEt);
       lastEt = et;
       distinctEt.add(et);
       const row =
         TELEMETRY_BASE +
         TELEMETRY.rowsOffset +
-        v.getUint8(TELEMETRY_BASE + TELEMETRY.playerVehicleIdx) * TELEMETRY.rowStride;
-      const elapsed = v.getFloat64(row + TELEM.elapsedTime, true);
+        v.getUint8(TELEMETRY_BASE + TELEMETRY.playerRowIndex) * TELEMETRY.rowStride;
+      const elapsed = v.getFloat64(row + TELEM.sessionTime, true);
       expect(elapsed).toBeGreaterThanOrEqual(lastElapsed);
       lastElapsed = elapsed;
     }
@@ -223,7 +240,7 @@ describe("LmuDecoder fails closed", () => {
   it("refuses a shifted layout", () => {
     const shifted = new Uint8Array(good.length);
     shifted.set(good.subarray(0, good.length - 8), 8);
-    expect(decoder.decode(shifted).error).not.toBeNull();
+    expect(decoder.decode(shifted).error).toMatch(/^(appBuild|vehicle count) /);
   });
 
   it("refuses an implausible player value", () => {
@@ -231,14 +248,14 @@ describe("LmuDecoder fails closed", () => {
     const row =
       TELEMETRY_BASE +
       TELEMETRY.rowsOffset +
-      bad[TELEMETRY_BASE + TELEMETRY.playerVehicleIdx]! * TELEMETRY.rowStride;
-    bad.writeDoubleLE(1e9, row + TELEM.rpm);
+      bad[TELEMETRY_BASE + TELEMETRY.playerRowIndex]! * TELEMETRY.rowStride;
+    bad.writeDoubleLE(1e9, row + TELEM.engineRpm);
     expectRefused(bad, /rpm/);
   });
 
   it("warns, but still decodes, on an unvalidated game build", () => {
     const other = Buffer.from(good);
-    other.writeInt32LE(15000, HEADER.gameVersion);
+    other.writeInt32LE(15000, HEADER.appBuild);
     const result = decoder.decode(other);
     expect(result.error).toBeNull();
     expect(result.warnings.join(" ")).toMatch(/15000/);
@@ -246,19 +263,89 @@ describe("LmuDecoder fails closed", () => {
 });
 
 describe("mappings", () => {
-  it("maps session codes", () => {
+  it("maps the observed session code and falls back to the REST name", () => {
     expect(sessionTypeOf(1, null)).toBe("practice");
-    expect(sessionTypeOf(6, null)).toBe("qualifying");
-    expect(sessionTypeOf(11, null)).toBe("race");
     expect(sessionTypeOf(77, "RACE1")).toBe("race");
+    expect(sessionTypeOf(77, "QUALIFY1")).toBe("qualifying");
     expect(sessionTypeOf(77, null)).toBeNull();
   });
 
-  it("maps game phases", () => {
-    expect(phaseOf(0, false)).toBe("garage");
-    expect(phaseOf(5, false)).toBe("racing");
-    expect(phaseOf(5, true)).toBe("checkered");
-    expect(phaseOf(8, false)).toBe("cooldown");
-    expect(phaseOf(42, false)).toBeNull();
+  it("maps only the observed game phases", () => {
+    expect(phaseOf(0)).toBe("garage");
+    expect(phaseOf(5)).toBe("racing");
+    expect(phaseOf(8)).toBeNull();
+  });
+
+  it("reads the car number from the vehicle name on the slice, without REST", () => {
+    expect(numberFromVehicleName("Some Team 2026 #83:LM")).toBe("83");
+    expect(numberFromVehicleName("no number")).toBeNull();
+    const bare = new LmuDecoder().decode(onTrack.frames[0]!.raw);
+    const player = bare.state.cars.find((c) => c.isPlayer);
+    expect(player?.carName).toMatch(/ 2026 #83:LM/);
+    expect(player?.carNumber).toBe("83");
+    expect(bare.state.cars.every((c) => c.carName?.includes(" 2026 #"))).toBe(true);
+  });
+});
+
+describe("pit stall and leader laps", () => {
+  const raw = onTrack.frames[0]!.raw;
+
+  it("does not call a parked garage car in its stall unless it is on pit road and running", () => {
+    const state = new LmuDecoder().decode(raw).state;
+    const garaged = state.cars.filter((c) => c.onPitRoad);
+    expect(garaged.length).toBeGreaterThan(10);
+    // Garage-stall flag is set for these, the session runs and they are on pit road.
+    expect(garaged.some((c) => c.inPitStall === true)).toBe(true);
+    const trackCars = state.cars.filter((c) => !c.onPitRoad);
+    expect(trackCars.every((c) => c.inPitStall === null)).toBe(true);
+  });
+
+  it("uses the REST pit state when the flag does not decide", () => {
+    const decoder = new LmuDecoder();
+    decoder.observeRest({
+      path: "/rest/watch/standings",
+      status: 200,
+      body: [{ slotID: 0, pitState: "NONE" }],
+    });
+    const player = decoder.decode(raw).state.cars.find((c) => c.carIdx === 0);
+    expect(player?.inPitStall).toBe(false);
+  });
+
+  it("counts remaining laps from the leader", () => {
+    const edited = Buffer.from(raw);
+    edited.writeInt32LE(10, SCORING_BASE + SESSION.maximumLaps);
+    for (let i = 0; i < 37; i++) {
+      const row = VEHICLE_ROWS_OFFSET + i * VEHICLE_STRIDE;
+      if (edited.readUInt8(row + VEHICLE.position) === 1)
+        edited.writeInt16LE(4, row + VEHICLE.lapsCompleted);
+    }
+    const { state } = new LmuDecoder().decode(edited);
+    expect(state.session.timing).toBe("laps-or-time");
+    expect(state.session.lapsRemaining).toBe(6);
+  });
+});
+
+describe("frame consistency", () => {
+  const raw = onTrack.frames[0]!.raw;
+
+  it("rejects a frame whose scoring and telemetry counts differ", () => {
+    const edited = Buffer.from(raw);
+    edited.writeUInt8(36, TELEMETRY_BASE + TELEMETRY.carsWithTelemetry);
+    const result = new LmuDecoder().decode(edited);
+    expect(result.error).toMatch(/37 vehicles, telemetry 36/);
+    expect(result.state.connected).toBe(false);
+  });
+
+  it("drops cached REST data when the session or the clock changes", () => {
+    const decoder = new LmuDecoder();
+    decoder.observeRest({
+      path: "/rest/watch/standings",
+      status: 200,
+      body: [{ slotID: 0, carNumber: "999", carClass: "Hyper" }],
+    });
+    expect(decoder.decode(raw).state.cars.find((c) => c.carIdx === 0)?.carNumber).toBe("999");
+    const later = Buffer.from(raw);
+    later.writeInt32LE(6, SCORING_BASE + SESSION.sessionCode);
+    expect(decoder.decode(later).state.cars.find((c) => c.carIdx === 0)?.carNumber).toBe("83");
   });
 });

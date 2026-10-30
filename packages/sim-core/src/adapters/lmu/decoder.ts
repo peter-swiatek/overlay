@@ -24,7 +24,7 @@ import {
   VEHICLE_ROWS_OFFSET,
   VEHICLE_STRIDE,
   WHEEL,
-  WHEEL_COUNT,
+  TYRE_COUNT,
 } from "./layout";
 import { applyRestResponse, emptyRestSnapshot, type LmuRestSnapshot } from "./rest";
 
@@ -124,6 +124,19 @@ export class LmuDecoder {
     this.rest = applyRestResponse(this.rest, response);
   }
 
+  private lastSessionCode: number | null = null;
+  private lastEventTime = -Infinity;
+
+  /** REST data belongs to one session: forget it when the session changes or the clock restarts. */
+  private dropStaleRest(sessionCode: number, eventTime: number): void {
+    const changed =
+      (this.lastSessionCode !== null && sessionCode !== this.lastSessionCode) ||
+      eventTime < this.lastEventTime - 1;
+    if (changed) this.rest = emptyRestSnapshot();
+    this.lastSessionCode = sessionCode;
+    this.lastEventTime = eventTime;
+  }
+
   decode(buffer: Uint8Array): LmuDecodeResult {
     if (buffer.length < LMU_USED_BYTES) {
       return failed(`LMU_Data is ${buffer.length} bytes, expected at least ${LMU_USED_BYTES}`);
@@ -133,30 +146,35 @@ export class LmuDecoder {
     const problem = validateFrame(f);
     if (problem) return failed(problem);
 
-    const version = f.i32(HEADER.gameVersion);
+    const version = f.i32(HEADER.appBuild);
     if (!this.validated.includes(version)) {
       warnings.push(`game build ${version} was not validated against this layout`);
     }
-    const active = f.u8(TELEMETRY_BASE + TELEMETRY.activeVehicles);
-    const count = f.i32(SCORING_BASE + SESSION.numVehicles);
-    if (active !== count) warnings.push(`scoring has ${count} vehicles, telemetry ${active}`);
+    const active = f.u8(TELEMETRY_BASE + TELEMETRY.carsWithTelemetry);
+    const count = f.i32(SCORING_BASE + SESSION.numberOfVehicles);
+    // The two sections are written separately; a frame that disagrees was copied mid-update.
+    if (active !== count) return failed(`scoring has ${count} vehicles, telemetry ${active}`);
+    this.dropStaleRest(
+      f.i32(SCORING_BASE + SESSION.sessionCode),
+      f.f64(SCORING_BASE + SESSION.currentEventTime),
+    );
 
-    const trackLengthM = f.f64(SCORING_BASE + SESSION.lapDist);
+    const trackLengthM = f.f64(SCORING_BASE + SESSION.lapDistance);
     const cars = readCars(f, count, trackLengthM, this.rest);
     markClassPositions(cars);
     const playerRow = findPlayerRow(f, count);
-    const playerId = playerRow === null ? null : f.i32(playerRow + VEHICLE.id);
+    const playerId = playerRow === null ? null : f.i32(playerRow + VEHICLE.slotId);
     const state = emptySimState("lmu");
     state.connected = true;
-    state.tickTimeS = f.f64(SCORING_BASE + SESSION.currentEt);
+    state.tickTimeS = f.f64(SCORING_BASE + SESSION.currentEventTime);
     state.cars = cars;
     state.playerCarIdx = playerId;
     state.focusCarIdx = playerId;
-    state.session = readSession(f, trackLengthM, playerRow, this.rest);
+    state.session = readSession(f, trackLengthM, count, this.rest);
     state.conditions = {
       airTempC: f.f64(SCORING_BASE + SESSION.ambientTemp),
       trackTempC: f.f64(SCORING_BASE + SESSION.trackTemp),
-      wetness: clamp01(f.f64(SCORING_BASE + SESSION.avgPathWetness)),
+      wetness: clamp01(f.f64(SCORING_BASE + SESSION.averagePathWetness)),
     };
     state.flags = playerRow === null ? null : readFlags(f, playerRow);
 
@@ -172,17 +190,17 @@ export class LmuDecoder {
 
 function validateFrame(f: Frame): string | null {
   const s = SCORING_BASE;
-  const count = f.i32(s + SESSION.numVehicles);
+  const count = f.i32(s + SESSION.numberOfVehicles);
   const first =
-    outside(W.gameVersion, f.i32(HEADER.gameVersion)) ??
+    outside(W.gameVersion, f.i32(HEADER.appBuild)) ??
     outside(W.vehicles, count) ??
-    outside(W.vehicles, f.u8(TELEMETRY_BASE + TELEMETRY.activeVehicles)) ??
-    outside(W.et, f.f64(s + SESSION.currentEt)) ??
+    outside(W.vehicles, f.u8(TELEMETRY_BASE + TELEMETRY.carsWithTelemetry)) ??
+    outside(W.et, f.f64(s + SESSION.currentEventTime)) ??
     outside(W.ambient, f.f64(s + SESSION.ambientTemp)) ??
     outside(W.trackTemp, f.f64(s + SESSION.trackTemp)) ??
-    outside(W.wetness, f.f64(s + SESSION.avgPathWetness));
+    outside(W.wetness, f.f64(s + SESSION.averagePathWetness));
   if (first) return first;
-  const trackLength = f.f64(s + SESSION.lapDist);
+  const trackLength = f.f64(s + SESSION.lapDistance);
   // A loading game has no track yet: zero length and no cars.
   if (count > 0 || trackLength !== 0) {
     const bad = outside(W.trackLength, trackLength);
@@ -198,12 +216,12 @@ function validateFrame(f: Frame): string | null {
 function validateVehicleRow(f: Frame, o: number, trackLength: number): string | null {
   const slack = trackLength * 0.1 + 50;
   return (
-    outside(W.laps, f.i16(o + VEHICLE.totalLaps)) ??
-    outside(W.place, f.u8(o + VEHICLE.place)) ??
+    outside(W.laps, f.i16(o + VEHICLE.lapsCompleted)) ??
+    outside(W.place, f.u8(o + VEHICLE.position)) ??
     outside(W.pitState, f.u8(o + VEHICLE.pitState)) ??
     outside(
       { name: "lap distance m", lo: -slack, hi: trackLength + slack },
-      f.f64(o + VEHICLE.lapDist),
+      f.f64(o + VEHICLE.lapDistance),
     )
   );
 }
@@ -214,39 +232,39 @@ function validateVehicleRow(f: Frame, o: number, trackLength: number): string | 
  */
 function validatePlayerTelemetry(f: Frame): string | null {
   const t = TELEMETRY_BASE;
-  if (f.u8(t + TELEMETRY.playerHasVehicle) === 0) return null;
-  const idx = f.u8(t + TELEMETRY.playerVehicleIdx);
+  if (f.u8(t + TELEMETRY.playerInCar) === 0) return null;
+  const idx = f.u8(t + TELEMETRY.playerRowIndex);
   if (idx >= LMU_MAX_VEHICLES) return `player vehicle index ${idx} out of range`;
   const o = telemetryRowOffset(idx);
-  if (f.f64(o + TELEM.engineMaxRpm) === 0) return null;
+  if (f.f64(o + TELEM.rpmLimit) === 0) return null;
   const speed = Math.hypot(
-    f.f64(o + TELEM.localVel),
-    f.f64(o + TELEM.localVel + 8),
-    f.f64(o + TELEM.localVel + 16),
+    f.f64(o + TELEM.velocity),
+    f.f64(o + TELEM.velocity + 8),
+    f.f64(o + TELEM.velocity + 16),
   );
   const bad =
-    outside(W.rpm, f.f64(o + TELEM.rpm)) ??
+    outside(W.rpm, f.f64(o + TELEM.engineRpm)) ??
     outside(W.gear, f.i32(o + TELEM.gear)) ??
-    outside(W.pedal, f.f64(o + TELEM.throttle)) ??
-    outside(W.pedal, f.f64(o + TELEM.brake)) ??
-    outside(W.pedal, f.f64(o + TELEM.clutch)) ??
-    outside(W.steer, f.f64(o + TELEM.steering)) ??
-    outside(W.fuel, f.f64(o + TELEM.fuel)) ??
-    outside(W.fuel, f.f64(o + TELEM.fuelCapacity)) ??
+    outside(W.pedal, f.f64(o + TELEM.throttleInput)) ??
+    outside(W.pedal, f.f64(o + TELEM.brakeInput)) ??
+    outside(W.pedal, f.f64(o + TELEM.clutchInput)) ??
+    outside(W.steer, f.f64(o + TELEM.steeringInput)) ??
+    outside(W.fuel, f.f64(o + TELEM.fuelLitres)) ??
+    outside(W.fuel, f.f64(o + TELEM.tankCapacityLitres)) ??
     outside(W.speed, speed);
   if (bad) return `player telemetry: ${bad}`;
-  const capacity = f.f64(o + TELEM.fuelCapacity);
-  if (f.f64(o + TELEM.fuel) > capacity * 1.01 + 0.5)
+  const capacity = f.f64(o + TELEM.tankCapacityLitres);
+  if (f.f64(o + TELEM.fuelLitres) > capacity * 1.01 + 0.5)
     return "player telemetry: fuel above tank size";
-  for (let w = 0; w < WHEEL_COUNT; w++) {
+  for (let w = 0; w < TYRE_COUNT; w++) {
     const wo = wheelOffset(o, w);
     if (isAbsentWheel(f, wo)) continue;
     const wheelBad =
-      outside(W.tyreK, f.f64(wo + WHEEL.temps)) ??
-      outside(W.tyreK, f.f64(wo + WHEEL.temps + 8)) ??
-      outside(W.tyreK, f.f64(wo + WHEEL.temps + 16)) ??
-      outside(W.pressure, f.f64(wo + WHEEL.pressure)) ??
-      outside(W.wear, f.f64(wo + WHEEL.wear));
+      outside(W.tyreK, f.f64(wo + WHEEL.surfaceTempK)) ??
+      outside(W.tyreK, f.f64(wo + WHEEL.surfaceTempK + 8)) ??
+      outside(W.tyreK, f.f64(wo + WHEEL.surfaceTempK + 16)) ??
+      outside(W.pressure, f.f64(wo + WHEEL.pressureKpa)) ??
+      outside(W.wear, f.f64(wo + WHEEL.treadRemaining));
     if (wheelBad) return `player telemetry wheel ${w}: ${wheelBad}`;
   }
   return null;
@@ -261,20 +279,20 @@ function telemetryRowOffset(index: number): number {
 }
 
 function wheelOffset(row: number, wheel: number): number {
-  return row + TELEM.wheelsOffset + wheel * TELEM.wheelStride;
+  return row + TELEM.tyresOffset + wheel * TELEM.tyreStride;
 }
 
 function isAbsentWheel(f: Frame, wo: number): boolean {
-  return f.f64(wo + WHEEL.temps) === 0 && f.f64(wo + WHEEL.temps + 8) === 0;
+  return f.f64(wo + WHEEL.surfaceTempK) === 0 && f.f64(wo + WHEEL.surfaceTempK + 8) === 0;
 }
 
+/**
+ * Only code 1 (REST session "PRACTICE1") is observed. Other codes fall back to the REST session
+ * name when we have it, otherwise stay unknown.
+ * TODO: add numeric codes once a qualifying and a race recording exist.
+ */
 export function sessionTypeOf(code: number, restSession: string | null): SessionType | null {
-  // 0 test day, 1-4 practice, 5-8 qualifying, 9 warm-up, 10-13 race. Only practice is observed.
-  if (code === 0) return "other";
-  if (code >= 1 && code <= 4) return "practice";
-  if (code >= 5 && code <= 8) return "qualifying";
-  if (code === 9) return "warmup";
-  if (code >= 10 && code <= 13) return "race";
+  if (code === 1) return "practice";
   if (restSession === null) return null;
   if (restSession.startsWith("PRACTICE")) return "practice";
   if (restSession.startsWith("QUALIFY")) return "qualifying";
@@ -283,54 +301,41 @@ export function sessionTypeOf(code: number, restSession: string | null): Session
   return null;
 }
 
-/** gamePhase: 0 before, 1 recon laps, 2 grid walk, 3 formation, 4 countdown, 5 green, 6 FCY, 7 stopped, 8 over. */
-export function phaseOf(gamePhase: number, playerFinished: boolean): SessionPhase | null {
-  switch (gamePhase) {
-    case 0:
-      return "garage";
-    case 1:
-    case 3:
-      return "formation";
-    case 2:
-    case 4:
-      return "gridding";
-    case 5:
-    case 6:
-    case 7:
-      return playerFinished ? "checkered" : "racing";
-    case 8:
-      return "cooldown";
-    default:
-      return null;
-  }
+/**
+ * Observed in the recording: 0 before the session is running (garage, loading) and 5 while it
+ * runs. Every other code stays unknown until a race recording shows what it means.
+ */
+export function phaseOf(gamePhase: number): SessionPhase | null {
+  if (gamePhase === 0) return "garage";
+  if (gamePhase === 5) return "racing";
+  return null;
 }
 
 function readSession(
   f: Frame,
   trackLengthM: number,
-  playerRow: number | null,
+  count: number,
   rest: LmuRestSnapshot,
 ): SessionInfo {
   const s = SCORING_BASE;
-  const maxLaps = f.i32(s + SESSION.maxLaps);
-  const endEt = f.f64(s + SESSION.endEt);
-  const et = f.f64(s + SESSION.currentEt);
+  const maxLaps = f.i32(s + SESSION.maximumLaps);
+  const endEt = f.f64(s + SESSION.endEventTime);
+  const et = f.f64(s + SESSION.currentEventTime);
   const lapLimited = maxLaps > 0 && maxLaps < MAX_REAL_LAPS;
   const timeLimited = endEt > 0 && endEt < MAX_REAL_END_ET_S;
   let timing: SessionTiming | null = null;
   if (lapLimited && timeLimited) timing = "laps-or-time";
   else if (lapLimited) timing = "laps";
   else if (timeLimited) timing = "time";
-  const playerLaps = playerRow === null ? null : f.i16(playerRow + VEHICLE.totalLaps);
-  const finished = playerRow !== null && f.i8(playerRow + VEHICLE.finishStatus) === 1;
+  const leaderLaps = leaderLapsCompleted(f, count);
   const track = f.text(s + SESSION.trackName.offset, SESSION.trackName.length);
   return {
-    type: sessionTypeOf(f.i32(s + SESSION.session), rest.session?.session ?? null),
-    phase: phaseOf(f.u8(s + SESSION.gamePhase), finished),
+    type: sessionTypeOf(f.i32(s + SESSION.sessionCode), rest.session?.session ?? null),
+    phase: phaseOf(f.u8(s + SESSION.gamePhase)),
     timing,
     timeRemainingS: timeLimited ? Math.max(0, endEt - et) : null,
     timeTotalS: timeLimited ? (rest.session?.maxTimeS ?? endEt) : null,
-    lapsRemaining: lapLimited && playerLaps !== null ? Math.max(0, maxLaps - playerLaps) : null,
+    lapsRemaining: lapLimited && leaderLaps !== null ? Math.max(0, maxLaps - leaderLaps) : null,
     lapsTotal: lapLimited ? maxLaps : null,
     trackName: track.length > 0 ? track : null,
     trackLengthM: trackLengthM > 0 ? trackLengthM : null,
@@ -338,40 +343,50 @@ function readSession(
   };
 }
 
+/**
+ * Observed: green while the session runs (phase 5), blue flag on the player's car, and yellow as
+ * a plain 0/1. Full-course yellow, red, checkered, white and black have no observed trigger yet,
+ * so they stay false. TODO: derive them from a race recording.
+ */
 function readFlags(f: Frame, playerRow: number): Flags {
-  const phase = f.u8(SCORING_BASE + SESSION.gamePhase);
+  const running = f.u8(SCORING_BASE + SESSION.gamePhase) === 5;
   const yellow = f.u8(playerRow + VEHICLE.underYellow) === 1;
-  const fullCourseYellow = phase === 6;
-  const red = phase === 7;
-  const checkered = phase === 8 || f.i8(playerRow + VEHICLE.finishStatus) === 1;
-  const blue = f.u8(playerRow + VEHICLE.flag) === 6;
   return {
-    green: phase === 5 && !yellow && !checkered,
+    green: running && !yellow,
     yellow,
-    fullCourseYellow,
-    red,
-    blue,
+    fullCourseYellow: false,
+    red: false,
+    blue: f.u8(playerRow + VEHICLE.flag) === 6,
     white: false,
-    checkered,
+    checkered: false,
     black: false,
   };
+}
+
+/** Laps completed by the car in first place; the race ends for everybody when it finishes. */
+function leaderLapsCompleted(f: Frame, count: number): number | null {
+  for (let i = 0; i < count; i++) {
+    const o = VEHICLE_ROWS_OFFSET + i * VEHICLE_STRIDE;
+    if (f.u8(o + VEHICLE.position) === 1) return f.i16(o + VEHICLE.lapsCompleted);
+  }
+  return null;
 }
 
 function findPlayerRow(f: Frame, count: number): number | null {
   for (let i = 0; i < count; i++) {
     const o = VEHICLE_ROWS_OFFSET + i * VEHICLE_STRIDE;
-    if (f.u8(o + VEHICLE.isPlayer) === 1) return o;
+    if (f.u8(o + VEHICLE.player) === 1) return o;
   }
   return null;
 }
 
 function findTelemetryRow(f: Frame, id: number): number | null {
   const t = TELEMETRY_BASE;
-  if (f.u8(t + TELEMETRY.playerHasVehicle) === 0) return null;
-  const active = Math.min(f.u8(t + TELEMETRY.activeVehicles), LMU_MAX_VEHICLES);
+  if (f.u8(t + TELEMETRY.playerInCar) === 0) return null;
+  const active = Math.min(f.u8(t + TELEMETRY.carsWithTelemetry), LMU_MAX_VEHICLES);
   for (let i = 0; i < active; i++) {
     const o = telemetryRowOffset(i);
-    if (f.i32(o + TELEM.id) === id) return o;
+    if (f.i32(o + TELEM.slotId) === id) return o;
   }
   return null;
 }
@@ -386,16 +401,15 @@ function readCars(f: Frame, count: number, trackLengthM: number, rest: LmuRestSn
 }
 
 function readCar(f: Frame, o: number, trackLengthM: number, rest: LmuRestSnapshot): Car {
-  const id = f.i32(o + VEHICLE.id);
+  const id = f.i32(o + VEHICLE.slotId);
   const car = emptyCar(id);
   const extra = rest.cars.get(id);
   const vehicleName = f.text(o + VEHICLE.vehicleName.offset, VEHICLE.vehicleName.length);
-  const klass = f.text(o + VEHICLE.vehicleClass.offset, VEHICLE.vehicleClass.length);
+  const klass = f.text(o + VEHICLE.carClass.offset, VEHICLE.carClass.length);
   const className = klass.length > 0 ? klass : (extra?.carClass ?? null);
-  const laps = f.i16(o + VEHICLE.totalLaps);
-  const inPits = f.u8(o + VEHICLE.inPits) === 1;
-  const control = f.i8(o + VEHICLE.control);
-  const finishStatus = f.i8(o + VEHICLE.finishStatus);
+  const laps = f.i16(o + VEHICLE.lapsCompleted);
+  const inPits = f.u8(o + VEHICLE.pitting) === 1;
+  const control = f.i8(o + VEHICLE.inControl);
   const timeIntoLap = f.f64(o + VEHICLE.timeIntoLap);
   const driver = f.text(o + VEHICLE.driverName.offset, VEHICLE.driverName.length);
   car.driverName = driver.length > 0 ? driver : null;
@@ -403,22 +417,41 @@ function readCar(f: Frame, o: number, trackLengthM: number, rest: LmuRestSnapsho
   car.classId = className;
   car.className = className;
   car.carNumber = extra?.carNumber ?? numberFromVehicleName(vehicleName);
-  car.position = f.u8(o + VEHICLE.place) || null;
+  car.position = f.u8(o + VEHICLE.position) || null;
   car.lapsCompleted = laps;
   car.lapInProgress = laps + 1;
-  car.lapDistPct = lapPct(f.f64(o + VEHICLE.lapDist), trackLengthM);
+  car.lapDistPct = lapPct(f.f64(o + VEHICLE.lapDistance), trackLengthM);
   car.onPitRoad = inPits;
-  car.inPitStall = f.u8(o + VEHICLE.pitState) === 3 || f.u8(o + VEHICLE.inGarageStall) === 1;
-  car.isOnTrack = control !== -1 && !inPits && finishStatus < 2;
+  car.inPitStall = inPitStall(f, o, inPits, extra?.pitState ?? null);
+  car.isOnTrack = control !== -1 && !inPits;
   car.lastLapS = positiveOrNull(f.f64(o + VEHICLE.lastLapTime));
   car.bestLapS = positiveOrNull(f.f64(o + VEHICLE.bestLapTime));
   car.estTimeS = timeIntoLap >= 0 && Number.isFinite(timeIntoLap) ? timeIntoLap : null;
-  car.isPlayer = f.u8(o + VEHICLE.isPlayer) === 1;
+  car.isPlayer = f.u8(o + VEHICLE.player) === 1;
   car.connected = control !== -1;
   return car;
 }
 
-function numberFromVehicleName(name: string): string | null {
+/**
+ * A car counts as in its stall when the session runs, it is on pit road and its garage-stall flag
+ * is set (a car parked in the garage before the session is not "in its stall" for overlays). Else
+ * REST's pit state "STOPPED" says so when we have it; otherwise unknown, because the numeric pit
+ * state codes are shifted against what we expected (only 0 = none and 5 = exiting are observed).
+ * TODO: confirm the stopped code from a recording with a pit stop.
+ */
+function inPitStall(
+  f: Frame,
+  o: number,
+  onPitRoad: boolean,
+  restPitState: string | null,
+): boolean | null {
+  const live = f.u8(SCORING_BASE + SESSION.gamePhase) === 5;
+  if (live && onPitRoad && f.u8(o + VEHICLE.inGarageStall) === 1) return true;
+  if (restPitState !== null) return restPitState === "STOPPED";
+  return null;
+}
+
+export function numberFromVehicleName(name: string): string | null {
   return /#(\w+)/.exec(name)?.[1] ?? null;
 }
 
@@ -455,46 +488,46 @@ function markClassPositions(cars: Car[]): void {
 
 function readPlayer(f: Frame, o: number, state: SimState): void {
   const player = state.player;
-  if (f.f64(o + TELEM.engineMaxRpm) === 0) return;
+  if (f.f64(o + TELEM.rpmLimit) === 0) return;
   player.inputs = {
-    throttle: clamp01(f.f64(o + TELEM.throttle)),
-    brake: clamp01(f.f64(o + TELEM.brake)),
-    clutch: clamp01(f.f64(o + TELEM.clutch)),
-    steer: Math.min(1, Math.max(-1, f.f64(o + TELEM.steering))),
+    throttle: clamp01(f.f64(o + TELEM.throttleInput)),
+    brake: clamp01(f.f64(o + TELEM.brakeInput)),
+    clutch: clamp01(f.f64(o + TELEM.clutchInput)),
+    steer: Math.min(1, Math.max(-1, f.f64(o + TELEM.steeringInput))),
   };
   player.gear = f.i32(o + TELEM.gear);
-  player.rpm = f.f64(o + TELEM.rpm);
+  player.rpm = f.f64(o + TELEM.engineRpm);
   player.speedMps = Math.hypot(
-    f.f64(o + TELEM.localVel),
-    f.f64(o + TELEM.localVel + 8),
-    f.f64(o + TELEM.localVel + 16),
+    f.f64(o + TELEM.velocity),
+    f.f64(o + TELEM.velocity + 8),
+    f.f64(o + TELEM.velocity + 16),
   );
-  player.fuelL = f.f64(o + TELEM.fuel);
-  player.fuelCapacityL = f.f64(o + TELEM.fuelCapacity);
-  const energy = f.f32(o + TELEM.virtualEnergy);
+  player.fuelL = f.f64(o + TELEM.fuelLitres);
+  player.fuelCapacityL = f.f64(o + TELEM.tankCapacityLitres);
+  const energy = f.f32(o + TELEM.veFraction);
   player.energyFraction = energy >= 0 && energy <= 1 ? energy : null;
-  player.pitLimiter = f.u8(o + TELEM.speedLimiter) === 1;
+  player.pitLimiter = f.u8(o + TELEM.pitLimiterOn) === 1;
   player.tyres = readTyres(f, o);
 }
 
 function readTyres(f: Frame, row: number): TyreSet | null {
   const corners: TyreCorner[] = [];
-  for (let w = 0; w < WHEEL_COUNT; w++) {
+  for (let w = 0; w < TYRE_COUNT; w++) {
     const wo = wheelOffset(row, w);
     if (isAbsentWheel(f, wo)) return null;
     // Wheels run front-left, front-right, rear-left, rear-right. The three temperatures go
     // left to right across the tread, so on a left wheel the right edge is the inner one.
-    const left = f.f64(wo + WHEEL.temps) - KELVIN;
-    const middle = f.f64(wo + WHEEL.temps + 8) - KELVIN;
-    const right = f.f64(wo + WHEEL.temps + 16) - KELVIN;
+    const left = f.f64(wo + WHEEL.surfaceTempK) - KELVIN;
+    const middle = f.f64(wo + WHEEL.surfaceTempK + 8) - KELVIN;
+    const right = f.f64(wo + WHEEL.surfaceTempK + 16) - KELVIN;
     const isLeftWheel = w % 2 === 0;
     corners.push({
       temps: isLeftWheel
         ? { inner: right, middle, outer: left }
         : { inner: left, middle, outer: right },
-      pressureKpa: f.f64(wo + WHEEL.pressure),
+      pressureKpa: f.f64(wo + WHEEL.pressureKpa),
       // The sim reports remaining tread (1 = new); SimState wants wear (0 = new).
-      wear: clamp01(1 - f.f64(wo + WHEEL.wear)),
+      wear: clamp01(1 - f.f64(wo + WHEEL.treadRemaining)),
     });
   }
   const [fl, fr, rl, rr] = corners;

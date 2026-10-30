@@ -60,7 +60,7 @@ describe("LmuRedactor", () => {
 describe("redactLmuBufferByOffset", () => {
   function sample(): Buffer {
     const buffer = Buffer.alloc(LMU_MAPPING_BYTES);
-    buffer.writeInt32LE(2, SCORING_BASE + SESSION.numVehicles);
+    buffer.writeInt32LE(2, SCORING_BASE + SESSION.numberOfVehicles);
     buffer.write("Real Player", SCORING_BASE + SESSION.playerName.offset);
     buffer.write("Profile Name", SCORING_BASE + SESSION.playerFileName.offset);
     buffer.write("C:\\Users\\someone\\LMU", PATHS.offset);
@@ -73,8 +73,8 @@ describe("redactLmuBufferByOffset", () => {
       const o = VEHICLE_ROWS_OFFSET + i * VEHICLE_STRIDE;
       buffer.writeInt32LE(row.id, o);
       buffer.write(row.name, o + VEHICLE.driverName.offset);
-      buffer.writeUInt8(row.player, o + VEHICLE.isPlayer);
-      buffer.writeBigUInt64LE(76561198000000000n, o + VEHICLE.steamId);
+      buffer.writeUInt8(row.player, o + VEHICLE.player);
+      buffer.writeBigUInt64LE(76561198000000000n, o + VEHICLE.steamID);
     });
     return buffer;
   }
@@ -92,7 +92,7 @@ describe("redactLmuBufferByOffset", () => {
       "Driver 7",
     );
     expect(out.toString("latin1", second + 4, second + 12)).toBe("Driver 0");
-    expect(out.readBigUInt64LE(second + VEHICLE.steamId)).toBe(0n);
+    expect(out.readBigUInt64LE(second + VEHICLE.steamID)).toBe(0n);
     expect(input.toString("latin1").includes("Jane Doe")).toBe(true);
   });
 

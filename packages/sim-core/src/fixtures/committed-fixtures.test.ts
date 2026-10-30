@@ -86,13 +86,13 @@ function expectBufferRedacted(payload: Buffer): void {
     const end = slice.indexOf(0);
     return slice.subarray(0, end < 0 ? length : end).toString("latin1");
   };
-  const count = payload.readInt32LE(SCORING_BASE + SESSION.numVehicles);
+  const count = payload.readInt32LE(SCORING_BASE + SESSION.numberOfVehicles);
   for (let i = 0; i < LMU_MAX_VEHICLES; i++) {
     const row = VEHICLE_ROWS_OFFSET + i * VEHICLE_STRIDE;
     const driver = text(row + VEHICLE.driverName.offset, VEHICLE.driverName.length);
     if (i < count) expect(driver).toBe(`Driver ${payload.readInt32LE(row)}`);
     else expect(driver).toBe("");
-    expect(payload.readBigUInt64LE(row + VEHICLE.steamId)).toBe(0n);
+    expect(payload.readBigUInt64LE(row + VEHICLE.steamID)).toBe(0n);
   }
   expect(text(SCORING_BASE + SESSION.playerName.offset, SESSION.playerName.length)).toMatch(
     /^Driver \d+$/,
