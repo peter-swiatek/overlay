@@ -8,3 +8,15 @@ A Windows desktop app that draws live overlays inside iRacing and Le Mans Ultima
 - Decision records: [docs/adr/](docs/adr/)
 
 Status: milestone 0 (foundation and spikes) in progress.
+
+## Developing
+
+Prerequisites: Node.js 22 (see `.nvmrc`) and pnpm 10 (`corepack enable` picks the pinned version).
+
+```
+pnpm install
+pnpm lint
+pnpm format:check
+pnpm typecheck
+pnpm test
+```
