@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { LmuRedactor, redactIracingYaml } from "./redact";
+import {
+  LMU_MAPPING_BYTES,
+  PATHS,
+  RESULTS_STREAM,
+  SCORING_BASE,
+  SESSION,
+  VEHICLE,
+  VEHICLE_ROWS_OFFSET,
+  VEHICLE_STRIDE,
+} from "../adapters/lmu/layout";
+import { LmuRedactor, redactIracingYaml, redactLmuBufferByOffset } from "./redact";
 
 describe("redactIracingYaml", () => {
   it("keeps line endings and unrelated lines", () => {
@@ -44,5 +54,50 @@ describe("LmuRedactor", () => {
     expect(out.length).toBe(32);
     expect(out.includes("Abcdef")).toBe(false);
     expect(out.subarray(4, 10).toString("latin1")).toBe("D12\0\0\0");
+  });
+});
+
+describe("redactLmuBufferByOffset", () => {
+  function sample(): Buffer {
+    const buffer = Buffer.alloc(LMU_MAPPING_BYTES);
+    buffer.writeInt32LE(2, SCORING_BASE + SESSION.numberOfVehicles);
+    buffer.write("Real Player", SCORING_BASE + SESSION.playerName.offset);
+    buffer.write("Profile Name", SCORING_BASE + SESSION.playerFileName.offset);
+    buffer.write("C:\\Users\\someone\\LMU", PATHS.offset);
+    buffer.write("<Score>Jane Doe</Score>", RESULTS_STREAM.offset);
+    const rows = [
+      { id: 7, name: "Jane Doe", player: 0 },
+      { id: 0, name: "Real Player", player: 1 },
+    ];
+    rows.forEach((row, i) => {
+      const o = VEHICLE_ROWS_OFFSET + i * VEHICLE_STRIDE;
+      buffer.writeInt32LE(row.id, o);
+      buffer.write(row.name, o + VEHICLE.driverName.offset);
+      buffer.writeUInt8(row.player, o + VEHICLE.player);
+      buffer.writeBigUInt64LE(76561198000000000n, o + VEHICLE.steamID);
+    });
+    return buffer;
+  }
+
+  it("rewrites names, paths, ids and the results stream without changing the size", () => {
+    const input = sample();
+    const out = redactLmuBufferByOffset(input);
+    expect(out.length).toBe(input.length);
+    const text = out.toString("latin1");
+    for (const secret of ["Jane", "Real Player", "Profile", "someone", "Score"]) {
+      expect(text.includes(secret)).toBe(false);
+    }
+    const second = VEHICLE_ROWS_OFFSET + VEHICLE_STRIDE;
+    expect(out.toString("latin1", VEHICLE_ROWS_OFFSET + 4, VEHICLE_ROWS_OFFSET + 12)).toBe(
+      "Driver 7",
+    );
+    expect(out.toString("latin1", second + 4, second + 12)).toBe("Driver 0");
+    expect(out.readBigUInt64LE(second + VEHICLE.steamID)).toBe(0n);
+    expect(input.toString("latin1").includes("Jane Doe")).toBe(true);
+  });
+
+  it("leaves short buffers alone", () => {
+    const short = Buffer.from("not an LMU mapping");
+    expect(redactLmuBufferByOffset(short)).toBe(short);
   });
 });

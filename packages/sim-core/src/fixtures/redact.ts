@@ -1,3 +1,18 @@
+import {
+  LMU_MAX_VEHICLES,
+  LMU_USED_BYTES,
+  PATHS,
+  RESULTS_STREAM,
+  SCORING_BASE,
+  SESSION,
+  TELEM,
+  TELEMETRY,
+  TELEMETRY_BASE,
+  VEHICLE,
+  VEHICLE_ROWS_OFFSET,
+  VEHICLE_STRIDE,
+} from "../adapters/lmu/layout";
+
 /**
  * Privacy redaction for committed fixture slices. Recordings of online sessions hold other
  * drivers' names and user IDs; slices that go into the repository must not.
@@ -151,7 +166,8 @@ export class LmuRedactor {
 
   /** Overwrites every occurrence of a known name in place, padding with NUL bytes. */
   redactBuffer(buffer: Buffer): Buffer {
-    const out = Buffer.from(buffer);
+    const out = Buffer.from(redactLmuBufferByOffset(buffer));
+    const keep = gameContentRanges(out);
     for (const [name, replacement] of this.sorted()) {
       const target = Buffer.from(name, "utf8");
       if (target.length < MIN_NAME_LENGTH) {
@@ -160,6 +176,7 @@ export class LmuRedactor {
       }
       const fill = fitReplacement(replacement, target.length);
       for (let pos = out.indexOf(target); pos >= 0; pos = out.indexOf(target, pos + 1)) {
+        if (inGameContent(pos, keep)) continue;
         out.fill(0, pos, pos + target.length);
         out.write(fill, pos, "latin1");
       }
@@ -241,4 +258,67 @@ function parseNested(value: unknown): unknown {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Le Mans Ultimate: redaction of the LMU_Data mapping by field offset
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Overwrites every personal field of an `LMU_Data` buffer at its known offset, keeping the size:
+ * driver names (`Driver <id>`), the player's name and file name, the user-data path block, the
+ * server name, Steam IDs, and the whole results stream (it holds driver names in free text).
+ * Buffers shorter than the used mapping are returned untouched; the name search in
+ * {@link LmuRedactor.redactBuffer} still runs afterwards as a second net.
+ */
+export function redactLmuBufferByOffset(buffer: Buffer): Buffer {
+  if (buffer.length < LMU_USED_BYTES) return buffer;
+  const out = Buffer.from(buffer);
+  const count = Math.min(
+    Math.max(out.readInt32LE(SCORING_BASE + SESSION.numberOfVehicles), 0),
+    104,
+  );
+  let playerId = 0;
+  for (let i = 0; i < LMU_MAX_VEHICLES; i++) {
+    const row = VEHICLE_ROWS_OFFSET + i * VEHICLE_STRIDE;
+    if (i < count && out.readUInt8(row + VEHICLE.player) === 1) playerId = out.readInt32LE(row);
+    if (out.readUInt8(row + VEHICLE.driverName.offset) !== 0) {
+      const id = out.readInt32LE(row + VEHICLE.slotId);
+      writeFixed(out, row + VEHICLE.driverName.offset, VEHICLE.driverName.length, `Driver ${id}`);
+    }
+    out.fill(0, row + VEHICLE.steamID, row + VEHICLE.steamID + 8);
+  }
+  const s = SCORING_BASE;
+  writeFixed(out, s + SESSION.playerName.offset, SESSION.playerName.length, `Driver ${playerId}`);
+  writeFixed(out, s + SESSION.playerFileName.offset, SESSION.playerFileName.length, "player");
+  writeFixed(out, s + SESSION.serverName.offset, SESSION.serverName.length, "-none-");
+  for (let i = 0; i < PATHS.count; i++) {
+    const offset = PATHS.offset + i * PATHS.size;
+    if (out.readUInt8(offset) !== 0) writeFixed(out, offset, PATHS.size, `C:\\LMU\\path${i}`);
+  }
+  out.fill(0, RESULTS_STREAM.offset, RESULTS_STREAM.offset + RESULTS_STREAM.length);
+  return out;
+}
+
+/** Vehicle and livery names are game content: the name search must leave them alone. */
+function gameContentRanges(buffer: Buffer): [number, number][] {
+  if (buffer.length < LMU_USED_BYTES) return [];
+  const ranges: [number, number][] = [];
+  for (let i = 0; i < LMU_MAX_VEHICLES; i++) {
+    const scoring = VEHICLE_ROWS_OFFSET + i * VEHICLE_STRIDE + VEHICLE.vehicleName.offset;
+    const telemetry =
+      TELEMETRY_BASE + TELEMETRY.rowsOffset + i * TELEMETRY.rowStride + TELEM.vehicleName.offset;
+    ranges.push([scoring, scoring + VEHICLE.vehicleName.length]);
+    ranges.push([telemetry, telemetry + TELEM.vehicleName.length]);
+  }
+  return ranges;
+}
+
+function inGameContent(pos: number, ranges: [number, number][]): boolean {
+  return ranges.some(([start, end]) => pos >= start && pos < end);
+}
+
+function writeFixed(buffer: Buffer, offset: number, length: number, text: string): void {
+  buffer.fill(0, offset, offset + length);
+  buffer.write(text, offset, Math.min(Buffer.byteLength(text, "latin1"), length - 1), "latin1");
 }
