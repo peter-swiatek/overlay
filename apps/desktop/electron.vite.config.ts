@@ -20,6 +20,8 @@ export default defineConfig({
         input: {
           index: resolve("src/main/index.ts"),
           capture: resolve("src/capture/capture-process.ts"),
+          telemetry: resolve("src/telemetry/telemetry-process.ts"),
+          "telemetry-session-worker": resolve("src/telemetry/session-worker.ts"),
         },
       },
     },

@@ -32,3 +32,30 @@ export const systemClock: Clock = {
   monoMs: () => performance.now(),
   wallMs: () => Date.now(),
 };
+
+export interface ConsistentCopy {
+  consistent: boolean;
+  attempts: number;
+}
+
+/**
+ * Copies the mapping into `a` and `b` (each sized to the bytes wanted) until both copies match,
+ * at most `maxAttempts` times. The writer takes no lock from us, so two equal copies in a row is
+ * our evidence that no update tore the frame. Both buffers hold the last attempt afterwards.
+ */
+export function copyConsistent(
+  map: SharedMapping | undefined,
+  a: Buffer,
+  b: Buffer,
+  maxAttempts: number,
+): ConsistentCopy {
+  let attempts = 0;
+  let consistent = false;
+  while (map !== undefined && attempts < maxAttempts && !consistent) {
+    attempts++;
+    map.copy(a, 0, a.length);
+    map.copy(b, 0, b.length);
+    consistent = a.equals(b);
+  }
+  return { consistent, attempts };
+}

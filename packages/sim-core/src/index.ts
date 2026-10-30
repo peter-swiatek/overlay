@@ -1,6 +1,7 @@
 export * from "./fixtures";
 export * from "./model";
 export * from "./replay";
+export * from "./telemetry";
 export * from "./calc/fuel";
 export * from "./calc/gaps";
 export * as iracing from "./adapters/iracing";

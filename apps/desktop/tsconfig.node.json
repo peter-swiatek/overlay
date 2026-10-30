@@ -7,6 +7,7 @@
   "include": [
     "src/main",
     "src/capture",
+    "src/telemetry",
     "src/preload",
     "src/shared",
     "electron.vite.config.ts",
