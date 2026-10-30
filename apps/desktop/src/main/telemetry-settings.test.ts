@@ -16,7 +16,7 @@ describe("telemetry settings", () => {
   };
 
   it("defaults to auto, no file, normal speed", () => {
-    const defaults = { source: "auto", replayPath: null, replaySpeed: 1 };
+    const defaults = { source: "auto", replayPath: null, replaySpeed: 1, retentionDays: 60 };
     expect(parseTelemetrySettings(undefined)).toEqual(defaults);
     expect(parseTelemetrySettings("x")).toEqual(defaults);
     expect(parseTelemetrySettings({})).toEqual(defaults);
@@ -46,6 +46,12 @@ describe("telemetry settings", () => {
     expect(parseTelemetrySettings({ replaySpeed: "2" }).replaySpeed).toBe(1);
   });
 
+  it("keeps telemetry files at least 30 days and 60 by default", () => {
+    expect(parseTelemetrySettings({ retentionDays: 90 }).retentionDays).toBe(90);
+    expect(parseTelemetrySettings({ retentionDays: 5 }).retentionDays).toBe(30);
+    expect(parseTelemetrySettings({ retentionDays: "x" }).retentionDays).toBe(60);
+  });
+
   it("persists updates, merges patches and ignores unknown keys", () => {
     const file = tempFile();
     const store = new TelemetrySettingsStore(file);
@@ -53,11 +59,13 @@ describe("telemetry settings", () => {
       source: "replay",
       replayPath: "C:/a.ovfx",
       replaySpeed: 1,
+      retentionDays: 60,
     });
     expect(store.update({ replaySpeed: 4 })).toEqual({
       source: "replay",
       replayPath: "C:/a.ovfx",
       replaySpeed: 4,
+      retentionDays: 60,
     });
     expect(new TelemetrySettingsStore(file).load().replaySpeed).toBe(4);
   });

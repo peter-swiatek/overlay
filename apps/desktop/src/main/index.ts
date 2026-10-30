@@ -16,6 +16,7 @@ import { summarizeMetrics } from "./metrics";
 import { OverlayManager } from "./overlays";
 import { loadPage, preloadPath } from "./pages";
 import { SettingsStore, isSafeMode, resolveDisplaySettings } from "./settings";
+import { recorderForkArgs } from "../recorder/args";
 import { TelemetryManager } from "./telemetry-manager";
 import { TelemetrySettingsStore } from "./telemetry-settings";
 import { AppTray } from "./tray";
@@ -166,29 +167,34 @@ if (!app.requestSingleInstanceLock()) {
     manager.onShouldRaise = () => keeper.requestRaise();
     void keeper.start();
 
-    telemetry = new TelemetryManager(
-      new TelemetrySettingsStore(join(userData, "telemetry-settings.json")),
-      {
-        fork: () =>
-          utilityProcess.fork(join(import.meta.dirname, "telemetry.js"), [], {
-            serviceName: "overlay-telemetry",
+    const telemetryStore = new TelemetrySettingsStore(join(userData, "telemetry-settings.json"));
+    telemetry = new TelemetryManager(telemetryStore, {
+      fork: () =>
+        utilityProcess.fork(
+          join(import.meta.dirname, "telemetry.js"),
+          recorderForkArgs({
+            userData,
+            retentionDays: telemetryStore.load().retentionDays,
+            // Debug aid: a replay normally never records, so recordings do not record themselves.
+            recordSynthetic: process.env["OVERLAY_RECORD_REPLAY"] === "1",
           }),
-        createChannel: () => new MessageChannelMain(),
-        postPortToRenderer: (sender, port) => {
-          const contents = sender as WebContents;
-          if (!contents.isDestroyed()) {
-            contents.postMessage(IPC.telemetryPort, null, [port as Electron.MessagePortMain]);
-          }
-        },
-        isOverlaySender: (sender) => fromOverlay(sender as WebContents),
-        nowMs: () => Date.now(),
-        setTimer: (fn, ms) => {
-          const timer = setTimeout(fn, ms);
-          return () => clearTimeout(timer);
-        },
-        onSettingsChange: () => tray?.refresh(),
+          { serviceName: "overlay-telemetry" },
+        ),
+      createChannel: () => new MessageChannelMain(),
+      postPortToRenderer: (sender, port) => {
+        const contents = sender as WebContents;
+        if (!contents.isDestroyed()) {
+          contents.postMessage(IPC.telemetryPort, null, [port as Electron.MessagePortMain]);
+        }
       },
-    );
+      isOverlaySender: (sender) => fromOverlay(sender as WebContents),
+      nowMs: () => Date.now(),
+      setTimer: (fn, ms) => {
+        const timer = setTimeout(fn, ms);
+        return () => clearTimeout(timer);
+      },
+      onSettingsChange: () => tray?.refresh(),
+    });
     telemetry.start();
 
     tray = new AppTray(manager, capture, telemetry, { showSettings, quit: () => app.quit() });

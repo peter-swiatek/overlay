@@ -1,5 +1,6 @@
 export * from "./fixtures";
 export * from "./model";
+export * from "./recording";
 export * from "./replay";
 export * from "./telemetry";
 export * from "./calc/fuel";
