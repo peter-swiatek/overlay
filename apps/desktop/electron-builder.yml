@@ -1,0 +1,21 @@
+appId: com.peterswiatek.overlay
+productName: Overlay
+npmRebuild: false
+directories:
+  output: release
+files:
+  - out/**
+  - package.json
+extraResources:
+  - from: resources/tray.ico
+    to: tray.ico
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: resources/tray.ico
+  artifactName: Overlay-Setup-${version}.${ext}
+nsis:
+  oneClick: true
+  perMachine: false
+  allowElevation: false
