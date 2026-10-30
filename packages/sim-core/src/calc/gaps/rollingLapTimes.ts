@@ -26,6 +26,20 @@ export class RollingLapTimes {
     this.sessionBestS = Math.min(this.sessionBestS ?? Infinity, lapTimeS);
   }
 
+  /** Forget everything. The caller must call this on session change. */
+  reset(): void {
+    this.recent.clear();
+    this.carBest.clear();
+    this.classBestByClass.clear();
+    this.sessionBestS = undefined;
+  }
+
+  /** Forget one car's laps (reused carIdx). Class and session bests stay. */
+  resetCar(carIdx: number): void {
+    this.recent.delete(carIdx);
+    this.carBest.delete(carIdx);
+  }
+
   average(carIdx: number): number | undefined {
     const laps = this.recent.get(carIdx);
     if (!laps || laps.length === 0) return undefined;

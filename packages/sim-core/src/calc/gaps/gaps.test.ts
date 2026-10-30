@@ -107,29 +107,67 @@ describe("MiniSectorRecorder", () => {
     expect(gap.laps.map((l) => l.clean)).toEqual([true, true]);
   });
 
-  it("marks a lap unclean when mini-sector points are missing", () => {
-    const recorder = new MiniSectorRecorder();
-    // 8 s ticks skip many points but stay under the teleport limit, so interpolation fills them.
-    // 20 s ticks jump more than 10% of the lap, which the recorder treats as a teleport.
-    const coarse = driveCar(recorder, {
+  it("marks a lap unclean when the points are interpolated across a big telemetry gap", () => {
+    // 8 s ticks stay under the step limit, so interpolation fills every point and laps are clean.
+    // (A lap with empty points cannot arise otherwise: any step over 10% of the lap dirties it.)
+    const coarse = new MiniSectorRecorder();
+    const laps = driveCar(coarse, {
       carIdx: 0,
       profile: SLOW_FAST,
       startTimeS: 0,
       laps: 3,
       dtS: 5,
     });
-    expect(coarse.every((l) => l.clean)).toBe(true);
+    expect(laps.length).toBeGreaterThan(0);
+    expect(laps.every((l) => l.clean)).toBe(true);
 
     const jumpy = new MiniSectorRecorder();
-    const laps = driveCar(jumpy, {
+    const jumpyLaps = driveCar(jumpy, {
       carIdx: 0,
       profile: SLOW_FAST,
       startTimeS: 0,
       laps: 3,
       dtS: 20,
     });
-    expect(laps.some((l) => l.clean)).toBe(false);
+    expect(jumpyLaps.length).toBeGreaterThan(0);
+    expect(jumpyLaps.some((l) => l.clean)).toBe(false);
     expect(jumpy.carReference(0)).toBeUndefined();
+  });
+
+  it("does not trust a lap whose S/F crossing spans a long telemetry gap", () => {
+    const recorder = new MiniSectorRecorder();
+    const tick = (sessionTimeS: number, lapDistPct: number, lap: number) =>
+      recorder.update({
+        sessionTimeS,
+        carIdx: 5,
+        lap,
+        lapDistPct,
+        onPitRoad: false,
+        offTrack: false,
+      });
+    // One clean lap first so the car is tracked from the line.
+    driveCar(recorder, { carIdx: 5, profile: SLOW_FAST, startTimeS: 0, laps: 2 });
+    const ref = recorder.carReference(5)?.lapTimeS;
+    // driveCar ended on the line at t = 180; keep driving to 0.55, then lose 64 s of telemetry.
+    for (let k = 1; k <= 11; k++) tick(180 + k * 2, k * 0.05, 3);
+    const done = tick(266, 0.04, 4);
+    expect(done?.clean).toBe(false);
+    expect(recorder.carReference(5)?.lapTimeS).toBe(ref);
+    expect(recorder.trackReference(0)?.lapTimeS).toBe(ref);
+  });
+
+  it("reset clears car state, optionally track references; resetCar clears one car", () => {
+    const recorder = new MiniSectorRecorder();
+    driveCar(recorder, { carIdx: 1, profile: SLOW_FAST, startTimeS: 0, laps: 3 });
+    driveCar(recorder, { carIdx: 2, profile: SLOW_FAST, startTimeS: 0, laps: 3 });
+    recorder.resetCar(1);
+    expect(recorder.carReference(1)).toBeUndefined();
+    expect(recorder.carReference(2)).toBeDefined();
+    recorder.reset();
+    expect(recorder.carReference(2)).toBeUndefined();
+    expect(recorder.trackReference(0)).toBeDefined();
+    recorder.reset(true);
+    expect(recorder.trackReference(0)).toBeUndefined();
   });
 
   it("keeps track references per class and round-trips them through JSON", () => {
@@ -152,6 +190,24 @@ describe("MiniSectorRecorder", () => {
     expect(restored.trackReference(7)).toEqual(recorder.trackReference(7));
     expect(restored.trackReference(9)).toEqual(recorder.trackReference(9));
     expect(restored.carReference(0)).toBeUndefined();
+  });
+
+  it("drops persisted references that are not monotonic, inconsistent or implausible", () => {
+    const good = recordedReference();
+    const make = (edit: (times: number[], r: { lapTimeS: number }) => void) => {
+      const times = [...good.times];
+      const r = { lapTimeS: good.lapTimeS };
+      edit(times, r);
+      const json = { version: 1, trackReferences: { "0": { lapTimeS: r.lapTimeS, times } } };
+      return MiniSectorRecorder.fromJSON(json).trackReference(0);
+    };
+    expect(make(() => {})).toBeDefined();
+    expect(make((t) => (t[0] = 0.5))).toBeUndefined();
+    expect(make((t) => (t[50] = t[49] ?? 0))).toBeUndefined();
+    expect(make((t) => (t[60] = 5))).toBeUndefined();
+    expect(make((t) => (t[200] = 80))).toBeUndefined();
+    expect(make((_t, r) => (r.lapTimeS = 5000))).toBeUndefined();
+    expect(make((t) => (t[10] = Number.NaN))).toBeUndefined();
   });
 
   it("drops malformed persisted references", () => {
@@ -290,6 +346,32 @@ describe("relativeGap, position tier", () => {
     expect(pick({})).toEqual(["default", 90]);
   });
 
+  it("never lets a NaN reference reach gapS", () => {
+    const times = [...recordedReference().times];
+    times[40] = Number.NaN;
+    const r = relativeGap(
+      { carIdx: 0, lapDistPct: 0.2 },
+      { carIdx: 1, lapDistPct: 0.3 },
+      { targetReference: { lapTimeS: 90, times } },
+    );
+    expect(r.tier).toBe("position");
+    expect(Number.isFinite(r.gapS)).toBe(true);
+  });
+
+  it("is unavailable when a car is not in the world", () => {
+    const refs = { targetReference: recordedReference() };
+    for (const [a, b] of [
+      [-1, 0.3],
+      [0.3, -1],
+      [0.3, Number.NaN],
+      [1.5, 0.2],
+    ] as const) {
+      const r = relativeGap({ carIdx: 0, lapDistPct: a }, { carIdx: 1, lapDistPct: b }, refs);
+      expect(r.tier).toBe("unavailable");
+      expect(r.gapS).toBeUndefined();
+    }
+  });
+
   it("is used when the reference is missing or malformed", () => {
     const broken: GapReferenceLap = { lapTimeS: 90, times: [0, 90] };
     const r = relativeGap(at(0.2), at(0.3), { targetReference: broken });
@@ -322,6 +404,20 @@ describe("RollingLapTimes", () => {
     expect(laps.classBest(3)).toBe(93);
     expect(laps.sessionBest()).toBe(93);
     expect(laps.average(9)).toBeUndefined();
+  });
+
+  it("reset and resetCar forget laps", () => {
+    const laps = new RollingLapTimes();
+    laps.record(1, 90, true, 2);
+    laps.record(2, 95, true, 2);
+    laps.resetCar(1);
+    expect(laps.average(1)).toBeUndefined();
+    expect(laps.best(1)).toBeUndefined();
+    expect(laps.average(2)).toBe(95);
+    laps.reset();
+    expect(laps.average(2)).toBeUndefined();
+    expect(laps.sessionBest()).toBeUndefined();
+    expect(laps.classBest(2)).toBeUndefined();
   });
 
   it("averages fewer than five laps", () => {

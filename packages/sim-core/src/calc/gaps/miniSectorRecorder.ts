@@ -10,6 +10,9 @@ import {
 const POINTS = GAP_MINI_SECTOR_COUNT + 1;
 /** A forward jump larger than this between ticks is a teleport, not driving. */
 const MAX_FORWARD_STEP = 0.1;
+/** Plausible lap times for persisted references, in seconds. */
+const MIN_LAP_TIME_S = 20;
+const MAX_LAP_TIME_S = 1200;
 
 interface CarState {
   classId: number;
@@ -32,7 +35,10 @@ function freeze(times: Float64Array, lapTimeS: number): GapReferenceLap {
 function parseReference(json: GapReferenceJson): GapReferenceLap | undefined {
   const { lapTimeS, times } = json;
   if (!Number.isFinite(lapTimeS) || lapTimeS <= 0 || !Array.isArray(times)) return undefined;
+  if (lapTimeS < MIN_LAP_TIME_S || lapTimeS > MAX_LAP_TIME_S) return undefined;
   if (times.length !== POINTS || !times.every((t) => Number.isFinite(t))) return undefined;
+  if (times[0] !== 0 || Math.abs((times[POINTS - 1] ?? NaN) - lapTimeS) > 1e-6) return undefined;
+  for (let i = 1; i < POINTS; i++) if ((times[i] ?? NaN) <= (times[i - 1] ?? NaN)) return undefined;
   return { lapTimeS, times: [...times] };
 }
 
@@ -82,6 +88,22 @@ export class MiniSectorRecorder {
     state.lastTimeS = tick.sessionTimeS;
     state.lap = tick.lap;
     return undefined;
+  }
+
+  /**
+   * Forget per-car tracking and car references. The caller must call this on session change.
+   * Track references are kept unless `clearTrackReferences` is true.
+   */
+  reset(clearTrackReferences = false): void {
+    this.cars.clear();
+    this.carReferences.clear();
+    if (clearTrackReferences) this.trackReferences.clear();
+  }
+
+  /** Forget one car (a carIdx reused by a different driver); track references stay. */
+  resetCar(carIdx: number): void {
+    this.cars.delete(carIdx);
+    this.carReferences.delete(carIdx);
   }
 
   /** The car's own reference lap (first clean lap, replaced by faster clean laps). */
@@ -144,13 +166,15 @@ export class MiniSectorRecorder {
     const span = 1 - state.lastPct + pct;
     const crossS =
       state.lastTimeS + ((1 - state.lastPct) / span) * (tick.sessionTimeS - state.lastTimeS);
+    // Same step limit as mid-lap: a telemetry gap across the line makes both laps untrustworthy.
+    const gapAcrossLine = span > MAX_FORWARD_STEP;
+    if (gapAcrossLine) state.dirty = true;
     let completed: GapCompletedLap | undefined;
     if (state.fullLap) {
       this.recordPoints(state, state.lastPct, 1, state.lastTimeS, crossS);
       const lapTimeS = crossS - state.lapStartS;
       state.times[GAP_MINI_SECTOR_COUNT] = lapTimeS;
-      const clean =
-        !state.dirty && !bad && lapTimeS > 0 && state.times.every((t) => Number.isFinite(t));
+      const clean = !state.dirty && !bad && lapTimeS > 0;
       completed = { carIdx: tick.carIdx, classId: state.classId, lap: state.lap, lapTimeS, clean };
       if (clean) this.offerReference(tick.carIdx, state, lapTimeS);
     }
@@ -159,7 +183,7 @@ export class MiniSectorRecorder {
     state.times[0] = 0;
     state.lapStartS = crossS;
     state.fullLap = true;
-    state.dirty = bad;
+    state.dirty = bad || gapAcrossLine;
     state.lap = tick.lap;
     this.recordPoints(state, 0, pct, crossS, tick.sessionTimeS);
     state.lastPct = pct;

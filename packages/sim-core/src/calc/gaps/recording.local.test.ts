@@ -137,6 +137,7 @@ describe.skipIf(!recording)("local iRacing recording: relative gaps", () => {
             },
           },
         );
+        if (gap.tier === "unavailable") return undefined;
         const lapTimeS = gap.tier === "miniSector" ? gap.referenceLapTimeS : gap.lapTimeS;
         const estDiff = readVar(s.buf, ctx.est, player) - readVar(s.buf, ctx.est, c);
         const f2Diff = readVar(s.buf, ctx.f2, c) - readVar(s.buf, ctx.f2, player);
@@ -170,7 +171,11 @@ describe.skipIf(!recording)("local iRacing recording: relative gaps", () => {
     );
 
     expect(samples).toBeGreaterThan(1000);
-    expect(crossings.length).toBeGreaterThan(0);
+    expect(crossings.map((c) => c.lap)).toEqual(PLAYER_LAPS);
+    for (const c of crossings) {
+      expect(c.ahead).toBeDefined();
+      expect(Math.abs(c.ahead?.estDelta ?? Infinity)).toBeLessThan(0.5);
+    }
     for (const c of crossings) {
       for (const n of [c.ahead, c.behind]) {
         if (n) expect(Number.isFinite(n.ours)).toBe(true);

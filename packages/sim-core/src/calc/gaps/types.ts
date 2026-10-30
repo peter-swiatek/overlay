@@ -72,6 +72,11 @@ export interface GapReferences {
 
 export type GapResult =
   | {
+      /** A car is not in the world (lapDistPct outside [0, 1]); no gap can be given. */
+      tier: "unavailable";
+      gapS?: undefined;
+    }
+  | {
       tier: "miniSector";
       /** Seconds; negative when the target is ahead on track. */
       gapS: number;

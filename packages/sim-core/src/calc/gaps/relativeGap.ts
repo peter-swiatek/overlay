@@ -53,9 +53,16 @@ function pickLapTime(sources: GapLapTimeSources | undefined): {
   return { lapTimeS: GAP_DEFAULT_LAP_TIME_S, source: "default" };
 }
 
+function onTrack(pct: number): boolean {
+  return Number.isFinite(pct) && pct >= 0 && pct <= 1;
+}
+
 function validReference(ref: GapReferenceLap | undefined): ref is GapReferenceLap {
   return (
-    ref !== undefined && usable(ref.lapTimeS) && ref.times.length === GAP_MINI_SECTOR_COUNT + 1
+    ref !== undefined &&
+    usable(ref.lapTimeS) &&
+    ref.times.length === GAP_MINI_SECTOR_COUNT + 1 &&
+    ref.times.every((t) => Number.isFinite(t))
   );
 }
 
@@ -68,6 +75,7 @@ export function relativeGap(
   target: GapCarPosition,
   refs: GapReferences = {},
 ): GapResult {
+  if (!onTrack(focus.lapDistPct) || !onTrack(target.lapDistPct)) return { tier: "unavailable" };
   const used = validReference(refs.targetReference)
     ? ({ reference: "target", lap: refs.targetReference } as const)
     : validReference(refs.trackReference)
