@@ -56,10 +56,30 @@ release (rarely what you want).
 
 - `Overlay-Setup-<version>.exe`, the installer
 - `Overlay-Setup-<version>.exe.blockmap`, for differential updates
-- `latest.yml`, the update manifest (nothing reads it yet; there is no update check in the app)
+- `latest.yml`, the update manifest the in-app updater reads
 
 Release notes are fixed text: version, build date and the SmartScreen hint. They never include commit
 messages, because the releases repo is public.
+
+## How updates reach users
+
+Packaged `release` builds (tagged installs) check `peter-swiatek/overlay-releases` 30 seconds after
+start and every 6 hours, using plain HTTPS requests to the public GitHub releases (no token, no user
+data). A found update downloads in the background and installs when the app quits; the app never
+restarts on its own. The tray menu has **Check for updates**, **Include test builds** and, once an
+update is downloaded, **Restart to update (vX.Y.Z)**. Dev and local builds never check
+("Updates: release builds only").
+
+- By default only stable releases are offered. Prereleases (`v0.2.0-rc.1`, branch builds
+  `v0.1.0-dev.N`) reach only people who tick **Include test builds** in the tray.
+- The updater is unsigned-friendly: `app-update.yml` carries no publisher name, so unsigned NSIS
+  updates are accepted.
+
+### Pulling a bad release
+
+Delete the release on `overlay-releases`, or edit it and tick "Set as a pre-release"; it is then no
+longer offered to normal users. People who already updated stay on the bad version until a newer
+release exists, so publish a fixed, higher version (bump the patch and tag again).
 
 ## One-time setup of the releases repo
 

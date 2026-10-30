@@ -1,6 +1,7 @@
 import type { BuildInfo } from "../shared/build-info";
 import type { TelemetrySourceChoice } from "../shared/telemetry-types";
 import type { TelemetrySettings } from "./telemetry-settings";
+import type { UpdateState } from "./updater";
 
 export interface DataSourceActions {
   select(source: Exclude<TelemetrySourceChoice, "replay">): void;
@@ -61,4 +62,69 @@ export function buildAboutItem(build: Pick<BuildInfo, "displayVersion">): {
   enabled: false;
 } {
   return { label: `Overlay ${build.displayVersion}`, enabled: false };
+}
+
+export interface UpdateMenuView {
+  /** False for dev/local builds and unpackaged runs. */
+  enabled: boolean;
+  state: UpdateState;
+  allowPrerelease: boolean;
+}
+
+export interface UpdateMenuActions {
+  checkNow(): void;
+  setAllowPrerelease(value: boolean): void;
+  restartToUpdate(): void;
+}
+
+export interface UpdateMenuItem {
+  label: string;
+  enabled?: boolean;
+  type?: "checkbox";
+  checked?: boolean;
+  click?: () => void;
+}
+
+/** Label of the "Check for updates" item for each state. */
+export function updateCheckLabel(state: UpdateState): string {
+  switch (state.kind) {
+    case "checking":
+      return "Checking...";
+    case "available":
+      return `Downloading v${state.version}...`;
+    case "up-to-date":
+      return "Up to date";
+    case "error":
+      return "Update check failed";
+    case "downloaded":
+      return `Update v${state.version} ready`;
+    case "idle":
+      return "Check for updates";
+  }
+}
+
+/** Tray items for updates: check, "Include test builds", and restart once downloaded. */
+export function buildUpdateItems(
+  view: UpdateMenuView,
+  actions: UpdateMenuActions,
+): UpdateMenuItem[] {
+  if (!view.enabled) return [{ label: "Updates: release builds only", enabled: false }];
+  const { state } = view;
+  const busy = state.kind !== "idle" && state.kind !== "up-to-date" && state.kind !== "error";
+  const items: UpdateMenuItem[] = [
+    { label: updateCheckLabel(state), enabled: !busy, click: () => actions.checkNow() },
+    {
+      label: "Include test builds",
+      type: "checkbox",
+      checked: view.allowPrerelease,
+      click: () => actions.setAllowPrerelease(!view.allowPrerelease),
+    },
+  ];
+  if (state.kind === "downloaded") {
+    items.push({
+      label: `Restart to update (v${state.version})`,
+      click: () => actions.restartToUpdate(),
+    });
+  }
+  return items;
 }

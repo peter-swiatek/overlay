@@ -5,7 +5,8 @@ import { MARKER_PRESETS } from "../shared/capture-types";
 import type { CaptureManager } from "./capture-manager";
 import type { OverlayManager } from "./overlays";
 import type { TelemetryManager } from "./telemetry-manager";
-import { buildAboutItem, buildDataSourceMenu, trayTooltip } from "./tray-model";
+import { buildAboutItem, buildDataSourceMenu, buildUpdateItems, trayTooltip } from "./tray-model";
+import type { Updater } from "./updater";
 
 function trayIconPath(): string {
   return app.isPackaged
@@ -25,6 +26,7 @@ export class AppTray {
     private readonly overlays: OverlayManager,
     private readonly capture: CaptureManager,
     private readonly telemetry: TelemetryManager,
+    private readonly updater: Updater,
     private readonly actions: TrayActions,
   ) {
     this.tray = new Tray(nativeImage.createFromPath(trayIconPath()));
@@ -75,6 +77,19 @@ export class AppTray {
             pickReplayFile: () => void this.pickReplayFile(),
           }),
         },
+        { type: "separator" },
+        ...buildUpdateItems(
+          {
+            enabled: this.updater.enabled,
+            state: this.updater.getState(),
+            allowPrerelease: this.updater.allowPrerelease,
+          },
+          {
+            checkNow: () => this.updater.checkNow(),
+            setAllowPrerelease: (value) => this.updater.setAllowPrerelease(value),
+            restartToUpdate: () => this.updater.restartToUpdate(),
+          },
+        ),
         { type: "separator" },
         buildAboutItem(BUILD_INFO),
         { label: "Quit", click: () => this.actions.quit() },
