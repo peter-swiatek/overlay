@@ -520,7 +520,7 @@ describe("IracingAdapter on synthetic buffers", () => {
       estTimeS: 0,
       isPlayer: true,
       driverName: "Me",
-      classColour: "#ffda59",
+      classColour: null,
     });
     const noInfo = run(
       {
@@ -673,6 +673,22 @@ describe("IracingAdapter on synthetic buffers", () => {
     expect([1, 2, 3].map((i) => by(i)?.classPosition)).toEqual([1, 1, 2]);
     expect([1, 2, 3].map((i) => by(i)?.className)).toEqual(["Fast", "Slow", "Fast"]);
     expect(by(2)?.classColour).toBe("#33ceff");
+  });
+
+  it("shows no class colour in a single-class session", () => {
+    const single: IracingSessionInfo = {
+      ...info,
+      drivers: [1, 2].map((carIdx) => ({
+        ...(info.drivers[0] as IracingSessionInfo["drivers"][number]),
+        carIdx,
+        classId: "10",
+        className: "GT3",
+        classColour: "#ffffff",
+      })),
+    };
+    const s = run({ CarIdxTrackSurface: [-1, 3, 3] }, single);
+    expect(s.cars.length).toBe(2);
+    expect(s.cars.every((c) => c.classColour === null)).toBe(true);
   });
 
   it("reports nulls for everything the sim does not provide", () => {

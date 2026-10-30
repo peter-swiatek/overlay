@@ -176,6 +176,15 @@ describe("LmuDecoder on the on-track slice", () => {
     expect(player?.classId).toBe("Hyper");
     expect(player?.classPosition).toBeGreaterThanOrEqual(1);
   });
+
+  it("sets the class colour from the class name", () => {
+    const { state } = onTrack.frames.at(-1)!.result;
+    for (const car of state.cars) {
+      if (car.className === "Hyper") expect(car.classColour).toBe("#E4002B");
+      else if (car.className === "LMP2") expect(car.classColour).toBe("#0057B8");
+      else expect(car.classColour).toBeNull();
+    }
+  });
 });
 
 describe("LmuDecoder on the burst slice", () => {

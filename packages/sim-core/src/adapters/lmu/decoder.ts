@@ -1,6 +1,7 @@
 import {
   emptyCar,
   emptySimState,
+  lmuClassColour,
   type Car,
   type Flags,
   type SessionInfo,
@@ -26,6 +27,7 @@ import {
   WHEEL,
   TYRE_COUNT,
 } from "./layout";
+import { decodeSimText } from "../../sim-text";
 import { applyRestResponse, emptyRestSnapshot, type LmuRestSnapshot } from "./rest";
 
 export interface LmuDecodeResult {
@@ -96,11 +98,9 @@ class Frame {
   i32 = (o: number): number => this.view.getInt32(o, true);
   f32 = (o: number): number => this.view.getFloat32(o, true);
   f64 = (o: number): number => this.view.getFloat64(o, true);
-  /** NUL-terminated text, decoded as latin1 (names the sim writes as ANSI). */
+  /** NUL-terminated text, UTF-8 when valid, else Windows-1252. */
   text(o: number, length: number): string {
-    const slice = this.bytes.subarray(o, o + length);
-    const end = slice.indexOf(0);
-    return Buffer.from(end < 0 ? slice : slice.subarray(0, end)).toString("latin1");
+    return decodeSimText(this.bytes.subarray(o, o + length));
   }
   get length(): number {
     return this.bytes.length;
@@ -417,6 +417,7 @@ function readCar(f: Frame, o: number, trackLengthM: number, rest: LmuRestSnapsho
   car.carName = vehicleName.length > 0 ? vehicleName : null;
   car.classId = className;
   car.className = className;
+  car.classColour = lmuClassColour(className);
   car.carNumber = extra?.carNumber ?? numberFromVehicleName(vehicleName);
   car.position = f.u8(o + VEHICLE.position) || null;
   car.lapsCompleted = laps;
