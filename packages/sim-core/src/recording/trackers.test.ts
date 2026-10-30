@@ -22,6 +22,8 @@ interface Tick {
   lastLapS?: number | null;
   trackTempC?: number | null;
   wear?: number | null;
+  /** False: the car is not in the world (garage, between spots). Default true. */
+  inWorld?: boolean;
 }
 
 function state(tick: Tick): SimState {
@@ -34,6 +36,7 @@ function state(tick: Tick): SimState {
   car.lapsCompleted = tick.lapsCompleted === undefined ? 0 : tick.lapsCompleted;
   car.onPitRoad = tick.onPitRoad ?? false;
   car.inPitStall = tick.inPitStall ?? false;
+  car.isOnTrack = tick.inWorld ?? true;
   car.position = tick.position === undefined ? 4 : tick.position;
   car.lastLapS = tick.lastLapS ?? null;
   s.cars = [car];
@@ -216,6 +219,35 @@ describe("PitStopTracker and StintTracker", () => {
     expect(run([{ t: 1 }, { t: 2, onPitRoad: true }, { t: 3, onPitRoad: true }])).toEqual([]);
   });
 
+  it("does not count getting into the car: out of the world straight into the stall", () => {
+    expect(
+      run([
+        { t: 1, inWorld: false },
+        { t: 2, inWorld: false, onPitRoad: true, inPitStall: true },
+        { t: 3, onPitRoad: true, inPitStall: true },
+        { t: 4, onPitRoad: true },
+        { t: 5 },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("does not count a reset from the track straight into the stall", () => {
+    expect(
+      run([
+        { t: 1 },
+        { t: 2, onPitRoad: true, inPitStall: true },
+        { t: 3, onPitRoad: true, inPitStall: true },
+        { t: 4, onPitRoad: false },
+        // After that a real stop is found again.
+        { t: 5 },
+        { t: 6, onPitRoad: true },
+        { t: 7, onPitRoad: true, inPitStall: true },
+        { t: 8, onPitRoad: true, inPitStall: true },
+        { t: 9 },
+      ]),
+    ).toHaveLength(1);
+  });
+
   it("treats a drive-through as a stop that does not end the stint", () => {
     const stops = run([{ t: 1 }, { t: 2, onPitRoad: true }, { t: 3, onPitRoad: true }, { t: 4 }]);
     expect(stops).toHaveLength(1);
@@ -226,7 +258,8 @@ describe("PitStopTracker and StintTracker", () => {
   it("caps a data gap when counting stationary time", () => {
     const stops = run([
       { t: 1 },
-      { t: 2, onPitRoad: true, inPitStall: true },
+      { t: 2, onPitRoad: true },
+      { t: 3, onPitRoad: true, inPitStall: true },
       { t: 500, onPitRoad: true, inPitStall: true },
       { t: 501, onPitRoad: false },
     ]);

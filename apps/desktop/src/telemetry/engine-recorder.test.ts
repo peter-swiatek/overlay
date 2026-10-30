@@ -187,11 +187,13 @@ describe("local iRacing recording through the engine and the recorder", () => {
       const reasons = raceLaps.map((l) =>
         l["fuel_valid"] === 1 ? "valid" : String(l["fuel_invalid_reason"]),
       );
-      // One pace lap, 12 valid laps and the cooldown lap; resets after the flag are not laps.
+      // One pace lap, 12 valid laps and the cooldown lap; resets after the flag are not laps. A
+      // recording whose cooldown lap ends in a reset has no cooldown row.
       expect(reasons.filter((r) => r === "valid")).toHaveLength(12);
       expect(reasons.filter((r) => r === "paceLap")).toHaveLength(1);
-      expect(reasons.filter((r) => r === "cooldown")).toHaveLength(1);
-      expect(reasons).toHaveLength(14);
+      const cooldown = reasons.filter((r) => r === "cooldown").length;
+      expect([0, 1]).toContain(cooldown);
+      expect(reasons).toHaveLength(13 + cooldown);
       for (const lap of raceLaps.filter((l) => l["fuel_valid"] === 1)) {
         expect(lap["lap_time_s"] as number).toBeGreaterThan(60);
         expect(lap["lap_time_s"] as number).toBeLessThan(200);

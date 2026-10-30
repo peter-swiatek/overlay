@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import type { RecorderArgs } from "./args";
-import { pruneTelemetryFiles } from "./retention";
+import { pruneTelemetryFiles, refreshAllManifests } from "./retention";
 import { SessionRecorder } from "./session-recorder";
 import { SessionStore } from "./store";
 
@@ -25,6 +25,7 @@ export function createRecorder(
   const telemetryDir = join(args.userData, TELEMETRY_DIR);
   try {
     const pruned = pruneTelemetryFiles(telemetryDir, args.retentionDays, nowMs());
+    refreshAllManifests(telemetryDir, nowMs());
     if (pruned.removed.length > 0) {
       log(
         `recorder: pruned ${pruned.removed.length} telemetry file(s) older than ${args.retentionDays} days`,

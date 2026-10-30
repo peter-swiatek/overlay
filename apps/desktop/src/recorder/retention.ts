@@ -16,6 +16,8 @@ export interface PruneResult {
   /** Paths of the removed files relative to the telemetry directory, with forward slashes. */
   removed: string[];
   kept: number;
+  /** Files that could not be inspected or removed; the next start tries again. */
+  failed: number;
 }
 
 function subdirectories(path: string): string[] {
@@ -37,22 +39,27 @@ export function pruneTelemetryFiles(
   nowMs: number,
 ): PruneResult {
   const cutoff = nowMs - normalizeRetentionDays(retentionDays) * DAY_MS;
-  const result: PruneResult = { removed: [], kept: 0 };
+  const result: PruneResult = { removed: [], kept: 0, failed: 0 };
   for (const sim of subdirectories(telemetryDir)) {
     for (const month of subdirectories(join(telemetryDir, sim))) {
       const dir = join(telemetryDir, sim, month);
       let removedHere = 0;
       for (const name of readdirSync(dir)) {
         if (!name.endsWith(TIER2_EXTENSION)) continue;
-        if (statSync(join(dir, name)).mtimeMs >= cutoff) {
-          result.kept++;
-          continue;
+        // One locked or vanished file must not stop the pass.
+        try {
+          if (statSync(join(dir, name)).mtimeMs >= cutoff) {
+            result.kept++;
+            continue;
+          }
+          rmSync(join(dir, name), { force: true });
+          result.removed.push(`${sim}/${month}/${name}`);
+          removedHere++;
+        } catch {
+          result.failed++;
         }
-        rmSync(join(dir, name), { force: true });
-        result.removed.push(`${sim}/${month}/${name}`);
-        removedHere++;
       }
-      if (removedHere > 0) refreshMonth(dir, nowMs);
+      if (removedHere > 0) tryRefresh(() => refreshMonth(dir, nowMs));
     }
   }
   return result;
@@ -69,4 +76,33 @@ function refreshMonth(dir: string, nowMs: number): void {
   rmSync(join(dir, `${MANIFEST_NAME}.tmp`), { force: true });
   // Only an empty directory goes; anything unexpected in it stays.
   if (readdirSync(dir).length === 0) rmdirSync(dir);
+}
+
+function tryRefresh(work: () => void): void {
+  try {
+    work();
+  } catch {
+    // The manifest is rebuilt at the next start.
+  }
+}
+
+/**
+ * Rewrites every month's manifest from the files on disk, so that files of sessions that a crash
+ * cut short (which never got to write theirs) are listed. Returns the number of months done.
+ */
+export function refreshAllManifests(telemetryDir: string, nowMs: number): number {
+  let months = 0;
+  for (const sim of subdirectories(telemetryDir)) {
+    for (const month of subdirectories(join(telemetryDir, sim))) {
+      const dir = join(telemetryDir, sim, month);
+      if (!readdirSync(dir).some((n) => n.endsWith(TIER2_EXTENSION))) continue;
+      try {
+        writeManifest(dir, nowMs);
+        months++;
+      } catch {
+        // Skip a month we cannot write; the rest still get theirs.
+      }
+    }
+  }
+  return months;
 }

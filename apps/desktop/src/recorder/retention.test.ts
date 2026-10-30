@@ -17,6 +17,7 @@ import {
   MIN_RETENTION_DAYS,
   normalizeRetentionDays,
   pruneTelemetryFiles,
+  refreshAllManifests,
 } from "./retention";
 
 const DAY = 86_400_000;
@@ -100,10 +101,27 @@ describe("pruneTelemetryFiles", () => {
   });
 
   it("copes with a missing directory and ignores files that are not tier 2", () => {
-    expect(pruneTelemetryFiles(join(root, "nope"), 60, NOW)).toEqual({ removed: [], kept: 0 });
+    expect(pruneTelemetryFiles(join(root, "nope"), 60, NOW)).toEqual({
+      removed: [],
+      kept: 0,
+      failed: 0,
+    });
     put("iracing/2026-01/readme.txt", 400);
     expect(pruneTelemetryFiles(root, 60, NOW).removed).toEqual([]);
     expect(existsSync(join(root, "iracing", "2026-01", "readme.txt"))).toBe(true);
+  });
+
+  it("carries on past a file it cannot remove", () => {
+    put("iracing/2026-08/a.otlm", 90);
+    // A directory with the extension cannot be removed as a file.
+    const stuck = join(root, "iracing", "2026-08", "b.otlm");
+    mkdirSync(stuck);
+    const old = new Date(NOW - 90 * DAY);
+    utimesSync(stuck, old, old);
+    put("iracing/2026-08/c.otlm", 90);
+    const result = pruneTelemetryFiles(root, 60, NOW);
+    expect(result.removed.sort()).toEqual(["iracing/2026-08/a.otlm", "iracing/2026-08/c.otlm"]);
+    expect(result.failed).toBe(1);
   });
 
   it("never touches the tier 1 database that sits next to the telemetry directory", () => {
@@ -117,6 +135,24 @@ describe("pruneTelemetryFiles", () => {
     mkdirSync(telemetry);
     pruneTelemetryFiles(telemetry, 30, NOW);
     expect(readFileSync(db, "utf8")).toBe("sqlite");
+  });
+});
+
+describe("refreshAllManifests", () => {
+  it("lists files of every month, including sessions a crash cut short", () => {
+    put("iracing/2026-10/crashed.otlm", 1, "123");
+    put("lmu/2026-09/other.otlm", 1, "12");
+    mkdirSync(join(root, "lmu", "2026-08"), { recursive: true });
+    expect(refreshAllManifests(root, NOW)).toBe(2);
+    const read = (p: string): { files: { file: string; bytes: number }[] } =>
+      JSON.parse(readFileSync(join(root, ...p.split("/")), "utf8"));
+    expect(read("iracing/2026-10/manifest.json").files).toMatchObject([
+      { file: "crashed.otlm", bytes: 3 },
+    ]);
+    expect(read("lmu/2026-09/manifest.json").files).toMatchObject([
+      { file: "other.otlm", bytes: 2 },
+    ]);
+    expect(existsSync(join(root, "lmu", "2026-08", "manifest.json"))).toBe(false);
   });
 });
 

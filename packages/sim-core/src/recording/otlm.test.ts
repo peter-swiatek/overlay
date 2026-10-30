@@ -177,6 +177,34 @@ describe("OTLM round trip", () => {
   });
 });
 
+describe("OTLM failing sink", () => {
+  it("keeps a chunk whose write failed and writes it, indexed, on the next flush", () => {
+    const sink = new MemorySink();
+    let failNext = false;
+    const flaky = {
+      append(bytes: Uint8Array): void {
+        if (failNext) {
+          failNext = false;
+          throw new Error("disk full");
+        }
+        sink.append(bytes);
+      },
+    };
+    const writer = new OtlmWriter(flaky, header);
+    for (let i = 0; i < 10; i++) writer.addSample("a", rowA(i));
+    failNext = true;
+    expect(() => writer.flush()).toThrow(/disk full/);
+    expect(writer.chunkCount).toBe(0);
+    expect(writer.pendingSamples).toBe(10);
+    writer.flush();
+    writer.close();
+    const file = readOtlm(sink.bytes());
+    expect(file.complete).toBe(true);
+    expect(file.groups["a"]!.samples).toBe(10);
+    expect(file.chunks).toBe(2);
+  });
+});
+
 describe("OTLM crash tolerance", () => {
   it("reads a file with no footer: every flushed chunk, marked incomplete", () => {
     const { sink } = write(17, 5, false);

@@ -326,9 +326,12 @@ export class OtlmWriter {
   flush(partial = false): void {
     if (this.closed) return;
     if (partial) for (const b of this.buffers) if (b.samples > 0) this.seal(b);
-    const chunks = this.sealed;
-    this.sealed = [];
-    for (const chunk of chunks) this.writeChunk(chunk);
+    // A chunk leaves the queue only once it is on the sink, so a failed write is retried by the
+    // next flush instead of losing the samples.
+    for (let next = this.sealed[0]; next !== undefined; next = this.sealed[0]) {
+      this.writeChunk(next);
+      this.sealed.shift();
+    }
   }
 
   /** Flushes everything and writes the footer. Safe to call twice. */
@@ -357,16 +360,17 @@ export class OtlmWriter {
     head.writeUInt32LE(raw.length, 12);
     head.writeUInt32LE(packed.length, 16);
     head.writeUInt32LE(crc32(packed), 20);
+    const offset = this.offset;
+    // One append per chunk, so a crash cannot leave a header without its payload except by a
+    // torn write, which the checksum catches. The index only lists chunks that were written.
+    this.write(Buffer.concat([head, packed]));
     this.index.push({
       group: chunk.groupIndex,
-      offset: this.offset,
+      offset,
       samples: chunk.samples,
       rawBytes: raw.length,
       gzipBytes: packed.length,
     });
-    // One append per chunk, so a crash cannot leave a header without its payload except by a
-    // torn write, which the checksum catches.
-    this.write(Buffer.concat([head, packed]));
   }
 
   private write(bytes: Uint8Array): void {

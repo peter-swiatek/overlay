@@ -102,7 +102,20 @@ CREATE TABLE incidents (
 CREATE INDEX incidents_session ON incidents (session_id, lap);
 `;
 
-export const MIGRATIONS: readonly Migration[] = [{ version: 1, name: "initial", sql: V1 }];
+// Lap numbers repeat after a lap counter reset, so rows also carry their order of insertion.
+const V2 = `
+ALTER TABLE laps ADD COLUMN lap_index INTEGER NOT NULL DEFAULT 0;
+UPDATE laps SET lap_index = (
+  SELECT COUNT(*) FROM laps AS earlier
+  WHERE earlier.session_id = laps.session_id AND earlier.rowid <= laps.rowid
+);
+CREATE INDEX laps_session_index ON laps (session_id, lap_index);
+`;
+
+export const MIGRATIONS: readonly Migration[] = [
+  { version: 1, name: "initial", sql: V1 },
+  { version: 2, name: "lap_index", sql: V2 },
+];
 
 const SCHEMA_VERSION_TABLE = `
 CREATE TABLE IF NOT EXISTS schema_version (

@@ -200,6 +200,8 @@ export class PitStopTracker {
   private lastTickS: number | null = null;
   private lastFuelL: number | null = null;
   private lastInStall = false;
+  /** The car was driving in the world on the previous tick (not in the garage or between spots). */
+  private lastInWorld = false;
 
   update(state: SimState): PitStopEvent | null {
     const car = playerCar(state);
@@ -210,7 +212,11 @@ export class PitStopTracker {
     const was = this.onPitRoad;
     let finished: PitStopEvent | null = null;
 
-    if (was === false && now) {
+    // A visit starts when a car that was driving turns onto pit road. Getting into the car, a
+    // reset to the pits or a tow put it on pit road, often straight into the stall, without
+    // driving there: those are teleports, not stops.
+    const drove = this.lastInWorld && car.inPitStall !== true;
+    if (was === false && now && drove) {
       this.visit = { lap: lapInProgress(car), entryTimeS: tickS, stationaryS: 0, fuelAddedL: 0 };
     } else if (this.visit !== null && now) {
       this.accumulate(this.visit, car, tickS, fuelL);
@@ -229,6 +235,7 @@ export class PitStopTracker {
     this.lastTickS = tickS;
     this.lastFuelL = fuelL;
     this.lastInStall = car.inPitStall === true;
+    this.lastInWorld = inWorld(car);
     return finished;
   }
 
@@ -240,6 +247,10 @@ export class PitStopTracker {
       visit.fuelAddedL += fuelL - this.lastFuelL;
     }
   }
+}
+
+function inWorld(car: Car): boolean {
+  return car.connected && car.isOnTrack !== false && (car.lapDistPct ?? 0) >= 0;
 }
 
 export interface StintStart {

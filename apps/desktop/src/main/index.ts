@@ -207,12 +207,17 @@ if (!app.requestSingleInstanceLock()) {
   // Tray app: closing the settings window must not quit.
   app.on("window-all-closed", () => {});
   app.on("before-quit", (event) => {
-    telemetry?.shutdown();
-    // Let the capture process finish its file (gzip trailer, summary) before the app exits.
-    if (shuttingDown || !capture?.isRecording) return;
+    if (shuttingDown) return;
+    // Both child processes finish their files (the telemetry recorder's last rows and footer, the
+    // capture file's gzip trailer and summary) before the app exits.
+    const waits: Promise<void>[] = [];
+    if (telemetry?.isRunning) waits.push(telemetry.shutdown());
+    else void telemetry?.shutdown();
+    if (capture?.isRecording) waits.push(capture.shutdown());
+    if (waits.length === 0) return;
     shuttingDown = true;
     event.preventDefault();
-    void capture.shutdown().finally(() => app.quit());
+    void Promise.allSettled(waits).finally(() => app.quit());
   });
   app.on("will-quit", () => {
     globalShortcut.unregisterAll();

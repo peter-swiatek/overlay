@@ -2,13 +2,15 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node
 import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Deriver, isUuidv7, readOtlm, type SimState } from "@overlay/sim-core";
+import { FileSink } from "./files";
 import { SessionRecorder, type SessionRecorderOptions } from "./session-recorder";
 import { SessionStore } from "./store";
 import { syntheticLapTime, syntheticSession, type SyntheticOptions } from "./synthetic";
 
 const NOW = Date.UTC(2026, 9, 30, 12, 0, 0);
+const clock = { now: NOW };
 
 let dir: string;
 let recorder: SessionRecorder;
@@ -29,18 +31,20 @@ function setup(options: Partial<SessionRecorderOptions> = {}): void {
   recorder = new SessionRecorder(store, {
     telemetryDir: join(dir, "telemetry"),
     flushIntervalMs: 3_600_000,
-    nowMs: () => NOW,
+    nowMs: () => clock.now,
     log: (m) => logs.push(m),
     ...options,
   });
 }
 
 beforeEach(() => {
+  clock.now = NOW;
   dir = mkdtempSync(join(tmpdir(), "overlay-recorder-"));
   setup();
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   recorder.shutdown();
   for (const db of readers.splice(0)) db.close();
   rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
@@ -117,6 +121,7 @@ describe("one synthetic race with a pit stop and two incidents", () => {
       db,
     );
     expect(laps.map((l) => l["lap_number"])).toEqual([1, 2, 3, 4]);
+    expect(laps.map((l) => l["lap_index"])).toEqual([1, 2, 3, 4]);
     expect(laps.map((l) => l["fuel_valid"])).toEqual([1, 1, 0, 1]);
     expect(laps.map((l) => l["fuel_invalid_reason"])).toEqual([null, null, "outlap", null]);
     expect(laps.map((l) => l["pit_lap"])).toEqual([0, 1, 1, 0]);
@@ -258,18 +263,38 @@ describe("sessions", () => {
     ).toHaveLength(2);
   });
 
-  it("ends the open session when the engine says the source ended", () => {
+  it("keeps the session open when the source goes away, and closes it after a minute", () => {
     drive(syntheticSession({ laps: 2 }));
     expect(recorder.activeSessionId).not.toBeNull();
     recorder.end("sourceSwitch");
+    expect(recorder.activeSessionId).not.toBeNull();
+    clock.now = NOW + 30_000;
+    recorder.flush();
+    expect(recorder.activeSessionId).not.toBeNull();
+    clock.now = NOW + 61_000;
+    recorder.flush();
     expect(recorder.activeSessionId).toBeNull();
-    const [row] = rows<{ end_reason: string }>("SELECT end_reason FROM sessions");
-    expect(row?.end_reason).toBe("sourceSwitch");
+    const [row] = rows<{ end_reason: string; ended_at: number }>(
+      "SELECT end_reason, ended_at FROM sessions",
+    );
+    // It ended when the source left, not when we noticed.
+    expect(row).toEqual({ end_reason: "sourceSwitch", ended_at: NOW });
+  });
+
+  it("stop closes a session that was waiting for its source, with the earlier reason", () => {
+    drive(syntheticSession({ laps: 2 }));
+    recorder.end("sourceSwitch");
+    clock.now = NOW + 5000;
+    recorder.end("stop");
+    expect(recorder.activeSessionId).toBeNull();
+    expect(rows("SELECT end_reason, ended_at FROM sessions")).toEqual([
+      { end_reason: "sourceSwitch", ended_at: NOW },
+    ]);
   });
 
   it("drops a connection flicker that holds no laps and only seconds of data", () => {
     drive(syntheticSession({ laps: 0, tailS: 3 }));
-    recorder.end("sourceSwitch");
+    recorder.end("stop");
     expect(rows("SELECT id FROM sessions")).toEqual([]);
     expect(existsSync(join(dir, "telemetry", "iracing"))).toBe(true);
     expect(
@@ -295,14 +320,8 @@ describe("sessions", () => {
     expect(sessions).toEqual([{ sim: "iracing", source: "replay" }]);
   });
 
-  it("does not rewrite laps the tracker had before the session opened", () => {
-    const deriver = drive(syntheticSession({ laps: 3 }));
-    recorder.end("sourceSwitch");
-    const before = rows<{ n: number }>("SELECT COUNT(*) AS n FROM laps")[0]?.n;
-    expect(before).toBe(3);
-    // The same sim comes back after a pause; the Deriver (and its tracker) kept its history.
-    const next = [...syntheticSession({ laps: 1, startS: 2000 })];
-    for (const state of next) {
+  function playAgain(deriver: Deriver, startS: number, laps: number): void {
+    for (const state of syntheticSession({ laps, startS })) {
       deriver.next(state);
       recorder.onFrame({
         source: "iracing",
@@ -311,10 +330,61 @@ describe("sessions", () => {
         fuelLaps: deriver.fuelTracker.lapRecords,
       });
     }
+  }
+
+  it("continues one session across a short outage of the same sim", () => {
+    const deriver = drive(syntheticSession({ laps: 3 }));
+    const id = recorder.activeSessionId;
+    recorder.end("sourceSwitch");
+    clock.now = NOW + 20_000;
+    // The same sim comes back; the Deriver (and its tracker) kept its history, then the lap
+    // counter went back, which restarts the tracker's list.
+    playAgain(deriver, 2000, 1);
+    expect(recorder.activeSessionId).toBe(id);
     recorder.end("stop");
-    expect(rows<{ n: number }>("SELECT COUNT(*) AS n FROM sessions")[0]?.n).toBe(2);
-    // The tracker started over when the lap counter went back; the first session keeps its laps.
+    expect(rows<{ n: number }>("SELECT COUNT(*) AS n FROM sessions")[0]?.n).toBe(1);
+    // Lap numbers repeat after the counter reset, so the rows also carry their order.
+    const laps = rows<{ lap_number: number; lap_index: number }>(
+      "SELECT lap_number, lap_index FROM laps ORDER BY lap_index",
+    );
+    expect(laps.map((l) => l.lap_number)).toEqual([1, 2, 3, 1]);
+    expect(laps.map((l) => l.lap_index)).toEqual([1, 2, 3, 4]);
+  });
+
+  it("opens a new session when the outage lasted more than a minute", () => {
+    const deriver = drive(syntheticSession({ laps: 3 }));
+    recorder.end("sourceSwitch");
+    clock.now = NOW + 61_000;
+    playAgain(deriver, 2000, 1);
+    recorder.end("stop");
+    const sessions = rows<{ end_reason: string; ended_at: number }>(
+      "SELECT end_reason, ended_at FROM sessions ORDER BY started_at, id",
+    );
+    expect(sessions).toHaveLength(2);
+    expect(sessions.map((s) => s.end_reason).sort()).toEqual(["sourceSwitch", "stop"]);
     expect(rows<{ n: number }>("SELECT COUNT(*) AS n FROM laps")[0]?.n).toBe(4);
+  });
+
+  it("starts a new session when a different source returns", () => {
+    drive(syntheticSession({ laps: 2, source: "iracing" }));
+    recorder.end("sourceSwitch");
+    drive(syntheticSession({ laps: 2, source: "lmu", startS: 3000 }), new Deriver());
+    recorder.end("stop");
+    expect(rows("SELECT sim, end_reason FROM sessions ORDER BY started_at, sim")).toEqual([
+      { sim: "iracing", end_reason: "sourceSwitch" },
+      { sim: "lmu", end_reason: "stop" },
+    ]);
+  });
+
+  it("looks at a replay again until it shows which sim it is", () => {
+    recorder.shutdown();
+    setup({ recordSynthetic: true });
+    const states = [...syntheticSession({ laps: 2, source: "replay" })];
+    // The first second has no incident count: nothing says iRacing yet.
+    for (const state of states.slice(0, 10)) state.player.incidentCount = null;
+    drive(states);
+    recorder.end("stop");
+    expect(rows("SELECT sim FROM sessions")).toEqual([{ sim: "iracing" }]);
   });
 });
 
@@ -348,6 +418,92 @@ describe("crash tolerance", () => {
     );
     expect(file.complete).toBe(false);
     expect(file.groups["player"]?.samples).toBe(600);
+  });
+});
+
+describe("stints and counter drops", () => {
+  it("closes the last stint at the highest lap even when the counter drops at the end", () => {
+    const states = [...syntheticSession({ laps: 4 })];
+    // After the flag the sim resets the car to the pits and the lap counter falls to 0.
+    for (const state of states.slice(-30)) {
+      const car = state.cars[0];
+      if (car) {
+        car.lapsCompleted = 0;
+        car.lapInProgress = 1;
+      }
+    }
+    drive(states);
+    recorder.shutdown();
+    const stints = rows<{ start_lap: number; end_lap: number }>(
+      "SELECT start_lap, end_lap FROM stints ORDER BY stint_number",
+      openReader(),
+    );
+    expect(stints).toEqual([{ start_lap: 1, end_lap: 5 }]);
+  });
+});
+
+describe("a failing database", () => {
+  it("keeps the session and its laps when the first transaction fails", () => {
+    const states = [...syntheticSession({ laps: 3 })];
+    const deriver = drive(states.slice(0, 1500));
+    const real = store.transaction.bind(store);
+    let failed = 0;
+    vi.spyOn(store, "transaction").mockImplementation((work) => {
+      if (failed++ < 1) {
+        // Run the work, then fail: the rollback must not lose the rows.
+        real(() => {
+          work();
+          throw new Error("disk hiccup");
+        });
+        return;
+      }
+      real(work);
+    });
+    recorder.flush();
+    expect(logs.join("\n")).toMatch(/disk hiccup/);
+    expect(rows("SELECT id FROM sessions")).toEqual([]);
+    drive(states.slice(1500), deriver, false);
+    recorder.flush();
+    recorder.shutdown();
+    const db = openReader();
+    expect(rows("SELECT id FROM sessions", db)).toHaveLength(1);
+    expect(
+      rows<{ lap_number: number }>("SELECT lap_number FROM laps ORDER BY lap_index", db).map(
+        (l) => l.lap_number,
+      ),
+    ).toEqual([1, 2, 3]);
+    expect(rows("SELECT id FROM stints", db)).toHaveLength(1);
+  });
+
+  it("empty flushes do not hide a database that keeps failing", () => {
+    store.db.exec("PRAGMA foreign_keys = OFF");
+    store.db.exec("DROP TABLE sessions");
+    drive([...syntheticSession({ laps: 1 })].slice(0, 20));
+    for (let i = 0; i < 4; i++) recorder.flush();
+    recorder.end("stop");
+    for (let i = 0; i < 3; i++) recorder.flush();
+    expect(logs.join("\n")).toMatch(/too many errors/);
+  });
+
+  it("a failing tier 2 file ends tier 2 for the session and leaves tier 1 alone", () => {
+    recorder.shutdown();
+    setup({ partialChunkMs: 0 });
+    const states = [...syntheticSession({ laps: 2 })];
+    const deriver = drive(states.slice(0, 700));
+    vi.spyOn(FileSink.prototype, "append").mockImplementation(() => {
+      throw new Error("disk full");
+    });
+    recorder.flush();
+    expect(logs.join("\n")).toMatch(/telemetry file abandoned: Error: disk full/);
+    vi.restoreAllMocks();
+    drive(states.slice(700), deriver, false);
+    recorder.shutdown();
+    const db = openReader();
+    expect(rows("SELECT id FROM laps", db)).toHaveLength(2);
+    expect(rows<{ end_reason: string }>("SELECT end_reason FROM sessions", db)[0]?.end_reason).toBe(
+      "stop",
+    );
+    expect(logs.join("\n")).not.toMatch(/too many errors/);
   });
 });
 

@@ -18,7 +18,7 @@ import {
   type SimSource,
   type SimState,
 } from "@overlay/sim-core";
-import { FileSink, monthOf, openTier2File, tier2RelativePath, writeManifest } from "./files";
+import { FileSink, openTier2File, tier2RelativePath, writeManifest } from "./files";
 import { recordingSim } from "./sim";
 import { SessionStore, type NewLap, type SessionPatch } from "./store";
 
@@ -56,6 +56,9 @@ export interface SessionRecorderOptions {
   log?: (message: string) => void;
 }
 
+/** Sim name of a replay that has not shown yet which sim it came from (see `recordingSim`). */
+const UNKNOWN_SIM = "replay";
+
 /** A session this short with no rows is a connection flicker, not a session. */
 const MIN_USEFUL_SESSION_S = 10;
 /** How long, in session seconds, a lap waits for the sim to report its time. */
@@ -64,6 +67,10 @@ const LAP_TIME_WAIT_S = 2;
 const META_INTERVAL_S = 1;
 /** After this many errors in a row the recorder stops trying. */
 const MAX_FAILURES = 5;
+/** A recording stays open this long (ms) while its source is away, for the same sim to come back. */
+const RESUME_WINDOW_MS = 60_000;
+/** Rows waiting for the database beyond this mean it is not coming back; recording stops. */
+const MAX_QUEUED_OPS = 200_000;
 
 interface PendingLap {
   row: NewLap;
@@ -86,13 +93,15 @@ interface ActiveSession {
   stintId: string;
   stintNumber: number;
   pending: PendingLap[];
-  meta: SessionPatch;
+  meta: Omit<SessionPatch, "sim">;
   lastMetaS: number | null;
   firstTickS: number | null;
   lastTickS: number | null;
-  lastLap: number;
+  /** Highest lap in progress seen: the counter drops after the flag and in the garage. */
+  maxLap: number;
   lastLastLapS: number | null;
   rowsWritten: number;
+  lapIndex: number;
   air: Mean;
   track: Mean;
   wetnessMax: number | null;
@@ -133,6 +142,8 @@ export class SessionRecorder implements FrameRecorder {
   /** Consecutive errors per kind of work, so that frames succeeding do not hide a failing disk. */
   private readonly failures = { frame: 0, flush: 0 };
   private disabled = false;
+  /** The source went away at this time; the session stays open for a while in case it returns. */
+  private suspended: { reason: EndReason; atMs: number } | null = null;
   private readonly newId = createUuidv7Generator();
   private readonly now: () => number;
 
@@ -154,25 +165,48 @@ export class SessionRecorder implements FrameRecorder {
     if (this.disabled || !this.wants(frame.source)) return;
     if (!frame.state.connected) return;
     this.guard(() => {
-      if (
-        this.active !== null &&
-        (this.active.sessionNum !== frame.sessionNum || this.active.source !== frame.source)
-      ) {
-        this.finish("sessionChange");
+      const active = this.active;
+      if (active !== null) {
+        const sameSession =
+          active.sessionNum === frame.sessionNum && active.source === frame.source;
+        const back =
+          this.suspended === null || this.now() - this.suspended.atMs <= RESUME_WINDOW_MS;
+        if (sameSession && back) this.suspended = null;
+        else this.finishOpen(this.suspended === null ? "sessionChange" : null);
       }
       this.active ??= this.open(frame);
       this.track(this.active, frame);
     });
   }
 
+  /**
+   * The engine says the source went away. A live sim that comes back within a minute with the
+   * same session number continues the same recording; anything else closes it.
+   */
   end(reason: EndReason): void {
     if (this.active === null) return;
-    this.guard(() => this.finish(reason));
+    if (reason === "sourceSwitch") {
+      this.suspended ??= { reason, atMs: this.now() };
+      return;
+    }
+    this.guard(() => this.finishOpen(reason));
+  }
+
+  /** Closes the open session with its own reason when it was suspended, else with `reason`. */
+  private finishOpen(reason: EndReason | null): void {
+    const suspended = this.suspended;
+    this.suspended = null;
+    if (suspended !== null) this.finish(suspended.reason, suspended.atMs);
+    else this.finish(reason ?? "sessionChange");
   }
 
   /** Writes what is queued and every full tier 2 chunk. */
   flush(): void {
     if (this.disabled) return;
+    const suspended = this.suspended;
+    if (suspended !== null && this.now() - suspended.atMs > RESUME_WINDOW_MS) {
+      this.guard(() => this.finishOpen(null));
+    }
     this.guard(() => this.flushNow(), "flush");
   }
 
@@ -180,7 +214,7 @@ export class SessionRecorder implements FrameRecorder {
   shutdown(reason: EndReason = "stop"): void {
     clearInterval(this.timer);
     this.timer = undefined;
-    this.end(reason);
+    this.guard(() => this.finishOpen(reason));
     this.guard(() => this.flushNow(), "flush");
     try {
       this.store.close();
@@ -195,10 +229,10 @@ export class SessionRecorder implements FrameRecorder {
   }
 
   /** Recording must never break telemetry: errors are logged and, if they keep coming, stop it. */
-  private guard(work: () => void, kind: "frame" | "flush" = "frame"): void {
+  private guard(work: () => boolean | void, kind: "frame" | "flush" = "frame"): void {
     try {
-      work();
-      this.failures[kind] = 0;
+      // An empty flush proves nothing about the disk, so it does not clear the failure count.
+      if (work() !== false) this.failures[kind] = 0;
     } catch (error) {
       this.failures[kind]++;
       this.options.log?.(`recorder: ${String(error)}`);
@@ -254,9 +288,10 @@ export class SessionRecorder implements FrameRecorder {
       lastMetaS: state.tickTimeS,
       firstTickS: state.tickTimeS,
       lastTickS: state.tickTimeS,
-      lastLap: lap,
+      maxLap: lap,
       lastLastLapS: player?.lastLapS ?? null,
       rowsWritten: 0,
+      lapIndex: 0,
       air: new Mean(),
       track: new Mean(),
       wetnessMax: null,
@@ -330,7 +365,8 @@ export class SessionRecorder implements FrameRecorder {
       s.firstTickS ??= tick;
       s.lastTickS = tick;
     }
-    if (player !== null) s.lastLap = lapInProgress(player);
+    if (player !== null) s.maxLap = Math.max(s.maxLap, lapInProgress(player));
+    this.trackSim(s, frame);
     s.air.add(state.conditions.airTempC);
     s.track.add(state.conditions.trackTempC);
     const wet = state.conditions.wetness;
@@ -342,8 +378,37 @@ export class SessionRecorder implements FrameRecorder {
     this.resolvePending(s, state);
     this.trackIncidents(s, state);
     this.trackPits(s, state);
-    s.tier2?.sampler.accept(state);
+    this.sampleTier2(s, state);
     s.lastLastLapS = player?.lastLapS ?? s.lastLastLapS;
+  }
+
+  /** A replay of an unknown sim is looked at again until its state shows which sim it is. */
+  private trackSim(s: ActiveSession, frame: RecorderFrame): void {
+    if (s.sim !== UNKNOWN_SIM) return;
+    const sim = recordingSim(frame.source, frame.state);
+    if (sim === s.sim) return;
+    s.sim = sim;
+    this.enqueue((now) => this.store.updateSession(s.id, { sim }, now));
+  }
+
+  /** A failing tier 2 file ends tier 2 for this session; tier 1 carries on. */
+  private sampleTier2(s: ActiveSession, state: SimState): void {
+    try {
+      s.tier2?.sampler.accept(state);
+    } catch (error) {
+      this.dropTier2(s, error);
+    }
+  }
+
+  private dropTier2(s: ActiveSession, error: unknown): void {
+    this.options.log?.(`recorder: telemetry file abandoned: ${String(error)}`);
+    const files = s.tier2;
+    s.tier2 = null;
+    try {
+      files?.sink.close();
+    } catch {
+      // Nothing more can be done for a file that will not close.
+    }
   }
 
   private trackMeta(s: ActiveSession, state: SimState): void {
@@ -359,7 +424,7 @@ export class SessionRecorder implements FrameRecorder {
     // The YAML may arrive after the first frames: a known value replaces an unknown one, and a
     // value the sim later corrects replaces the old one.
     const patch: SessionPatch = {};
-    for (const key of Object.keys(next) as (keyof SessionPatch)[]) {
+    for (const key of Object.keys(next) as (keyof typeof next)[]) {
       const value = next[key];
       if (value !== null && value !== undefined && value !== s.meta[key]) {
         Object.assign(patch, { [key]: value });
@@ -390,6 +455,7 @@ export class SessionRecorder implements FrameRecorder {
     const row: NewLap = {
       id: this.newId(this.now()),
       session_id: s.id,
+      lap_index: 0,
       lap_number: record.lapNumber,
       lap_time_s: null,
       sector_times_json: null,
@@ -440,7 +506,8 @@ export class SessionRecorder implements FrameRecorder {
   }
 
   private finishLap(s: ActiveSession, p: PendingLap, lapTimeS: number | null): void {
-    const row = { ...p.row, lap_time_s: lapTimeS };
+    s.lapIndex++;
+    const row = { ...p.row, lap_index: s.lapIndex, lap_time_s: lapTimeS };
     s.rowsWritten++;
     this.enqueue((now) => this.store.insertLap(row, now));
   }
@@ -493,7 +560,7 @@ export class SessionRecorder implements FrameRecorder {
 
   // ---- Closing and flushing -----------------------------------------------------------------
 
-  private finish(reason: EndReason): void {
+  private finish(reason: EndReason, endedAt: number = this.now()): void {
     const s = this.active;
     if (s === null) return;
     this.active = null;
@@ -509,8 +576,8 @@ export class SessionRecorder implements FrameRecorder {
       this.enqueue(() => this.store.deleteSession(s.id));
     } else {
       const endedStint = s.stintId;
-      const lap = s.lastLap;
-      const patch = this.finalPatch(s, reason);
+      const lap = s.maxLap;
+      const patch = this.finalPatch(s, reason, endedAt);
       this.enqueue((now) => {
         this.store.endStint(endedStint, lap, now);
         this.store.updateSession(s.id, patch, now);
@@ -520,9 +587,9 @@ export class SessionRecorder implements FrameRecorder {
     if (useful) this.refreshManifest(s);
   }
 
-  private finalPatch(s: ActiveSession, reason: EndReason): SessionPatch {
+  private finalPatch(s: ActiveSession, reason: EndReason, endedAt: number): SessionPatch {
     return {
-      ended_at: this.now(),
+      ended_at: endedAt,
       end_reason: reason,
       air_temp_c: s.air.value,
       track_temp_c: s.track.value,
@@ -536,6 +603,8 @@ export class SessionRecorder implements FrameRecorder {
     s.tier2 = null;
     try {
       if (keep) files.writer.close();
+    } catch (error) {
+      this.options.log?.(`recorder: telemetry file not finished: ${String(error)}`);
     } finally {
       files.sink.close();
     }
@@ -549,7 +618,7 @@ export class SessionRecorder implements FrameRecorder {
     const dir = this.options.telemetryDir;
     if (dir === null || s.tier2Path === null) return;
     try {
-      writeManifest(join(dir, s.sim, monthOf(s.startedAt)), this.now());
+      writeManifest(join(dir, ...s.tier2Path.split("/").slice(0, -1)), this.now());
     } catch (error) {
       this.options.log?.(`recorder: manifest not written: ${String(error)}`);
     }
@@ -559,10 +628,23 @@ export class SessionRecorder implements FrameRecorder {
     this.queue.push(op);
   }
 
-  private flushNow(): void {
-    const ops = this.queue;
-    this.queue = [];
+  /**
+   * Writes the queued rows in one transaction. The queue is only emptied once the transaction
+   * committed: after a failure the same rows are tried again by the next flush, so a session row
+   * is never lost to a passing error. Returns false when there was nothing to write.
+   */
+  private flushNow(): boolean {
     const s = this.active;
+    this.flushTier2(s);
+    const queued = this.queue.length;
+    if (queued > MAX_QUEUED_OPS) {
+      this.queue = [];
+      this.disabled = true;
+      this.options.log?.("recorder: database not writable, recording stopped until restart");
+      return true;
+    }
+    if (queued === 0 && s === null) return false;
+    const ops = [...this.queue];
     if (s !== null) {
       const patch: SessionPatch = {
         air_temp_c: s.air.value,
@@ -571,22 +653,28 @@ export class SessionRecorder implements FrameRecorder {
       };
       ops.push((now) => this.store.updateSession(s.id, patch, now));
     }
-    if (ops.length > 0) {
-      const now = this.now();
-      this.store.transaction(() => {
-        for (const op of ops) op(now);
-      });
-    }
-    if (s?.tier2) {
+    const now = this.now();
+    this.store.transaction(() => {
+      for (const op of ops) op(now);
+    });
+    this.queue.splice(0, queued);
+    return true;
+  }
+
+  private flushTier2(s: ActiveSession | null): void {
+    if (!s?.tier2) return;
+    try {
       const due = this.now() - s.tier2.flushedAt >= (this.options.partialChunkMs ?? 10_000);
       s.tier2.writer.flush(due);
       if (due) s.tier2.flushedAt = this.now();
+    } catch (error) {
+      this.dropTier2(s, error);
     }
   }
 }
 
 /** The session facts a state can give; unknown ones are null. No driver names. */
-function sessionMeta(state: SimState): SessionPatch {
+function sessionMeta(state: SimState): Omit<SessionPatch, "sim"> {
   const car = playerCar(state);
   const s = state.session;
   return {

@@ -29,7 +29,7 @@ describe("migrations", () => {
   it("builds the whole schema from an empty database and records the version", () => {
     const db = new DatabaseSync(":memory:");
     expect(currentVersion(db)).toBe(0);
-    expect(migrate(db, MIGRATIONS, 123)).toBe(1);
+    expect(migrate(db, MIGRATIONS, 123)).toBe(2);
     expect(tables(db)).toEqual([
       "incidents",
       "laps",
@@ -40,6 +40,7 @@ describe("migrations", () => {
     ]);
     expect(db.prepare("SELECT version, name, applied_at FROM schema_version").all()).toEqual([
       { version: 1, name: "initial", applied_at: 123 },
+      { version: 2, name: "lap_index", applied_at: 123 },
     ]);
   });
 
@@ -76,6 +77,7 @@ describe("migrations", () => {
     expect(columns(db, "laps")).toEqual(
       expect.arrayContaining([
         "session_id",
+        "lap_index",
         "lap_number",
         "lap_time_s",
         "sector_times_json",
@@ -109,36 +111,60 @@ describe("migrations", () => {
     );
   });
 
+  it("upgrades a version 1 database: lap_index is filled in insertion order", () => {
+    const db = new DatabaseSync(":memory:");
+    migrate(db, MIGRATIONS.slice(0, 1));
+    db.exec("PRAGMA foreign_keys = OFF");
+    for (const [id, session, lap] of [
+      ["a", "s1", 1],
+      ["b", "s1", 2],
+      ["c", "s1", 1],
+      ["d", "s2", 5],
+    ] as const) {
+      db.prepare(
+        `INSERT INTO laps (id, created_at, updated_at, session_id, lap_number, fuel_valid, pit_lap)
+         VALUES (?, 0, 0, ?, ?, 1, 0)`,
+      ).run(id, session, lap);
+    }
+    expect(migrate(db)).toBe(2);
+    expect(db.prepare("SELECT id, lap_index FROM laps ORDER BY id").all()).toEqual([
+      { id: "a", lap_index: 1 },
+      { id: "b", lap_index: 2 },
+      { id: "c", lap_index: 3 },
+      { id: "d", lap_index: 1 },
+    ]);
+  });
+
   it("is idempotent: running again changes nothing", () => {
     const db = new DatabaseSync(":memory:");
     migrate(db);
     migrate(db);
-    expect(db.prepare("SELECT COUNT(*) AS n FROM schema_version").get()).toEqual({ n: 1 });
+    expect(db.prepare("SELECT COUNT(*) AS n FROM schema_version").get()).toEqual({ n: 2 });
   });
 
   it("applies only the migrations that are missing", () => {
     const db = new DatabaseSync(":memory:");
     migrate(db);
     const second: Migration = {
-      version: 2,
+      version: 3,
       name: "add_note",
       sql: "ALTER TABLE sessions ADD COLUMN note TEXT",
     };
-    expect(migrate(db, [...MIGRATIONS, second])).toBe(2);
+    expect(migrate(db, [...MIGRATIONS, second])).toBe(3);
     expect(columns(db, "sessions")).toContain("note");
-    expect(currentVersion(db)).toBe(2);
+    expect(currentVersion(db)).toBe(3);
   });
 
   it("rolls a failing migration back completely and leaves the version alone", () => {
     const db = new DatabaseSync(":memory:");
     migrate(db);
     const broken: Migration = {
-      version: 2,
+      version: 3,
       name: "broken",
       sql: "CREATE TABLE half (id TEXT); INSERT INTO nowhere VALUES (1);",
     };
     expect(() => migrate(db, [...MIGRATIONS, broken])).toThrow();
-    expect(currentVersion(db)).toBe(1);
+    expect(currentVersion(db)).toBe(2);
     expect(tables(db)).not.toContain("half");
   });
 
