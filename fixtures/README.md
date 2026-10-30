@@ -25,8 +25,12 @@ The recordings come from online sessions. Slices are redacted by the slicer:
   `UserID`, `DriverUserID` and non-zero `TeamID` become synthetic numbers, `TelemetryDiskFile`
   is blanked.
 - LMU: driver names (and abbreviations such as the pit menu's `F Last`) are replaced in REST bodies
-  (`Driver <slotID>`) and overwritten in place in the raw `LMU_Data` buffer. Team names become
-  `Team <slotID>` in REST. Car and livery names are game content and stay.
+  (`Driver <slotID>`). In the raw `LMU_Data` buffer the name fields are overwritten by offset
+  (see `adapters/lmu/layout.ts`): every driver name becomes `Driver <id>`, the player name too, the
+  player file name becomes `player`, the user-data path block becomes `C:\LMU\path<n>`, Steam IDs
+  are zeroed and the results stream (free text with names) is zeroed. A name search over the
+  whole buffer then runs as a second net. Team names become `Team <slotID>` in REST. Car and
+  livery names are game content and stay.
 
 Make a new slice with `pnpm --filter @overlay/sim-core slice <in> <out> --from <s> --to <s>`
 (use absolute paths; pnpm runs the script from `packages/sim-core`), and check it with

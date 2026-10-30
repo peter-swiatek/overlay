@@ -1,6 +1,16 @@
 import { createReadStream, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import {
+  LMU_MAX_VEHICLES,
+  PATHS,
+  RESULTS_STREAM,
+  SCORING_BASE,
+  SESSION,
+  VEHICLE,
+  VEHICLE_ROWS_OFFSET,
+  VEHICLE_STRIDE,
+} from "../adapters/lmu/layout";
 import { RecordKind } from "./format";
 import { LmuRedactor } from "./redact";
 import { FixtureReader } from "./reader";
@@ -35,8 +45,6 @@ describe("committed fixture slices", () => {
     expect(reader.summary?.["redacted"]).toBe(true);
   });
 
-  // TODO(M1-3): the LMU_Data buffer is redacted by searching for known names. Once the LMU
-  // adapter knows the buffer layout, redact the name fields by offset and assert them here.
   it.each(files)("%s carries only synthetic ids and names", async (name) => {
     const reader = new FixtureReader(createReadStream(`${dir}${name}`));
     const redactor = new LmuRedactor();
@@ -58,6 +66,7 @@ describe("committed fixture slices", () => {
           expect(m[1]).toMatch(/^Driver [\d?]+$/);
         }
       }
+      if (record.kind === RecordKind.LmuBuffer) expectBufferRedacted(record.payload);
       if (record.kind === RecordKind.RestResponse) {
         redactor.observe(JSON.parse(record.payload.toString("utf8")));
       }
@@ -69,3 +78,32 @@ describe("committed fixture slices", () => {
     }
   });
 });
+
+/** Every name-bearing field of an LMU_Data buffer holds only synthetic text. */
+function expectBufferRedacted(payload: Buffer): void {
+  const text = (offset: number, length: number): string => {
+    const slice = payload.subarray(offset, offset + length);
+    const end = slice.indexOf(0);
+    return slice.subarray(0, end < 0 ? length : end).toString("latin1");
+  };
+  const count = payload.readInt32LE(SCORING_BASE + SESSION.numVehicles);
+  for (let i = 0; i < LMU_MAX_VEHICLES; i++) {
+    const row = VEHICLE_ROWS_OFFSET + i * VEHICLE_STRIDE;
+    const driver = text(row + VEHICLE.driverName.offset, VEHICLE.driverName.length);
+    if (i < count) expect(driver).toBe(`Driver ${payload.readInt32LE(row)}`);
+    else expect(driver).toBe("");
+    expect(payload.readBigUInt64LE(row + VEHICLE.steamId)).toBe(0n);
+  }
+  expect(text(SCORING_BASE + SESSION.playerName.offset, SESSION.playerName.length)).toMatch(
+    /^Driver \d+$/,
+  );
+  expect(text(SCORING_BASE + SESSION.playerFileName.offset, 64)).toBe("player");
+  for (let i = 0; i < PATHS.count; i++) {
+    expect(text(PATHS.offset + i * PATHS.size, PATHS.size)).toMatch(/^(C:\\LMU\\path\d)?$/);
+  }
+  const stream = payload.subarray(
+    RESULTS_STREAM.offset,
+    RESULTS_STREAM.offset + RESULTS_STREAM.length,
+  );
+  expect(stream.every((byte) => byte === 0)).toBe(true);
+}
