@@ -20,6 +20,8 @@ export class OverlayManager {
   private editMode = false;
   private visible = true;
   private saveTimer: NodeJS.Timeout | undefined;
+  /** Asks the z-order keeper to re-raise the overlays (never activates them). */
+  onShouldRaise: (() => void) | undefined;
 
   constructor(
     private readonly store: LayoutStore,
@@ -49,6 +51,11 @@ export class OverlayManager {
     }
   }
 
+  /** The overlay windows, for the z-order keeper. */
+  getWindows(): BrowserWindow[] {
+    return [...this.windows.values()];
+  }
+
   private create(id: OverlayId, bounds: Bounds): void {
     const win = new BrowserWindow(buildOverlayWindowOptions({ bounds, preloadPath }));
     this.windows.set(id, win);
@@ -69,7 +76,10 @@ export class OverlayManager {
 
     void loadPage(win, "overlay", { id });
     win.once("ready-to-show", () => {
-      if (this.visible) win.showInactive();
+      if (this.visible) {
+        win.showInactive();
+        this.onShouldRaise?.();
+      }
     });
   }
 
@@ -79,6 +89,7 @@ export class OverlayManager {
       if (visible) win.showInactive();
       else win.hide();
     }
+    if (visible) this.onShouldRaise?.();
     this.onStateChange();
   }
 
@@ -95,7 +106,10 @@ export class OverlayManager {
       win.webContents.send(IPC.editModeChanged, editing);
       if (!editing) win.blur();
     }
-    if (!editing) this.flushSave();
+    if (!editing) {
+      this.flushSave();
+      this.onShouldRaise?.();
+    }
     this.onStateChange();
   }
 

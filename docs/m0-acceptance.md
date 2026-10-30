@@ -4,35 +4,36 @@ Goal: prove the overlay windows behave over a running sim. Record results next t
 
 ## Install
 
-- [ ] Download the `overlay-windows-installer` artifact from the CI run, unzip, run `Overlay-Setup-<version>.exe`. It is unsigned, so SmartScreen warns: More info, Run anyway. Install is per-user (no admin prompt).
-- [ ] A tray icon (amber square) appears, and the app starts quietly (the settings window does not open by itself, so it cannot steal focus from the sim). Open it from the tray: double-click the icon or choose "Show settings".
+- [X] Download the `overlay-windows-installer` artifact from the CI run, unzip, run `Overlay-Setup-<version>.exe`. It is unsigned, so SmartScreen warns: More info, Run anyway. Install is per-user (no admin prompt).
+- [X] A tray icon (amber square) appears, and the app starts quietly (the settings window does not open by itself, so it cannot steal focus from the sim). Open it from the tray: double-click the icon or choose "Show settings".
 
 ## With the sim running
 
 Run iRacing, then LMU, each in **borderless windowed** mode, on the same monitor as the overlays.
 
-- [ ] Both overlays ("Demo Relative" table, "Demo Inputs" bars) show above the sim and stay on top.
-- [ ] No black or opaque rectangle behind them; the sim is visible through the transparent area.
-- [ ] Table updates smoothly (10 Hz); bars move smoothly (60 Hz).
-- [ ] Click-through: clicking, scrolling the mouse wheel and pressing keys over an overlay reaches the sim.
-- [ ] Focus: the sim never loses focus when overlays appear or update (no alt-tab flicker, no pause, wheel and pedal/keyboard input keep working).
-- [ ] No taskbar button for the overlays.
+- [X] Both overlays ("Demo Relative" table, "Demo Inputs" bars) show above the sim and stay on top.
+- [X] No black or opaque rectangle behind them; the sim is visible through the transparent area.
+- [X] Table updates smoothly (10 Hz); bars move smoothly (60 Hz).
+- [X] Click-through: clicking, scrolling the mouse wheel and pressing keys over an overlay reaches the sim:
+- [X] Focus: the sim never loses focus when overlays appear or update (no alt-tab flicker, no pause, wheel and pedal/keyboard input keep working).
+- [ ] Re-test: click on the sim, then check the overlays are still on top. The app re-raises the overlays (without focusing them) whenever the foreground window changes. If the overlays flicker or still lose to the sim, note which sim and its display mode.
+- [ ] No taskbar button for the overlays. How to check: look at the Windows taskbar while the overlays are showing. Pass = no "Overlay" button for them (only the tray icon, plus the settings window button when it is open). Previously: unsure how to test.
 
 ## Edit mode
 
 Toggle with the tray menu or Ctrl+Shift+F10.
 
-- [ ] Overlays show a dashed amber outline and their name.
-- [ ] Drag an overlay by its frame; it moves.
-- [ ] Drag the bottom-right grip; it resizes and stops at a minimum size.
-- [ ] Leave edit mode: overlays are click-through again and the sim keeps focus.
-- [ ] Quit from the tray, start again: positions and sizes are restored.
-- [ ] "Toggle overlays visible" hides and shows both without stealing focus.
+- [X] Overlays show a dashed amber outline and their name.
+- [X] Drag an overlay by its frame; it moves.
+- [X] Drag the bottom-right grip; it resizes and stops at a minimum size.
+- [X] Leave edit mode: overlays are click-through again and the sim keeps focus.
+- [X] Quit from the tray, start again: positions and sizes are restored.
+- [X] "Toggle overlays visible" hides and shows both without stealing focus.
 
 ## Performance
 
-- [ ] Note the CPU % and memory per process type from the settings window readout (refreshes every 2 s) while the sim runs: ______
-- [ ] Note Overlay's CPU and GPU in Task Manager (Details tab, add the GPU column) and any sim frame-rate change: ______
+- [X] Note the CPU % and memory per process type from the settings window readout (refreshes every 2 s) while the sim runs: 1.1 CPU and 520mb memory
+- [X] Note Overlay's CPU and GPU in Task Manager (Details tab, add the GPU column) and any sim frame-rate change: 1% CPU and 1% GPU
 
 ## If the overlays are black
 

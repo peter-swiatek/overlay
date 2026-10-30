@@ -10,6 +10,7 @@ import { loadPage, preloadPath } from "./pages";
 import { SettingsStore, isSafeMode, resolveDisplaySettings } from "./settings";
 import { AppTray } from "./tray";
 import { buildSettingsWindowOptions } from "./window-options";
+import { ZOrderKeeper, hwndOf } from "./zorder";
 
 const EDIT_SHORTCUT = "Control+Shift+F10";
 
@@ -30,6 +31,7 @@ let capture: CaptureManager | undefined;
 let shuttingDown = false;
 let lastRecording = false;
 let lastCaptureError: string | null = null;
+let zorder: ZOrderKeeper | undefined;
 
 function showSettings(): void {
   if (settingsWindow && !settingsWindow.isDestroyed()) {
@@ -132,6 +134,19 @@ if (!app.requestSingleInstanceLock()) {
       },
     );
 
+    // Windows only: keep overlays above sims that re-assert their own z-order when activated.
+    const keeper = new ZOrderKeeper({
+      getOverlays: () => manager.getWindows(),
+      getOwnHandles: () => BrowserWindow.getAllWindows().map((w) => hwndOf(w)),
+      loadNative:
+        process.platform === "win32"
+          ? async (onForeground) => (await import("./zorder-win32")).loadWin32ZOrder(onForeground)
+          : undefined,
+    });
+    zorder = keeper;
+    manager.onShouldRaise = () => keeper.requestRaise();
+    void keeper.start();
+
     tray = new AppTray(manager, capture, { showSettings, quit: () => app.quit() });
 
     if (!globalShortcut.register(EDIT_SHORTCUT, () => manager.toggleEditMode())) {
@@ -150,6 +165,7 @@ if (!app.requestSingleInstanceLock()) {
   });
   app.on("will-quit", () => {
     globalShortcut.unregisterAll();
+    zorder?.dispose();
     overlays?.flushSave();
   });
 }
