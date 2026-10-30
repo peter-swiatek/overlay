@@ -2,18 +2,17 @@ name: Release
 
 # Builds the unsigned NSIS installer and publishes it as a GitHub Release asset, so people
 # download the plain .exe instead of a zipped Actions artifact. See docs/releasing.md.
+#
+# - Tag push v<semver>: a release (a prerelease if the semver has a prerelease part).
+# - Manual dispatch from a branch: always a prerelease with a dev version. Dispatch from a tag is rejected.
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
-    inputs:
-      prerelease:
-        description: Mark the release as a prerelease
-        type: boolean
-        default: true
 
+# One release at a time; a running release is never cancelled half way.
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 # The source repo is only read. Releases are written to RELEASES_REPO with RELEASES_TOKEN.
@@ -31,6 +30,12 @@ jobs:
       run:
         shell: bash
     steps:
+      - name: Check trigger
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "::error::Run this workflow from a branch, not a tag. Stable releases come from pushing a v<semver> tag; dispatch only publishes dev prereleases."
+            exit 1
+          fi
       - name: Check release credentials
         env:
           RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
@@ -47,15 +52,17 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      # Writes OVERLAY_* and BUILD_NUMBER to $GITHUB_ENV. On a tag push it fails when the tag
+      # and apps/desktop/package.json disagree. Dispatch builds are <version>-dev.<run>.
+      - name: Compute version
+        run: node apps/desktop/scripts/version-cli.mjs --word dev
+      - name: Verify version
+        run: ': "${OVERLAY_VERSION:?version script did not export OVERLAY_VERSION}"'
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm typecheck
       - run: pnpm test
-      # Writes OVERLAY_* and BUILD_NUMBER to $GITHUB_ENV. On a tag push it fails when the tag
-      # and apps/desktop/package.json disagree.
-      - name: Compute version
-        run: node apps/desktop/scripts/version.mjs
       - run: pnpm --filter @overlay/desktop build
       - name: Package installer
         run: >-
@@ -65,7 +72,6 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
-          DISPATCH_PRERELEASE: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease }}
         working-directory: apps/desktop/release
         run: |
           set -euo pipefail
@@ -75,17 +81,24 @@ jobs:
             test -f "$f" || { echo "::error::Missing build output $f"; exit 1; }
           done
 
-          prerelease=()
-          if [ "$DISPATCH_PRERELEASE" = "true" ] || [[ "$OVERLAY_VERSION" == *-* ]]; then
-            prerelease=(--prerelease)
+          # Dispatch builds and any semver with a prerelease part are prereleases. Computed once
+          # and passed explicitly, so a re-run never keeps a stale flag.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [[ "$OVERLAY_VERSION" == *-* ]]; then
+            is_pre=true
+            latest=false
+          else
+            is_pre=false
+            latest=true
           fi
 
           # Public repo: no generated notes and no commit messages.
           notes="Overlay ${OVERLAY_VERSION}, built $(date -u +%Y-%m-%d). Unsigned Windows installer: if SmartScreen warns, choose More info, then Run anyway."
 
+          # Draft first, so a failed upload never leaves an empty public release.
           if gh release view "$tag" --repo "$RELEASES_REPO" >/dev/null 2>&1; then
-            gh release edit "$tag" --repo "$RELEASES_REPO" --title "Overlay ${OVERLAY_VERSION}" --notes "$notes" "${prerelease[@]}"
+            gh release edit "$tag" --repo "$RELEASES_REPO" --title "Overlay ${OVERLAY_VERSION}" --notes "$notes" --prerelease="$is_pre" --latest="$latest"
           else
-            gh release create "$tag" --repo "$RELEASES_REPO" --title "Overlay ${OVERLAY_VERSION}" --notes "$notes" "${prerelease[@]}"
+            gh release create "$tag" --repo "$RELEASES_REPO" --draft --title "Overlay ${OVERLAY_VERSION}" --notes "$notes" --prerelease="$is_pre" --latest="$latest"
           fi
           gh release upload "$tag" "$exe" "$exe.blockmap" latest.yml --repo "$RELEASES_REPO" --clobber
+          gh release edit "$tag" --repo "$RELEASES_REPO" --draft=false

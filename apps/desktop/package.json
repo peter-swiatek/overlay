@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "icons": "node scripts/generate-icon.mjs",
-    "dist:win": "pnpm run build && electron-builder --win nsis --publish never"
+    "dist:win": "node scripts/dist-win.mjs"
   },
   "dependencies": {
     "electron-updater": "6.8.12",
