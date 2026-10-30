@@ -54,10 +54,15 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      # Writes OVERLAY_* and BUILD_NUMBER to $GITHUB_ENV (see apps/desktop/scripts/version.mjs).
+      # Writes OVERLAY_* and BUILD_NUMBER to $GITHUB_ENV (see apps/desktop/scripts/version-cli.mjs).
+      # On pull requests the displayed sha is the PR head, not the merge commit.
       - name: Compute version
-        run: node apps/desktop/scripts/version.mjs
+        env:
+          OVERLAY_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node apps/desktop/scripts/version-cli.mjs --word ci
+      - name: Verify version
+        run: ': "${OVERLAY_VERSION:?version script did not export OVERLAY_VERSION}"'
+      - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @overlay/desktop build
       - name: Package installer
         run: >-

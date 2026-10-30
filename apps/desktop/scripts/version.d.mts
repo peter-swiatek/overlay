@@ -8,6 +8,7 @@ export function computeBuildIdentity(input: {
   pkgVersion: string;
   tag?: string;
   runNumber?: number | string;
+  devWord?: string;
 }): BuildIdentity;
 export function displayVersion(version: string, channel: string, sha: string): string;
 export function readPackageVersion(): string;
@@ -23,5 +24,6 @@ export function buildEnv(input: {
   tag?: string;
   runNumber?: number | string;
   sha: string;
+  devWord?: string;
   now?: Date;
 }): Record<string, string>;

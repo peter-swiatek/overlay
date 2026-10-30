@@ -1,7 +1,7 @@
 // Computes the build identity (version, channel, Windows file version) for CI and local builds.
 // Pure functions plus a small CLI used by the workflows; see docs/releasing.md.
 import { execFileSync } from "node:child_process";
-import { appendFileSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,9 +21,10 @@ const SEMVER =
  * @param {string} input.pkgVersion Version from apps/desktop/package.json.
  * @param {string} [input.tag] Git tag when the build is a tag push, e.g. "v0.1.0".
  * @param {number | string} [input.runNumber] CI run number. Absent for local builds.
+ * @param {string} [input.devWord] Prerelease word for non-tag CI builds: "ci" (ci.yml) or "dev" (release dispatch).
  * @returns {BuildIdentity}
  */
-export function computeBuildIdentity({ pkgVersion, tag, runNumber }) {
+export function computeBuildIdentity({ pkgVersion, tag, runNumber, devWord = "ci" }) {
   const pkg = SEMVER.exec(pkgVersion);
   if (!pkg || pkgVersion.includes("+")) {
     throw new Error(`apps/desktop/package.json version "${pkgVersion}" is not plain semver`);
@@ -50,7 +51,8 @@ export function computeBuildIdentity({ pkgVersion, tag, runNumber }) {
   }
   if (hasRun) {
     // A prerelease version already has a dot-separated tail to extend.
-    const joiner = pkg[4] ? ".dev." : "-dev.";
+    if (!/^[a-z]+$/.test(devWord)) throw new Error(`Invalid prerelease word "${devWord}"`);
+    const joiner = pkg[4] ? `.${devWord}.` : `-${devWord}.`;
     return {
       version: `${pkgVersion}${joiner}${run}`,
       channel: "dev",
@@ -104,8 +106,8 @@ export function resolveBuildInfo(env = process.env) {
 }
 
 /** Environment variables the workflows export for the build and packaging steps. */
-export function buildEnv({ tag, runNumber, sha, now = new Date() }) {
-  const id = computeBuildIdentity({ pkgVersion: readPackageVersion(), tag, runNumber });
+export function buildEnv({ tag, runNumber, sha, devWord, now = new Date() }) {
+  const id = computeBuildIdentity({ pkgVersion: readPackageVersion(), tag, runNumber, devWord });
   return {
     OVERLAY_VERSION: id.version,
     OVERLAY_CHANNEL: id.channel,
@@ -114,23 +116,4 @@ export function buildEnv({ tag, runNumber, sha, now = new Date() }) {
     OVERLAY_WINDOWS_VERSION: id.windowsVersion,
     BUILD_NUMBER: String(id.runNumber),
   };
-}
-
-// CLI: `node scripts/version.mjs` prints KEY=value lines and, when GITHUB_ENV is set, appends them
-// there. Reads GITHUB_REF_TYPE/GITHUB_REF_NAME, GITHUB_RUN_NUMBER and GITHUB_SHA.
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  try {
-    const e = process.env;
-    const env = buildEnv({
-      tag: e.GITHUB_REF_TYPE === "tag" ? e.GITHUB_REF_NAME : undefined,
-      runNumber: e.GITHUB_RUN_NUMBER,
-      sha: (e.GITHUB_SHA || gitShortSha()).slice(0, 7),
-    });
-    const lines = Object.entries(env).map(([k, v]) => `${k}=${v}`);
-    console.log(lines.join("\n"));
-    if (e.GITHUB_ENV) appendFileSync(e.GITHUB_ENV, `${lines.join("\n")}\n`);
-  } catch (error) {
-    console.error(`::error::${error instanceof Error ? error.message : String(error)}`);
-    process.exit(1);
-  }
 }
