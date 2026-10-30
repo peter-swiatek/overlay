@@ -1,4 +1,10 @@
-import type { TelemetryCommand, TelemetryEvent } from "../shared/telemetry-types";
+import { Deriver } from "@overlay/sim-core";
+import type {
+  TelemetryCommand,
+  TelemetryEvent,
+  TrackOutlineReply,
+  TrackOutlineRequest,
+} from "../shared/telemetry-types";
 import { TelemetryEngine, type EngineDeps } from "./engine";
 import { TelemetryPublisher, type PortLike } from "./publisher";
 
@@ -14,11 +20,15 @@ export interface ServiceDeps extends Omit<EngineDeps, "publish" | "onStatus"> {
 export class TelemetryService {
   readonly publisher: TelemetryPublisher;
   readonly engine: TelemetryEngine;
+  private readonly deriver: Deriver;
 
   constructor(private readonly deps: ServiceDeps) {
     this.publisher = new TelemetryPublisher(deps.monoMs);
+    // The service holds the Deriver too, to answer track outline requests.
+    this.deriver = deps.deriver ?? new Deriver();
     this.engine = new TelemetryEngine({
       ...deps,
+      deriver: this.deriver,
       publish: (frame) => this.publisher.publish(frame, deps.monoMs()),
       onStatus: (status, source, error) =>
         deps.sendToMain({ type: "status", status, source, error }),
@@ -42,7 +52,11 @@ export class TelemetryService {
         break;
       case "subscribe": {
         const port = ports[0];
-        if (port) this.publisher.addSubscriber(port, command.rateHz);
+        if (port) {
+          this.publisher.addSubscriber(port, command.rateHz, (data, reply) =>
+            this.answer(data, reply),
+          );
+        }
         break;
       }
       case "stop":
@@ -51,4 +65,22 @@ export class TelemetryService {
         break;
     }
   }
+
+  private answer(data: unknown, reply: (message: unknown) => void): void {
+    const request = asTrackOutlineRequest(data);
+    if (request === undefined) return;
+    const answer: TrackOutlineReply = {
+      type: "trackOutline",
+      requestId: request.requestId,
+      outline: this.deriver.trackOutline,
+    };
+    reply(answer);
+  }
+}
+
+function asTrackOutlineRequest(data: unknown): TrackOutlineRequest | undefined {
+  if (typeof data !== "object" || data === null) return undefined;
+  const { type, requestId } = data as Partial<TrackOutlineRequest>;
+  const validId = typeof requestId === "number" || typeof requestId === "string";
+  return type === "getTrackOutline" && validId ? { type, requestId } : undefined;
 }

@@ -7,6 +7,7 @@ import {
 } from "../calc/fuel";
 import { MiniSectorRecorder, RollingLapTimes, relativeGap, type GapCarTick } from "../calc/gaps";
 import type { Car, SessionPhase, SessionType, SimState } from "../model";
+import { TrackTracker, type TrackOutline, type TrackOutlineStore } from "../track";
 import { emptyDerived, type Derived, type DerivedGap } from "./frame";
 
 /** The clock going back by more than this means a new session or a restarted replay. */
@@ -25,7 +26,15 @@ const SESSION_STATE_OTHER = 1;
  * Turns each {@link SimState} into {@link Derived} values. Stateful (calculators keep history)
  * but free of I/O and timers, so the same input sequence always gives the same output.
  */
+export interface DeriverOptions {
+  /** Where track outlines are kept between runs; without it they live only in memory. */
+  trackOutlines?: TrackOutlineStore;
+  /** Clock for outline timestamps. */
+  now?: () => Date;
+}
+
 export class Deriver {
+  private readonly track: TrackTracker;
   private fuel = new FuelTracker();
   private recorder = new MiniSectorRecorder();
   private laps = new RollingLapTimes();
@@ -33,6 +42,13 @@ export class Deriver {
   private lastType: SessionType | null = null;
   private lastTickS: number | null = null;
   private fuelSamples = 0;
+
+  constructor(options: DeriverOptions = {}) {
+    this.track = new TrackTracker({
+      ...(options.trackOutlines ? { store: options.trackOutlines } : {}),
+      ...(options.now ? { now: options.now } : {}),
+    });
+  }
 
   /**
    * Forget everything. Call it when the source switches or a replay restarts; session changes
@@ -46,6 +62,7 @@ export class Deriver {
     this.lastType = null;
     this.lastTickS = null;
     this.fuelSamples = 0;
+    this.track.reset();
   }
 
   /** Number of resets so far; this is the `sessionNum` the fuel tracker sees. */
@@ -58,13 +75,27 @@ export class Deriver {
     return this.fuel;
   }
 
+  /** The outline of the track the player is on, once one is known. */
+  get trackOutline(): TrackOutline | null {
+    return this.track.current;
+  }
+
+  /** The tracker, for tests that inspect why a lap was or was not used. */
+  get trackTracker(): TrackTracker {
+    return this.track;
+  }
+
   next(state: SimState): Derived {
     if (!state.connected) return emptyDerived();
     this.detectSessionChange(state);
     const tickS = state.tickTimeS;
     const player = findPlayer(state);
     if (tickS !== null) this.recordCars(state, tickS);
-    return { fuel: this.updateFuel(state, player, tickS), gaps: this.gaps(state, player) };
+    return {
+      fuel: this.updateFuel(state, player, tickS),
+      gaps: this.gaps(state, player),
+      track: this.track.update(state, player),
+    };
   }
 
   private detectSessionChange(state: SimState): void {

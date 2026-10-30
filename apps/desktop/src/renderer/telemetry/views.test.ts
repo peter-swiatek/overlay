@@ -21,6 +21,7 @@ function liveFrame(gaps: Record<number, number | null>, player: number | null = 
     state,
     derived: {
       fuel: null,
+      track: { trackKey: null, outlineReady: false },
       gaps: Object.entries(gaps).map(([carIdx, gapS]) => ({
         carIdx: Number(carIdx),
         gapS,

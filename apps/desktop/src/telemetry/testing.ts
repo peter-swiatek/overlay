@@ -1,6 +1,12 @@
 import { createReadStream } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { FixtureReader, RecordKind, type FixtureRecord } from "@overlay/sim-core";
+import {
+  FixtureReader,
+  OUTLINE_POINTS,
+  RecordKind,
+  type FixtureRecord,
+  type TrackOutline,
+} from "@overlay/sim-core";
 import type { TelemetryFrame } from "@overlay/sim-core";
 import { FakeMapping } from "../capture/fakes";
 import type { PortLike } from "./publisher";
@@ -113,4 +119,23 @@ export class FakePort implements PortLike {
   get seqs(): number[] {
     return this.sent.map((f) => f.seq);
   }
+}
+
+/** A round outline for a track key, as if built from one clean lap. */
+export function outlineFor(trackKey: string, lengthM = 5200): TrackOutline {
+  const points: [number, number][] = [];
+  for (let i = 0; i < OUTLINE_POINTS; i++) {
+    const a = (2 * Math.PI * i) / OUTLINE_POINTS;
+    points.push([0.5 + 0.5 * Math.sin(a), 0.5 - 0.5 * Math.cos(a)]);
+  }
+  return {
+    version: 1,
+    trackKey,
+    points,
+    scaleM: lengthM / Math.PI,
+    lengthM,
+    source: "integrated",
+    closureErrorM: 3,
+    createdAt: "2026-10-30T12:00:00.000Z",
+  };
 }

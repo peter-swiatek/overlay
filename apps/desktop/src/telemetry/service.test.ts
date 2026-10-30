@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isSimState } from "@overlay/sim-core";
+import { Deriver, isSimState, type TrackOutline, type TrackOutlineStore } from "@overlay/sim-core";
 import type { TelemetryEvent } from "../shared/telemetry-types";
 import { MockTelemetrySource } from "./mock";
 import { ReplayTelemetrySource } from "./replay";
 import { TelemetryService } from "./service";
-import { FakePort, IRACING_RACE_START } from "./testing";
+import { FakePort, IRACING_RACE_START, outlineFor } from "./testing";
 
 function makeService() {
   const events: TelemetryEvent[] = [];
@@ -103,5 +103,84 @@ describe("TelemetryService", () => {
     expect(port.sent.length).toBeGreaterThan(0);
     expect(port.sent.every((f) => f.status === "waiting")).toBe(true);
     expect(events).toEqual([{ type: "status", status: "waiting", source: null, error: null }]);
+  });
+
+  describe("track outlines", () => {
+    const KEY = "iracing_virginia-international-raceway_full-course";
+
+    function serviceWithStore(stored: TrackOutline | null) {
+      const store: TrackOutlineStore = {
+        load: (key) => (stored !== null && key === stored.trackKey ? stored : null),
+        save: () => {},
+      };
+      const service = new TelemetryService({
+        live: {},
+        createReplay: (path, speed, loop) => ReplayTelemetrySource.fromFile(path, { speed, loop }),
+        createMock: () => new MockTelemetrySource(),
+        monoMs: () => performance.now(),
+        sendToMain: () => {},
+        onStopped: () => {},
+        deriver: new Deriver({ trackOutlines: store }),
+      });
+      return service;
+    }
+
+    const replies = (port: FakePort): unknown[] =>
+      (port.sent as unknown[]).filter((m) => (m as { type?: string }).type === "trackOutline");
+
+    it("answers getTrackOutline with the cached outline, outside the frames", async () => {
+      const stored = outlineFor(KEY, 5217);
+      const service = serviceWithStore(stored);
+      const port = new FakePort();
+      port.autoAck = true;
+      service.handle(
+        { type: "setSource", source: "replay", replayPath: IRACING_RACE_START, replaySpeed: 4 },
+        [],
+      );
+      service.handle({ type: "subscribe", rateHz: 60 }, [port]);
+      // Before any frame the track is unknown: no outline.
+      port.raw({ type: "getTrackOutline", requestId: 1 });
+      service.start();
+      await new Promise((r) => setTimeout(r, 1200));
+      port.raw({ type: "getTrackOutline", requestId: "two" });
+      port.raw({ type: "getTrackOutline" });
+      port.raw({ type: "somethingElse", requestId: 3 });
+      service.handle({ type: "stop" }, []);
+
+      expect(replies(port)).toEqual([
+        { type: "trackOutline", requestId: 1, outline: null },
+        { type: "trackOutline", requestId: "two", outline: stored },
+      ]);
+      // Frames carry the key and the flag, never the outline.
+      const frames = port.sent.filter((m) => (m as { seq?: unknown }).seq !== undefined);
+      const last = frames[frames.length - 1];
+      expect(last?.derived.track).toEqual({ trackKey: KEY, outlineReady: true });
+      expect(JSON.stringify(last)).not.toContain('"points"');
+      // The reply does not disturb the frame sequence.
+      expect(port.seqs.filter((s) => s !== undefined)).toEqual(
+        [...port.seqs.filter((s) => s !== undefined)].sort((a, b) => a - b),
+      );
+    });
+
+    it("answers null when the track has no outline", async () => {
+      const service = serviceWithStore(null);
+      const port = new FakePort();
+      port.autoAck = true;
+      service.handle(
+        { type: "setSource", source: "replay", replayPath: IRACING_RACE_START, replaySpeed: 4 },
+        [],
+      );
+      service.handle({ type: "subscribe", rateHz: 60 }, [port]);
+      service.start();
+      await new Promise((r) => setTimeout(r, 800));
+      port.raw({ type: "getTrackOutline", requestId: 9 });
+      service.handle({ type: "stop" }, []);
+      expect(replies(port)).toEqual([{ type: "trackOutline", requestId: 9, outline: null }]);
+      const frames = port.sent.filter((m) => (m as { seq?: unknown }).seq !== undefined);
+      expect(frames[frames.length - 1]?.derived.track).toEqual({
+        trackKey: KEY,
+        outlineReady: false,
+      });
+    });
   });
 });

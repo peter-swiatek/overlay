@@ -14,6 +14,20 @@ describe("SimState", () => {
     expect(isSimState(copy)).toBe(true);
   });
 
+  it("has the track and position fields empty, and tolerates data from before `sim`", () => {
+    const state = emptySimState("replay");
+    expect(state.sim).toBeNull();
+    expect(state.session.trackConfig).toBeNull();
+    expect(state.player.worldPos).toBeNull();
+    expect(state.player.yawRad).toBeNull();
+    expect(state.player.velocityMps).toBeNull();
+    const old: Record<string, unknown> = { ...state };
+    delete old["sim"];
+    expect(isSimState(old)).toBe(true);
+    expect(isSimState({ ...state, sim: "lmu" })).toBe(true);
+    expect(isSimState({ ...state, sim: "acc" })).toBe(false);
+  });
+
   it("accepts a state with cars", () => {
     const state = emptySimState("lmu");
     state.cars.push(emptyCar(3));

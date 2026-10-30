@@ -170,9 +170,13 @@ if (!app.requestSingleInstanceLock()) {
       new TelemetrySettingsStore(join(userData, "telemetry-settings.json")),
       {
         fork: () =>
-          utilityProcess.fork(join(import.meta.dirname, "telemetry.js"), [], {
-            serviceName: "overlay-telemetry",
-          }),
+          utilityProcess.fork(
+            join(import.meta.dirname, "telemetry.js"),
+            [`--user-data=${userData}`],
+            {
+              serviceName: "overlay-telemetry",
+            },
+          ),
         createChannel: () => new MessageChannelMain(),
         postPortToRenderer: (sender, port) => {
           const contents = sender as WebContents;

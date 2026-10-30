@@ -9,6 +9,9 @@ export interface PortLike {
   start(): void;
 }
 
+/** Handles a subscriber's message that is not an ack. */
+export type RequestHandler = (data: unknown, reply: (message: unknown) => void) => void;
+
 /** With this many frames unacknowledged, newer frames wait and only the latest is kept. */
 export const MAX_UNACKED = 2;
 
@@ -58,6 +61,11 @@ class Subscriber {
     if (pending !== undefined && this.blockedByAcks && this.unacked.size < MAX_UNACKED) {
       this.send(pending);
     }
+  }
+
+  /** A message that is not a frame: sent now, outside the rate and ack accounting. */
+  reply(message: unknown): void {
+    if (!this.closed) this.port.postMessage(message);
   }
 
   dispose(): void {
@@ -115,12 +123,17 @@ export class TelemetryPublisher {
     return this.subscribers.size;
   }
 
-  addSubscriber(port: PortLike, rateHz: number): void {
+  /**
+   * `onRequest` gets every message that is not an ack, with a `reply` that answers on the same
+   * port at once: replies are not frames, so they skip the rate limit and the ack window.
+   */
+  addSubscriber(port: PortLike, rateHz: number, onRequest?: RequestHandler): void {
     const sub = new Subscriber(port, clampRateHz(rateHz), this.now);
     this.subscribers.add(sub);
     port.on("message", (event) => {
       const ack = asAck(event.data);
       if (ack) sub.ack(ack.seq);
+      else if (onRequest) onRequest(event.data, (reply) => sub.reply(reply));
     });
     port.on("close", () => {
       sub.dispose();

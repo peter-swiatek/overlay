@@ -167,6 +167,8 @@ export const VEHICLE = {
   timeBehindNext: 232,
   timeBehindLeader: 244,
   lapStartTime: 256,
+  /** f64 x3 world position in metres (the table's "pos"); y is up, the ground plane is x/z. */
+  worldPos: 264,
   carVelocity: 288,
   pitState: 457,
   qualification: 460,

@@ -7,6 +7,7 @@
  */
 import { join } from "node:path";
 import { Worker } from "node:worker_threads";
+import { Deriver } from "@overlay/sim-core";
 import type { TelemetryCommand } from "../shared/telemetry-types";
 import { createWindowsSharedMemorySource } from "../capture/shm-windows";
 import { systemClock } from "../capture/shm";
@@ -18,6 +19,7 @@ import type { PortLike } from "./publisher";
 import { ReplayTelemetrySource } from "./replay";
 import { TelemetryService } from "./service";
 import { WorkerSessionParser, type WorkerLike } from "./session-parser";
+import { FileTrackOutlineStore, parseUserDataArg, trackOutlineDir } from "./track-store";
 
 const parentPort = process.parentPort;
 
@@ -53,8 +55,21 @@ async function main(): Promise<void> {
     live.lmu = new LmuLiveSource(shm, systemClock);
   }
 
+  // Without a folder from the main process (`--user-data=`) outlines are kept in memory only.
+  const userData = parseUserDataArg(process.argv);
+  const deriver = new Deriver(
+    userData === null
+      ? {}
+      : {
+          trackOutlines: new FileTrackOutlineStore(trackOutlineDir(userData), (message) =>
+            console.error(message),
+          ),
+        },
+  );
+
   const service = new TelemetryService({
     live,
+    deriver,
     createReplay: (path, speed, loop) => ReplayTelemetrySource.fromFile(path, { speed, loop }),
     createMock: () => new MockTelemetrySource(),
     monoMs: () => systemClock.monoMs(),
