@@ -7,6 +7,10 @@ directories:
 files:
   - out/**
   - package.json
+# koffi loads a native .node file, which cannot be loaded from inside app.asar.
+asarUnpack:
+  - "**/node_modules/koffi/**"
+  - "**/node_modules/@koromix/koffi-*/**"
 extraResources:
   - from: resources/tray.ico
     to: tray.ico

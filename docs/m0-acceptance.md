@@ -16,7 +16,8 @@ Run iRacing, then LMU, each in **borderless windowed** mode, on the same monitor
 - [X] Table updates smoothly (10 Hz); bars move smoothly (60 Hz).
 - [X] Click-through: clicking, scrolling the mouse wheel and pressing keys over an overlay reaches the sim:
 - [X] Focus: the sim never loses focus when overlays appear or update (no alt-tab flicker, no pause, wheel and pedal/keyboard input keep working).
-- [] No taskbar button for the overlays. - Unsure how to test
+- [ ] Re-test: click on the sim, then check the overlays are still on top. The app re-raises the overlays (without focusing them) whenever the foreground window changes. If the overlays flicker or still lose to the sim, note which sim and its display mode.
+- [ ] No taskbar button for the overlays. How to check: look at the Windows taskbar while the overlays are showing. Pass = no "Overlay" button for them (only the tray icon, plus the settings window button when it is open). Previously: unsure how to test.
 
 ## Edit mode
 

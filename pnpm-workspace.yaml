@@ -6,3 +6,4 @@ onlyBuiltDependencies:
   - esbuild
 ignoredBuiltDependencies:
   - electron-winstaller
+  - koffi
