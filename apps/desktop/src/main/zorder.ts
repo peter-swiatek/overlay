@@ -51,7 +51,7 @@ export class ZOrderKeeper {
   constructor(private readonly deps: ZOrderKeeperDeps) {}
 
   async start(): Promise<void> {
-    this.fallbackTimer = setInterval(() => this.reassertElectron(), FALLBACK_INTERVAL_MS);
+    this.fallbackTimer = setInterval(() => this.onFallbackTick(), FALLBACK_INTERVAL_MS);
     if (!this.deps.loadNative) return;
     try {
       const native = await this.deps.loadNative((hwnd) => this.onForegroundChanged(hwnd));
@@ -65,7 +65,7 @@ export class ZOrderKeeper {
   /** Call after an overlay is shown or edit mode ends. */
   requestRaise(): void {
     if (this.disposed) return;
-    const now = Date.now();
+    const now = performance.now();
     // Events within the merge window are covered by the raise (and follow-up) already done.
     if (now - this.lastRaise < MERGE_WINDOW_MS) return;
     this.lastRaise = now;
@@ -101,6 +101,12 @@ export class ZOrderKeeper {
   }
 
   /** Electron's own API: works even if the native module failed to load. */
+  private onFallbackTick(): void {
+    this.reassertElectron();
+    // Covers a missed hook event or a native load that finished after the overlays appeared.
+    if (this.native) this.raiseNow();
+  }
+
   private reassertElectron(): void {
     for (const win of this.visibleOverlays()) win.setAlwaysOnTop(true, "screen-saver");
   }
