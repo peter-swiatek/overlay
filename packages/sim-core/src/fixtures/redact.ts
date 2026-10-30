@@ -78,6 +78,9 @@ function redactYamlLine(
     const id = original === "0" ? "0" : syntheticId(SYNTHETIC_TEAM_ID_BASE, listCarIdx);
     return `${prefix}${key}: ${id}${eol}`;
   }
+  // Public results pages are keyed by these, and list every driver's name.
+  if (key === "SessionID") return `${prefix}${key}: 700001${eol}`;
+  if (key === "SubSessionID") return `${prefix}${key}: 700002${eol}`;
   if (key === "TelemetryDiskFile") return `${prefix}${key}: ""${eol}`;
   return undefined;
 }

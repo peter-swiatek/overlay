@@ -126,6 +126,9 @@ export async function sliceFixture(options: SliceOptions): Promise<SliceResult> 
       await out(RecordKind.LmuBuffer, record, record);
       continue;
     }
+    // The writer adds the slice's own Summary; an orphan buffer (its sync is before the window)
+    // would start the slice off a frame boundary.
+    if (record.kind === RecordKind.Summary || record.kind === RecordKind.LmuBuffer) continue;
     if (relS >= options.toS) {
       if (pendingBuffer) continue;
       break;

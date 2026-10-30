@@ -96,6 +96,8 @@ const YAML = [
   "   UserID: 424242",
   "   TeamID: 55",
   "WeekendInfo:",
+  "  SessionID: 5551234",
+  "  SubSessionID: 5559999",
   '  TelemetryDiskFile: "C /Users/someone/Documents/x.ibt"',
   "",
 ].join("\n");
@@ -152,6 +154,9 @@ describe("sliceFixture on an iRacing recording", () => {
     expect(yaml).toContain("TeamID: 0");
     expect(yaml).toContain("DriverUserID: 900001");
     expect(yaml).toContain('TelemetryDiskFile: ""');
+    expect(yaml).toContain("SessionID: 700001");
+    expect(yaml).toContain("SubSessionID: 700002");
+    expect(yaml).not.toContain("5551234");
     for (const secret of ["Real", "Person", "Peter", "111111", "424242", "someone"]) {
       expect(yaml).not.toContain(secret);
       expect(out[1]?.payload.includes(secret)).toBe(false);
@@ -229,6 +234,29 @@ describe("sliceFixture on an LMU recording", () => {
     const buffer = out.find((r) => r.kind === RecordKind.LmuBuffer)?.payload;
     expect(buffer?.length).toBe(512);
     expect(buffer?.subarray(100, 110).toString("utf8").replace(/\0+$/, "")).toBe("Driver 4");
+  });
+
+  it("starts on a sync boundary, never on an orphan buffer", async () => {
+    const input = await build("lmu", records);
+    const { records: out } = await slice(input, 1.2005, 1.7);
+    const frames = out.filter(
+      (r) => r.kind === RecordKind.LmuSync || r.kind === RecordKind.LmuBuffer,
+    );
+    expect(frames[0]?.kind).toBe(RecordKind.LmuSync);
+    expect(frames[0]?.monoMs).toBe(1400);
+    expect(frames.map((r) => r.kind)).toEqual([
+      RecordKind.LmuSync,
+      RecordKind.LmuBuffer,
+      RecordKind.LmuSync,
+      RecordKind.LmuBuffer,
+    ]);
+  });
+
+  it("writes exactly one Summary, even when the window reaches the source Summary", async () => {
+    const input = await build("lmu", records);
+    const { records: out, summary } = await slice(input, 0, 1000);
+    expect(out.filter((r) => r.kind === RecordKind.Summary)).toHaveLength(1);
+    expect(summary["sliceOf"]).toBe("src.ovfx");
   });
 
   it("takes a whole pair even if the buffer lands after the window end", async () => {

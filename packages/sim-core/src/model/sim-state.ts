@@ -10,8 +10,9 @@
  * - Fractions are 0..1 (throttle, brake, wetness, energy, lapDistPct).
  *
  * Evolving the shape
- * - Adding an optional-looking field (nullable, with a `null` default in {@link emptySimState}) or a
- *   new member to a string union is backward compatible and keeps the version.
+ * - Adding a nullable field (with a `null` default in {@link emptySimState}) or a new member to a
+ *   string union is backward compatible and keeps the version. Version 1 is unreleased, so its
+ *   shape may still change without a bump until the first adapter ships.
  * - Renaming, removing, retyping or changing the meaning or unit of a field bumps
  *   {@link SIM_STATE_VERSION}. Update `emptySimState`, `isSimState` and every consumer in the same
  *   change; recorded or persisted snapshots carry `version` so old data can be recognised.
@@ -41,6 +42,7 @@ export interface SessionInfo {
   lapsTotal: number | null;
   trackName: string | null;
   trackLengthM: number | null;
+  pitSpeedLimitMps: number | null;
 }
 
 export interface Conditions {
@@ -74,7 +76,10 @@ export interface Car {
   /** Overall position, 1 = leader. */
   position: number | null;
   classPosition: number | null;
-  lap: number | null;
+  /** Laps completed (0 on the out lap before the first S/F crossing). */
+  lapsCompleted: number | null;
+  /** Lap being driven: lapsCompleted + 1 once running. */
+  lapInProgress: number | null;
   /** Fraction of the lap completed, 0..1. */
   lapDistPct: number | null;
   onPitRoad: boolean | null;
@@ -82,6 +87,13 @@ export interface Car {
   isOnTrack: boolean | null;
   lastLapS: number | null;
   bestLapS: number | null;
+  /**
+   * Sim-provided time in seconds the car needs from the S/F line to reach where it is now
+   * (iRacing CarIdxEstTime); with the lap time it gives gaps on track.
+   */
+  estTimeS: number | null;
+  isPaceCar: boolean | null;
+  isPlayer: boolean | null;
   iRating: number | null;
   /** License as shown by the sim, e.g. "A 3.41". */
   license: string | null;
@@ -96,8 +108,16 @@ export interface PlayerInputs {
   steer: number | null;
 }
 
+/** Tyre temperature across the tread, degrees Celsius; "inner" is the car-centre side. */
+export interface TyreTemps {
+  inner: number | null;
+  middle: number | null;
+  outer: number | null;
+}
+
 export interface TyreCorner {
-  tempC: number | null;
+  temps: TyreTemps;
+  /** Hot pressure in kPa. */
   pressureKpa: number | null;
   /** 0 = new, 1 = fully worn. */
   wear: number | null;
@@ -109,6 +129,9 @@ export interface TyreSet {
   rl: TyreCorner;
   rr: TyreCorner;
 }
+
+/** Spotter state: which sides have a car alongside. */
+export type CarLeftRight = "clear" | "left" | "right" | "both" | "twoLeft" | "twoRight";
 
 export interface Player {
   inputs: PlayerInputs;
@@ -123,6 +146,7 @@ export interface Player {
   tyres: TyreSet | null;
   incidentCount: number | null;
   pitLimiter: boolean | null;
+  carLeftRight: CarLeftRight | null;
 }
 
 export interface SimState {
@@ -135,6 +159,8 @@ export interface SimState {
   conditions: Conditions;
   flags: Flags | null;
   playerCarIdx: number | null;
+  /** Car the camera is on (equals playerCarIdx unless spectating). */
+  focusCarIdx: number | null;
   cars: Car[];
   player: Player;
 }
@@ -163,13 +189,17 @@ export function emptyCar(carIdx: number): Car {
     carNumber: null,
     position: null,
     classPosition: null,
-    lap: null,
+    lapsCompleted: null,
+    lapInProgress: null,
     lapDistPct: null,
     onPitRoad: null,
     inPitStall: null,
     isOnTrack: null,
     lastLapS: null,
     bestLapS: null,
+    estTimeS: null,
+    isPaceCar: null,
+    isPlayer: null,
     iRating: null,
     license: null,
     connected: false,
@@ -192,10 +222,12 @@ export function emptySimState(source: SimSource = "mock"): SimState {
       lapsTotal: null,
       trackName: null,
       trackLengthM: null,
+      pitSpeedLimitMps: null,
     },
     conditions: { airTempC: null, trackTempC: null, wetness: null },
     flags: null,
     playerCarIdx: null,
+    focusCarIdx: null,
     cars: [],
     player: {
       inputs: { throttle: null, brake: null, clutch: null, steer: null },
@@ -208,6 +240,7 @@ export function emptySimState(source: SimSource = "mock"): SimState {
       tyres: null,
       incidentCount: null,
       pitLimiter: null,
+      carLeftRight: null,
     },
   };
 }

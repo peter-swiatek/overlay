@@ -142,6 +142,16 @@ describe("ReplaySource over memory fixtures", () => {
     expect(headers).toBe(3);
   });
 
+  it("does not loop forever over a file with no frames", async () => {
+    const open = await memoryFixture([]);
+    const kinds: number[] = [];
+    for await (const record of new ReplaySource(open, { speed: 0, loop: true })) {
+      kinds.push(record.kind);
+      if (kinds.length > 10) break;
+    }
+    expect(kinds).toEqual([RecordKind.Header, RecordKind.Summary]);
+  });
+
   it("rejects a negative speed", () => {
     expect(() => new ReplaySource(() => createReadStream("x"), { speed: -1 })).toThrow(RangeError);
   });

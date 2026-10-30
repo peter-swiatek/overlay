@@ -53,13 +53,13 @@ export class ReplaySource implements AsyncIterable<FixtureRecord> {
 
   async *[Symbol.asyncIterator](): AsyncGenerator<FixtureRecord> {
     do {
-      let delivered = 0;
+      let dataRecords = 0;
       for await (const record of this.pass()) {
-        delivered++;
+        if (isDataRecord(record.kind)) dataRecords++;
         yield record;
       }
-      // An empty file would otherwise spin forever when looping at full speed.
-      if (delivered <= 1) return;
+      // A file without frames would otherwise spin forever when looping at full speed.
+      if (dataRecords === 0) return;
     } while (this.loop && !this.signal?.aborted);
   }
 
@@ -103,6 +103,10 @@ export class ReplaySource implements AsyncIterable<FixtureRecord> {
       yield record;
     }
   }
+}
+
+function isDataRecord(kind: number): boolean {
+  return kind === RecordKind.IracingVarBuffer || kind === RecordKind.LmuBuffer;
 }
 
 function isStateRecord(kind: number): boolean {
