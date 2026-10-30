@@ -1,0 +1,98 @@
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  user-select: none;
+}
+
+.overlay {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.panel {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  background: rgba(10, 12, 16, 0.72);
+  color: #f2f4f8;
+  border-radius: 6px;
+}
+
+.relative {
+  border-collapse: collapse;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.relative td {
+  padding: 2px 8px;
+  text-align: right;
+}
+.relative td.name {
+  text-align: left;
+  width: 100%;
+}
+.relative tr.me {
+  background: rgba(255, 196, 0, 0.28);
+}
+
+.inputs {
+  display: flex;
+  gap: 12px;
+  padding: 10px;
+}
+.bar-track {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.bar {
+  width: 100%;
+  height: 0;
+}
+.bar.throttle {
+  background: #2fd05a;
+}
+.bar.brake {
+  background: #ee3b3b;
+}
+
+.edit-frame {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 2px dashed #ffc400;
+  border-radius: 6px;
+  background: rgba(255, 196, 0, 0.1);
+  -webkit-app-region: drag;
+}
+.edit-name {
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  padding: 1px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #111;
+  background: #ffc400;
+  border-radius: 3px;
+}
+.edit-grip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 50%, #ffc400 50%);
+  -webkit-app-region: no-drag;
+}

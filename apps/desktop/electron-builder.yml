@@ -1,0 +1,26 @@
+appId: com.peterswiatek.overlay
+productName: Overlay
+npmRebuild: false
+publish: null
+directories:
+  output: release
+files:
+  - out/**
+  - package.json
+# koffi loads a native .node file, which cannot be loaded from inside app.asar.
+asarUnpack:
+  - "**/node_modules/koffi/**"
+  - "**/node_modules/@koromix/koffi-*/**"
+extraResources:
+  - from: resources/tray.ico
+    to: tray.ico
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: resources/tray.ico
+  artifactName: Overlay-Setup-${version}.${ext}
+nsis:
+  oneClick: true
+  perMachine: false
+  allowElevation: false
