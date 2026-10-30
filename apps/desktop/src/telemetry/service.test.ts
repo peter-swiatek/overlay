@@ -143,13 +143,20 @@ describe("TelemetryService", () => {
       service.start();
       await new Promise((r) => setTimeout(r, 1200));
       port.raw({ type: "getTrackOutline", requestId: "two" });
+      // A request without an id still gets an answer, with a null id and no outline.
       port.raw({ type: "getTrackOutline" });
       port.raw({ type: "somethingElse", requestId: 3 });
+      // A request for another track gets none; one for this track gets it.
+      port.raw({ type: "getTrackOutline", requestId: 4, trackKey: "lmu_elsewhere" });
+      port.raw({ type: "getTrackOutline", requestId: 5, trackKey: KEY });
       service.handle({ type: "stop" }, []);
 
       expect(replies(port)).toEqual([
         { type: "trackOutline", requestId: 1, outline: null },
         { type: "trackOutline", requestId: "two", outline: stored },
+        { type: "trackOutline", requestId: null, outline: null },
+        { type: "trackOutline", requestId: 4, outline: null },
+        { type: "trackOutline", requestId: 5, outline: stored },
       ]);
       // Frames carry the key and the flag, never the outline.
       const frames = port.sent.filter((m) => (m as { seq?: unknown }).seq !== undefined);

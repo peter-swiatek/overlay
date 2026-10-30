@@ -15,11 +15,19 @@ const MAX_START_PCT: Record<OutlineSource, number> = { integrated: 0.02, world: 
 const MIN_END_PCT = 0.98;
 /** A forward jump of more than this between two ticks is a teleport or a hole. */
 const MAX_PCT_STEP = 0.02;
+/** lapDistPct going back by more than this in one tick (2.6 m at VIR) is a reset or a tow. */
+const MAX_STEP_BACK_PCT = 0.0005;
+/** Driving backwards, or standing still this long, is not a racing lap. */
+const REVERSE_MPS = -0.5;
+const STILL_MPS = 0.5;
+const MAX_STILL_S = 3;
 /**
- * lapDistPct may go back by this much (26 m at VIR) below its highest value, e.g. a car rolling
- * back or spinning; those ticks are not stored. A bigger step back is a reset or a tow.
+ * iRacing publishes a new best lap about 2 s after the line, so the verdict on a lap waits for
+ * it; after this long it is judged with the best known.
  */
-const MAX_REVERSE_PCT = 0.005;
+const BEST_LAP_WAIT_S = 5;
+/** A lap whose time is not below the best by this much cannot bring a new best. */
+const NEW_BEST_MARGIN = 0.99;
 const WRAP_FROM = 0.9;
 const WRAP_TO = 0.1;
 const SLOW_LAP_FACTOR = 1.07;
@@ -29,6 +37,8 @@ const CLOCK_BACKWARDS_S = 1;
 
 export const MAX_CLOSURE_FRACTION = 0.02;
 export const MAX_LENGTH_ERROR = 0.03;
+/** An outline with a bigger gap than this was not driven all the way round (a pit exit lap). */
+export const FULL_COVERAGE_GAP = 0.005;
 
 export interface BuilderOptions {
   trackKey: string;
@@ -52,6 +62,10 @@ interface Lap {
   firstTickS: number;
   lastTickS: number;
   bestLapS: number | null;
+  incidents: number | null;
+  /** Seconds in a row below walking speed. */
+  stillS: number;
+  prevWorld: { x: number; z: number } | null;
   /** Integrated path so far and the velocity at the previous sample, in metres and m/s. */
   east: number;
   north: number;
@@ -70,6 +84,8 @@ interface Lap {
  */
 export class TrackOutlineBuilder {
   private lap: Lap | null = null;
+  /** A finished lap waiting for the best-lap update that decides the 107% rule. */
+  private pending: { lap: Lap; wrapTickS: number; bestAtWrap: number | null } | null = null;
   private lastTickS: number | null = null;
   private lastPct: number | null = null;
 
@@ -78,11 +94,12 @@ export class TrackOutlineBuilder {
   /** Forget the lap in progress, e.g. after a session change. */
   reset(): void {
     this.lap = null;
+    this.pending = null;
     this.lastTickS = null;
     this.lastPct = null;
   }
 
-  /** The result for a lap that has just ended (the sample crossed the line), else null. */
+  /** The result for a lap that has ended, else null. It can come a few seconds after the line. */
   push(sample: TrackSample): LapResult | null {
     if (!Number.isFinite(sample.tickS) || !Number.isFinite(sample.lapDistPct)) return null;
     const last = this.lastTickS;
@@ -97,9 +114,10 @@ export class TrackOutlineBuilder {
     const pct = sample.lapDistPct;
     const wrapped = prevPct !== null && prevPct > WRAP_FROM && pct < WRAP_TO;
 
-    let result: LapResult | null = null;
+    let result = this.settle(sample);
     if (wrapped) {
-      result = this.finish(sample.bestLapS);
+      const ended = this.endLap(sample);
+      result ??= ended;
       this.lap = null;
     }
     const lap = this.lap ?? newLap(sample);
@@ -113,14 +131,43 @@ export class TrackOutlineBuilder {
 
   /** Judge the lap in progress as if the line had been crossed now: for tests and shutdown. */
   finishNow(): LapResult {
-    const result = this.finish(null);
+    const pending = this.pending;
+    if (pending !== null) {
+      this.pending = null;
+      return this.judge(pending.lap, pending.lap.bestLapS);
+    }
+    const lap = this.lap;
     this.lap = null;
-    return result;
+    if (lap === null) return { ok: false, reason: "incomplete", detail: "no lap" };
+    return this.precheck(lap) ?? this.judge(lap, lap.bestLapS);
   }
 
-  private finish(nextBestLapS: number | null): LapResult {
+  /** A lap has crossed the line: judge it now, or hold it for the best-lap update. */
+  private endLap(next: TrackSample): LapResult | null {
     const lap = this.lap;
     if (lap === null) return { ok: false, reason: "incomplete", detail: "no lap" };
+    const early = this.precheck(lap);
+    if (early !== null) return early;
+    const best = minOf(lap.bestLapS, next.bestLapS);
+    const lapS = lapSeconds(lap);
+    // A lap that is not faster than the best cannot make a new best, so none is coming.
+    if (best !== null && lapS >= best * NEW_BEST_MARGIN) return this.judge(lap, best);
+    this.pending = { lap, wrapTickS: next.tickS, bestAtWrap: best };
+    return null;
+  }
+
+  /** Releases the held lap once the best lap changed or the wait is over. */
+  private settle(sample: TrackSample): LapResult | null {
+    const held = this.pending;
+    if (held === null) return null;
+    const updated = sample.bestLapS !== null && sample.bestLapS !== held.bestAtWrap;
+    if (!updated && sample.tickS - held.wrapTickS < BEST_LAP_WAIT_S) return null;
+    this.pending = null;
+    return this.judge(held.lap, minOf(held.lap.bestLapS, sample.bestLapS));
+  }
+
+  /** Rejections that need no best lap; null when the lap is complete and clean so far. */
+  private precheck(lap: Lap): LapResult | null {
     if (lap.rejected !== null) return { ok: false, ...lap.rejected };
     const source = lap.source;
     const n = lap.pct.length;
@@ -132,20 +179,37 @@ export class TrackOutlineBuilder {
     if (lastPct < MIN_END_PCT || first > MAX_START_PCT[source]) {
       return { ok: false, reason: "incomplete", detail: `covers ${first}..${lastPct}` };
     }
-    const lapS = (lap.lastTickS - lap.firstTickS) / (lastPct - first) || 0;
-    const best = Math.min(lap.bestLapS ?? Infinity, nextBestLapS ?? Infinity);
-    if (Number.isFinite(best) && lapS > best * SLOW_LAP_FACTOR) {
+    return null;
+  }
+
+  private judge(lap: Lap, best: number | null): LapResult {
+    const source = lap.source;
+    if (source === null) return { ok: false, reason: "incomplete", detail: "no source" };
+    const lapS = lapSeconds(lap);
+    if (best !== null && lapS > best * SLOW_LAP_FACTOR) {
       return { ok: false, reason: "slow-lap", detail: `${lapS.toFixed(1)} s vs best ${best} s` };
     }
     return buildOutline(lap, source, this.options);
   }
 }
 
+function minOf(a: number | null, b: number | null): number | null {
+  if (a === null) return b;
+  return b === null ? a : Math.min(a, b);
+}
+
+/** Lap time estimated from the stretch of the lap that was recorded. */
+function lapSeconds(lap: Lap): number {
+  const first = lap.pct[0] ?? 0;
+  const last = lap.pct[lap.pct.length - 1] ?? 1;
+  return (lap.lastTickS - lap.firstTickS) / (last - first) || 0;
+}
+
 function checkContinuity(lap: Lap, sample: TrackSample, prevPct: number, dtS: number): void {
   const source = lap.source ?? sourceOf(sample) ?? "integrated";
   if (dtS > MAX_GAP_S[source])
     return reject(lap, "tick-gap", `${dtS.toFixed(2)} s at ${sample.tickS.toFixed(1)} s`);
-  if (lap.maxPct - sample.lapDistPct > MAX_REVERSE_PCT) reject(lap, "not-monotonic");
+  if (prevPct - sample.lapDistPct > MAX_STEP_BACK_PCT) reject(lap, "not-monotonic");
   else if (sample.lapDistPct - prevPct > MAX_PCT_STEP) reject(lap, "tick-gap", "lapDistPct jumped");
 }
 
@@ -167,9 +231,36 @@ function addToLap(lap: Lap, sample: TrackSample): void {
     return reject(lap, "pit-road");
   }
   if (!sample.onTrack) return reject(lap, "off-track");
+  const wasPrefix = lap.inPitPrefix;
   lap.inPitPrefix = false;
   if (sample.bestLapS !== null) lap.bestLapS = Math.min(lap.bestLapS ?? Infinity, sample.bestLapS);
+  if (sample.incidentCount !== null) {
+    if (lap.incidents !== null && sample.incidentCount > lap.incidents) {
+      return reject(lap, "incident");
+    }
+    lap.incidents = Math.min(lap.incidents ?? Infinity, sample.incidentCount);
+  }
+  if (sample.velocityMps !== null && sample.velocityMps.x < REVERSE_MPS) {
+    return reject(lap, "reversing");
+  }
+  trackStandstill(lap, sample, wasPrefix);
+  if (lap.rejected !== null) return;
   extendPath(lap, sample, source);
+}
+
+function trackStandstill(lap: Lap, sample: TrackSample, afterPit: boolean): void {
+  const dt = sample.tickS - lap.lastTickS;
+  const world = sample.worldPos;
+  let speed: number | null = null;
+  if (sample.velocityMps !== null) speed = Math.abs(sample.velocityMps.x);
+  else if (world !== null && lap.prevWorld !== null && dt > 0) {
+    speed = Math.hypot(world.x - lap.prevWorld.x, world.z - lap.prevWorld.z) / dt;
+  }
+  lap.prevWorld = world;
+  // The wait on the pit exit before the first moving tick is not part of the lap.
+  if (speed === null || afterPit) return;
+  lap.stillS = speed < STILL_MPS ? lap.stillS + dt : 0;
+  if (lap.stillS > MAX_STILL_S) reject(lap, "standstill");
 }
 
 function extendPath(lap: Lap, sample: TrackSample, source: OutlineSource): void {
@@ -216,6 +307,9 @@ function newLap(sample: TrackSample): Lap {
     firstTickS: sample.tickS,
     lastTickS: sample.tickS,
     bestLapS: null,
+    incidents: null,
+    stillS: 0,
+    prevWorld: null,
     east: 0,
     north: 0,
     prevEast: 0,
@@ -254,9 +348,12 @@ function buildOutline(lap: Lap, source: OutlineSource, options: BuilderOptions):
   const dy = (y[n - 1] ?? 0) - (y[0] ?? 0);
   const gapPct = 1 - (lap.pct[n - 1] ?? 1) + (lap.pct[0] ?? 0);
   const pathM = pathLength(x, y);
-  // Part of the lap is not in the data (the last metres before the line, a pit exit); allow for it.
+  // Part of the lap is not in the data (the last metres before the line, a pit exit). The car
+  // would have covered it heading the way it was going, so the first point is expected there.
   const missingM = gapPct * (expectedM ?? pathM);
-  const closureErrorM = Math.max(0, Math.hypot(dx, dy) - missingM);
+  const heading = headingAtEnd(x, y);
+  const closureErrorM = Math.hypot(dx + heading.x * missingM, dy + heading.y * missingM);
+  const bridgeM = Math.hypot(dx, dy);
   if (source === "integrated") spreadDrift(x, y, dx, dy);
 
   const metres = resample(lap.pct, x, y);
@@ -283,9 +380,21 @@ function buildOutline(lap: Lap, source: OutlineSource, options: BuilderOptions):
     lengthM,
     source,
     closureErrorM,
+    gapPct,
+    bridgeM,
     createdAt: now.toISOString(),
   };
   return { ok: true, outline };
+}
+
+/** Unit vector of travel over the last few stored points (screen axes). */
+function headingAtEnd(x: readonly number[], y: readonly number[]): { x: number; y: number } {
+  const n = x.length;
+  const from = Math.max(0, n - 6);
+  const hx = (x[n - 1] ?? 0) - (x[from] ?? 0);
+  const hy = (y[n - 1] ?? 0) - (y[from] ?? 0);
+  const len = Math.hypot(hx, hy);
+  return len === 0 ? { x: 0, y: 0 } : { x: hx / len, y: hy / len };
 }
 
 function pathLength(x: readonly number[], y: readonly number[]): number {

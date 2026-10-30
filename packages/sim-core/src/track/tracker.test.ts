@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { emptyCar, emptySimState, type SimState } from "../model";
 import { Deriver } from "../telemetry/derive";
 import { circle, lapSamples, squareOutline } from "./synthetic";
-import { trackKeyOf } from "./track-key";
+import { sameTrackKey, trackKeyOf } from "./track-key";
 import { TrackTracker } from "./tracker";
 import type { TrackOutlineStore, TrackOutline, TrackSample } from "./types";
 
@@ -61,10 +61,15 @@ class Driver {
     for (const sample of samples) this.deriver.next(state(this.sim, sample));
   }
 
-  /** The first tick of the next lap, which ends the one before. */
+  /**
+   * The first tick of the next lap, which ends the one before, and one 6 s later: the verdict on
+   * a lap waits up to 5 s for the best-lap update.
+   */
   flush(): void {
     const next = lapSamples(circle(RADIUS), { startTickS: this.laps * 101 })[0];
-    if (next !== undefined) this.deriver.next(state(this.sim, next));
+    if (next === undefined) return;
+    this.deriver.next(state(this.sim, next));
+    this.deriver.next(state(this.sim, { ...next, tickS: next.tickS + 6, lapDistPct: 0.0006 }));
   }
 }
 
@@ -79,6 +84,16 @@ describe("trackKeyOf", () => {
     s.session.trackName = "Circuit de la Sarthe";
     s.session.trackConfig = null;
     expect(trackKeyOf(s)).toBe("lmu_circuit-de-la-sarthe");
+    // Without a layout name the track length, rounded to 10 m, tells layouts apart.
+    s.session.trackLengthM = 13623.97;
+    expect(trackKeyOf(s)).toBe("lmu_circuit-de-la-sarthe_13620m");
+    s.session.trackLengthM = 13626;
+    expect(sameTrackKey(trackKeyOf(s) ?? "", "lmu_circuit-de-la-sarthe_13620m")).toBe(true);
+    expect(sameTrackKey("lmu_circuit-de-la-sarthe_13620m", "lmu_circuit-de-la-sarthe_6200m")).toBe(
+      false,
+    );
+    expect(sameTrackKey("lmu_a_100m", "lmu_b_100m")).toBe(false);
+    s.session.trackLengthM = null;
     s.session.trackName = "Autódromo José Carlos Pace: Interlagos (GP)";
     expect(trackKeyOf(s)).toBe("lmu_autodromo-jose-carlos-pace-interlagos-gp");
     expect(trackKeyOf(s)).toMatch(/^[a-z0-9_-]+$/);
@@ -227,6 +242,74 @@ describe("TrackTracker outline policy", () => {
     expect(store.saves).toHaveLength(1);
   });
 
+  it("replaces a world outline that bridged a pit exit by a full lap, which is then final", () => {
+    const store = new MemoryStore();
+    const deriver = new Deriver({ trackOutlines: store });
+    const key = "iracing_test-ring_grand-prix";
+    let lapIndex = 0;
+    const world = (from: number): void => {
+      const samples = lapSamples(circle(RADIUS), {
+        source: "world",
+        from,
+        startTickS: lapIndex++ * 101,
+      });
+      for (const sample of samples) deriver.next(state("iracing", sample));
+    };
+    const flush = (): void => {
+      const next = lapSamples(circle(RADIUS), { startTickS: lapIndex * 101 })[0] as TrackSample;
+      deriver.next(state("iracing", { ...next, worldPos: { x: 0, z: 0 } }));
+      deriver.next(state("iracing", { ...next, tickS: next.tickS + 6, lapDistPct: 0.0006 }));
+    };
+    world(0.03);
+    world(0.03);
+    flush();
+    const pitExit = deriver.trackOutline;
+    expect(pitExit?.gapPct).toBeGreaterThan(0.025);
+    expect(pitExit?.bridgeM).toBeGreaterThan(0.025 * LENGTH * 0.9);
+    expect(store.saves).toEqual([`${key}:world`]);
+    // A second pit-exit lap is no better: nothing is written.
+    expect(store.saves).toHaveLength(1);
+    world(0.0005);
+    world(0.0005);
+    flush();
+    expect(deriver.trackOutline?.gapPct).toBeLessThan(0.005);
+    expect(store.saves).toHaveLength(2);
+    // The full lap is final.
+    world(0.03);
+    world(0.0005);
+    flush();
+    expect(store.saves).toHaveLength(2);
+    expect(deriver.trackOutline?.gapPct).toBeLessThan(0.005);
+  });
+
+  it("holds the first timed lap's verdict for the best-lap update", () => {
+    const deriver = new Deriver();
+    const lap = lapSamples(circle(RADIUS), { startTickS: 0 });
+    for (const s of lap) deriver.next(state("iracing", s));
+    const next = lapSamples(circle(RADIUS), { startTickS: 101 })[0] as TrackSample;
+    deriver.next(state("iracing", next));
+    // No best lap yet: iRacing publishes it about 2 s after the line, so the lap waits.
+    expect(deriver.trackTracker.lastLap).toBeNull();
+    deriver.next(state("iracing", { ...next, tickS: next.tickS + 1, lapDistPct: 0.0006 }));
+    expect(deriver.trackTracker.lastLap).toBeNull();
+    deriver.next(
+      state("iracing", { ...next, tickS: next.tickS + 2, lapDistPct: 0.0007, bestLapS: 100 }),
+    );
+    expect(deriver.trackTracker.lastLap?.ok).toBe(true);
+  });
+
+  it("keeps the best lap of the track, so that a slow first lap is caught", () => {
+    const deriver = new Deriver();
+    const lap = lapSamples(circle(RADIUS), { startTickS: 0 });
+    // The best of 80 s was set earlier in the session; this lap takes 100 s.
+    deriver.next(state("iracing", { ...(lap[0] as TrackSample), bestLapS: 80 }));
+    for (const s of lap.slice(1)) deriver.next(state("iracing", { ...s, bestLapS: null }));
+    deriver.next(
+      state("iracing", lapSamples(circle(RADIUS), { startTickS: 101 })[0] as TrackSample),
+    );
+    expect(deriver.trackTracker.lastLap).toMatchObject({ ok: false, reason: "slow-lap" });
+  });
+
   it("does not store a lap that was rejected", () => {
     const store = new MemoryStore();
     const deriver = new Deriver({ trackOutlines: store });
@@ -249,7 +332,7 @@ describe("TrackTracker outline policy", () => {
     driver.flush();
     const s = lapSamples(circle(RADIUS))[0] as TrackSample;
     const out = deriver.next(state("iracing", s, { name: "Other Ring", config: null }));
-    expect(out.track).toEqual({ trackKey: "iracing_other-ring", outlineReady: false });
+    expect(out.track).toEqual({ trackKey: "iracing_other-ring_2510m", outlineReady: false });
     expect(deriver.trackOutline).toBeNull();
   });
 });

@@ -161,7 +161,7 @@ export interface Player {
   carLeftRight: CarLeftRight | null;
   /** Position in the world frame; LMU only (iRacing gives none). Feeds track outlines. */
   worldPos: Vec3 | null;
-  /** Heading in radians as the sim reports it (iRacing Yaw); null when not provided. */
+  /** Heading in radians, clockwise from north (iRacing YawNorth); null when not provided. */
   yawRad: number | null;
   /** Velocity in the car frame (iRacing VelocityX/Y/Z); null when not provided. */
   velocityMps: Vec3 | null;

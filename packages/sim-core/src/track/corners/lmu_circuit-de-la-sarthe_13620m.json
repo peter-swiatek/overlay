@@ -1,8 +1,9 @@
 {
   "version": 1,
-  "trackKey": "lmu_circuit-de-la-sarthe",
+  "trackKey": "lmu_circuit-de-la-sarthe_13620m",
   "trackName": "Circuit de la Sarthe (Le Mans 24h layout)",
   "status": "derived",
+  "provisional": true,
   "evidence": "Measured from one LMU recording at Circuit de la Sarthe (Ferrari 499P, session started 2026-10-30 08:42 UTC, 13624 m lap): the only complete lap in it, an out lap from the pit exit, using the scoring world positions (outline length 13584 m). Curvature taken from the outline with a 100 m moving average. A corner is a stretch where the radius stays under 600 m, same-direction stretches less than 100 m apart are joined, it is at least 60 m long and its tightest radius is under 350 m. Speed is not used because the lap includes a standstill. 22 corners pass; the circuit has more, the slight kinks on the Mulsanne straight and the flat-out ones before the line are left out. Only two are named, Tertre Rouge (the long right-hander at the start of the Mulsanne straight) and Mulsanne Corner (the right-hander at its far end, tightest radius 56 m after a 5.6 km straight); other names are not assigned because their position cannot be told from this one slow lap.",
   "corners": [
     {

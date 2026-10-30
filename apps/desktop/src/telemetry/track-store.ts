@@ -1,6 +1,7 @@
+import { mkdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { isTrackOutline, type TrackOutline, type TrackOutlineStore } from "@overlay/sim-core";
-import { readJsonFile, writeJsonFileAtomic } from "../main/json-file";
+import { readJsonFile } from "../main/json-file";
 
 /** Outlines live in userData/tracks, one JSON file per track key. */
 export function trackOutlineDir(userData: string): string {
@@ -19,8 +20,10 @@ export function parseUserDataArg(argv: readonly string[]): string | null {
 const SAFE_KEY = /^[a-z0-9_-]{1,200}$/;
 
 /**
- * Files of {@link TrackOutline} in one folder. Writes are small and rare (one per track, once),
- * so they are synchronous and atomic. A failure never reaches the telemetry loop.
+ * Files of {@link TrackOutline} in one folder. A read is synchronous (once, when the track
+ * changes). Writes are asynchronous and atomic (temp file, then rename), one in flight at a time
+ * with the latest outline per key winning, so a save never holds up a telemetry tick. A failure
+ * never reaches the telemetry loop.
  */
 export class FileTrackOutlineStore implements TrackOutlineStore {
   constructor(
@@ -34,13 +37,44 @@ export class FileTrackOutlineStore implements TrackOutlineStore {
     return isTrackOutline(value) ? value : null;
   }
 
+  private readonly queued = new Map<string, TrackOutline>();
+  private writing: Promise<void> | null = null;
+
   save(outline: TrackOutline): void {
     if (!SAFE_KEY.test(outline.trackKey)) return;
+    this.queued.set(outline.trackKey, outline);
+    this.writing ??= this.drain();
+  }
+
+  /** Resolves when everything saved so far is on disk (or has failed). */
+  idle(): Promise<void> {
+    return this.writing ?? Promise.resolve();
+  }
+
+  private async drain(): Promise<void> {
     try {
-      writeJsonFileAtomic(this.fileOf(outline.trackKey), outline);
-    } catch (error) {
-      this.onError(`could not save the outline of ${outline.trackKey}: ${String(error)}`);
+      for (;;) {
+        const next = this.queued.entries().next();
+        if (next.done) return;
+        const [key, outline] = next.value;
+        this.queued.delete(key);
+        try {
+          await this.write(key, outline);
+        } catch (error) {
+          this.onError(`could not save the outline of ${key}: ${String(error)}`);
+        }
+      }
+    } finally {
+      this.writing = null;
     }
+  }
+
+  private async write(key: string, outline: TrackOutline): Promise<void> {
+    await mkdir(this.dir, { recursive: true });
+    const file = this.fileOf(key);
+    const tmp = `${file}.${process.pid}.tmp`;
+    await writeFile(tmp, JSON.stringify(outline), "utf8");
+    await rename(tmp, file);
   }
 
   private fileOf(trackKey: string): string {

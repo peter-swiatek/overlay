@@ -131,12 +131,14 @@ describe("TrackOutlineBuilder lap rules", () => {
     const builder = new TrackOutlineBuilder({ trackKey: "k", now: () => NOW });
     const first = lap();
     for (const s of first) builder.push(s);
-    const next = lap({ startTickS: 100.01 });
-    const first2 = next[0];
-    if (first2 === undefined) throw new Error("no samples");
-    const result = builder.push(first2);
-    expect(result?.ok).toBe(true);
-    for (const s of next.slice(1)) builder.push(s);
+    const results: LapResult[] = [];
+    for (const s of lap({ startTickS: 100.01 })) {
+      const result = builder.push(s);
+      if (result !== null) results.push(result);
+    }
+    // The first lap is judged 5 s into the second, when no new best lap has been published.
+    expect(results).toHaveLength(1);
+    expect(results[0]?.ok).toBe(true);
     expect(builder.finishNow().ok).toBe(true);
   });
 
@@ -174,7 +176,7 @@ describe("TrackOutlineBuilder lap rules", () => {
     });
   });
 
-  it("rejects a jump in lapDistPct and a big step back, but not a small roll back", () => {
+  it("rejects a jump in lapDistPct and a step back of more than 0.05%", () => {
     const jump = lap().filter((_, i) => i < 3000 || i > 3400);
     expect(build(jump).result).toMatchObject({ ok: false, reason: "tick-gap" });
     const back = lap();
@@ -182,7 +184,10 @@ describe("TrackOutlineBuilder lap rules", () => {
     expect(build(back).result).toMatchObject({ ok: false, reason: "not-monotonic" });
     const roll = lap();
     roll[3000] = { ...roll[3000]!, lapDistPct: (roll[3000]?.lapDistPct ?? 0) - 0.002 };
-    expect(build(roll).result.ok).toBe(true);
+    expect(build(roll).result).toMatchObject({ ok: false, reason: "not-monotonic" });
+    const rounding = lap();
+    rounding[3000] = { ...rounding[3000]!, lapDistPct: (rounding[3000]?.lapDistPct ?? 0) - 0.0002 };
+    expect(build(rounding).result.ok).toBe(true);
   });
 
   it("rejects a lap slower than 107% of the best and accepts one inside it", () => {
@@ -234,5 +239,35 @@ describe("TrackOutlineBuilder lap rules", () => {
     const stop = lap({ source: "world" });
     stop[3000] = { ...stop[3000]!, onPitRoad: true };
     expect(build(stop).result).toMatchObject({ ok: false, reason: "pit-road" });
+  });
+
+  it("rejects reverse motion, a long standstill and a new incident", () => {
+    const reverse = lap();
+    reverse[3000] = { ...reverse[3000]!, velocityMps: { x: -2, y: 0 } };
+    expect(build(reverse).result).toMatchObject({ ok: false, reason: "reversing" });
+    // 4 s at walking pace: samples are 1/60 s apart, so 240 of them.
+    const slow = lap().map((s, i) =>
+      i >= 3000 && i < 3300 ? { ...s, velocityMps: { x: 0.1, y: 0 } } : s,
+    );
+    expect(build(slow).result).toMatchObject({ ok: false, reason: "standstill" });
+    const brief = lap().map((s, i) =>
+      i >= 3000 && i < 3100 ? { ...s, velocityMps: { x: 0.1, y: 0 } } : s,
+    );
+    expect(build(brief).result.ok).toBe(true);
+    const incident = lap().map((s, i) => ({ ...s, incidentCount: i < 4000 ? 2 : 4 }));
+    expect(build(incident).result).toMatchObject({ ok: false, reason: "incident" });
+    const steady = lap().map((s) => ({ ...s, incidentCount: 4 }));
+    expect(build(steady).result.ok).toBe(true);
+  });
+
+  it("reports a pit-exit world lap's coverage and bridge, and a vector closure error", () => {
+    const full = ok(build(lap({ source: "world" })).result);
+    expect(full.gapPct).toBeLessThan(0.002);
+    const exit = ok(build(lap({ source: "world", from: 0.03 })).result);
+    expect(exit.gapPct).toBeGreaterThan(0.03);
+    expect(exit.bridgeM).toBeGreaterThan(0.03 * 2 * Math.PI * radius * 0.9);
+    // The bridge is where a car heading on would be only if it were straight; a circle's is a chord.
+    expect(exit.closureErrorM).toBeGreaterThan(0.1);
+    expect(exit.closureErrorM).toBeLessThan(exit.bridgeM);
   });
 });

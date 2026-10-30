@@ -21,6 +21,13 @@ export interface TrackOutline {
   source: OutlineSource;
   /** How far the integrated path missed its start in metres, before it was corrected. */
   closureErrorM: number;
+  /**
+   * Fraction of the lap the data did not cover and the outline bridges with a straight line: the
+   * last metres before the line, or a pit exit. Near 0 for a full lap.
+   */
+  gapPct: number;
+  /** Length in metres of that straight bridge. */
+  bridgeM: number;
   /** ISO 8601 UTC. */
   createdAt: string;
 }
@@ -39,6 +46,8 @@ export interface TrackSample {
   headingRad: number | null;
   /** Car-frame velocity: x forward, y to the left. */
   velocityMps: { x: number; y: number } | null;
+  /** The player's incident count, when known; a rise during a lap makes the lap dirty. */
+  incidentCount: number | null;
   /** World position on the ground plane (LMU x/z); wins over heading and velocity. */
   worldPos: { x: number; z: number } | null;
 }
@@ -52,6 +61,9 @@ export type RejectReason =
   | "slow-lap"
   | "no-position"
   | "mixed-sources"
+  | "reversing"
+  | "standstill"
+  | "incident"
   | "closure"
   | "length-mismatch";
 

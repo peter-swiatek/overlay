@@ -45,7 +45,7 @@ export function isTrackOutline(value: unknown): value is TrackOutline {
   const o = value as Record<string, unknown>;
   if (o["version"] !== 1 || typeof o["trackKey"] !== "string") return false;
   if (o["source"] !== "integrated" && o["source"] !== "world") return false;
-  for (const key of ["scaleM", "lengthM", "closureErrorM"]) {
+  for (const key of ["scaleM", "lengthM", "closureErrorM", "gapPct", "bridgeM"]) {
     if (typeof o[key] !== "number" || !Number.isFinite(o[key])) return false;
   }
   if (typeof o["createdAt"] !== "string") return false;

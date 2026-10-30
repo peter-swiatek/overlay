@@ -50,12 +50,17 @@ export interface TelemetryAck {
 export interface TrackOutlineRequest {
   type: "getTrackOutline";
   requestId: number | string;
+  /** When given, the reply holds an outline only if it is for this track. */
+  trackKey?: string;
 }
 
-/** The answer: the cached outline, or null when none is known yet (see `derived.track`). */
+/**
+ * The answer: the cached outline, or null when none is known yet (see `derived.track`) or the
+ * request's `trackKey` is not the current track. `requestId` is null when the request had none.
+ */
 export interface TrackOutlineReply {
   type: "trackOutline";
-  requestId: number | string;
+  requestId: number | string | null;
   outline: TrackOutline | null;
 }
 

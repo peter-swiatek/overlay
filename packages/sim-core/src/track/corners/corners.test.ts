@@ -3,7 +3,7 @@ import { cornersFor, parseCornerList, type CornerList } from "./index";
 
 const KEYS = [
   "iracing_virginia-international-raceway_full-course",
-  "lmu_circuit-de-la-sarthe",
+  "lmu_circuit-de-la-sarthe_13620m",
 ] as const;
 
 describe("corner lists", () => {
@@ -11,6 +11,7 @@ describe("corner lists", () => {
     const list = cornersFor(key) as CornerList;
     expect(list.trackKey).toBe(key);
     expect(list.status).toBe("derived");
+    expect(list.provisional).toBe(true);
     expect(list.evidence.length).toBeGreaterThan(200);
     expect(list.corners.length).toBeGreaterThanOrEqual(8);
     list.corners.forEach((c, i) => expect(c.number).toBe(i + 1));
@@ -32,6 +33,11 @@ describe("corner lists", () => {
     );
   });
 
+  it("matches a Le Mans key whose rounded length differs by a few metres", () => {
+    expect(cornersFor("lmu_circuit-de-la-sarthe_13630m")?.trackKey).toBe(KEYS[1]);
+    expect(cornersFor("lmu_circuit-de-la-sarthe_6000m")).toBeNull();
+  });
+
   it("finds a list by track key and says when there is none", () => {
     expect(cornersFor("iracing_somewhere-else")).toBeNull();
     expect(cornersFor(null)).toBeNull();
@@ -42,6 +48,7 @@ describe("corner lists", () => {
     const bad = (over: object): unknown => ({ ...good, ...over });
     expect(() => parseCornerList(bad({ status: "official" }))).toThrow(/derived/);
     expect(() => parseCornerList(bad({ evidence: "" }))).toThrow(/evidence/);
+    expect(() => parseCornerList(bad({ provisional: false }))).toThrow(/provisional/);
     expect(() =>
       parseCornerList(bad({ corners: [{ number: 2, startPct: 0, endPct: 1 }] })),
     ).toThrow(/number/);

@@ -24,7 +24,9 @@ const SESSION_STATE_OTHER = 1;
 
 /**
  * Turns each {@link SimState} into {@link Derived} values. Stateful (calculators keep history)
- * but free of I/O and timers, so the same input sequence always gives the same output.
+ * and free of timers, so the same input sequence always gives the same output. The one I/O is
+ * the optional track outline store: a synchronous read when the track changes, and a `save` that
+ * the store must not block on.
  */
 export interface DeriverOptions {
   /** Where track outlines are kept between runs; without it they live only in memory. */
@@ -78,6 +80,11 @@ export class Deriver {
   /** The outline of the track the player is on, once one is known. */
   get trackOutline(): TrackOutline | null {
     return this.track.current;
+  }
+
+  /** The key of the track being driven, when known. */
+  get trackKey(): string | null {
+    return this.track.trackKey;
   }
 
   /** The tracker, for tests that inspect why a lap was or was not used. */

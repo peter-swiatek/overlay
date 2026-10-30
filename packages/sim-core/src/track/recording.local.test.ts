@@ -94,7 +94,8 @@ function summarise(name: string, laps: LapResult[], outline: TrackOutline): void
     `${name}: ${laps.length} laps judged, ${good.length} good; closure error before correction ` +
       `min ${errors[0]?.toFixed(1)} m, median ${errors[Math.floor(errors.length / 2)]?.toFixed(1)} m, ` +
       `max ${errors[errors.length - 1]?.toFixed(1)} m; rejected ${JSON.stringify([...rejected])}; ` +
-      `kept outline ${outline.source}, ${outline.lengthM.toFixed(0)} m, closure ${outline.closureErrorM.toFixed(1)} m`,
+      `kept outline ${outline.source}, ${outline.lengthM.toFixed(0)} m, closure ${outline.closureErrorM.toFixed(1)} m, ` +
+      `gap ${outline.gapPct.toFixed(4)} bridge ${outline.bridgeM.toFixed(0)} m`,
   );
 }
 
@@ -140,7 +141,7 @@ describe("track outlines from Peter's local recordings", () => {
       if (outline === null) return;
       summarise("LMU Le Mans", laps, outline);
       console.info(`LMU: ${msPerState.toFixed(4)} ms per state in the Deriver, incl. track`);
-      expect(outline.trackKey).toBe("lmu_circuit-de-la-sarthe");
+      expect(outline.trackKey).toBe("lmu_circuit-de-la-sarthe_13620m");
       expect(outline.source).toBe("world");
       expectGoodOutline(outline, trackLengthM);
       expect(msPerState).toBeLessThan(1);

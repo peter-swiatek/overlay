@@ -136,6 +136,8 @@ export function outlineFor(trackKey: string, lengthM = 5200): TrackOutline {
     lengthM,
     source: "integrated",
     closureErrorM: 3,
+    gapPct: 0.001,
+    bridgeM: 5,
     createdAt: "2026-10-30T12:00:00.000Z",
   };
 }

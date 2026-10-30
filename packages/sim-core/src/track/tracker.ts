@@ -1,5 +1,5 @@
 import type { Car, SimState } from "../model";
-import { TrackOutlineBuilder, MAX_LENGTH_ERROR } from "./builder";
+import { TrackOutlineBuilder, FULL_COVERAGE_GAP, MAX_LENGTH_ERROR } from "./builder";
 import { isTrackOutline } from "./outline";
 import { trackKeyOf } from "./track-key";
 import type { LapResult, TrackOutline, TrackOutlineStore, TrackSample } from "./types";
@@ -28,6 +28,8 @@ export class TrackTracker {
   private key: string | null = null;
   private outline: TrackOutline | null = null;
   private builder: TrackOutlineBuilder | null = null;
+  /** Best lap seen on this track in this run, for the 107% rule on the first timed lap. */
+  private bestLapS: number | null = null;
   /** The outcome of the latest finished lap, for diagnostics and tests. */
   lastLap: LapResult | null = null;
 
@@ -36,6 +38,11 @@ export class TrackTracker {
   /** The outline for the current track, if there is one. */
   get current(): TrackOutline | null {
     return this.outline;
+  }
+
+  /** The key of the track being driven, when known. */
+  get trackKey(): string | null {
+    return this.key;
   }
 
   /** Forget the lap in progress (not the outline), e.g. after a session change. */
@@ -55,6 +62,7 @@ export class TrackTracker {
   private switchTrack(key: string | null, state: SimState): void {
     this.key = key;
     this.builder = null;
+    this.bestLapS = null;
     this.lastLap = null;
     this.outline = key === null ? null : this.loadStored(key, state.session.trackLengthM);
   }
@@ -69,14 +77,19 @@ export class TrackTracker {
     return wrong ? null : stored;
   }
 
-  /** A world-position outline is final; an integrated one can still be bettered. */
+  /** Only a world-position outline that covers the whole lap is final. */
   private wantsBuild(): boolean {
-    return this.outline === null || this.outline.source === "integrated";
+    const have = this.outline;
+    return have === null || have.source === "integrated" || have.gapPct > FULL_COVERAGE_GAP;
   }
 
   private feed(key: string, state: SimState, player: Car | null): void {
-    const sample = toSample(state, player);
-    if (sample === null) return;
+    const read = toSample(state, player);
+    if (read === null) return;
+    if (read.bestLapS !== null) {
+      this.bestLapS = Math.min(this.bestLapS ?? Infinity, read.bestLapS);
+    }
+    const sample = { ...read, bestLapS: this.bestLapS };
     this.builder ??= new TrackOutlineBuilder({
       trackKey: key,
       trackLengthM: state.session.trackLengthM,
@@ -96,14 +109,20 @@ export class TrackTracker {
 const BETTER_CLOSURE_FACTOR = 0.5;
 const BETTER_CLOSURE_MIN_GAIN_M = 1;
 
+/** A world outline must have a gap this much smaller to replace another one. */
+const BETTER_GAP = 0.005;
+
 /**
- * Nothing replaces a world-position outline. A world-position one replaces an integrated one, and
- * an integrated one replaces another integrated one only when it closed clearly better (laps
- * differ by a few metres of drift, so equal ones do not churn the file).
+ * A world-position outline replaces an integrated one, and replaces a world one that bridged a
+ * pit exit when its own gap is clearly smaller; a full-coverage world outline is final. An
+ * integrated one replaces another integrated one only when it closed clearly better (laps differ
+ * by a few metres of drift, so equal ones do not churn the file).
  */
 function isBetter(existing: TrackOutline | null, incoming: TrackOutline): boolean {
   if (existing === null) return true;
-  if (existing.source === "world") return false;
+  if (existing.source === "world") {
+    return incoming.source === "world" && incoming.gapPct < existing.gapPct - BETTER_GAP;
+  }
   if (incoming.source === "world") return true;
   const gain = existing.closureErrorM - incoming.closureErrorM;
   return (
@@ -121,6 +140,7 @@ export function toSample(state: SimState, player: Car | null): TrackSample | nul
     lapDistPct: pct,
     onPitRoad: player.onPitRoad === true,
     onTrack: player.isOnTrack !== false,
+    incidentCount: p.incidentCount,
     bestLapS: player.bestLapS,
     headingRad: p.yawRad,
     velocityMps: p.velocityMps === null ? null : { x: p.velocityMps.x, y: p.velocityMps.y },

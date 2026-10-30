@@ -129,7 +129,7 @@ export const RESULTS_STREAM = {
  * | timeBehindNext | f64     | standings timeBehindNext                                         |
  * | timeBehindLeader | f64   | standings timeBehindLeader                                       |
  * | lapStartTime     | f64     | standings lapStartET                                             |
- * | pos            | f64 x3  | standings carPosition x, y, z                                    |
+ * | worldPos       | f64 x3  | standings carPosition x, y, z                                    |
  * | carVelocity       | f64 x3  | standings carVelocity x, y, z                                    |
  * | pitState       | u8      | standings pitState: 0 NONE, 5 EXITING (1-4 not observed: no stop) |
  * | qualification  | i32     | standings qualification                                         |

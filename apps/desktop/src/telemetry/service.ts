@@ -67,20 +67,17 @@ export class TelemetryService {
   }
 
   private answer(data: unknown, reply: (message: unknown) => void): void {
-    const request = asTrackOutlineRequest(data);
-    if (request === undefined) return;
+    if (typeof data !== "object" || data === null) return;
+    const { type, requestId, trackKey } = data as Partial<TrackOutlineRequest>;
+    if (type !== "getTrackOutline") return;
+    const validId = typeof requestId === "number" || typeof requestId === "string";
+    const outline = this.deriver.trackOutline;
+    const wanted = trackKey === undefined || trackKey === this.deriver.trackKey;
     const answer: TrackOutlineReply = {
       type: "trackOutline",
-      requestId: request.requestId,
-      outline: this.deriver.trackOutline,
+      requestId: validId ? requestId : null,
+      outline: validId && wanted ? outline : null,
     };
     reply(answer);
   }
-}
-
-function asTrackOutlineRequest(data: unknown): TrackOutlineRequest | undefined {
-  if (typeof data !== "object" || data === null) return undefined;
-  const { type, requestId } = data as Partial<TrackOutlineRequest>;
-  const validId = typeof requestId === "number" || typeof requestId === "string";
-  return type === "getTrackOutline" && validId ? { type, requestId } : undefined;
 }

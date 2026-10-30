@@ -58,6 +58,7 @@ export function lapSamples(course: CoursePoint, options: LapOptions = {}): Track
       onPitRoad: false,
       onTrack: true,
       bestLapS: options.bestLapS ?? null,
+      incidentCount: null,
     };
     if (options.source === "world") {
       out.push({
@@ -98,6 +99,8 @@ export function squareOutline(): TrackOutline {
     lengthM: 4000,
     source: "world",
     closureErrorM: 0,
+    gapPct: 0,
+    bridgeM: 0,
     createdAt: "2026-10-30T12:00:00.000Z",
   };
 }
