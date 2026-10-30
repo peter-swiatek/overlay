@@ -2,7 +2,7 @@ import { parse } from "yaml";
 import type { SessionType } from "../../model/sim-state";
 
 /**
- * iRacing's session info is a YAML-looking text (ISO-8859-1) that is not always valid YAML:
+ * iRacing's session info is a YAML-looking text (Windows-1252, see decodeSessionYaml) that is not always valid YAML:
  * names such as `Bob: the Builder`, `#1 Racing` or `*Star*` appear unquoted. We therefore quote
  * every `key: value` scalar ourselves and parse with the failsafe schema, so every value is a
  * string and nothing is coerced (a driver called `null` or `yes` stays a name). Numbers are
@@ -80,13 +80,23 @@ export function parseSessionYaml(text: string): IracingSessionInfo {
   };
 }
 
-/** Re-parses only when iRacing's SessionInfoUpdate counter changes. */
+/**
+ * Re-parses only when iRacing's SessionInfoUpdate counter (irsdk header, offset 12) changes.
+ * The text is passed as a callback so the up to 512 KB YAML area is not even decoded on the
+ * ticks where the counter is unchanged.
+ *
+ * A parse of the fixture YAML (about 45 KB) takes tens of milliseconds, far over the 60 Hz tick
+ * budget. The telemetry process (M1-6) must run parses off the 60 Hz path (a worker, or at least
+ * a deferred task) and keep using the previous info until the new one is ready.
+ */
 export class SessionInfoCache {
   private lastCounter: number | undefined;
   private current: IracingSessionInfo | null = null;
 
-  update(updateCounter: number, text: string | null): IracingSessionInfo | null {
-    if (text !== null && (this.lastCounter !== updateCounter || this.current === null)) {
+  update(updateCounter: number, readText: () => string | null): IracingSessionInfo | null {
+    if (this.lastCounter === updateCounter && this.current !== null) return this.current;
+    const text = readText();
+    if (text !== null) {
       this.current = parseSessionYaml(text);
       this.lastCounter = updateCounter;
     }

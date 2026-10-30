@@ -26,7 +26,9 @@ const FLAG_YELLOW = 0x8 | 0x100;
 const FLAG_RED = 0x10;
 const FLAG_BLUE = 0x20;
 const FLAG_CAUTION = 0x4000 | 0x8000;
-const FLAG_BLACK = 0x10000 | 0x20000 | 0x80000;
+// Not mapped, SimState has no slot: furled black (0x80000, a warning), repair/meatball
+// (0x100000) and debris (0x80).
+const FLAG_BLACK = 0x10000 | 0x20000;
 
 /** irsdk_EngineWarnings: pit speed limiter. */
 const ENGINE_PIT_LIMITER = 0x10;
@@ -193,19 +195,24 @@ function buildCar(
   car.bestLapS = positive(r.number("CarIdxBestLapTime", carIdx));
   car.estTimeS = inWorld ? atLeast(r.number("CarIdxEstTime", carIdx), 0) : null;
   car.isPlayer = playerCarIdx === null ? null : playerCarIdx === carIdx;
-  const classSlot = r.number("CarIdxClass", carIdx);
-  // A car in the garage has no track surface but keeps its class slot; the pace car is the reverse.
-  car.connected = inWorld || classSlot === null || classSlot >= 0;
+  // iRacing has no connected flag. CarIdxClass cannot tell (the pace car's slot is -1 while it
+  // drives), so a car counts as connected while it is in the world; a driver sitting in the
+  // garage reads as not connected.
+  car.connected = inWorld;
   return car;
 }
 
 function fillPlayer(state: SimState, r: VarReader, info: IracingSessionInfo | null): void {
   const p = state.player;
-  const surface =
-    state.playerCarIdx === null ? null : r.number("CarIdxTrackSurface", state.playerCarIdx);
-  const inWorld = surface !== TRACK_SURFACE_NOT_IN_WORLD;
-  // While the car is not in the world (garage, between sessions) these keep their last values.
-  const live = <T>(value: T | null): T | null => (inWorld ? value : null);
+  const player = state.playerCarIdx;
+  const surface = player === null ? null : r.number("CarIdxTrackSurface", player);
+  // Only the player's own, driven car has live values: not when there is no player car, when it
+  // is out of the world (garage, between sessions: the gauges keep stale values) or when the
+  // camera is on another car (spectating).
+  const spectating = state.focusCarIdx !== null && state.focusCarIdx !== player;
+  const driving =
+    player !== null && surface !== null && surface !== TRACK_SURFACE_NOT_IN_WORLD && !spectating;
+  const live = <T>(value: T | null): T | null => (driving ? value : null);
   p.inputs = {
     throttle: live(unit(r.number("Throttle"))),
     brake: live(unit(r.number("Brake"))),
@@ -218,12 +225,12 @@ function fillPlayer(state: SimState, r: VarReader, info: IracingSessionInfo | nu
   p.rpm = live(r.number("RPM"));
   p.fuelL = live(atLeast(r.number("FuelLevel"), 0));
   p.fuelCapacityL = info?.fuelCapacityL ?? null;
-  p.tyres = tyres(r);
+  p.tyres = driving ? tyres(r) : null;
   p.incidentCount = r.number("PlayerCarMyIncidentCount");
   const warnings = r.number("EngineWarnings");
-  p.pitLimiter = warnings === null ? null : (warnings & ENGINE_PIT_LIMITER) !== 0;
+  p.pitLimiter = !driving || warnings === null ? null : (warnings & ENGINE_PIT_LIMITER) !== 0;
   const lr = r.number("CarLeftRight");
-  p.carLeftRight = lr === null ? null : (CAR_LEFT_RIGHT[lr] ?? null);
+  p.carLeftRight = !driving || lr === null ? null : (CAR_LEFT_RIGHT[lr] ?? null);
 }
 
 /** iRacing: positive wheel angle is to the left; SimState: positive is right. */

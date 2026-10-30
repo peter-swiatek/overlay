@@ -59,6 +59,29 @@ function isVarType(value: number): value is VarTypeId {
   return value >= VarType.Char && value <= VarType.Double;
 }
 
+// Windows-1252 code points for bytes 0x80..0x9F (0 = undefined in the standard). Node's
+// TextDecoder("windows-1252") returns plain Latin-1 there (C1 controls), so we map them ourselves.
+const CP1252_HIGH = [
+  0x20ac, 0, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021, 0x02c6, 0x2030, 0x0160, 0x2039, 0x0152,
+  0, 0x017d, 0, 0, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014, 0x02dc, 0x2122, 0x0161,
+  0x203a, 0x0153, 0, 0x017e, 0x0178,
+];
+
+/** iRacing writes the YAML in Windows-1252 (names with Š, ž, Œ ...); stops at the first NUL. */
+export function decodeSessionYaml(bytes: Uint8Array): string {
+  const end = bytes.indexOf(0);
+  const used = end < 0 ? bytes : bytes.subarray(0, end);
+  const parts: string[] = [];
+  const chunk = 8192;
+  for (let i = 0; i < used.length; i += chunk) {
+    const codes = Array.from(used.subarray(i, i + chunk), (b) =>
+      b >= 0x80 && b <= 0x9f ? CP1252_HIGH[b - 0x80] || b : b,
+    );
+    parts.push(String.fromCharCode(...codes));
+  }
+  return parts.join("");
+}
+
 function viewOf(bytes: Uint8Array): DataView {
   return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 }
@@ -121,13 +144,20 @@ export class IracingDecoder {
     return new IracingDecoder(header, vars);
   }
 
+  /**
+   * The SessionInfoUpdate counter from the live header (offset 12); it changes whenever iRacing
+   * rewrites the session YAML. Read this on every tick (4 bytes) and only call
+   * {@link sessionInfoText} when it changed.
+   */
+  readSessionInfoUpdate(headerBytes: Uint8Array): number | null {
+    return headerBytes.length < 16 ? null : viewOf(headerBytes).getInt32(12, true);
+  }
+
   /** The live session YAML stored in the header area, as text; null when absent. */
   sessionInfoText(headerBytes: Uint8Array): string | null {
     const { sessionInfoOffset: start, sessionInfoLength: len } = this.header;
     if (start <= 0 || len <= 0 || headerBytes.length < start + len) return null;
-    const raw = headerBytes.subarray(start, start + len);
-    const end = raw.indexOf(0);
-    return Buffer.from(end < 0 ? raw : raw.subarray(0, end)).toString("latin1");
+    return decodeSessionYaml(headerBytes.subarray(start, start + len));
   }
 
   has(name: string): boolean {

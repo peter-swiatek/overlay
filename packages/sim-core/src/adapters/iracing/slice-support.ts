@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { RecordKind } from "../../fixtures/format";
 import { FixtureReader } from "../../fixtures/reader";
 import { IracingAdapter } from "./adapter";
-import { IracingDecoder } from "./decoder";
+import { IracingDecoder, decodeSessionYaml } from "./decoder";
 import { SessionInfoCache, type IracingSessionInfo } from "./session-yaml";
 import type { SimState } from "../../model/sim-state";
 
@@ -41,10 +41,12 @@ export async function loadSlice(path: string): Promise<LoadedSlice> {
       headerBytes = record.payload;
       decoder = IracingDecoder.fromHeaderBytes(record.payload);
     } else if (record.kind === RecordKind.IracingSessionYaml) {
-      const text = record.payload.toString("latin1");
+      const text = decodeSessionYaml(record.payload);
       yamlTexts.push(text);
-      // Fixtures carry no update counter, so every YAML record counts as a new one.
-      info = cache.update(yamlTexts.length, text);
+      // Slices re-emit the header only once, so its frozen counter is advanced per YAML record.
+      const counter =
+        (decoder?.readSessionInfoUpdate(headerBytes ?? new Uint8Array()) ?? 0) + yamlTexts.length;
+      info = cache.update(counter, () => text);
     } else if (record.kind === RecordKind.IracingVarBuffer) {
       ticks.push({
         timeS: record.monoMs / 1000,

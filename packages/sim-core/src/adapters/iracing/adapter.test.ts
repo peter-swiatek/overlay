@@ -5,7 +5,7 @@ import { RecordKind } from "../../fixtures/format";
 import { FixtureReader } from "../../fixtures/reader";
 import { isSimState, type SimState } from "../../model/sim-state";
 import { IracingAdapter } from "./adapter";
-import { VarType } from "./decoder";
+import { VarType, decodeSessionYaml } from "./decoder";
 import { SessionInfoCache, type IracingSessionInfo } from "./session-yaml";
 import { FIXTURE_DIR, loadSlice, toStates, type LoadedSlice } from "./slice-support";
 import { syntheticLayout, type SyntheticVar } from "./synthetic";
@@ -80,7 +80,7 @@ describe("race-start slice (formation to racing)", async () => {
     expect(car(states, states.length - 1, 3)).toMatchObject({
       position: null,
       isOnTrack: false,
-      connected: true,
+      connected: false, // no track surface: nothing says it is connected
     });
     const ranked = last.cars
       .filter((c) => c.position !== null)
@@ -364,7 +364,7 @@ describe("IracingAdapter on synthetic buffers", () => {
     SessionLapsRemainEx: 9,
     SessionLapsTotal: 12,
     PlayerCarIdx: 1,
-    CamCarIdx: 2,
+    CamCarIdx: 1,
     Clutch: 1,
     SteeringWheelAngleMax: 4,
     TrackWetness: 1,
@@ -437,7 +437,7 @@ describe("IracingAdapter on synthetic buffers", () => {
     expect(s.player.fuelCapacityL).toBe(80);
     expect(s.tickTimeS).toBe(100.5);
     expect(s.playerCarIdx).toBe(1);
-    expect(s.focusCarIdx).toBe(2);
+    expect(s.focusCarIdx).toBe(1);
   });
 
   it("decodes SessionFlags bits", () => {
@@ -458,6 +458,10 @@ describe("IracingAdapter on synthetic buffers", () => {
     expect(flagsOf(0x4000)).toEqual(["fullCourseYellow"]);
     expect(flagsOf(0x10000)).toEqual(["black"]);
     expect(flagsOf(0x20000)).toEqual(["black"]);
+    // furled (warning), repair and debris have no SimState slot: ignored, never shown as black
+    expect(flagsOf(0x80000)).toEqual([]);
+    expect(flagsOf(0x100000)).toEqual([]);
+    expect(flagsOf(0x80)).toEqual([]);
     expect(flagsOf(0x80000000 + 0x4)).toEqual(["green"]); // start-light bits are ignored
     expect(flagsOf(0x10000000 + 0x40000 + 0x400)).toEqual([]); // startHidden, servicible, greenHeld
   });
@@ -604,6 +608,68 @@ describe("IracingAdapter on synthetic buffers", () => {
     expect(run({}).player.tyres).toBeNull();
   });
 
+  it("nulls the player's live values when spectating or without a player car", () => {
+    const live = {
+      Throttle: 0.5,
+      Brake: 0.2,
+      Gear: 3,
+      Speed: 40,
+      RPM: 5000,
+      FuelLevel: 30,
+      EngineWarnings: 0x10,
+      CarLeftRight: 2,
+      LFtempCL: 60,
+      LFwearL: 0.9,
+      LFwearM: 0.9,
+      LFwearR: 0.9,
+    };
+    const driving = run(live);
+    expect(driving.player.inputs.throttle).toBe(0.5);
+    expect(driving.player.tyres).not.toBeNull();
+    for (const s of [run({ ...live, CamCarIdx: 2 }), run({ ...live, PlayerCarIdx: -1 })]) {
+      expect(s.player.inputs).toEqual({ throttle: null, brake: null, clutch: null, steer: null });
+      expect(s.player).toMatchObject({
+        gear: null,
+        speedMps: null,
+        rpm: null,
+        fuelL: null,
+        tyres: null,
+        pitLimiter: null,
+        carLeftRight: null,
+      });
+      expect(s.player.fuelCapacityL).toBe(80);
+    }
+    expect(run({ ...live, CamCarIdx: 2 }).focusCarIdx).toBe(2);
+    expect(run({ ...live, PlayerCarIdx: -1 }).playerCarIdx).toBeNull();
+    expect(run({ ...live, PlayerCarIdx: -1 }).cars.every((c) => c.isPlayer === null)).toBe(true);
+  });
+
+  it("keeps class positions per class in a multiclass field", () => {
+    const multi: IracingSessionInfo = {
+      ...info,
+      drivers: [1, 2, 3].map((carIdx) => ({
+        ...(info.drivers[0] as IracingSessionInfo["drivers"][number]),
+        carIdx,
+        classId: carIdx === 2 ? "20" : "10",
+        className: carIdx === 2 ? "Slow" : "Fast",
+        classColour: carIdx === 2 ? "#33ceff" : "#ffda59",
+      })),
+    };
+    const s = run(
+      {
+        CarIdxPosition: [0, 1, 2, 3],
+        CarIdxClassPosition: [0, 1, 1, 2],
+        CarIdxTrackSurface: [-1, 3, 3, 3],
+      },
+      multi,
+    );
+    const by = (i: number) => s.cars.find((c) => c.carIdx === i);
+    expect([1, 2, 3].map((i) => by(i)?.position)).toEqual([1, 2, 3]);
+    expect([1, 2, 3].map((i) => by(i)?.classPosition)).toEqual([1, 1, 2]);
+    expect([1, 2, 3].map((i) => by(i)?.className)).toEqual(["Fast", "Slow", "Fast"]);
+    expect(by(2)?.classColour).toBe("#33ceff");
+  });
+
   it("reports nulls for everything the sim does not provide", () => {
     const sparse = syntheticLayout([{ name: "SessionTime", type: VarType.Double }]);
     const s = IracingAdapter.fromHeaderBytes(sparse.header).toSimState(
@@ -656,7 +722,7 @@ describe("local full recording", () => {
         if (record.kind === RecordKind.IracingHeader) {
           adapter = IracingAdapter.fromHeaderBytes(record.payload);
         } else if (record.kind === RecordKind.IracingSessionYaml) {
-          info = cache.update(++yamlCount, record.payload.toString("latin1"));
+          info = cache.update(++yamlCount, () => decodeSessionYaml(record.payload));
         } else if (record.kind === RecordKind.IracingVarBuffer && adapter !== undefined) {
           if (n++ % 10 !== 0) continue;
           const state = adapter.toSimState(record.payload.subarray(4), info);

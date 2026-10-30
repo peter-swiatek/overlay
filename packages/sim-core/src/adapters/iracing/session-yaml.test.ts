@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { FIXTURE_DIR, loadSlice } from "./slice-support";
+import { performance } from "node:perf_hooks";
+import { IracingDecoder, VarType, decodeSessionYaml } from "./decoder";
+import { syntheticLayout } from "./synthetic";
 import { SessionInfoCache, mapSessionType, parseSessionYaml } from "./session-yaml";
 
 function yamlWithDrivers(driverLines: string[], extra = ""): string {
@@ -185,22 +188,86 @@ describe("mapSessionType", () => {
   });
 });
 
-describe("SessionInfoCache", () => {
-  it("re-parses only when the update counter changes", () => {
+describe("SessionInfoCache driven by the real header counter", () => {
+  const layout = syntheticLayout([{ name: "SessionTime", type: VarType.Double }]);
+  const decoder = IracingDecoder.fromHeaderBytes(layout.header);
+
+  /** A live-style header: irsdk header, then the YAML area, then the var table. */
+  function liveHeader(counter: number, yaml: string): Buffer {
+    const area = Buffer.alloc(4096);
+    area.write(yaml, 0, "latin1");
+    const h = Buffer.concat([layout.header.subarray(0, 112), area, layout.header.subarray(112)]);
+    h.writeInt32LE(counter, 12);
+    h.writeInt32LE(4096, 16);
+    h.writeInt32LE(112, 20);
+    h.writeInt32LE(112 + 4096, 28);
+    return h;
+  }
+
+  it("decodes and parses the text only when the counter changes", () => {
+    const live = IracingDecoder.fromHeaderBytes(liveHeader(1, yamlWithDrivers([])));
     const cache = new SessionInfoCache();
-    const a = cache.update(1, yamlWithDrivers([]));
-    expect(a?.trackName).toBe("Test Ring");
-    const same = cache.update(1, yamlWithDrivers([]).replace("Test Ring", "Other"));
-    expect(same).toBe(a);
-    const changed = cache.update(2, yamlWithDrivers([]).replace("Test Ring", "Other"));
-    expect(changed).not.toBe(a);
-    expect(changed?.trackName).toBe("Other");
-    expect(cache.update(2, null)).toBe(changed);
+    let reads = 0;
+    const tick = (header: Buffer) => {
+      const counter = live.readSessionInfoUpdate(header) ?? -1;
+      return cache.update(counter, () => {
+        reads++;
+        return live.sessionInfoText(header);
+      });
+    };
+    const h1 = liveHeader(1, yamlWithDrivers([]));
+    const first = tick(h1);
+    expect(first?.trackName).toBe("Test Ring");
+    for (let i = 0; i < 100; i++) expect(tick(h1)).toBe(first);
+    expect(reads).toBe(1);
+    // Same counter but different text in memory: not looked at.
+    expect(tick(liveHeader(1, yamlWithDrivers([]).replace("Test Ring", "Nope")))).toBe(first);
+    expect(reads).toBe(1);
+    const h2 = liveHeader(2, yamlWithDrivers([]).replace("Test Ring", "Other"));
+    const second = tick(h2);
+    expect(second?.trackName).toBe("Other");
+    expect(reads).toBe(2);
+    expect(tick(h2)).toBe(second);
+    expect(reads).toBe(2);
   });
 
-  it("is null until the first text arrives", () => {
+  it("reads the counter from the header bytes", () => {
+    expect(decoder.readSessionInfoUpdate(liveHeader(41, ""))).toBe(41);
+    expect(decoder.readSessionInfoUpdate(new Uint8Array(4))).toBeNull();
+  });
+
+  it("keeps the previous info while the text is unavailable and retries", () => {
     const cache = new SessionInfoCache();
-    expect(cache.update(0, null)).toBeNull();
-    expect(cache.update(1, yamlWithDrivers([]))).not.toBeNull();
+    expect(cache.update(0, () => null)).toBeNull();
+    const a = cache.update(1, () => yamlWithDrivers([]));
+    expect(a).not.toBeNull();
+    expect(cache.update(2, () => null)).toBe(a);
+    const b = cache.update(2, () => yamlWithDrivers([]).replace("Test Ring", "Later"));
+    expect(b?.trackName).toBe("Later");
+  });
+
+  it("parses the fixture YAML in well under a second (timing is logged)", async () => {
+    const slice = await loadSlice(`${FIXTURE_DIR}iracing-ferrari-sf-crossing-20s.ovfx`);
+    const text = slice.yamlTexts[0] ?? "";
+    parseSessionYaml(text); // warm up
+    const runs = 20;
+    const start = performance.now();
+    for (let i = 0; i < runs; i++) parseSessionYaml(text);
+    const ms = (performance.now() - start) / runs;
+    console.log(`parseSessionYaml: ${ms.toFixed(2)} ms for ${text.length} chars`);
+    expect(ms).toBeLessThan(1000);
+  });
+});
+
+describe("Windows-1252 decoding", () => {
+  it("keeps Š, ž and Œ in names", () => {
+    const text = yamlWithDrivers([...driver(1, { UserName: "\u0160ar\u017eo \u0152uvre" })]);
+    const bytes = Buffer.from(
+      text.replace("\u0160", "\x8a").replace("\u017e", "\x9e").replace("\u0152", "\x8c"),
+      "latin1",
+    );
+    expect(bytes.includes(0x8a)).toBe(true);
+    const decoded = decodeSessionYaml(Buffer.concat([bytes, Buffer.alloc(8)]));
+    expect(parseSessionYaml(decoded).drivers[0]?.driverName).toBe("\u0160ar\u017eo \u0152uvre");
   });
 });
