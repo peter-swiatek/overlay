@@ -14,9 +14,9 @@ Run iRacing, then LMU, each in **borderless windowed** mode, on the same monitor
 - [X] Both overlays ("Demo Relative" table, "Demo Inputs" bars) show above the sim and stay on top.
 - [X] No black or opaque rectangle behind them; the sim is visible through the transparent area.
 - [X] Table updates smoothly (10 Hz); bars move smoothly (60 Hz).
-- [ ] Click-through: clicking, scrolling the mouse wheel and pressing keys over an overlay reaches the sim: Failed - Clicking through the overlay onto the screen while the overlays are running puts them to the background
-- [ ] Focus: the sim never loses focus when overlays appear or update (no alt-tab flicker, no pause, wheel and pedal/keyboard input keep working). - address based on the above
-- [ ] No taskbar button for the overlays. - Unsure how to test
+- [X] Click-through: clicking, scrolling the mouse wheel and pressing keys over an overlay reaches the sim:
+- [X] Focus: the sim never loses focus when overlays appear or update (no alt-tab flicker, no pause, wheel and pedal/keyboard input keep working).
+- [] No taskbar button for the overlays. - Unsure how to test
 
 ## Edit mode
 
