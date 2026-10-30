@@ -4,7 +4,7 @@ name: Release
 # download the plain .exe instead of a zipped Actions artifact. See docs/releasing.md.
 #
 # - Tag push v<semver>: a release (a prerelease if the semver has a prerelease part).
-# - Manual dispatch from a branch: always a prerelease with a dev version. Dispatch from a tag is rejected.
+# - Manual dispatch from a branch: always a prerelease with a beta version. Dispatch from a tag is rejected.
 on:
   push:
     tags: ["v*"]
@@ -33,7 +33,7 @@ jobs:
       - name: Check trigger
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.ref_type }}" = "tag" ]; then
-            echo "::error::Run this workflow from a branch, not a tag. Stable releases come from pushing a v<semver> tag; dispatch only publishes dev prereleases."
+            echo "::error::Run this workflow from a branch, not a tag. Stable releases come from pushing a v<semver> tag; dispatch only publishes beta prereleases."
             exit 1
           fi
       - name: Check release credentials
@@ -53,9 +53,9 @@ jobs:
           node-version: 22
           cache: pnpm
       # Writes OVERLAY_* and BUILD_NUMBER to $GITHUB_ENV. On a tag push it fails when the tag
-      # and apps/desktop/package.json disagree. Dispatch builds are <version>-dev.<run>.
+      # and apps/desktop/package.json disagree. Dispatch builds are <version>-beta.<run>.
       - name: Compute version
-        run: node apps/desktop/scripts/version-cli.mjs --word dev
+        run: node apps/desktop/scripts/version-cli.mjs --word beta
       - name: Verify version
         run: ': "${OVERLAY_VERSION:?version script did not export OVERLAY_VERSION}"'
       - run: pnpm install --frozen-lockfile

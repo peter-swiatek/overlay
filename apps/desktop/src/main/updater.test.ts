@@ -20,10 +20,12 @@ function makeHarness(opts: { channel?: BuildChannel; isPackaged?: boolean; allow
     autoDownload: false,
     autoInstallOnAppQuit: false,
     allowPrerelease: false,
+    requestHeaders: null as Record<string, string> | null,
+    logger: null as unknown,
     on: vi.fn((event: string, fn: Handler) => {
       handlers.set(event, fn);
     }),
-    checkForUpdates: vi.fn(() => Promise.resolve(null)),
+    checkForUpdates: vi.fn((): Promise<unknown> => Promise.resolve(null)),
     quitAndInstall: vi.fn(),
   };
   let allow = opts.allow ?? false;
@@ -59,8 +61,14 @@ function makeHarness(opts: { channel?: BuildChannel; isPackaged?: boolean; allow
     now = end;
   };
   const onChange = vi.fn();
+  const getAutoUpdater = vi.fn();
+  const prepareToQuit = vi.fn(() => Promise.resolve());
   const updater = new Updater({
-    autoUpdater: autoUpdater as unknown as AutoUpdaterLike,
+    getAutoUpdater: () => {
+      getAutoUpdater();
+      return autoUpdater as unknown as AutoUpdaterLike;
+    },
+    prepareToQuit,
     settings,
     channel: opts.channel ?? "release",
     isPackaged: opts.isPackaged ?? true,
@@ -70,16 +78,28 @@ function makeHarness(opts: { channel?: BuildChannel; isPackaged?: boolean; allow
     log: () => {},
   });
   const emit = (event: string, arg?: unknown): void => handlers.get(event)?.(arg as never);
-  return { updater, autoUpdater, settings, advance, emit, onChange, timers };
+  return {
+    updater,
+    autoUpdater,
+    settings,
+    advance,
+    emit,
+    onChange,
+    timers,
+    getAutoUpdater,
+    prepareToQuit,
+  };
 }
 
 describe("update gating", () => {
-  it("runs only for packaged release builds", () => {
+  it("runs for every packaged build except local", () => {
     for (const [channel, isPackaged, expected] of [
       ["release", true, true],
-      ["release", false, false],
-      ["dev", true, false],
+      ["dev", true, true],
       ["local", true, false],
+      ["release", false, false],
+      ["dev", false, false],
+      ["local", false, false],
     ] as const) {
       const h = makeHarness({ channel, isPackaged });
       h.updater.start();
@@ -91,11 +111,58 @@ describe("update gating", () => {
     }
   });
 
+  it("does not touch electron-updater when disabled, and only on start when enabled", () => {
+    const off = makeHarness({ channel: "local" });
+    off.updater.start();
+    off.updater.checkNow();
+    off.updater.setAllowPrerelease(true);
+    expect(off.getAutoUpdater).not.toHaveBeenCalled();
+    const on = makeHarness();
+    expect(on.getAutoUpdater).not.toHaveBeenCalled();
+    on.updater.start();
+    expect(on.getAutoUpdater).toHaveBeenCalled();
+  });
+
   it("checkNow does nothing when disabled", () => {
-    const h = makeHarness({ channel: "dev" });
+    const h = makeHarness({ channel: "local" });
     h.updater.checkNow();
     expect(h.autoUpdater.checkForUpdates).not.toHaveBeenCalled();
     expect(h.updater.getState()).toEqual({ kind: "idle" });
+  });
+});
+
+describe("privacy and logging", () => {
+  it("pins a fixed staging id header instead of the per-install id", () => {
+    const h = makeHarness();
+    h.updater.start();
+    expect(h.autoUpdater.requestHeaders).toEqual({
+      "x-user-staging-id": "00000000-0000-0000-0000-000000000000",
+    });
+  });
+
+  it("installs a quiet logger: no info, one line for warnings and errors", () => {
+    const lines: string[] = [];
+    const h = makeHarness();
+    // Re-create with a capturing log through a fresh updater.
+    const u = new Updater({
+      getAutoUpdater: () => h.autoUpdater as unknown as AutoUpdaterLike,
+      prepareToQuit: h.prepareToQuit,
+      settings: h.settings,
+      channel: "release",
+      isPackaged: true,
+      setTimer: () => () => {},
+      setRepeating: () => () => {},
+      onChange: () => {},
+      log: (m) => lines.push(m),
+    });
+    u.start();
+    const logger = h.autoUpdater.logger as {
+      info(m: unknown): void;
+      error(m: unknown): void;
+    };
+    logger.info("<feed>xml</feed>");
+    logger.error(new Error("bad\n    at stack line"));
+    expect(lines).toEqual(["error: bad"]);
   });
 });
 
@@ -212,14 +279,46 @@ describe("lifecycle states", () => {
     expect(h.updater.getState()).toEqual({ kind: "error", message: "boom" });
   });
 
-  it("restarts only when an update is downloaded", () => {
+  it("restarts only when an update is downloaded", async () => {
     const h = makeHarness();
     h.updater.start();
-    h.updater.restartToUpdate();
+    await h.updater.restartToUpdate();
     expect(h.autoUpdater.quitAndInstall).not.toHaveBeenCalled();
     h.emit("update-downloaded", { version: "0.2.0" });
-    h.updater.restartToUpdate();
+    await h.updater.restartToUpdate();
     expect(h.autoUpdater.quitAndInstall).toHaveBeenCalledTimes(1);
+  });
+
+  it("quitAndInstall(false, true) runs only after prepareToQuit resolves, once", async () => {
+    const h = makeHarness();
+    let release: () => void = () => {};
+    h.prepareToQuit.mockImplementationOnce(() => new Promise<void>((r) => (release = r)));
+    h.updater.start();
+    h.emit("update-downloaded", { version: "0.2.0" });
+    const first = h.updater.restartToUpdate();
+    const second = h.updater.restartToUpdate(); // double click
+    await Promise.resolve();
+    expect(h.autoUpdater.quitAndInstall).not.toHaveBeenCalled();
+    release();
+    await Promise.all([first, second]);
+    expect(h.prepareToQuit).toHaveBeenCalledTimes(1);
+    expect(h.autoUpdater.quitAndInstall).toHaveBeenCalledTimes(1);
+    expect(h.autoUpdater.quitAndInstall).toHaveBeenCalledWith(false, true);
+  });
+
+  it("swallows a rejected background download", async () => {
+    const h = makeHarness();
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    h.autoUpdater.checkForUpdates.mockResolvedValueOnce({
+      downloadPromise: Promise.reject(new Error("download failed")),
+    });
+    h.updater.start();
+    h.updater.checkNow();
+    await new Promise((r) => setTimeout(r, 10));
+    process.off("unhandledRejection", unhandled);
+    expect(unhandled).not.toHaveBeenCalled();
+    expect(h.updater.getState()).toEqual({ kind: "checking" });
   });
 });
 

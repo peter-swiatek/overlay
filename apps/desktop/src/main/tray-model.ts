@@ -65,7 +65,7 @@ export function buildAboutItem(build: Pick<BuildInfo, "displayVersion">): {
 }
 
 export interface UpdateMenuView {
-  /** False for dev/local builds and unpackaged runs. */
+  /** False for local builds and unpackaged runs. */
   enabled: boolean;
   state: UpdateState;
   allowPrerelease: boolean;
@@ -108,7 +108,7 @@ export function buildUpdateItems(
   view: UpdateMenuView,
   actions: UpdateMenuActions,
 ): UpdateMenuItem[] {
-  if (!view.enabled) return [{ label: "Updates: release builds only", enabled: false }];
+  if (!view.enabled) return [{ label: "Updates: not available in local builds", enabled: false }];
   const { state } = view;
   const busy = state.kind !== "idle" && state.kind !== "up-to-date" && state.kind !== "error";
   const items: UpdateMenuItem[] = [

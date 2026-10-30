@@ -13,7 +13,7 @@ private and unversioned. `apps/desktop/scripts/version.mjs` turns it into a buil
 | ------------------------ | ----------------------------- | --------- | ---------------------------------- |
 | Tag push `v0.1.0`        | `0.1.0` (must equal the tag)  | `release` | `Overlay-Setup-0.1.0.exe`          |
 | CI build (`ci.yml`)      | `0.1.0-ci.<run number>`       | `dev`     | `Overlay-Setup-0.1.0-ci.123.exe`   |
-| Release dispatch         | `0.1.0-dev.<run number>`      | `dev`     | `Overlay-Setup-0.1.0-dev.123.exe`  |
+| Release dispatch         | `0.1.0-beta.<run number>`     | `dev`     | `Overlay-Setup-0.1.0-beta.123.exe` |
 | Local `dist:win`         | `0.1.0-local`                 | `local`   | `Overlay-Setup-0.1.0-local.exe`    |
 
 - The app shows the version in the tray tooltip, a disabled tray menu item, and the settings header.
@@ -50,8 +50,8 @@ workflow for the same tag replaces the assets (`--clobber`).
 
 ## Prerelease from a branch (workflow_dispatch)
 
-Run the `Release` workflow manually from the Actions tab and pick a **branch**. The version is the dev
-version (`0.1.0-dev.<run>`), the tag is `v0.1.0-dev.<run>`, and the release is always a prerelease (and
+Run the `Release` workflow manually from the Actions tab and pick a **branch**. The version is the beta
+version (`0.1.0-beta.<run>`), the tag is `v0.1.0-beta.<run>`, and the release is always a prerelease (and
 never marked "latest"). Dispatching on a tag is rejected, so a stable release is never rebuilt or
 changed from the Actions tab; to redo a stable release, re-run the tag's workflow run.
 
@@ -69,23 +69,37 @@ messages, because the releases repo is public.
 
 ## How updates reach users
 
-Packaged `release` builds (tagged installs) check `peter-swiatek/overlay-releases` 30 seconds after
-start and every 6 hours, using plain HTTPS requests to the public GitHub releases (no token, no user
-data). A found update downloads in the background and installs when the app quits; the app never
-restarts on its own. The tray menu has **Check for updates**, **Include test builds** and, once an
-update is downloaded, **Restart to update (vX.Y.Z)**. Dev and local builds never check
-("Updates: release builds only").
+Every packaged build except local ones (`release`, `dev`, `ci` and `beta` installs) checks
+`peter-swiatek/overlay-releases` 30 seconds after start and every 6 hours, using plain HTTPS GETs to
+the public GitHub releases (no token, no cookies). The app sends a fixed all-zero value in the
+`x-user-staging-id` header instead of electron-updater's per-install ID, so requests carry no install
+identifier. GitHub itself still sees the IP address and the User-Agent `electron-builder`.
 
-- By default only stable releases are offered. Prereleases (`v0.2.0-rc.1`, branch builds
-  `v0.1.0-dev.N`) reach only people who tick **Include test builds** in the tray.
-- The updater is unsigned-friendly: `app-update.yml` carries no publisher name, so unsigned NSIS
-  updates are accepted.
+A found update downloads in the background and installs when the app quits; the app never restarts on
+its own. The tray menu has **Check for updates**, **Include test builds** and, once an update is
+downloaded, **Restart to update (vX.Y.Z)**, which stops telemetry and capture cleanly first. Local
+builds never check ("Updates: not available in local builds").
+
+- By default only stable releases are offered, so an installed dev, ci or beta build moves to the next
+  stable release. Prereleases (`v0.2.0-rc.1`, dispatch builds `v0.1.0-beta.N`) reach only people who
+  tick **Include test builds** in the tray.
+- electron-updater lets a prerelease install move along prereleases only when the prerelease word is
+  `alpha` or `beta`. That is why release dispatch builds are `-beta.<run>`; `-ci` and `-dev` builds
+  would otherwise be stuck on themselves.
+- Code signing: there is no signing setup, so no publisher name is written to `app-update.yml` and
+  unsigned NSIS updates are accepted. `win.verifyUpdateCodeSignature` is left at its default on
+  purpose; if signing is added later the check turns on automatically.
 
 ### Pulling a bad release
 
 Delete the release on `overlay-releases`, or edit it and tick "Set as a pre-release"; it is then no
-longer offered to normal users. People who already updated stay on the bad version until a newer
-release exists, so publish a fixed, higher version (bump the patch and tag again).
+longer offered to normal users. Things to know:
+
+- People who already updated stay on the bad version until a newer release exists, so publish a fixed,
+  higher version (bump the patch and tag again).
+- People who already downloaded the bad release install it on their next quit; publish the fix quickly.
+- People with **Include test builds** on are still offered a release that was re-marked as a prerelease.
+- Unticking **Include test builds** does not cancel a prerelease that is already downloaded.
 
 ## One-time setup of the releases repo
 

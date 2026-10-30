@@ -11,15 +11,33 @@ export interface AutoUpdaterLike {
   autoDownload: boolean;
   autoInstallOnAppQuit: boolean;
   allowPrerelease: boolean;
+  requestHeaders: import("node:http").OutgoingHttpHeaders | null;
+  logger: UpdaterLogger | null;
   on(event: "checking-for-update" | "update-not-available", listener: () => void): unknown;
   on(
     event: "update-available" | "update-downloaded",
     listener: (info: { version: string }) => void,
   ): unknown;
   on(event: "error", listener: (error: Error) => void): unknown;
-  checkForUpdates(): Promise<unknown>;
+  checkForUpdates(): Promise<{ downloadPromise?: Promise<unknown> | null } | null | undefined>;
   quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void;
 }
+
+/** electron-updater's logger shape. */
+export interface UpdaterLogger {
+  info(message?: unknown): void;
+  warn(message?: unknown): void;
+  error(message?: unknown): void;
+  debug?(message: string): void;
+}
+
+/**
+ * Sent instead of electron-updater's per-install ID (userData/.updaterId), so feed requests carry
+ * no install identifier. It must stay a non-empty header object: setHeader throws on undefined.
+ */
+export const STAGING_ID_HEADERS: Record<string, string> = {
+  "x-user-staging-id": "00000000-0000-0000-0000-000000000000",
+};
 
 export type UpdateState =
   | { kind: "idle" }
@@ -30,7 +48,10 @@ export type UpdateState =
   | { kind: "error"; message: string };
 
 export interface UpdaterDeps {
-  autoUpdater: AutoUpdaterLike;
+  /** Called only when updates are enabled, so nothing touches electron-updater otherwise. */
+  getAutoUpdater(): AutoUpdaterLike;
+  /** Stops telemetry and capture and flushes state; resolves when it is safe to run the installer. */
+  prepareToQuit(): Promise<void>;
   settings: UpdateSettingsStorage;
   channel: BuildChannel;
   isPackaged: boolean;
@@ -43,15 +64,22 @@ export interface UpdaterDeps {
   log?: (message: string) => void;
 }
 
-/** Updates only run for packaged release builds. */
+function oneLine(value: unknown): string {
+  const text = value instanceof Error ? value.message : String(value);
+  return (text.split("\n")[0] ?? "").slice(0, 200);
+}
+
+/** Updates run for every packaged build except local ones. */
 export function updatesEnabled(channel: BuildChannel, isPackaged: boolean): boolean {
-  return channel === "release" && isPackaged;
+  return channel !== "local" && isPackaged;
 }
 
 export class Updater {
   private state: UpdateState = { kind: "idle" };
   private clearResult: (() => void) | undefined;
   private stops: (() => void)[] = [];
+  private updater: AutoUpdaterLike | undefined;
+  private restarting = false;
   readonly enabled: boolean;
   private readonly log: (message: string) => void;
 
@@ -68,16 +96,29 @@ export class Updater {
     return this.deps.settings.load().allowPrerelease;
   }
 
-  /** Wires the updater and schedules checks. Does nothing for dev/local or unpackaged builds. */
+  private get autoUpdater(): AutoUpdaterLike {
+    this.updater ??= this.deps.getAutoUpdater();
+    return this.updater;
+  }
+
+  /** Wires the updater and schedules checks. Does nothing for local or unpackaged builds. */
   start(): void {
     if (!this.enabled) {
       this.log(`disabled (${this.deps.channel} build, packaged=${String(this.deps.isPackaged)})`);
       return;
     }
-    const u = this.deps.autoUpdater;
+    const u = this.autoUpdater;
     u.autoDownload = true;
     u.autoInstallOnAppQuit = true;
     u.allowPrerelease = this.allowPrerelease;
+    u.requestHeaders = { ...STAGING_ID_HEADERS };
+    // Lifecycle events are logged below; the library's own info and debug output (which can include
+    // the feed XML) is dropped. Warnings and errors keep one line, without a stack.
+    u.logger = {
+      info: () => {},
+      warn: (m) => this.log(`warning: ${oneLine(m)}`),
+      error: (m) => this.log(`error: ${oneLine(m)}`),
+    };
     u.on("checking-for-update", () => {
       this.log("checking");
       this.setState({ kind: "checking" });
@@ -95,7 +136,7 @@ export class Updater {
       this.setState({ kind: "downloaded", version: info.version });
     });
     u.on("error", (error) => {
-      this.log(`error: ${error.message}`);
+      this.log(`error: ${oneLine(error)}`);
       this.showTransient({ kind: "error", message: error.message });
     });
     this.stops.push(
@@ -115,27 +156,39 @@ export class Updater {
     if (!this.enabled) return;
     const kind = this.state.kind;
     if (kind === "checking" || kind === "available" || kind === "downloaded") return;
-    this.deps.autoUpdater.allowPrerelease = this.allowPrerelease;
+    this.autoUpdater.allowPrerelease = this.allowPrerelease;
     this.setState({ kind: "checking" });
-    this.deps.autoUpdater.checkForUpdates().catch((error: unknown) => {
-      // The "error" event normally fires too; this covers a rejection without one.
-      if (this.state.kind !== "checking") return;
-      const message = error instanceof Error ? error.message : String(error);
-      this.log(`error: ${message}`);
-      this.showTransient({ kind: "error", message });
-    });
+    this.autoUpdater
+      .checkForUpdates()
+      // The background download can reject too; its failure also arrives as an "error" event.
+      .then((result) => result?.downloadPromise?.catch(() => {}))
+      .catch((error: unknown) => {
+        // The "error" event normally fires too; this covers a rejection without one.
+        if (this.state.kind !== "checking") return;
+        const message = error instanceof Error ? error.message : String(error);
+        this.log(`error: ${message}`);
+        this.showTransient({ kind: "error", message });
+      });
   }
 
   setAllowPrerelease(value: boolean): void {
     this.deps.settings.update({ allowPrerelease: value });
-    this.deps.autoUpdater.allowPrerelease = value;
+    if (this.enabled) this.autoUpdater.allowPrerelease = value;
     this.deps.onChange();
   }
 
   /** Restarts into the downloaded update. Goes through the normal before-quit path. */
-  restartToUpdate(): void {
-    if (this.state.kind !== "downloaded") return;
-    this.deps.autoUpdater.quitAndInstall(false, true);
+  async restartToUpdate(): Promise<void> {
+    if (this.state.kind !== "downloaded" || this.restarting) return;
+    this.restarting = true;
+    try {
+      await this.deps.prepareToQuit();
+    } catch (error) {
+      this.log(
+        `error while preparing to quit: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    this.autoUpdater.quitAndInstall(false, true);
   }
 
   private showTransient(state: UpdateState): void {

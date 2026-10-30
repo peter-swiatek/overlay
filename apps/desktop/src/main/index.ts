@@ -26,8 +26,6 @@ import { Updater } from "./updater";
 import { buildSettingsWindowOptions } from "./window-options";
 import { ZOrderKeeper, hwndOf } from "./zorder";
 
-const { autoUpdater } = pkg;
-
 const EDIT_SHORTCUT = "Control+Shift+F10";
 
 console.info(
@@ -209,7 +207,13 @@ if (!app.requestSingleInstanceLock()) {
     telemetry.start();
 
     updater = new Updater({
-      autoUpdater,
+      getAutoUpdater: () => pkg.autoUpdater,
+      prepareToQuit: async () => {
+        shuttingDown = true;
+        telemetry?.shutdown();
+        await capture?.shutdown();
+        overlays?.flushSave();
+      },
       settings: new UpdateSettingsStore(join(userData, "updates.json")),
       channel: BUILD_INFO.channel,
       isPackaged: app.isPackaged,

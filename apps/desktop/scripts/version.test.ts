@@ -69,8 +69,8 @@ describe("computeBuildIdentity", () => {
 
   it("uses the requested prerelease word", () => {
     expect(
-      computeBuildIdentity({ pkgVersion: "0.1.0", runNumber: 4, devWord: "dev" }).version,
-    ).toBe("0.1.0-dev.4");
+      computeBuildIdentity({ pkgVersion: "0.1.0", runNumber: 4, devWord: "beta" }).version,
+    ).toBe("0.1.0-beta.4");
     expect(() =>
       computeBuildIdentity({ pkgVersion: "0.1.0", runNumber: 4, devWord: "a b" }),
     ).toThrow();
@@ -144,9 +144,9 @@ describe("version-cli", () => {
     expect(file).toContain("BUILD_NUMBER=42\n");
   });
 
-  it("honours --word dev", () => {
-    const { file } = run({ GITHUB_REF_TYPE: "branch", GITHUB_RUN_NUMBER: "3" }, ["--word", "dev"]);
-    expect(file).toMatch(/^OVERLAY_VERSION=.*-dev\.3$/m);
+  it("honours --word beta", () => {
+    const { file } = run({ GITHUB_REF_TYPE: "branch", GITHUB_RUN_NUMBER: "3" }, ["--word", "beta"]);
+    expect(file).toMatch(/^OVERLAY_VERSION=.*-beta\.3$/m);
   });
 
   it("detects a tag and fails when it does not match package.json", () => {

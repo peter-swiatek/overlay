@@ -61,9 +61,9 @@ describe("update items", () => {
   const items = (state: UpdateState, allowPrerelease = false, enabled = true, a = mkActions()) =>
     buildUpdateItems({ enabled, state, allowPrerelease }, a);
 
-  it("shows a single disabled item for non-release builds", () => {
+  it("shows a single disabled item for local builds", () => {
     expect(items({ kind: "idle" }, false, false)).toEqual([
-      { label: "Updates: release builds only", enabled: false },
+      { label: "Updates: not available in local builds", enabled: false },
     ]);
   });
 

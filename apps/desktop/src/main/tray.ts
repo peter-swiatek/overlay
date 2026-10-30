@@ -87,7 +87,7 @@ export class AppTray {
           {
             checkNow: () => this.updater.checkNow(),
             setAllowPrerelease: (value) => this.updater.setAllowPrerelease(value),
-            restartToUpdate: () => this.updater.restartToUpdate(),
+            restartToUpdate: () => void this.updater.restartToUpdate(),
           },
         ),
         { type: "separator" },
