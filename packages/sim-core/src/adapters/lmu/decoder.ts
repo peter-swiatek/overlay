@@ -410,6 +410,7 @@ function readCar(f: Frame, o: number, trackLengthM: number, rest: LmuRestSnapsho
   const laps = f.i16(o + VEHICLE.lapsCompleted);
   const inPits = f.u8(o + VEHICLE.pitting) === 1;
   const control = f.i8(o + VEHICLE.inControl);
+  const controlKnown = control === 0 || control === 1;
   const timeIntoLap = f.f64(o + VEHICLE.timeIntoLap);
   const driver = f.text(o + VEHICLE.driverName.offset, VEHICLE.driverName.length);
   car.driverName = driver.length > 0 ? driver : null;
@@ -423,19 +424,19 @@ function readCar(f: Frame, o: number, trackLengthM: number, rest: LmuRestSnapsho
   car.lapDistPct = lapPct(f.f64(o + VEHICLE.lapDistance), trackLengthM);
   car.onPitRoad = inPits;
   car.inPitStall = inPitStall(f, o, inPits, extra?.pitState ?? null);
-  car.isOnTrack = control !== -1 && !inPits;
+  car.isOnTrack = controlKnown ? !inPits : null;
   car.lastLapS = positiveOrNull(f.f64(o + VEHICLE.lastLapTime));
   car.bestLapS = positiveOrNull(f.f64(o + VEHICLE.bestLapTime));
   car.estTimeS = timeIntoLap >= 0 && Number.isFinite(timeIntoLap) ? timeIntoLap : null;
   car.isPlayer = f.u8(o + VEHICLE.player) === 1;
-  car.connected = control !== -1;
+  car.connected = controlKnown;
   return car;
 }
 
 /**
  * A car counts as in its stall when the session runs, it is on pit road and its garage-stall flag
  * is set (a car parked in the garage before the session is not "in its stall" for overlays). Else
- * REST's pit state "STOPPED" says so when we have it; otherwise unknown, because the numeric pit
+ * REST says "not in stall" for the observed states NONE and EXITING; anything else is unknown, because the pit
  * state codes are shifted against what we expected (only 0 = none and 5 = exiting are observed).
  * TODO: confirm the stopped code from a recording with a pit stop.
  */
@@ -447,7 +448,9 @@ function inPitStall(
 ): boolean | null {
   const live = f.u8(SCORING_BASE + SESSION.gamePhase) === 5;
   if (live && onPitRoad && f.u8(o + VEHICLE.inGarageStall) === 1) return true;
-  if (restPitState !== null) return restPitState === "STOPPED";
+  // Only NONE and EXITING were seen; a stopped-in-stall name is unobserved.
+  // TODO: accept it once a recording with a pit stop shows what REST calls it.
+  if (restPitState === "NONE" || restPitState === "EXITING") return false;
   return null;
 }
 
