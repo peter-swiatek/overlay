@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const required = [
   "out/main/index.js",
+  "out/main/capture.js",
   "out/preload/index.cjs",
   "out/renderer/settings/index.html",
   "out/renderer/overlay/index.html",

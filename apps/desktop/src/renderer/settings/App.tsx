@@ -1,4 +1,11 @@
 import { useEffect, useState } from "react";
+import {
+  IDLE_CAPTURE_STATUS,
+  MAX_LMU_FRAME_HZ,
+  MIN_LMU_FRAME_HZ,
+  type CaptureSettings,
+  type CaptureStatus,
+} from "../../shared/capture-types";
 import type { AppInfo, DisplaySettings, ProcessMetric } from "../../shared/types";
 
 const OPTIONS: { key: keyof DisplaySettings; label: string }[] = [
@@ -12,6 +19,14 @@ const METRICS_INTERVAL_MS = 2000;
 export function App() {
   const [info, setInfo] = useState<AppInfo>();
   const [metrics, setMetrics] = useState<ProcessMetric[]>([]);
+  const [capture, setCapture] = useState<CaptureStatus>(IDLE_CAPTURE_STATUS);
+  const [captureSettings, setCaptureSettings] = useState<CaptureSettings>();
+
+  useEffect(() => {
+    void window.overlayApi.getCaptureStatus().then((s) => s && setCapture(s));
+    void window.overlayApi.getCaptureSettings().then((s) => s && setCaptureSettings(s));
+    return window.overlayApi.onCaptureStatus(setCapture);
+  }, []);
 
   useEffect(() => {
     void window.overlayApi.getAppInfo().then(setInfo);
@@ -64,6 +79,67 @@ export function App() {
         {info?.safeMode && (
           <p className="note">Running with --safe-mode: all three fallbacks are active.</p>
         )}
+      </section>
+
+      <section>
+        <h2>Fixture recording</h2>
+        <p className="muted">
+          Start and stop from the tray menu. Files go to the fixtures folder (tray: Open fixtures
+          folder).
+        </p>
+        <table>
+          <tbody>
+            <tr>
+              <td>Status</td>
+              <td>
+                {capture.recording
+                  ? capture.file
+                    ? `Recording ${capture.sim ?? ""}`
+                    : "Waiting for iRacing or LMU"
+                  : "Not recording"}
+              </td>
+            </tr>
+            <tr>
+              <td>Current file</td>
+              <td>{capture.file ?? "none"}</td>
+            </tr>
+            <tr>
+              <td>Size</td>
+              <td>{(capture.sizeBytes / (1024 * 1024)).toFixed(1)} MB</td>
+            </tr>
+            <tr>
+              <td>iRacing</td>
+              <td>
+                {capture.live.iracing ? "running" : "not detected"},{" "}
+                {capture.fps.iracing.toFixed(1)} frames/s
+              </td>
+            </tr>
+            <tr>
+              <td>LMU</td>
+              <td>
+                {capture.live.lmu ? "running" : "not detected"}, {capture.fps.lmu.toFixed(1)}{" "}
+                frames/s
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        {capture.error && <p className="note">{capture.error}</p>}
+        <label className="option">
+          <span>LMU frames per second</span>
+          <input
+            type="number"
+            min={MIN_LMU_FRAME_HZ}
+            max={MAX_LMU_FRAME_HZ}
+            value={captureSettings?.lmuFrameHz ?? 5}
+            disabled={!captureSettings}
+            onChange={(e) => {
+              const lmuFrameHz = Number(e.target.value);
+              if (Number.isFinite(lmuFrameHz)) {
+                void window.overlayApi.setCaptureSettings({ lmuFrameHz }).then(setCaptureSettings);
+              }
+            }}
+          />
+        </label>
       </section>
 
       <section>

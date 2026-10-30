@@ -33,6 +33,9 @@ importers:
         specifier: 3.3.5
         version: 3.3.5
     devDependencies:
+      '@overlay/sim-core':
+        specifier: workspace:*
+        version: link:../../packages/sim-core
       '@types/node':
         specifier: ^22.20.5
         version: 22.20.5
@@ -68,7 +71,11 @@ importers:
 
   packages/server: {}
 
-  packages/sim-core: {}
+  packages/sim-core:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.20.5
+        version: 22.20.5
 
   packages/theme: {}
 

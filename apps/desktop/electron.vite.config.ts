@@ -17,7 +17,10 @@ export default defineConfig({
   main: {
     build: {
       rollupOptions: {
-        input: { index: resolve("src/main/index.ts") },
+        input: {
+          index: resolve("src/main/index.ts"),
+          capture: resolve("src/capture/capture-process.ts"),
+        },
       },
     },
   },

@@ -1,3 +1,5 @@
+import type { CaptureSettings, CaptureStatus } from "./capture-types";
+
 export type OverlayId = "relative" | "inputs";
 
 export interface Bounds {
@@ -42,6 +44,10 @@ export const IPC = {
   getEditMode: "overlay:get-edit-mode",
   editModeChanged: "overlay:edit-mode-changed",
   resizeBy: "overlay:resize-by",
+  getCaptureStatus: "capture:get-status",
+  captureStatusChanged: "capture:status-changed",
+  getCaptureSettings: "capture:get-settings",
+  setCaptureSettings: "capture:set-settings",
 } as const;
 
 /** The whole surface exposed to renderers through contextBridge. */
@@ -52,4 +58,8 @@ export interface OverlayApi {
   getEditMode(): Promise<boolean>;
   onEditModeChanged(callback: (editing: boolean) => void): () => void;
   resizeBy(dx: number, dy: number): void;
+  getCaptureStatus(): Promise<CaptureStatus>;
+  onCaptureStatus(callback: (status: CaptureStatus) => void): () => void;
+  getCaptureSettings(): Promise<CaptureSettings>;
+  setCaptureSettings(patch: Partial<CaptureSettings>): Promise<CaptureSettings>;
 }

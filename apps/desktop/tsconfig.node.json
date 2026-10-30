@@ -6,6 +6,7 @@
   },
   "include": [
     "src/main",
+    "src/capture",
     "src/preload",
     "src/shared",
     "electron.vite.config.ts",

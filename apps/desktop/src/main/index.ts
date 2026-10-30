@@ -1,6 +1,8 @@
 import { join } from "node:path";
 import { BrowserWindow, app, globalShortcut, ipcMain, type WebContents } from "electron";
 import { IPC, type AppInfo } from "../shared/types";
+import { CaptureManager } from "./capture-manager";
+import { CaptureSettingsStore } from "./capture-settings";
 import { LayoutStore } from "./layout-store";
 import { summarizeMetrics } from "./metrics";
 import { OverlayManager } from "./overlays";
@@ -25,6 +27,10 @@ if (effective.disableDirectComposition) app.commandLine.appendSwitch("disable-di
 let settingsWindow: BrowserWindow | undefined;
 let overlays: OverlayManager | undefined;
 let tray: AppTray | undefined;
+let capture: CaptureManager | undefined;
+let shuttingDown = false;
+let lastRecording = false;
+let lastCaptureError: string | null = null;
 let zorder: ZOrderKeeper | undefined;
 
 function showSettings(): void {
@@ -67,6 +73,18 @@ function registerIpc(): void {
     if (!fromSettings(event.sender)) deny(IPC.getMetrics);
     return summarizeMetrics(app.getAppMetrics());
   });
+  ipcMain.handle(IPC.getCaptureStatus, (event) => {
+    if (!fromSettings(event.sender)) deny(IPC.getCaptureStatus);
+    return capture?.getStatus();
+  });
+  ipcMain.handle(IPC.getCaptureSettings, (event) => {
+    if (!fromSettings(event.sender)) deny(IPC.getCaptureSettings);
+    return capture?.getSettings();
+  });
+  ipcMain.handle(IPC.setCaptureSettings, (event, patch: unknown) => {
+    if (!fromSettings(event.sender)) deny(IPC.setCaptureSettings);
+    return capture?.setSettings(patch);
+  });
   ipcMain.handle(IPC.getEditMode, (event) => {
     if (!fromOverlay(event.sender)) deny(IPC.getEditMode);
     return overlays?.isEditMode ?? false;
@@ -101,6 +119,21 @@ if (!app.requestSingleInstanceLock()) {
     overlays = manager;
     manager.start();
 
+    capture = new CaptureManager(
+      new CaptureSettingsStore(join(userData, "capture-settings.json")),
+      (status) => {
+        // The menu only depends on these two; skip the rebuild on routine updates.
+        if (status.recording !== lastRecording || status.error !== lastCaptureError) {
+          lastRecording = status.recording;
+          lastCaptureError = status.error;
+          tray?.refresh();
+        }
+        if (settingsWindow && !settingsWindow.isDestroyed()) {
+          settingsWindow.webContents.send(IPC.captureStatusChanged, status);
+        }
+      },
+    );
+
     // Windows only: keep overlays above sims that re-assert their own z-order when activated.
     const keeper = new ZOrderKeeper({
       getOverlays: () => manager.getWindows(),
@@ -114,7 +147,7 @@ if (!app.requestSingleInstanceLock()) {
     manager.onShouldRaise = () => keeper.requestRaise();
     void keeper.start();
 
-    tray = new AppTray(manager, { showSettings, quit: () => app.quit() });
+    tray = new AppTray(manager, capture, { showSettings, quit: () => app.quit() });
 
     if (!globalShortcut.register(EDIT_SHORTCUT, () => manager.toggleEditMode())) {
       console.warn(`Could not register ${EDIT_SHORTCUT}`);
@@ -123,6 +156,13 @@ if (!app.requestSingleInstanceLock()) {
 
   // Tray app: closing the settings window must not quit.
   app.on("window-all-closed", () => {});
+  app.on("before-quit", (event) => {
+    // Let the capture process finish its file (gzip trailer, summary) before the app exits.
+    if (shuttingDown || !capture?.isRecording) return;
+    shuttingDown = true;
+    event.preventDefault();
+    void capture.shutdown().finally(() => app.quit());
+  });
   app.on("will-quit", () => {
     globalShortcut.unregisterAll();
     zorder?.dispose();

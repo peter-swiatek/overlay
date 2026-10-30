@@ -2,6 +2,7 @@
   "name": "@overlay/desktop",
   "version": "0.0.0",
   "private": true,
+  "productName": "Overlay",
   "description": "Overlay desktop shell",
   "author": "Peter Swiatek",
   "main": "./out/main/index.js",
@@ -18,6 +19,7 @@
     "koffi": "3.3.5"
   },
   "devDependencies": {
+    "@overlay/sim-core": "workspace:*",
     "@types/node": "^22.20.5",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
