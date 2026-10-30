@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { BrowserWindow, app, globalShortcut, ipcMain } from "electron";
+import { BrowserWindow, app, globalShortcut, ipcMain, type WebContents } from "electron";
 import { IPC, type AppInfo } from "../shared/types";
 import { LayoutStore } from "./layout-store";
 import { summarizeMetrics } from "./metrics";
@@ -40,22 +40,48 @@ function showSettings(): void {
   void loadPage(win, "settings");
 }
 
+function fromSettings(sender: WebContents): boolean {
+  return !!settingsWindow && !settingsWindow.isDestroyed() && settingsWindow.webContents === sender;
+}
+
+function fromOverlay(sender: WebContents): boolean {
+  return overlays?.isOverlaySender(sender) ?? false;
+}
+
+function deny(channel: string): never {
+  throw new Error(`Rejected IPC from unexpected sender: ${channel}`);
+}
+
 function registerIpc(): void {
-  ipcMain.handle(IPC.getAppInfo, (): AppInfo => ({
-    version: app.getVersion(),
-    display: settingsStore.load(),
-    effective,
-    safeMode,
-  }));
-  ipcMain.handle(IPC.setDisplaySettings, (_event, patch: unknown) => settingsStore.update(patch));
-  ipcMain.handle(IPC.getMetrics, () => summarizeMetrics(app.getAppMetrics()));
-  ipcMain.handle(IPC.getEditMode, () => overlays?.isEditMode ?? false);
+  ipcMain.handle(IPC.getAppInfo, (event): AppInfo => {
+    if (!fromSettings(event.sender)) deny(IPC.getAppInfo);
+    return { version: app.getVersion(), display: settingsStore.load(), effective, safeMode };
+  });
+  ipcMain.handle(IPC.setDisplaySettings, (event, patch: unknown) => {
+    if (!fromSettings(event.sender)) deny(IPC.setDisplaySettings);
+    return settingsStore.update(patch);
+  });
+  ipcMain.handle(IPC.getMetrics, (event) => {
+    if (!fromSettings(event.sender)) deny(IPC.getMetrics);
+    return summarizeMetrics(app.getAppMetrics());
+  });
+  ipcMain.handle(IPC.getEditMode, (event) => {
+    if (!fromOverlay(event.sender)) deny(IPC.getEditMode);
+    return overlays?.isEditMode ?? false;
+  });
   ipcMain.on(IPC.resizeBy, (event, dx: unknown, dy: unknown) => {
+    if (!fromOverlay(event.sender)) return;
     if (typeof dx === "number" && typeof dy === "number") {
       overlays?.resizeFromSender(event.sender, dx, dy);
     }
   });
 }
+
+// Renderers only ever show our own pages: no new windows, no navigation away.
+app.on("web-contents-created", (_event, contents) => {
+  contents.setWindowOpenHandler(() => ({ action: "deny" }));
+  contents.on("will-navigate", (event) => event.preventDefault());
+});
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -78,8 +104,6 @@ if (!app.requestSingleInstanceLock()) {
     if (!globalShortcut.register(EDIT_SHORTCUT, () => manager.toggleEditMode())) {
       console.warn(`Could not register ${EDIT_SHORTCUT}`);
     }
-
-    showSettings();
   });
 
   // Tray app: closing the settings window must not quit.

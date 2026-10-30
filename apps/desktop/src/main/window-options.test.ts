@@ -3,7 +3,6 @@ import {
   OPACITY_WORKAROUND_VALUE,
   buildOverlayWindowOptions,
   buildSettingsWindowOptions,
-  overlayOpacity,
 } from "./window-options";
 
 describe("buildOverlayWindowOptions", () => {
@@ -49,10 +48,8 @@ describe("buildSettingsWindowOptions", () => {
   });
 });
 
-describe("overlayOpacity", () => {
-  it("is opaque normally and 0.99 with the workaround", () => {
-    expect(overlayOpacity(false)).toBe(1);
-    expect(overlayOpacity(true)).toBe(OPACITY_WORKAROUND_VALUE);
+describe("OPACITY_WORKAROUND_VALUE", () => {
+  it("is 0.99", () => {
     expect(OPACITY_WORKAROUND_VALUE).toBe(0.99);
   });
 });

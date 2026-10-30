@@ -51,8 +51,3 @@ export function buildSettingsWindowOptions(preloadPath: string): BrowserWindowCo
     },
   };
 }
-
-/** Value for setOpacity: 0.99 forces a different compositing path on some GPUs. */
-export function overlayOpacity(opacityWorkaround: boolean): number {
-  return opacityWorkaround ? OPACITY_WORKAROUND_VALUE : 1;
-}

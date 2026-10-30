@@ -1,6 +1,7 @@
 appId: com.peterswiatek.overlay
 productName: Overlay
 npmRebuild: false
+publish: null
 directories:
   output: release
 files:

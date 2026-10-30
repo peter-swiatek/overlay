@@ -64,6 +64,17 @@ export function parseLayout(raw: unknown): Layout {
   return layout;
 }
 
+/** Shrinks bounds so the window does not extend past the work area (never below the minimum). */
+export function clampToWorkArea(bounds: Bounds, area: Bounds, min: Size): Bounds {
+  const maxWidth = Math.max(min.width, area.x + area.width - bounds.x);
+  const maxHeight = Math.max(min.height, area.y + area.height - bounds.y);
+  return {
+    ...bounds,
+    width: Math.min(bounds.width, maxWidth),
+    height: Math.min(bounds.height, maxHeight),
+  };
+}
+
 /** True when at least a 40x40 corner of the window lies inside one of the work areas. */
 export function isReachable(bounds: Bounds, workAreas: readonly Bounds[]): boolean {
   return workAreas.some((area) => {

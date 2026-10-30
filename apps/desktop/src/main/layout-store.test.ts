@@ -2,7 +2,13 @@ import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { OVERLAY_DEFINITIONS, isReachable, parseLayout, resizeBounds } from "./layout";
+import {
+  OVERLAY_DEFINITIONS,
+  clampToWorkArea,
+  isReachable,
+  parseLayout,
+  resizeBounds,
+} from "./layout";
 import { LayoutStore } from "./layout-store";
 
 let dir: string;
@@ -73,5 +79,26 @@ describe("isReachable", () => {
     expect(isReachable({ x: 100, y: 100, width: 300, height: 200 }, areas)).toBe(true);
     expect(isReachable({ x: -3000, y: 100, width: 300, height: 200 }, areas)).toBe(false);
     expect(isReachable({ x: 1900, y: 100, width: 300, height: 200 }, areas)).toBe(false);
+  });
+});
+
+describe("clampToWorkArea", () => {
+  const area = { x: 0, y: 0, width: 1000, height: 800 };
+  const min = { width: 100, height: 80 };
+  it("limits size to the work area", () => {
+    expect(clampToWorkArea({ x: 600, y: 500, width: 700, height: 600 }, area, min)).toEqual({
+      x: 600,
+      y: 500,
+      width: 400,
+      height: 300,
+    });
+  });
+  it("never goes below the minimum size", () => {
+    expect(clampToWorkArea({ x: 990, y: 790, width: 150, height: 120 }, area, min)).toEqual({
+      x: 990,
+      y: 790,
+      width: 100,
+      height: 80,
+    });
   });
 });

@@ -5,7 +5,7 @@ Goal: prove the overlay windows behave over a running sim. Record results next t
 ## Install
 
 - [ ] Download the `overlay-windows-installer` artifact from the CI run, unzip, run `Overlay-Setup-<version>.exe`. It is unsigned, so SmartScreen warns: More info, Run anyway. Install is per-user (no admin prompt).
-- [ ] A tray icon (amber square) appears, and the settings window opens.
+- [ ] A tray icon (amber square) appears, and the app starts quietly (the settings window does not open by itself, so it cannot steal focus from the sim). Open it from the tray: double-click the icon or choose "Show settings".
 
 ## With the sim running
 
