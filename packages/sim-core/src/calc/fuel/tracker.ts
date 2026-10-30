@@ -22,6 +22,8 @@ const WRAP_DROP = 0.5;
 /** A wrap only counts as an S/F crossing when it runs from beyond HIGH to below LOW. */
 const WRAP_HIGH = 0.9;
 const WRAP_LOW = 0.1;
+/** Moving forward more than this in one tick is a tow or a gap in the samples, not driving. */
+const FORWARD_JUMP = 0.15;
 /** iRacing SessionState: 3 parade laps, 5 checkered, 6 cooldown. */
 const PARADE_STATE = 3;
 const COOLDOWN_STATE = 5;
@@ -114,6 +116,20 @@ export class FuelTracker {
       this.voidLap(s, "reset");
       return;
     }
+    if (!dropped && !counterTicked && s.lapDistPct - prev.lapDistPct > FORWARD_JUMP) {
+      this.voidLap(s, "reset");
+      return;
+    }
+    if (
+      counterTicked &&
+      !this.expectCounter &&
+      s.lapDistPct > WRAP_LOW &&
+      s.lapDistPct < WRAP_HIGH
+    ) {
+      // The counter ticked far from the line: we missed samples around the crossing.
+      this.voidLap(s, "skipped", "unknownStart");
+      return;
+    }
     let crossed = false;
     if (counterTicked) {
       if (this.expectCounter) {
@@ -149,7 +165,11 @@ export class FuelTracker {
   }
 
   /** Records the lap in progress as invalid and starts a fresh lap at `s`. */
-  private voidLap(s: FuelSample, reason: FuelInvalidReason): void {
+  private voidLap(
+    s: FuelSample,
+    reason: FuelInvalidReason,
+    nextLapReason: FuelInvalidReason | null = null,
+  ): void {
     const cur = this.current;
     if (cur !== null) {
       this.laps.push({
@@ -163,7 +183,8 @@ export class FuelTracker {
     }
     this.expectWrap = false;
     this.expectCounter = false;
-    this.beginLap(s, null);
+    const midLap = s.lapDistPct > MID_LAP_START_MIN && s.lapDistPct < MID_LAP_START_MAX;
+    this.beginLap(s, nextLapReason ?? (midLap ? "unknownStart" : null));
   }
 
   private finishLap(s: FuelSample): void {

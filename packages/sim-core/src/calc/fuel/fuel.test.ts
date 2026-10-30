@@ -377,3 +377,35 @@ describe("post-race reset", () => {
     expect(t.snapshot({ lapsToGo: 0 }).validLapCount).toBe(3);
   });
 });
+
+describe("forward position jumps", () => {
+  it("a tow forward to a stall ahead voids the lap as reset", () => {
+    const t = new FuelTracker();
+    const d = new FakeDriver(50, 2);
+    feed(t, d, 2);
+    for (let i = 0; i < 2; i++) t.update(d.step()); // pct 0.2, 0.4 L used
+    d.pct = 0.6;
+    t.update(d.sample());
+    for (let i = 0; i < 4; i++) t.update(d.step());
+    expect(t.lapRecords.map((l) => l.reason)).toEqual([null, null, "reset", "unknownStart"]);
+    expect(t.snapshot({ lapsToGo: 5 }).validLapCount).toBe(2);
+  });
+
+  it("a sample gap with the counter up by one voids the lap as skipped", () => {
+    const t = new FuelTracker();
+    const d = new FakeDriver(50, 2);
+    feed(t, d, 2);
+    for (let i = 0; i < 3; i++) t.update(d.step()); // pct 0.3
+    d.lap += 1;
+    d.pct = 0.7;
+    d.fuelL -= 2.8; // 1.4 laps burned while unsampled
+    t.update(d.sample());
+    for (let i = 0; i < 20; i++) t.update(d.step());
+    const reasons = t.lapRecords.map((l) => l.reason);
+    expect(reasons.slice(0, 4)).toEqual([null, null, "skipped", "unknownStart"]);
+    expect(t.snapshot({ lapsToGo: 5 }).validLapCount).toBe(
+      2 + reasons.slice(4).filter((r) => r === null).length,
+    );
+    expect(t.lapRecords[2]?.valid).toBe(false);
+  });
+});

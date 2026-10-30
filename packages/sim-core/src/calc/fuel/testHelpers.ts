@@ -40,7 +40,7 @@ export class FakeDriver {
     this.fuelL -= this.burnPerLap / 10;
     this.pct += 0.1;
     // Land clearly beyond the wrap detector's "high" mark, as a real 60 Hz stream would.
-    if (this.pct > 0.85 && this.pct < 0.95) this.pct = 0.95;
+    if (this.pct > 0.85 && this.pct < 0.95) this.pct = 0.901;
     if (this.pct > 0.999) {
       this.pct = 0;
       if (!counterLag) this.lap += 1;
