@@ -79,7 +79,8 @@ async function runReplay(
 const fromFile = (path: string) => () =>
   ReplayTelemetrySource.fromFile(path, { speed: 0, loop: false });
 
-describe("telemetry engine with the recorder", () => {
+// Full replays through a real engine and SQLite take several seconds, longer on Windows runners.
+describe("telemetry engine with the recorder", { timeout: 60_000 }, () => {
   it("does not record a replay unless the debug flag is set", async () => {
     const out = await runReplay(fromFile(IRACING_RACE_START), false);
     expect(out.sessions).toEqual([]);
