@@ -53,10 +53,10 @@ The app can record what iRacing and LMU expose, so we can build and test the M1 
 
 1. Start Overlay. In LMU, make sure Settings > Gameplay > "Enable Plugins" is ON (restart the game after changing it).
 2. Tray icon > **Start recording**. The settings window shows "Waiting for iRacing or LMU", then the current file, its size and frames per second. Recording starts by itself when a sim is detected and switches file when you change sim. A new file also starts every 60 minutes.
-3. Drive. Use tray > **Mark moment** whenever something interesting happens, and pick a label (quali -> race, pit stop, driver swap, incident, other). In LMU a mark also records a burst of 1,000 consecutive frames.
+3. Drive. Use tray > **Mark moment** whenever something interesting happens, and pick a label (quali -> race, pit stop, driver swap, incident, other). In LMU a mark also records a burst of 1,000 consecutive frames. Each LMU REST endpoint is sampled about every 20 s (one request per second, rotating through them).
 4. Tray icon > **Stop recording** when done. Quit from the tray also finishes the file properly.
 
-Files are in `%APPDATA%\Overlay\fixtures\` (tray > **Open fixtures folder**), named `<sim>-<UTC time>.ovfx`. Expect about 2 MB per minute for LMU at the default rate and less for iRacing, but real sessions may be larger.
+Use tray > **Open fixtures folder** to find the files (they are named `<sim>-<UTC time>.ovfx`). Expect about 2 MB per minute for LMU at the default rate and less for iRacing, but real sessions may be larger.
 
 ### What to record
 

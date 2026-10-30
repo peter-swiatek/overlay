@@ -1,4 +1,5 @@
 import { Writable } from "node:stream";
+import { gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import {
   FixtureReader,
@@ -130,11 +131,20 @@ describe("fixture container", () => {
 
   it("rejects non-fixture data and newer versions", async () => {
     await expect(readAllRecords(once(Buffer.from("not gzip")))).rejects.toThrow();
-    const sink = new MemorySink();
-    const writer = new FixtureWriter(sink, { ...header, version: 2 } as HeaderFields, {
+    const newer = encodeRecord(
+      RecordKind.Header,
+      0,
+      0,
+      Buffer.from(JSON.stringify({ ...header, format: "ovfx", version: 2 })),
+    );
+    const sink = { bytes: () => gzipSync(newer) };
+    // The writer always stamps the current version, even if a caller passes another one.
+    const forced = new MemorySink();
+    const w = new FixtureWriter(forced, { ...header, version: 9 } as HeaderFields, {
       clock: fakeClock(),
     });
-    await writer.close();
+    await w.close();
+    expect((await readAllRecords(once(forced.bytes()))).reader.header?.version).toBe(1);
     await expect(new FixtureReader(once(sink.bytes())).records().next()).rejects.toThrow(
       /Unsupported fixture version/,
     );

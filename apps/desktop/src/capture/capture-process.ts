@@ -18,7 +18,6 @@ const STATUS_INTERVAL_MS = 1000;
 
 let controller: CaptureController | undefined;
 let lmu: LmuCapture | undefined;
-let looping = false;
 let statusTimer: NodeJS.Timeout | undefined;
 let startError: string | undefined;
 
@@ -31,17 +30,17 @@ function currentStatus() {
   return startError ? { ...status, error: startError } : status;
 }
 
-async function loop(): Promise<void> {
-  if (looping) return;
-  looping = true;
-  try {
-    while (controller?.isRecording) {
-      await controller.tick();
-      await new Promise((resolve) => setTimeout(resolve, controller?.suggestedDelayMs ?? 100));
+function startLoop(): void {
+  const running = controller;
+  if (!running) return;
+  void running.runLoop().then(() => {
+    // The loop also ends when a write failed (the controller stopped itself): stop reporting.
+    if (!running.isRecording && statusTimer) {
+      clearInterval(statusTimer);
+      statusTimer = undefined;
+      send({ type: "status", status: currentStatus() });
     }
-  } finally {
-    looping = false;
-  }
+  });
 }
 
 async function onStart(command: Extract<CaptureCommand, { type: "start" }>): Promise<void> {
@@ -70,7 +69,7 @@ async function onStart(command: Extract<CaptureCommand, { type: "start" }>): Pro
     () => send({ type: "status", status: currentStatus() }),
     STATUS_INTERVAL_MS,
   );
-  void loop();
+  startLoop();
 }
 
 port.on("message", (message) => {
@@ -81,7 +80,7 @@ port.on("message", (message) => {
       break;
     case "stop":
       void (async () => {
-        await controller?.stop();
+        await controller?.requestStop();
         if (statusTimer) clearInterval(statusTimer);
         statusTimer = undefined;
         send({ type: "stopped", status: currentStatus() });

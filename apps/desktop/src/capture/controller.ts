@@ -6,6 +6,9 @@ import type { Clock } from "./shm";
 export const DETECT_INTERVAL_MS = 2000;
 export const ROTATE_AFTER_MS = 60 * 60 * 1000;
 export const CAPTURE_TOOL_VERSION = "1";
+/** Loop sleep when the sim is not live or nothing paces the loop. */
+const IDLE_DELAY_MS = 50;
+const realSleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 export interface OpenFixtureFile {
   path: string;
@@ -49,6 +52,8 @@ export class CaptureController {
   private fps: Record<SimId, number> = { iracing: 0, lmu: 0 };
   private error: string | undefined;
   private filesWritten = 0;
+  private stopping = false;
+  private loopPromise: Promise<void> | undefined;
 
   constructor(private readonly options: ControllerOptions) {}
 
@@ -89,8 +94,39 @@ export class CaptureController {
 
   /** Milliseconds the driver loop may sleep before the next tick. */
   get suggestedDelayMs(): number {
-    if (!this.active) return 100;
-    return this.active.cap.sim === "iracing" ? 0 : 5;
+    const cap = this.active?.cap;
+    if (!cap || !cap.live) return IDLE_DELAY_MS;
+    if (cap.blocksOnEvent) return 0;
+    return cap.sim === "iracing" ? IDLE_DELAY_MS : 5;
+  }
+
+  /**
+   * Runs `tick` repeatedly until recording ends or a stop is requested.
+   * Resolves when the loop has exited.
+   */
+  runLoop(sleep: (ms: number) => Promise<void> = realSleep): Promise<void> {
+    if (this.loopPromise) return this.loopPromise;
+    const loop = (async () => {
+      while (this.recording && !this.stopping) {
+        await this.tick();
+        if (this.recording && !this.stopping) await sleep(this.suggestedDelayMs);
+      }
+    })().finally(() => {
+      this.loopPromise = undefined;
+    });
+    this.loopPromise = loop;
+    return loop;
+  }
+
+  /** Stops without racing the loop: lets the in-flight tick finish, then closes the file. */
+  async requestStop(): Promise<void> {
+    this.stopping = true;
+    try {
+      await this.loopPromise;
+      await this.stop();
+    } finally {
+      this.stopping = false;
+    }
   }
 
   async tick(): Promise<void> {

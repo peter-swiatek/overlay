@@ -12,6 +12,8 @@ export interface SimCapture {
   readonly sim: SimId;
   /** True when the sim is running and producing data right now. */
   readonly live: boolean;
+  /** True when `step` blocks on a sim event, so the driver loop needs no sleep. */
+  readonly blocksOnEvent?: boolean;
   /** True while we hold any handle on the sim's objects. */
   readonly isOpen: boolean;
   /** Frames (or var buffers) written to the current file. */

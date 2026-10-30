@@ -28,6 +28,8 @@ let overlays: OverlayManager | undefined;
 let tray: AppTray | undefined;
 let capture: CaptureManager | undefined;
 let shuttingDown = false;
+let lastRecording = false;
+let lastCaptureError: string | null = null;
 
 function showSettings(): void {
   if (settingsWindow && !settingsWindow.isDestroyed()) {
@@ -118,7 +120,12 @@ if (!app.requestSingleInstanceLock()) {
     capture = new CaptureManager(
       new CaptureSettingsStore(join(userData, "capture-settings.json")),
       (status) => {
-        tray?.refresh();
+        // The menu only depends on these two; skip the rebuild on routine updates.
+        if (status.recording !== lastRecording || status.error !== lastCaptureError) {
+          lastRecording = status.recording;
+          lastCaptureError = status.error;
+          tray?.refresh();
+        }
         if (settingsWindow && !settingsWindow.isDestroyed()) {
           settingsWindow.webContents.send(IPC.captureStatusChanged, status);
         }

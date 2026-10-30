@@ -56,7 +56,7 @@ export class FixtureWriter {
       options.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS,
     );
     this.timer.unref();
-    const full = { format: FIXTURE_FORMAT, version: FIXTURE_VERSION, ...header } as FixtureHeader;
+    const full = { ...header, format: FIXTURE_FORMAT, version: FIXTURE_VERSION } as FixtureHeader;
     this.append(RecordKind.Header, full);
   }
 

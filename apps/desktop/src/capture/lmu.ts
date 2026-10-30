@@ -90,8 +90,10 @@ export class LmuCapture implements SimCapture {
     const now = this.clock.monoMs();
     if (!this.data) this.open(now);
     if (!this.data) return;
-    if (!capturing) {
-      // Detection only: one copy compared with the previous one, one heartbeat request.
+    // While capturing and live, step supplies the signals. Once not live (a load screen, say)
+    // keep probing, so the file continues when the sim comes back instead of splitting.
+    if (!capturing || !this.live) {
+      // One copy compared with the previous one, one heartbeat request.
       this.copyInto(this.copyA);
       this.noteBuffer(this.copyA, now);
       if (!this.inFlight)

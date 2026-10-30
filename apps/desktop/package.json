@@ -2,6 +2,7 @@
   "name": "@overlay/desktop",
   "version": "0.0.0",
   "private": true,
+  "productName": "Overlay",
   "description": "Overlay desktop shell",
   "author": "Peter Swiatek",
   "main": "./out/main/index.js",

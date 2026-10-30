@@ -107,6 +107,11 @@ export class IracingCapture implements SimCapture {
     private readonly clock: Clock,
   ) {}
 
+  /** True when step blocks on the data-valid event, which paces the loop by itself. */
+  get blocksOnEvent(): boolean {
+    return this.event !== undefined;
+  }
+
   get isOpen(): boolean {
     return this.map !== undefined;
   }
