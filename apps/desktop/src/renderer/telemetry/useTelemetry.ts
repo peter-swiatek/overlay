@@ -20,6 +20,10 @@ function getClient(): TelemetryClient {
     },
     requestSubscribe: (rateHz) => window.overlayApi.subscribeTelemetry(rateHz),
     nowMs: () => performance.now(),
+    setTimer: (fn, ms) => {
+      const timer = setTimeout(fn, ms);
+      return () => clearTimeout(timer);
+    },
   });
   return shared;
 }
@@ -32,12 +36,14 @@ function getClient(): TelemetryClient {
 export function useTelemetry<T>(selector: Selector<T>, rateHz: number): T {
   const selectorRef = useRef(selector);
   selectorRef.current = selector;
-  const [value, setValue] = useState<T>(() => selector(getClient().latest()));
+  const [value, setValue] = useState<T>(() =>
+    selector(getClient().latest(), getClient().isStale()),
+  );
 
   useEffect(
     () =>
       getClient().select(
-        (frame: TelemetryFrame | null) => selectorRef.current(frame),
+        (frame: TelemetryFrame | null, stale: boolean) => selectorRef.current(frame, stale),
         rateHz,
         setValue,
       ),

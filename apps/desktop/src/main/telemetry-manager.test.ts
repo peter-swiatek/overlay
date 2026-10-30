@@ -3,6 +3,7 @@ import type { TelemetryCommand } from "../shared/telemetry-types";
 import {
   RESTART_BASE_MS,
   RESTART_MAX_MS,
+  STABLE_UPTIME_MS,
   TelemetryManager,
   restartDelayMs,
   type TelemetryChild,
@@ -50,6 +51,7 @@ interface Harness {
   timers: { fn: () => void; ms: number; cancelled: boolean }[];
   settingsChanges: TelemetrySettings[];
   overlays: Set<object>;
+  clock: { now: number };
   window(): object;
 }
 
@@ -61,6 +63,7 @@ function harness(initial: Partial<TelemetrySettings> = {}): Harness {
   const settingsChanges: TelemetrySettings[] = [];
   const overlays = new Set<object>();
   let portNo = 0;
+  const clock = { now: 1000 };
   const manager = new TelemetryManager(
     {
       load: () => stored,
@@ -78,6 +81,7 @@ function harness(initial: Partial<TelemetrySettings> = {}): Harness {
       },
       postPortToRenderer: (sender, port) => posted.push({ sender, port }),
       isOverlaySender: (sender) => overlays.has(sender),
+      nowMs: () => clock.now,
       setTimer: (fn, ms) => {
         const timer = { fn, ms, cancelled: false };
         timers.push(timer);
@@ -95,6 +99,7 @@ function harness(initial: Partial<TelemetrySettings> = {}): Harness {
     timers,
     settingsChanges,
     overlays,
+    clock,
     window: () => {
       const w = {};
       overlays.add(w);
@@ -221,11 +226,13 @@ describe("TelemetryManager", () => {
     expect(h.children[1]?.subscribes().map((s) => s.rateHz)).toEqual([20]);
   });
 
-  it("restarts with a growing delay and resets it once the process reports in", () => {
+  it("backs off while the process keeps crashing, even if it reports a status first", () => {
     const h = harness();
     h.manager.start();
     h.children[0]?.exit();
     h.timers[0]?.fn();
+    h.children[1]?.emit({ type: "status", status: "live", source: "mock", error: null });
+    h.clock.now += 1000;
     h.children[1]?.exit();
     h.timers[1]?.fn();
     h.children[2]?.exit();
@@ -234,10 +241,22 @@ describe("TelemetryManager", () => {
       RESTART_BASE_MS * 2,
       RESTART_BASE_MS * 4,
     ]);
-    h.timers[2]?.fn();
-    h.children[3]?.emit({ type: "status", status: "live", source: "mock", error: null });
-    h.children[3]?.exit();
-    expect(h.timers[3]?.ms).toBe(RESTART_BASE_MS);
+  });
+
+  it("resets the delay once the process stayed up long enough", () => {
+    const h = harness();
+    h.manager.start();
+    h.children[0]?.exit();
+    h.timers[0]?.fn();
+    h.children[1]?.exit();
+    h.timers[1]?.fn();
+    h.clock.now += STABLE_UPTIME_MS;
+    h.children[2]?.exit();
+    expect(h.timers.map((t) => t.ms)).toEqual([
+      RESTART_BASE_MS,
+      RESTART_BASE_MS * 2,
+      RESTART_BASE_MS,
+    ]);
   });
 
   it("caps the restart delay", () => {

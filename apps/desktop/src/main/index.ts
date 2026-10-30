@@ -181,6 +181,7 @@ if (!app.requestSingleInstanceLock()) {
           }
         },
         isOverlaySender: (sender) => fromOverlay(sender as WebContents),
+        nowMs: () => Date.now(),
         setTimer: (fn, ms) => {
           const timer = setTimeout(fn, ms);
           return () => clearTimeout(timer);

@@ -3,15 +3,18 @@ import type { ProcessMetric } from "../shared/types";
 /** The subset of Electron.ProcessMetric we use (workingSetSize is in kilobytes). */
 export interface RawProcessMetric {
   type: string;
-  /** Set for utility processes (Electron `serviceName`). */
+  /** Utility processes: the fork's `serviceName` option (Electron 45 reports it here). */
+  name?: string | undefined;
+  /** Electron 45 sets this to "node.mojom.NodeService" for every utility process. */
   serviceName?: string | undefined;
   cpu: { percentCPUUsage: number };
   memory: { workingSetSize: number };
 }
 
-/** Capture and telemetry are both type "Utility", so utility processes are keyed by serviceName. */
+/** Capture and telemetry are both type "Utility", so utility processes are keyed by their name. */
 export function metricKey(m: RawProcessMetric): string {
-  return m.type === "Utility" && m.serviceName ? `Utility: ${m.serviceName}` : m.type;
+  const label = m.name || m.serviceName;
+  return m.type === "Utility" && label ? `Utility: ${label}` : m.type;
 }
 
 /** Sums CPU % and working-set memory per process type. */

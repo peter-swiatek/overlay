@@ -25,11 +25,14 @@ export interface TelemetryManagerDeps {
   isOverlaySender(sender: object): boolean;
   /** Schedules `fn`; returns a function that cancels it. */
   setTimer(fn: () => void, ms: number): () => void;
+  nowMs(): number;
   onSettingsChange?: (settings: TelemetrySettings) => void;
 }
 
 export const RESTART_BASE_MS = 500;
 export const RESTART_MAX_MS = 10_000;
+/** A process must stay up this long before its next crash restarts without extra delay. */
+export const STABLE_UPTIME_MS = 10_000;
 
 export function restartDelayMs(attempt: number): number {
   return Math.min(RESTART_MAX_MS, RESTART_BASE_MS * 2 ** attempt);
@@ -50,6 +53,7 @@ export class TelemetryManager {
   private readonly rates = new Map<object, number>();
   private quitting = false;
   private restartAttempt = 0;
+  private startedAtMs = 0;
   private cancelRestart: (() => void) | undefined;
 
   constructor(
@@ -75,10 +79,10 @@ export class TelemetryManager {
     if (this.child || this.quitting) return;
     const child = this.deps.fork();
     this.child = child;
+    this.startedAtMs = this.deps.nowMs();
     child.on("message", (message) => {
       if (this.child !== child || !isStatusEvent(message)) return;
       this.status = message;
-      this.restartAttempt = 0;
     });
     child.on("exit", () => this.onExit(child));
     this.sendSource();
@@ -150,6 +154,7 @@ export class TelemetryManager {
     this.child = undefined;
     this.status = undefined;
     if (this.quitting) return;
+    if (this.deps.nowMs() - this.startedAtMs >= STABLE_UPTIME_MS) this.restartAttempt = 0;
     const delay = restartDelayMs(this.restartAttempt);
     this.restartAttempt += 1;
     this.cancelRestart = this.deps.setTimer(() => {

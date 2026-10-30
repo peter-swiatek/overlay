@@ -99,6 +99,11 @@ describe("statusNotice", () => {
     expect(statusNotice({ ...liveFrame({}), status: "waiting" })).toBe("Waiting for sim");
   });
 
+  it("shows No data when the stream is stale", () => {
+    expect(statusNotice(liveFrame({}), true)).toBe("No data");
+    expect(statusNotice(null, true)).toBe("No data");
+  });
+
   it("shows the error text, and nothing when live", () => {
     expect(statusNotice({ ...liveFrame({}), status: "error", error: "Cannot open file" })).toBe(
       "Cannot open file",

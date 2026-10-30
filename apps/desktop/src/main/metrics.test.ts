@@ -17,10 +17,12 @@ describe("summarizeMetrics", () => {
     ]);
   });
 
-  it("lists utility processes by serviceName", () => {
-    const util = (serviceName: string | undefined, cpu: number) => ({
+  it("lists utility processes by the name they were forked with", () => {
+    // Electron 45: serviceName is the same for every utility process, name is the fork name.
+    const util = (name: string | undefined, cpu: number) => ({
       ...m("Utility", cpu, 1024),
-      serviceName,
+      serviceName: "node.mojom.NodeService",
+      name,
     });
     expect(
       summarizeMetrics([
@@ -30,7 +32,7 @@ describe("summarizeMetrics", () => {
         util(undefined, 0),
       ]).map((e) => [e.type, e.count, e.cpuPercent]),
     ).toEqual([
-      ["Utility", 1, 0],
+      ["Utility: node.mojom.NodeService", 1, 0],
       ["Utility: overlay-capture", 1, 3],
       ["Utility: overlay-telemetry", 2, 2],
     ]);

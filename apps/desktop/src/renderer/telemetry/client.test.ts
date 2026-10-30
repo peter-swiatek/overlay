@@ -39,6 +39,7 @@ function frame(seq: number, patch: Partial<TelemetryFrame> = {}): TelemetryFrame
 
 function setup() {
   let now = 0;
+  const timers: { at: number; fn: () => void; live: boolean }[] = [];
   let handler: ((event: PortMessageEvent) => void) | undefined;
   const requests: number[] = [];
   const client = new TelemetryClient({
@@ -49,11 +50,29 @@ function setup() {
     },
     requestSubscribe: (hz) => requests.push(hz),
     nowMs: () => now,
+    setTimer: (fn, ms) => {
+      const timer = { at: now + ms, fn, live: true };
+      timers.push(timer);
+      return () => {
+        timer.live = false;
+      };
+    },
   });
   return {
     client,
     requests,
-    advance: (ms: number) => (now += ms),
+    // Moves the clock, firing due timers on the way (in time order).
+    advance: (ms: number) => {
+      const end = now + ms;
+      for (;;) {
+        const due = timers.filter((t) => t.live && t.at <= end).sort((a, b) => a.at - b.at)[0];
+        if (!due) break;
+        due.live = false;
+        now = Math.max(now, due.at);
+        due.fn();
+      }
+      now = end;
+    },
     deliverPort: (
       port: FakePort,
       source: unknown = SELF,
@@ -191,6 +210,51 @@ describe("TelemetryClient", () => {
     expect(fast).toHaveLength(12);
     expect(slow.length).toBeGreaterThanOrEqual(2);
     expect(slow.length).toBeLessThanOrEqual(3);
+  });
+
+  it("delivers the last change of a throttled interval as a trailing update", () => {
+    const t = setup();
+    const port = new FakePort();
+    t.deliverPort(port);
+    const seen: string[] = [];
+    t.client.select(
+      (f) => f?.status ?? "none",
+      10,
+      (v) => seen.push(v),
+    );
+    port.receive(frame(1));
+    t.advance(50);
+    port.receive(frame(2, { status: "waiting" }));
+    expect(seen).toEqual(["live"]);
+    t.advance(60);
+    expect(seen).toEqual(["live", "waiting"]);
+  });
+
+  it("reports stale after 2 s without frames and recovers on the next one", () => {
+    const t = setup();
+    const port = new FakePort();
+    t.deliverPort(port);
+    const seen: string[] = [];
+    t.client.select(
+      (f, stale) => (stale ? "stale" : (f?.status ?? "none")),
+      60,
+      (v) => seen.push(v),
+    );
+    port.receive(frame(1));
+    t.advance(1900);
+    expect(seen).toEqual(["live"]);
+    t.advance(200);
+    expect(seen).toEqual(["live", "stale"]);
+    expect(t.client.isStale()).toBe(true);
+    port.receive(frame(1));
+    expect(seen).toEqual(["live", "stale", "live"]);
+    expect(t.client.isStale()).toBe(false);
+  });
+
+  it("is never stale before the first frame", () => {
+    const t = setup();
+    t.advance(10_000);
+    expect(t.client.isStale()).toBe(false);
   });
 
   it("calls back only when the selected value changed", () => {
