@@ -16,4 +16,23 @@ describe("summarizeMetrics", () => {
       { type: "Tab", count: 2, cpuPercent: 1.8, memoryMb: 15 },
     ]);
   });
+
+  it("lists utility processes by serviceName", () => {
+    const util = (serviceName: string | undefined, cpu: number) => ({
+      ...m("Utility", cpu, 1024),
+      serviceName,
+    });
+    expect(
+      summarizeMetrics([
+        util("overlay-capture", 3),
+        util("overlay-telemetry", 1.5),
+        util("overlay-telemetry", 0.5),
+        util(undefined, 0),
+      ]).map((e) => [e.type, e.count, e.cpuPercent]),
+    ).toEqual([
+      ["Utility", 1, 0],
+      ["Utility: overlay-capture", 1, 3],
+      ["Utility: overlay-telemetry", 2, 2],
+    ]);
+  });
 });

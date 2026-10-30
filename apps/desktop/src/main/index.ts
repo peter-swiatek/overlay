@@ -1,5 +1,13 @@
 import { join } from "node:path";
-import { BrowserWindow, app, globalShortcut, ipcMain, type WebContents } from "electron";
+import {
+  BrowserWindow,
+  MessageChannelMain,
+  app,
+  globalShortcut,
+  ipcMain,
+  utilityProcess,
+  type WebContents,
+} from "electron";
 import { IPC, type AppInfo } from "../shared/types";
 import { CaptureManager } from "./capture-manager";
 import { CaptureSettingsStore } from "./capture-settings";
@@ -8,6 +16,8 @@ import { summarizeMetrics } from "./metrics";
 import { OverlayManager } from "./overlays";
 import { loadPage, preloadPath } from "./pages";
 import { SettingsStore, isSafeMode, resolveDisplaySettings } from "./settings";
+import { TelemetryManager } from "./telemetry-manager";
+import { TelemetrySettingsStore } from "./telemetry-settings";
 import { AppTray } from "./tray";
 import { buildSettingsWindowOptions } from "./window-options";
 import { ZOrderKeeper, hwndOf } from "./zorder";
@@ -28,6 +38,7 @@ let settingsWindow: BrowserWindow | undefined;
 let overlays: OverlayManager | undefined;
 let tray: AppTray | undefined;
 let capture: CaptureManager | undefined;
+let telemetry: TelemetryManager | undefined;
 let shuttingDown = false;
 let lastRecording = false;
 let lastCaptureError: string | null = null;
@@ -85,6 +96,10 @@ function registerIpc(): void {
     if (!fromSettings(event.sender)) deny(IPC.setCaptureSettings);
     return capture?.setSettings(patch);
   });
+  ipcMain.on(IPC.telemetrySubscribe, (event, rateHz: unknown) => {
+    // Silently ignores senders that are not overlay windows.
+    telemetry?.handleSubscribe(event.sender, rateHz);
+  });
   ipcMain.handle(IPC.getEditMode, (event) => {
     if (!fromOverlay(event.sender)) deny(IPC.getEditMode);
     return overlays?.isEditMode ?? false;
@@ -101,6 +116,10 @@ function registerIpc(): void {
 app.on("web-contents-created", (_event, contents) => {
   contents.setWindowOpenHandler(() => ({ action: "deny" }));
   contents.on("will-navigate", (event) => event.preventDefault());
+  // A reloaded or crashed page has lost its ports; it asks again when it is back.
+  contents.on("did-start-loading", () => telemetry?.forgetWindow(contents));
+  contents.on("render-process-gone", () => telemetry?.forgetWindow(contents));
+  contents.on("destroyed", () => telemetry?.forgetWindow(contents));
 });
 
 if (!app.requestSingleInstanceLock()) {
@@ -147,7 +166,31 @@ if (!app.requestSingleInstanceLock()) {
     manager.onShouldRaise = () => keeper.requestRaise();
     void keeper.start();
 
-    tray = new AppTray(manager, capture, { showSettings, quit: () => app.quit() });
+    telemetry = new TelemetryManager(
+      new TelemetrySettingsStore(join(userData, "telemetry-settings.json")),
+      {
+        fork: () =>
+          utilityProcess.fork(join(import.meta.dirname, "telemetry.js"), [], {
+            serviceName: "overlay-telemetry",
+          }),
+        createChannel: () => new MessageChannelMain(),
+        postPortToRenderer: (sender, port) => {
+          const contents = sender as WebContents;
+          if (!contents.isDestroyed()) {
+            contents.postMessage(IPC.telemetryPort, null, [port as Electron.MessagePortMain]);
+          }
+        },
+        isOverlaySender: (sender) => fromOverlay(sender as WebContents),
+        setTimer: (fn, ms) => {
+          const timer = setTimeout(fn, ms);
+          return () => clearTimeout(timer);
+        },
+        onSettingsChange: () => tray?.refresh(),
+      },
+    );
+    telemetry.start();
+
+    tray = new AppTray(manager, capture, telemetry, { showSettings, quit: () => app.quit() });
 
     if (!globalShortcut.register(EDIT_SHORTCUT, () => manager.toggleEditMode())) {
       console.warn(`Could not register ${EDIT_SHORTCUT}`);
@@ -157,6 +200,7 @@ if (!app.requestSingleInstanceLock()) {
   // Tray app: closing the settings window must not quit.
   app.on("window-all-closed", () => {});
   app.on("before-quit", (event) => {
+    telemetry?.shutdown();
     // Let the capture process finish its file (gzip trailer, summary) before the app exits.
     if (shuttingDown || !capture?.isRecording) return;
     shuttingDown = true;

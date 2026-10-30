@@ -48,6 +48,10 @@ export const IPC = {
   captureStatusChanged: "capture:status-changed",
   getCaptureSettings: "capture:get-settings",
   setCaptureSettings: "capture:set-settings",
+  /** Renderer to main: ask for a telemetry port at this rate (Hz). */
+  telemetrySubscribe: "telemetry:subscribe",
+  /** Main to renderer: carries the MessagePort that streams telemetry frames. */
+  telemetryPort: "telemetry:port",
 } as const;
 
 /** The whole surface exposed to renderers through contextBridge. */
@@ -62,4 +66,10 @@ export interface OverlayApi {
   onCaptureStatus(callback: (status: CaptureStatus) => void): () => void;
   getCaptureSettings(): Promise<CaptureSettings>;
   setCaptureSettings(patch: Partial<CaptureSettings>): Promise<CaptureSettings>;
+  /**
+   * Asks main for a telemetry MessagePort at `rateHz` (1 to 60). The port arrives as a
+   * `window.postMessage({ type: "telemetry-port" }, "*", [port])`; the page must already be
+   * listening. A higher rate than before brokers a new port.
+   */
+  subscribeTelemetry(rateHz: number): void;
 }

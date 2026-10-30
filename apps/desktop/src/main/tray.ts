@@ -1,8 +1,10 @@
 import { join } from "node:path";
-import { Menu, Tray, app, nativeImage } from "electron";
+import { Menu, Tray, app, dialog, nativeImage } from "electron";
 import { MARKER_PRESETS } from "../shared/capture-types";
 import type { CaptureManager } from "./capture-manager";
 import type { OverlayManager } from "./overlays";
+import type { TelemetryManager } from "./telemetry-manager";
+import { buildDataSourceMenu } from "./tray-model";
 
 function trayIconPath(): string {
   return app.isPackaged
@@ -21,6 +23,7 @@ export class AppTray {
   constructor(
     private readonly overlays: OverlayManager,
     private readonly capture: CaptureManager,
+    private readonly telemetry: TelemetryManager,
     private readonly actions: TrayActions,
   ) {
     this.tray = new Tray(nativeImage.createFromPath(trayIconPath()));
@@ -64,9 +67,31 @@ export class AppTray {
         },
         { label: "Open fixtures folder", click: () => this.capture.openFolder() },
         { type: "separator" },
+        {
+          label: "Data source",
+          submenu: buildDataSourceMenu(this.telemetry.getSettings(), {
+            select: (source) => this.telemetry.updateSettings({ source }),
+            pickReplayFile: () => void this.pickReplayFile(),
+          }),
+        },
+        { type: "separator" },
         { label: "Quit", click: () => this.actions.quit() },
       ]),
     );
+  }
+
+  private async pickReplayFile(): Promise<void> {
+    const result = await dialog.showOpenDialog({
+      title: "Replay a recording",
+      properties: ["openFile"],
+      filters: [{ name: "Fixture recording", extensions: ["ovfx"] }],
+    });
+    const path = result.filePaths[0];
+    if (result.canceled || path === undefined) {
+      this.refresh(); // radio items flip on click even when nothing changed
+      return;
+    }
+    this.telemetry.updateSettings({ source: "replay", replayPath: path });
   }
 
   destroy(): void {

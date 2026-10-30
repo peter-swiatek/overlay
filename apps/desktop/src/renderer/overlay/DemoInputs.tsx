@@ -1,31 +1,34 @@
-import { useEffect, useRef } from "react";
+import { useTelemetry } from "../telemetry/useTelemetry";
+import { formatGear, inputsView, statusNotice } from "../telemetry/views";
 
-/** Fake throttle/brake bars driven by requestAnimationFrame (about 60 Hz). Updates the DOM directly. */
+const UPDATE_HZ = 60;
+
+const pct = (fraction: number): string => `${(fraction * 100).toFixed(1)}%`;
+
+/** Brake, throttle and clutch bars, with gear, speed and a steering indicator, at 60 Hz. */
 export function DemoInputs() {
-  const throttle = useRef<HTMLDivElement>(null);
-  const brake = useRef<HTMLDivElement>(null);
+  const notice = useTelemetry(statusNotice, 10);
+  const v = useTelemetry(inputsView, UPDATE_HZ);
 
-  useEffect(() => {
-    let frame = 0;
-    const tick = (now: number): void => {
-      const t = now / 1000;
-      const thr = 0.5 + 0.5 * Math.sin(t * 1.3);
-      const brk = Math.max(0, Math.sin(t * 0.9 + 2)) ** 2;
-      if (throttle.current) throttle.current.style.height = `${(thr * 100).toFixed(1)}%`;
-      if (brake.current) brake.current.style.height = `${(brk * 100).toFixed(1)}%`;
-      frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, []);
+  if (notice !== null) return <div className="panel notice">{notice}</div>;
 
   return (
     <div className="panel inputs">
       <div className="bar-track">
-        <div ref={brake} className="bar brake" />
+        <div className="bar brake" style={{ height: pct(v.brake) }} />
       </div>
       <div className="bar-track">
-        <div ref={throttle} className="bar throttle" />
+        <div className="bar throttle" style={{ height: pct(v.throttle) }} />
+      </div>
+      <div className="bar-track clutch-track">
+        <div className="bar clutch" style={{ height: pct(v.clutch) }} />
+      </div>
+      <div className="readout">
+        <div className="gear">{formatGear(v.gear)}</div>
+        <div className="speed">{Math.round(v.speedKph)} km/h</div>
+        <div className="steer-track">
+          <div className="steer-mark" style={{ left: pct((v.steer + 1) / 2) }} />
+        </div>
       </div>
     </div>
   );
