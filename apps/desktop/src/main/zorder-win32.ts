@@ -32,7 +32,7 @@ export const loadWin32ZOrder: NativeLoader = async (onForeground) => {
     "int __stdcall SetWindowPos(uintptr_t hwnd, intptr_t after, int x, int y, int cx, int cy, uint32_t flags)",
   );
 
-  // Keep this reference for as long as the hook exists: a collected callback would crash the app.
+  // Registered callback; it stays valid until unregistered.
   const callback = koffi.register((_hook: number, _event: number, hwnd: number) => {
     try {
       onForeground(Number(hwnd));
@@ -61,7 +61,9 @@ export const loadWin32ZOrder: NativeLoader = async (onForeground) => {
     },
     dispose: () => {
       if (hook !== 0) unhookWinEvent(hook);
-      koffi.unregister(callback);
+      // An already-queued foreground event may still arrive after unhooking, so free the
+      // callback slot on a later turn rather than immediately.
+      setImmediate(() => koffi.unregister(callback));
     },
   };
   return native;
