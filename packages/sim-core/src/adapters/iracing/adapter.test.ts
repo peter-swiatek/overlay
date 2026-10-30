@@ -608,7 +608,7 @@ describe("IracingAdapter on synthetic buffers", () => {
     expect(run({}).player.tyres).toBeNull();
   });
 
-  it("nulls the player's live values when spectating or without a player car", () => {
+  it("nulls the player's live values when out of the world or without a player car", () => {
     const live = {
       Throttle: 0.5,
       Brake: 0.2,
@@ -626,7 +626,8 @@ describe("IracingAdapter on synthetic buffers", () => {
     const driving = run(live);
     expect(driving.player.inputs.throttle).toBe(0.5);
     expect(driving.player.tyres).not.toBeNull();
-    for (const s of [run({ ...live, CamCarIdx: 2 }), run({ ...live, PlayerCarIdx: -1 })]) {
+    const spectating = run({ ...live, CarIdxTrackSurface: [-1, -1, 3, 3] });
+    for (const s of [spectating, run({ ...live, PlayerCarIdx: -1 })]) {
       expect(s.player.inputs).toEqual({ throttle: null, brake: null, clutch: null, steer: null });
       expect(s.player).toMatchObject({
         gear: null,
@@ -639,7 +640,11 @@ describe("IracingAdapter on synthetic buffers", () => {
       });
       expect(s.player.fuelCapacityL).toBe(80);
     }
-    expect(run({ ...live, CamCarIdx: 2 }).focusCarIdx).toBe(2);
+    // Camera on another car while still driving: values stay.
+    const cam = run({ ...live, CamCarIdx: 2 });
+    expect(cam.focusCarIdx).toBe(2);
+    expect(cam.player.inputs.throttle).toBe(0.5);
+    expect(cam.player.fuelL).toBe(30);
     expect(run({ ...live, PlayerCarIdx: -1 }).playerCarIdx).toBeNull();
     expect(run({ ...live, PlayerCarIdx: -1 }).cars.every((c) => c.isPlayer === null)).toBe(true);
   });

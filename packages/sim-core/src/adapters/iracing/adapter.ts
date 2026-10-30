@@ -206,12 +206,9 @@ function fillPlayer(state: SimState, r: VarReader, info: IracingSessionInfo | nu
   const p = state.player;
   const player = state.playerCarIdx;
   const surface = player === null ? null : r.number("CarIdxTrackSurface", player);
-  // Only the player's own, driven car has live values: not when there is no player car, when it
-  // is out of the world (garage, between sessions: the gauges keep stale values) or when the
-  // camera is on another car (spectating).
-  const spectating = state.focusCarIdx !== null && state.focusCarIdx !== player;
-  const driving =
-    player !== null && surface !== null && surface !== TRACK_SURFACE_NOT_IN_WORLD && !spectating;
+  // The player-car vars always describe the player's own car, whatever the camera shows. They
+  // are stale when there is no player car or it is out of the world (garage, spectating).
+  const driving = player !== null && surface !== null && surface !== TRACK_SURFACE_NOT_IN_WORLD;
   const live = <T>(value: T | null): T | null => (driving ? value : null);
   p.inputs = {
     throttle: live(unit(r.number("Throttle"))),
