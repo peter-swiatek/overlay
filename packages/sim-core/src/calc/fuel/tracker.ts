@@ -21,10 +21,14 @@ const MID_LAP_START_MAX = 0.95;
 const WRAP_DROP = 0.5;
 /** Rise in a pit stall that counts as filling even below the refuel jump. */
 const STALL_FILL_EPSILON = 0.05;
+/** iRacing SessionState: 3 parade laps, 5 checkered, 6 cooldown. */
+const PARADE_STATE = 3;
+const COOLDOWN_STATE = 5;
 
 interface CurrentLap {
   startFuelL: number;
   startedOnPitRoad: boolean;
+  startState: number;
   refuelled: boolean;
   paceLap: boolean;
   /** Set by a session change or a lap counter reset; forces the lap invalid. */
@@ -125,15 +129,23 @@ export class FuelTracker {
     if (cur !== null) {
       const usedL = cur.startFuelL - s.fuelL;
       const reason = this.classify(cur, usedL);
-      this.laps.push({ lapNumber: s.lap, usedL, valid: reason === null, reason });
+      this.laps.push({
+        lapNumber: s.lap,
+        startState: cur.startState,
+        endState: s.sessionState,
+        usedL,
+        valid: reason === null,
+        reason,
+      });
     }
     this.beginLap(s, null);
   }
 
   private classify(cur: CurrentLap, usedL: number): FuelInvalidReason | null {
+    if (cur.startState >= COOLDOWN_STATE) return "cooldown";
+    if (cur.startState === PARADE_STATE || cur.paceLap) return "paceLap";
     if (cur.forcedReason !== null) return cur.forcedReason;
     if (cur.startedOnPitRoad) return "outlap";
-    if (cur.paceLap) return "paceLap";
     if (cur.refuelled) return "refuel";
     if (usedL > this.maxUse) return "dataError";
     if (usedL < this.minUse) return "partial";
@@ -144,6 +156,7 @@ export class FuelTracker {
     this.current = {
       startFuelL: s.fuelL,
       startedOnPitRoad: s.onPitRoad,
+      startState: s.sessionState,
       refuelled: false,
       paceLap: s.isPaceLap,
       forcedReason: forced,

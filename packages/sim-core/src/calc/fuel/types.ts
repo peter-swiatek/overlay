@@ -17,11 +17,21 @@ export interface FuelSample {
 }
 
 export type FuelInvalidReason =
-  "outlap" | "partial" | "paceLap" | "dataError" | "refuel" | "sessionChange" | "unknownStart";
+  | "outlap"
+  | "partial"
+  | "paceLap"
+  | "dataError"
+  | "refuel"
+  | "sessionChange"
+  | "unknownStart"
+  | "cooldown";
 
 export interface FuelLapRecord {
   /** Completed-lap counter value after this lap finished. */
   lapNumber: number;
+  /** iRacing SessionState when the lap started and when it ended. */
+  startState: number;
+  endState: number;
   usedL: number;
   valid: boolean;
   /** Empty when valid; the first matching rule in precedence order otherwise. */

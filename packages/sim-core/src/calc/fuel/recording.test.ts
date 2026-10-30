@@ -22,12 +22,22 @@ describe("local iRacing recording (Ferrari 296 GT3)", () => {
         samples++;
       }
       const out = tracker.snapshot({ lapsToGo: null });
-      const reasons = tracker.lapRecords.map((l) => l.reason ?? "ok").join(",");
+      const table = tracker.lapRecords
+        .map(
+          (l) =>
+            `${l.lapNumber} ${l.startState}->${l.endState} ${l.reason ?? "ok"} ${l.usedL.toFixed(3)}`,
+        )
+        .join("\n");
       console.log(
         `race samples=${samples} laps=${tracker.lapRecords.length} valid=${out.validLapCount} ` +
-          `fuelAvgLap=${out.fuelAvgLap} fuelMaxLap=${out.fuelMaxLap} reasons=[${reasons}]`,
+          `fuelAvgLap=${out.fuelAvgLap} fuelMaxLap=${out.fuelMaxLap}\n${table}`,
       );
-      expect(out.validLapCount).toBeGreaterThanOrEqual(9);
+      // 14 records: parade lap (paceLap), 12 racing laps, one cooldown lap.
+      expect(tracker.lapRecords.map((l) => l.reason).filter((r) => r !== null)).toEqual([
+        "paceLap",
+        "cooldown",
+      ]);
+      expect(out.validLapCount).toBe(12);
       expect(out.fuelAvgLap).toBeGreaterThan(1);
       expect(out.fuelAvgLap).toBeLessThan(6);
     },

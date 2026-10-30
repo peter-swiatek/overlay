@@ -276,3 +276,21 @@ describe("effectiveFuelAvg", () => {
     expect(out.fuelDelta).toBeCloseTo(16 - 5 * 4, 6);
   });
 });
+
+describe("session state laps", () => {
+  it("laps started in parade or after the checkered flag are invalid", () => {
+    const t = new FuelTracker();
+    const d = new FakeDriver(100, 2);
+    const run = (state: number) => {
+      for (let i = 0; i < 10; i++) t.update({ ...d.step(), sessionState: state });
+    };
+    t.update({ ...d.sample(), sessionState: 3 });
+    // A lap takes its start state from the sample at the line, so each lap starts in the
+    // state of the previous run's last sample.
+    run(3);
+    run(4);
+    run(5);
+    run(6);
+    expect(t.lapRecords.map((l) => l.reason)).toEqual(["paceLap", "paceLap", null, "cooldown"]);
+  });
+});
