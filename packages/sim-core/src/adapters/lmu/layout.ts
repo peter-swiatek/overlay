@@ -11,7 +11,7 @@
  *
  * The mapping is 327,680 bytes; the sim writes the first 324,820 and the rest stays zero.
  *
- *   0       header      events u32[16], game version, force-feedback torque, app window state
+ *   0       header      event counters u32[16], game build number
  *   332     paths       5 x 260 byte NUL-padded strings (install and user-data folders)
  *   1632    scoring     session block (560 bytes), 104 vehicle rows (584 bytes each),
  *                       then a 65,536 byte results/message stream (XML-ish text, names inside)
@@ -112,17 +112,17 @@ export const RESULTS_STREAM = {
  * | vehicleName    | cstr 64 | standings vehicleName (team, season, number, livery tag)         |
  * | lapsCompleted      | i16     | standings lapsCompleted                                          |
  * | sector         | i8      | standings sector: 1 SECTOR1, 2 SECTOR2, 0 SECTOR3               |
- * | finishStatus   | i8      | standings finishStatus: 0 FSTAT_NONE (1 finished, 2 dnf, 3 dq)   |
+ * | finishStatus   | i8      | standings finishStatus: 0 FSTAT_NONE (other values unobserved) |
  * | lapDistance        | f64     | standings lapDistance, within the 1 s between a buffer and REST  |
  * | pathLateral    | f64     | standings pathLateral                                            |
  * | trackEdge      | f64     | standings trackEdge                                              |
- * | bestSector1/2  | f64     | standings bestSectorTime1/2 (-1 until set)                       |
+ * | bestSectorTime1/2 | f64     | standings bestSectorTime1/2 (-1 until set)                       |
  * | bestLapTime    | f64     | standings bestLapTime (-1 until set)                             |
  * | lastLapTime    | f64     | standings lastLapTime (0 until set)                              |
  * | pitstops    | i16     | standings pitstops                                               |
  * | penalties   | i16     | standings penalties                                              |
  * | player       | u8      | standings player                                                 |
- * | inControl        | i8      | standings inControl (-1 none, 0 local player, 1 AI, 2 remote)    |
+ * | inControl        | i8      | standings inControl: 0 on the player, 1 on the others (no other values seen) |
  * | pitting         | u8      | standings pitting                                                |
  * | position          | u8      | standings position                                               |
  * | carClass   | cstr 32 | standings carClass                                               |
