@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "electron-vite";
 import type { Plugin } from "vite";
+import { resolveBuildInfo } from "./scripts/version.mjs";
 
 /** Dev only: lets the React refresh preamble (an inline script) run. Production HTML is untouched. */
 function relaxDevCsp(): Plugin {
@@ -13,8 +14,13 @@ function relaxDevCsp(): Plugin {
   };
 }
 
+/** Build identity from OVERLAY_* env (set by CI) or a local default; see scripts/version.mjs. */
+const buildInfo = resolveBuildInfo();
+
 export default defineConfig({
   main: {
+    // One define covers every main-process entry (main, capture, telemetry).
+    define: { __OVERLAY_BUILD__: JSON.stringify(buildInfo) },
     build: {
       rollupOptions: {
         input: {

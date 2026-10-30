@@ -1,3 +1,4 @@
+import type { BuildInfo } from "./build-info";
 import type { CaptureSettings, CaptureStatus } from "./capture-types";
 
 export type OverlayId = "relative" | "inputs";
@@ -23,6 +24,8 @@ export interface DisplaySettings {
 
 export interface AppInfo {
   version: string;
+  /** Version, git sha, build date and channel embedded when this build was made. */
+  build: BuildInfo;
   /** Stored settings (what the checkboxes edit). */
   display: DisplaySettings;
   /** Settings in effect for this run (stored settings plus --safe-mode). */

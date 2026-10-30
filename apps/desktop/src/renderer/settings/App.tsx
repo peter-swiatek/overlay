@@ -59,7 +59,7 @@ export function App() {
   return (
     <main>
       <h1>Overlay</h1>
-      <p className="muted">Version {info?.version ?? "..."}</p>
+      <p className="muted">Version {info?.build.displayVersion ?? "..."}</p>
 
       <section>
         <h2>Display fallbacks</h2>

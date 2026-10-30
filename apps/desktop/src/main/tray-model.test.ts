@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_TELEMETRY_SETTINGS } from "./telemetry-settings";
-import { buildDataSourceMenu } from "./tray-model";
+import { buildAboutItem, buildDataSourceMenu, trayTooltip } from "./tray-model";
 
 const actions = () => ({ select: vi.fn(), pickReplayFile: vi.fn() });
 
@@ -37,5 +37,16 @@ describe("data source menu", () => {
     click("Replay file...");
     expect(a.pickReplayFile).toHaveBeenCalledOnce();
     expect(a.select).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe("version in the tray", () => {
+  it("shows the display version in the tooltip and a disabled About item", () => {
+    const build = { displayVersion: "0.1.0-dev.123+abc1234" };
+    expect(trayTooltip(build)).toBe("Overlay 0.1.0-dev.123+abc1234");
+    expect(buildAboutItem(build)).toEqual({
+      label: "Overlay 0.1.0-dev.123+abc1234",
+      enabled: false,
+    });
   });
 });

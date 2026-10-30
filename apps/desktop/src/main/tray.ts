@@ -1,10 +1,11 @@
 import { join } from "node:path";
 import { Menu, Tray, app, dialog, nativeImage } from "electron";
+import { BUILD_INFO } from "../shared/build-info";
 import { MARKER_PRESETS } from "../shared/capture-types";
 import type { CaptureManager } from "./capture-manager";
 import type { OverlayManager } from "./overlays";
 import type { TelemetryManager } from "./telemetry-manager";
-import { buildDataSourceMenu } from "./tray-model";
+import { buildAboutItem, buildDataSourceMenu, trayTooltip } from "./tray-model";
 
 function trayIconPath(): string {
   return app.isPackaged
@@ -27,7 +28,7 @@ export class AppTray {
     private readonly actions: TrayActions,
   ) {
     this.tray = new Tray(nativeImage.createFromPath(trayIconPath()));
-    this.tray.setToolTip("Overlay");
+    this.tray.setToolTip(trayTooltip(BUILD_INFO));
     this.tray.on("double-click", () => actions.showSettings());
     this.refresh();
   }
@@ -75,6 +76,7 @@ export class AppTray {
           }),
         },
         { type: "separator" },
+        buildAboutItem(BUILD_INFO),
         { label: "Quit", click: () => this.actions.quit() },
       ]),
     );

@@ -1,3 +1,4 @@
+import type { BuildInfo } from "../shared/build-info";
 import type { TelemetrySourceChoice } from "../shared/telemetry-types";
 import type { TelemetrySettings } from "./telemetry-settings";
 
@@ -47,4 +48,17 @@ export function buildDataSourceMenu(
     item("Replay file...", settings.source === "replay", () => actions.pickReplayFile()),
     mock,
   ];
+}
+
+/** Tray tooltip, e.g. "Overlay 0.1.0". */
+export function trayTooltip(build: Pick<BuildInfo, "displayVersion">): string {
+  return `Overlay ${build.displayVersion}`;
+}
+
+/** Disabled "About" line at the bottom of the tray menu. */
+export function buildAboutItem(build: Pick<BuildInfo, "displayVersion">): {
+  label: string;
+  enabled: false;
+} {
+  return { label: `Overlay ${build.displayVersion}`, enabled: false };
 }

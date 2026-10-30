@@ -1,0 +1,91 @@
+name: Release
+
+# Builds the unsigned NSIS installer and publishes it as a GitHub Release asset, so people
+# download the plain .exe instead of a zipped Actions artifact. See docs/releasing.md.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      prerelease:
+        description: Mark the release as a prerelease
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+# The source repo is only read. Releases are written to RELEASES_REPO with RELEASES_TOKEN.
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      RELEASES_REPO: ${{ vars.RELEASES_REPO || 'peter-swiatek/overlay-releases' }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check release credentials
+        env:
+          RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          if [ -z "$RELEASES_TOKEN" ]; then
+            echo "::error::Secret RELEASES_TOKEN is not set. Create a fine-grained token with Contents: read and write on $RELEASES_REPO only, and add it as a repository secret (see docs/releasing.md)."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm test
+      # Writes OVERLAY_* and BUILD_NUMBER to $GITHUB_ENV. On a tag push it fails when the tag
+      # and apps/desktop/package.json disagree.
+      - name: Compute version
+        run: node apps/desktop/scripts/version.mjs
+      - run: pnpm --filter @overlay/desktop build
+      - name: Package installer
+        run: >-
+          pnpm --filter @overlay/desktop exec electron-builder --win nsis --publish never
+          -c.extraMetadata.version="$OVERLAY_VERSION"
+          -c.buildVersion="$OVERLAY_WINDOWS_VERSION"
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          DISPATCH_PRERELEASE: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease }}
+        working-directory: apps/desktop/release
+        run: |
+          set -euo pipefail
+          tag="v${OVERLAY_VERSION}"
+          exe="Overlay-Setup-${OVERLAY_VERSION}.exe"
+          for f in "$exe" "$exe.blockmap" latest.yml; do
+            test -f "$f" || { echo "::error::Missing build output $f"; exit 1; }
+          done
+
+          prerelease=()
+          if [ "$DISPATCH_PRERELEASE" = "true" ] || [[ "$OVERLAY_VERSION" == *-* ]]; then
+            prerelease=(--prerelease)
+          fi
+
+          # Public repo: no generated notes and no commit messages.
+          notes="Overlay ${OVERLAY_VERSION}, built $(date -u +%Y-%m-%d). Unsigned Windows installer: if SmartScreen warns, choose More info, then Run anyway."
+
+          if gh release view "$tag" --repo "$RELEASES_REPO" >/dev/null 2>&1; then
+            gh release edit "$tag" --repo "$RELEASES_REPO" --title "Overlay ${OVERLAY_VERSION}" --notes "$notes" "${prerelease[@]}"
+          else
+            gh release create "$tag" --repo "$RELEASES_REPO" --title "Overlay ${OVERLAY_VERSION}" --notes "$notes" "${prerelease[@]}"
+          fi
+          gh release upload "$tag" "$exe" "$exe.blockmap" latest.yml --repo "$RELEASES_REPO" --clobber

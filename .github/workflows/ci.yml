@@ -42,6 +42,9 @@ jobs:
     timeout-minutes: 20
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,10 +55,18 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @overlay/desktop dist:win
+      # Writes OVERLAY_* and BUILD_NUMBER to $GITHUB_ENV (see apps/desktop/scripts/version.mjs).
+      - name: Compute version
+        run: node apps/desktop/scripts/version.mjs
+      - run: pnpm --filter @overlay/desktop build
+      - name: Package installer
+        run: >-
+          pnpm --filter @overlay/desktop exec electron-builder --win nsis --publish never
+          -c.extraMetadata.version="$OVERLAY_VERSION"
+          -c.buildVersion="$OVERLAY_WINDOWS_VERSION"
       - uses: actions/upload-artifact@v4
         with:
-          name: overlay-windows-installer
+          name: overlay-windows-installer-${{ env.OVERLAY_VERSION }}
           path: apps/desktop/release/*.exe
           if-no-files-found: error
           retention-days: 14
