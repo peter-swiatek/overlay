@@ -1,5 +1,7 @@
 import { join } from "node:path";
 import { Menu, Tray, app, nativeImage } from "electron";
+import { MARKER_PRESETS } from "../shared/capture-types";
+import type { CaptureManager } from "./capture-manager";
 import type { OverlayManager } from "./overlays";
 
 function trayIconPath(): string {
@@ -18,6 +20,7 @@ export class AppTray {
 
   constructor(
     private readonly overlays: OverlayManager,
+    private readonly capture: CaptureManager,
     private readonly actions: TrayActions,
   ) {
     this.tray = new Tray(nativeImage.createFromPath(trayIconPath()));
@@ -43,6 +46,23 @@ export class AppTray {
           checked: this.overlays.isEditMode,
           click: () => this.overlays.toggleEditMode(),
         },
+        { type: "separator" },
+        this.capture.isRecording
+          ? { label: "Stop recording", click: () => this.capture.stop() }
+          : { label: "Start recording", click: () => this.capture.start() },
+        {
+          label: "Mark moment",
+          enabled: this.capture.isRecording,
+          submenu: [
+            { label: "Mark now", click: () => this.capture.mark("moment") },
+            { type: "separator" },
+            ...MARKER_PRESETS.map((label) => ({
+              label,
+              click: () => this.capture.mark(label),
+            })),
+          ],
+        },
+        { label: "Open fixtures folder", click: () => this.capture.openFolder() },
         { type: "separator" },
         { label: "Quit", click: () => this.actions.quit() },
       ]),

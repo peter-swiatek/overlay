@@ -14,7 +14,11 @@
     "icons": "node scripts/generate-icon.mjs",
     "dist:win": "pnpm run build && electron-builder --win nsis --publish never"
   },
+  "dependencies": {
+    "koffi": "3.3.5"
+  },
   "devDependencies": {
+    "@overlay/sim-core": "workspace:*",
     "@types/node": "^22.20.5",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",

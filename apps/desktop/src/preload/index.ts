@@ -14,6 +14,17 @@ const api: OverlayApi = {
     };
   },
   resizeBy: (dx, dy) => ipcRenderer.send(IPC.resizeBy, dx, dy),
+  getCaptureStatus: () => ipcRenderer.invoke(IPC.getCaptureStatus),
+  onCaptureStatus: (callback) => {
+    const listener = (_event: unknown, status: Parameters<typeof callback>[0]): void =>
+      callback(status);
+    ipcRenderer.on(IPC.captureStatusChanged, listener);
+    return () => {
+      ipcRenderer.removeListener(IPC.captureStatusChanged, listener);
+    };
+  },
+  getCaptureSettings: () => ipcRenderer.invoke(IPC.getCaptureSettings),
+  setCaptureSettings: (patch) => ipcRenderer.invoke(IPC.setCaptureSettings, patch),
 };
 
 contextBridge.exposeInMainWorld("overlayApi", api);

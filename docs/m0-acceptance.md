@@ -44,3 +44,40 @@ Enable one fallback at a time in the settings window, restart the app (tray, Qui
 4. [ ] Still black: start with `--safe-mode` (all three at once) and report the result.
 
 Also report GPU model, Windows version, monitor setup, and the sim's display mode.
+
+## Recording fixtures (M0-6)
+
+The app can record what iRacing and LMU expose, so we can build and test the M1 adapters against real data. It only reads: shared memory is opened read-only and the only network calls are GET requests to LMU's local REST API (`127.0.0.1:6397`). It never writes to the games.
+
+### How to record
+
+1. Start Overlay. In LMU, make sure Settings > Gameplay > "Enable Plugins" is ON (restart the game after changing it).
+2. Tray icon > **Start recording**. The settings window shows "Waiting for iRacing or LMU", then the current file, its size and frames per second. Recording starts by itself when a sim is detected and switches file when you change sim. A new file also starts every 60 minutes.
+3. Drive. Use tray > **Mark moment** whenever something interesting happens, and pick a label (quali -> race, pit stop, driver swap, incident, other). In LMU a mark also records a burst of 1,000 consecutive frames.
+4. Tray icon > **Stop recording** when done. Quit from the tray also finishes the file properly.
+
+Files are in `%APPDATA%\Overlay\fixtures\` (tray > **Open fixtures folder**), named `<sim>-<UTC time>.ovfx`. Expect about 2 MB per minute for LMU at the default rate and less for iRacing, but real sessions may be larger.
+
+### What to record
+
+iRacing (one continuous recording is best):
+
+- [ ] A full weekend in one go: practice, then qualifying, then race (mark "quali -> race" at each transition). A short session length is fine.
+- [ ] A pit stop with refuel (mark "pit stop" on entry).
+- [ ] An offline test session (a few laps).
+
+LMU:
+
+- [ ] A hybrid car (with virtual energy), a few laps plus a pit stop.
+- [ ] A GT3 car (plain fuel), a few laps plus a pit stop with refuel.
+- [ ] Rain, if you can get it (a wet or changing-weather session).
+- [ ] One online session (practice or race), if possible.
+- [ ] Start each LMU recording while still in the menu or garage, so the start of the file shows those states, then go on track.
+
+### How to send them
+
+Quit the app from the tray (so every file is finalised), zip the whole `fixtures` folder and upload the zip to the project. The files are large and already compressed, so a normal zip is fine. If a file is cut short because the app or the PC crashed, send it anyway: it can still be read up to the last second.
+
+### What the settings window shows
+
+Under "Fixture recording": status, current file, size in MB, and frames per second for each sim. "LMU frames per second" (1 to 20, default 5) sets the full-buffer rate for LMU. Higher rates make much bigger files.
