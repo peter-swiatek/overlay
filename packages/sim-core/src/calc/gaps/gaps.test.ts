@@ -208,6 +208,14 @@ describe("MiniSectorRecorder", () => {
     expect(make((t) => (t[200] = 80))).toBeUndefined();
     expect(make((_t, r) => (r.lapTimeS = 5000))).toBeUndefined();
     expect(make((t) => (t[10] = Number.NaN))).toBeUndefined();
+    expect(make((_t, r) => (r.lapTimeS = 2))).toBeUndefined();
+  });
+
+  it("keeps a short-oval reference of about 15 s across a reload", () => {
+    const scale = 15 / recordedReference().lapTimeS;
+    const times = recordedReference().times.map((t) => t * scale);
+    const json = { version: 1, trackReferences: { "0": { lapTimeS: times[200], times } } };
+    expect(MiniSectorRecorder.fromJSON(json).trackReference(0)?.lapTimeS).toBeCloseTo(15, 6);
   });
 
   it("drops malformed persisted references", () => {

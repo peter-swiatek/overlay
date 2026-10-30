@@ -10,8 +10,8 @@ import {
 const POINTS = GAP_MINI_SECTOR_COUNT + 1;
 /** A forward jump larger than this between ticks is a teleport, not driving. */
 const MAX_FORWARD_STEP = 0.1;
-/** Plausible lap times for persisted references, in seconds. */
-const MIN_LAP_TIME_S = 20;
+/** Plausible lap times for persisted references, in seconds (short ovals lap in about 15 s). */
+const MIN_LAP_TIME_S = 5;
 const MAX_LAP_TIME_S = 1200;
 
 interface CarState {
