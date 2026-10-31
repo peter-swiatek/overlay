@@ -134,6 +134,10 @@ importers:
   packages/theme: {}
 
   packages/ui:
+    dependencies:
+      '@overlay/theme':
+        specifier: workspace:*
+        version: link:../theme
     devDependencies:
       '@types/react':
         specifier: ^18.3.31

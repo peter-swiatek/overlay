@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { FieldConfig } from "../types";
@@ -94,6 +95,9 @@ describe("DataTable markup", () => {
         showHeader
         isOwnRow={(r) => r.own === true}
         rowClassName={(r) => (r.pos === 3 ? "extra" : undefined)}
+        rowStyle={(r) =>
+          r.pos === 3 ? ({ "--row-colour": "#123456" } as CSSProperties) : undefined
+        }
       />,
     );
     expect(html).toContain("grid-template-columns:minmax(0, 1fr) 20%");
@@ -103,6 +107,7 @@ describe("DataTable markup", () => {
     expect(html.match(/ov-row--own/g)).toHaveLength(1);
     expect(html.match(/ov-row--alt/g)).toHaveLength(1);
     expect(html).toContain("ov-row extra");
+    expect(html.match(/--row-colour:#123456/g)).toHaveLength(1);
     expect(html).toContain("Driver");
     expect(html).not.toContain("Gap");
     expect(html).not.toContain("+1.0");

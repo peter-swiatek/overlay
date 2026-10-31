@@ -23,6 +23,8 @@ export interface DataTableProps<Row> {
   showHeader: boolean;
   isOwnRow?(row: Row): boolean;
   rowClassName?(row: Row): string | undefined;
+  /** Inline style for the row element, e.g. CSS custom properties such as a class colour. */
+  rowStyle?(row: Row): CSSProperties | undefined;
 }
 
 function alignClass(align: TableColumn<unknown>["align"]): string {
@@ -34,7 +36,7 @@ function alignClass(align: TableColumn<unknown>["align"]): string {
  * across rows and the cells carry the row backgrounds.
  */
 export function DataTable<Row>(props: DataTableProps<Row>): JSX.Element {
-  const { config, widthMode, showHeader, rowKey, isOwnRow, rowClassName } = props;
+  const { config, widthMode, showHeader, rowKey, isOwnRow, rowClassName, rowStyle } = props;
   const columns = orderedColumns(props.columns, config);
   const style: CSSProperties = {
     gridTemplateColumns: gridTemplate(props.columns, config, widthMode, props.widthScalePct ?? 100),
@@ -49,7 +51,12 @@ export function DataTable<Row>(props: DataTableProps<Row>): JSX.Element {
         rowClassName?.(row) ?? "",
       ];
       return (
-        <div key={rowKey(row)} className={classes.filter(Boolean).join(" ")} role="row">
+        <div
+          key={rowKey(row)}
+          className={classes.filter(Boolean).join(" ")}
+          style={rowStyle?.(row)}
+          role="row"
+        >
           {columns.map((column) => (
             <div key={column.id} className={`ov-cell${alignClass(column.align)}`} role="cell">
               {column.render(row)}
