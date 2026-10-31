@@ -6,5 +6,25 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./contract": "./src/contract.ts",
+    "./manifests": "./src/manifests.ts",
+    "./settings": "./src/settings/index.ts"
+  },
+  "dependencies": {
+    "@overlay/sim-core": "workspace:*",
+    "@overlay/theme": "workspace:*",
+    "@overlay/ui": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   }
 }

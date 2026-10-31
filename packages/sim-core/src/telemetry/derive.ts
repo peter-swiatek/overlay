@@ -6,21 +6,14 @@ import {
   type FuelSample,
 } from "../calc/fuel";
 import { MiniSectorRecorder, RollingLapTimes, relativeGap, type GapCarTick } from "../calc/gaps";
+import { ProximityTracker } from "../calc/proximity";
+import { StandingsTracker, type StandingsInputs } from "../calc/standings";
 import type { Car, SessionPhase, SessionType, SimState } from "../model";
 import { TrackTracker, type TrackOutline, type TrackOutlineStore } from "../track";
 import { emptyDerived, type Derived, type DerivedGap } from "./frame";
 
 /** The clock going back by more than this means a new session or a restarted replay. */
 const CLOCK_BACKWARDS_S = 1;
-
-/** iRacing SessionState numbers, which FuelTracker expects. */
-const SESSION_STATE: Partial<Record<SessionPhase, number>> = {
-  formation: 3,
-  racing: 4,
-  checkered: 5,
-  cooldown: 6,
-};
-const SESSION_STATE_OTHER = 1;
 
 /**
  * Turns each {@link SimState} into {@link Derived} values. Stateful (calculators keep history)
@@ -37,13 +30,13 @@ export interface DeriverOptions {
 
 export class Deriver {
   private readonly track: TrackTracker;
-  private fuel = new FuelTracker();
   private recorder = new MiniSectorRecorder();
   private laps = new RollingLapTimes();
   private sessionCounter = 0;
   private lastType: SessionType | null = null;
   private lastTickS: number | null = null;
-  private fuelSamples = 0;
+  private readonly standings = new StandingsTracker();
+  private readonly proximity = new ProximityTracker();
 
   constructor(options: DeriverOptions = {}) {
     this.track = new TrackTracker({
@@ -57,13 +50,14 @@ export class Deriver {
    * are detected by `next` itself.
    */
   reset(): void {
-    this.fuel = new FuelTracker();
+    this.resetFuel();
     this.recorder = new MiniSectorRecorder();
     this.laps = new RollingLapTimes();
     this.sessionCounter++;
     this.lastType = null;
     this.lastTickS = null;
-    this.fuelSamples = 0;
+    this.standings.reset();
+    this.proximity.reset();
     this.track.reset();
   }
 
@@ -102,6 +96,9 @@ export class Deriver {
       fuel: this.updateFuel(state, player, tickS),
       gaps: this.gaps(state, player),
       track: this.track.update(state, player),
+      standings: this.standings.next(state, this.standingsInputs()),
+      proximity: this.proximity.next(state),
+      energy: this.updateEnergy(state, player, tickS),
     };
   }
 
@@ -124,6 +121,16 @@ export class Deriver {
       const done = this.recorder.update(carTick(car, tickS, classId));
       if (done) this.laps.record(car.carIdx, done.lapTimeS, done.clean, classId);
     }
+  }
+
+  // --- fuel and energy (M2-10) ---
+
+  private fuel = new FuelTracker();
+  private fuelSamples = 0;
+
+  private resetFuel(): void {
+    this.fuel = new FuelTracker();
+    this.fuelSamples = 0;
   }
 
   private updateFuel(
@@ -160,6 +167,20 @@ export class Deriver {
     return s.lapsTotal === null ? null : s.lapsTotal - done - pct;
   }
 
+  /** LMU virtual energy through the fuel calculator; the fuel outputs ticket fills it in. */
+  private updateEnergy(
+    state: SimState,
+    player: Car | null,
+    tickS: number | null,
+  ): FuelOutputs | null {
+    void state;
+    void player;
+    void tickS;
+    return null;
+  }
+
+  // --- end fuel and energy ---
+
   private gaps(state: SimState, player: Car | null): DerivedGap[] {
     const out: DerivedGap[] = [];
     for (const car of state.cars) {
@@ -192,6 +213,21 @@ export class Deriver {
     }
     return out;
   }
+  private standingsInputs(): StandingsInputs {
+    const { recorder, laps } = this;
+    return {
+      carReference: (carIdx) => recorder.carReference(carIdx),
+      trackReference: (classKey) => recorder.trackReference(classNumber(classKey)),
+      averageLapS: (carIdx) => laps.average(carIdx),
+      bestLapS: (carIdx) => laps.best(carIdx),
+      classBestLapS: (classKey) => laps.classBest(classNumber(classKey)),
+      sessionBestLapS: () => laps.sessionBest(),
+    };
+  }
+}
+
+function classNumber(classKey: string): number {
+  return Number(classKey) || 0;
 }
 
 function findPlayer(state: SimState): Car | null {
@@ -211,6 +247,17 @@ function carTick(car: Car, sessionTimeS: number, classId: number): GapCarTick {
     classId,
   };
 }
+
+// --- fuel sample (M2-10) ---
+
+/** iRacing SessionState numbers, which FuelTracker expects. */
+const SESSION_STATE: Partial<Record<SessionPhase, number>> = {
+  formation: 3,
+  racing: 4,
+  checkered: 5,
+  cooldown: 6,
+};
+const SESSION_STATE_OTHER = 1;
 
 function fuelSample(
   state: SimState,
@@ -236,3 +283,5 @@ function fuelSample(
     sessionType: state.session.type ?? "other",
   };
 }
+
+// --- end fuel sample ---

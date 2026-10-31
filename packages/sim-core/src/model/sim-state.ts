@@ -48,6 +48,10 @@ export interface SessionInfo {
   trackConfig: string | null;
   trackLengthM: number | null;
   pitSpeedLimitMps: number | null;
+  /** iRacing WeekendOptions IncidentLimit; null = unlimited or unknown. */
+  incidentLimit: number | null;
+  /** Sim time of day, seconds after midnight. */
+  timeOfDayS: number | null;
 }
 
 export interface Conditions {
@@ -55,6 +59,15 @@ export interface Conditions {
   trackTempC: number | null;
   /** Track surface wetness, 0 (dry) .. 1 (soaked). */
   wetness: number | null;
+  /** 0..1. */
+  precipitation: number | null;
+  /** 0..1. */
+  humidity: number | null;
+  /** 0..1. */
+  fogLevel: number | null;
+  windSpeedMps: number | null;
+  /** Direction the wind comes from, radians clockwise from north. */
+  windDirRad: number | null;
 }
 
 /** Flags currently shown to the player. All false when nothing is shown. */
@@ -102,6 +115,12 @@ export interface Car {
   iRating: number | null;
   /** License as shown by the sim, e.g. "A 3.41". */
   license: string | null;
+  /** iRacing DriverInfo TeamName; LMU null unless reliably parsed. */
+  teamName: string | null;
+  /** LMU per-vehicle world position; iRacing null. */
+  worldPos: Vec3 | null;
+  /** LMU per-vehicle fuel fraction 0..1; iRacing null. */
+  fuelFraction: number | null;
   connected: boolean;
 }
 
@@ -165,6 +184,10 @@ export interface Player {
   yawRad: number | null;
   /** Velocity in the car frame (iRacing VelocityX/Y/Z); null when not provided. */
   velocityMps: Vec3 | null;
+  /** iRacing DriverPitTrkPct (lap distance of the player's pit stall); LMU null. */
+  pitStallLapDistPct: number | null;
+  /** Front share of the brake force, 0..1. */
+  brakeBias: number | null;
 }
 
 export interface SimState {
@@ -222,6 +245,9 @@ export function emptyCar(carIdx: number): Car {
     isPlayer: null,
     iRating: null,
     license: null,
+    teamName: null,
+    worldPos: null,
+    fuelFraction: null,
     connected: false,
   };
 }
@@ -245,8 +271,19 @@ export function emptySimState(source: SimSource = "mock"): SimState {
       trackConfig: null,
       trackLengthM: null,
       pitSpeedLimitMps: null,
+      incidentLimit: null,
+      timeOfDayS: null,
     },
-    conditions: { airTempC: null, trackTempC: null, wetness: null },
+    conditions: {
+      airTempC: null,
+      trackTempC: null,
+      wetness: null,
+      precipitation: null,
+      humidity: null,
+      fogLevel: null,
+      windSpeedMps: null,
+      windDirRad: null,
+    },
     flags: null,
     playerCarIdx: null,
     focusCarIdx: null,
@@ -266,6 +303,8 @@ export function emptySimState(source: SimSource = "mock"): SimState {
       worldPos: null,
       yawRad: null,
       velocityMps: null,
+      pitStallLapDistPct: null,
+      brakeBias: null,
     },
   };
 }

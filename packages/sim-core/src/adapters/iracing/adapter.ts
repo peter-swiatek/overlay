@@ -79,6 +79,7 @@ export class IracingAdapter {
     state.focusCarIdx = validIndex(r.number("CamCarIdx"));
     fillSession(state, r, info);
     state.conditions = {
+      ...state.conditions,
       airTempC: r.number("AirTemp"),
       trackTempC: r.number("TrackTempCrew"),
       wetness: wetness(r.number("TrackWetness")),

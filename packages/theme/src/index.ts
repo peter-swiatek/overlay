@@ -1,3 +1,2 @@
-export function themeName(): string {
-  return "@overlay/theme";
-}
+export * from "./types";
+export * from "./presets";

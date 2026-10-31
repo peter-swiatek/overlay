@@ -10,6 +10,7 @@ export {
 } from "./formulas";
 export type {
   FuelContext,
+  FuelLapUse,
   FuelInvalidReason,
   FuelLapRecord,
   FuelOutputs,

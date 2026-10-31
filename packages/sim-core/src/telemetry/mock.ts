@@ -65,7 +65,7 @@ export class MockSource {
     s.trackName = "Mock Raceway";
     s.trackLengthM = TRACK_LENGTH_M;
     s.pitSpeedLimitMps = 22.2;
-    state.conditions = { airTempC: 22, trackTempC: 31, wetness: 0 };
+    state.conditions = { ...state.conditions, airTempC: 22, trackTempC: 31, wetness: 0 };
 
     const p = state.player;
     p.gear = 4;

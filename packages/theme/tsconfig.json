@@ -1,4 +1,8 @@
 {
   "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // DOM is only for TextEncoder and btoa (the theme code codec); it avoids relying on @types/node.
+    "lib": ["ES2022", "DOM"]
+  },
   "include": ["src"]
 }

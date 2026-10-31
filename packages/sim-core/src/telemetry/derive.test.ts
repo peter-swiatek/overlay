@@ -37,6 +37,9 @@ describe("Deriver", () => {
       fuel: null,
       gaps: [],
       track: { trackKey: null, outlineReady: false },
+      standings: null,
+      proximity: null,
+      energy: null,
     });
   });
 

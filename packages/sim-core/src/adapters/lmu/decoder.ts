@@ -174,6 +174,7 @@ export class LmuDecoder {
     state.focusCarIdx = playerId;
     state.session = readSession(f, trackLengthM, count, this.rest);
     state.conditions = {
+      ...state.conditions,
       airTempC: f.f64(SCORING_BASE + SESSION.ambientTemp),
       trackTempC: f.f64(SCORING_BASE + SESSION.trackTemp),
       wetness: clamp01(f.f64(SCORING_BASE + SESSION.averagePathWetness)),
@@ -345,6 +346,8 @@ function readSession(
     trackConfig: null,
     trackLengthM: trackLengthM > 0 ? trackLengthM : null,
     pitSpeedLimitMps: null,
+    incidentLimit: null,
+    timeOfDayS: null,
   };
 }
 

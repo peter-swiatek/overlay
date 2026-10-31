@@ -1,5 +1,7 @@
 import type { FuelOutputs } from "../calc/fuel";
 import type { GapResult } from "../calc/gaps";
+import type { Proximity } from "../calc/proximity";
+import type { Standings } from "../calc/standings";
 import type { SimSource, SimState } from "../model";
 import { emptyDerivedTrack, type DerivedTrack } from "../track/tracker";
 
@@ -22,6 +24,12 @@ export interface Derived {
    * not in the frame: overlays ask for it with the `getTrackOutline` command.
    */
   track: DerivedTrack;
+  /** Standings for every non-pace car; null until a live frame has cars. */
+  standings: Standings | null;
+  /** Cars alongside the player; null when unknown. */
+  proximity: Proximity | null;
+  /** LMU virtual energy run through the fuel calculator in percent units; null when the car has none. */
+  energy: FuelOutputs | null;
 }
 
 /** What the telemetry process publishes to overlay renderers. Plain structured-cloneable data. */
@@ -36,5 +44,12 @@ export interface TelemetryFrame {
 }
 
 export function emptyDerived(): Derived {
-  return { fuel: null, gaps: [], track: emptyDerivedTrack() };
+  return {
+    fuel: null,
+    gaps: [],
+    track: emptyDerivedTrack(),
+    standings: null,
+    proximity: null,
+    energy: null,
+  };
 }

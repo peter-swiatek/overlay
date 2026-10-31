@@ -6,6 +6,8 @@ export * from "./telemetry";
 export * from "./track";
 export * from "./calc/fuel";
 export * from "./calc/gaps";
+export * from "./calc/standings";
+export * from "./calc/proximity";
 export * as iracing from "./adapters/iracing";
 export * as lmu from "./adapters/lmu";
 

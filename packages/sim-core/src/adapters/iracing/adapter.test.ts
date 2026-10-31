@@ -734,7 +734,16 @@ describe("IracingAdapter on synthetic buffers", () => {
     expect(s.player.gear).toBeNull();
     expect(s.player.tyres).toBeNull();
     expect(s.player.pitLimiter).toBeNull();
-    expect(s.conditions).toEqual({ airTempC: null, trackTempC: null, wetness: null });
+    expect(s.conditions).toEqual({
+      airTempC: null,
+      trackTempC: null,
+      wetness: null,
+      precipitation: null,
+      humidity: null,
+      fogLevel: null,
+      windSpeedMps: null,
+      windDirRad: null,
+    });
     expect(s.player.energyFraction).toBeNull();
   });
 });

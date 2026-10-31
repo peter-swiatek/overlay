@@ -252,6 +252,7 @@ export class FuelTracker {
         pitWindow: null,
         tankCapacityL: ctx.tankCapacityL ?? this.tankEstimateL,
         validLapCount: valid.length,
+        ...stubFuelFields(ctx),
       };
     }
 
@@ -293,6 +294,31 @@ export class FuelTracker {
           : null,
       tankCapacityL: tank,
       validLapCount: valid.length,
+      ...stubFuelFields(ctx),
     };
   }
+}
+
+/** Placeholders for the figures the fuel outputs ticket computes. */
+function stubFuelFields(
+  ctx: FuelContext,
+): Pick<
+  FuelOutputs,
+  | "fuelAvg5Lap"
+  | "fuelAvg10Lap"
+  | "recentLaps"
+  | "lapsToGo"
+  | "stintLaps"
+  | "stintTimeS"
+  | "fuelPerHour"
+> {
+  return {
+    fuelAvg5Lap: null,
+    fuelAvg10Lap: null,
+    recentLaps: [],
+    lapsToGo: ctx.lapsToGo,
+    stintLaps: 0,
+    stintTimeS: null,
+    fuelPerHour: null,
+  };
 }
