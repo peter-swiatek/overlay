@@ -199,6 +199,23 @@ describe("S/F crossing slice (lap increments)", async () => {
     }
   });
 
+  it("names the sim and the layout, and reads heading and car-frame velocity", () => {
+    for (const s of states) {
+      expect(s.sim).toBe("iracing");
+      expect(s.session.trackConfig).toBe("Full Course");
+      expect(s.player.worldPos).toBeNull();
+    }
+    // At racing speed the forward component is the speed and the sideways one is small.
+    const s = states[500] as SimState;
+    const v = s.player.velocityMps;
+    expect(v).not.toBeNull();
+    expect(Math.hypot(v?.x ?? 0, v?.y ?? 0)).toBeCloseTo(s.player.speedMps ?? 0, 0);
+    expect(v?.x).toBeGreaterThan(20);
+    expect(Math.abs(v?.y ?? 99)).toBeLessThan(5);
+    expect(s.player.yawRad).toBeGreaterThanOrEqual(-Math.PI);
+    expect(s.player.yawRad).toBeLessThanOrEqual(2 * Math.PI);
+  });
+
   it("publishes the last lap time about two seconds after the crossing", () => {
     const crossed = firstIndex(states, (s) => car([s], 0, 14).lapsCompleted === 5);
     expect(car(states, crossed, 14).lastLapS).toBeCloseTo(105.6988, 3); // previous lap, not yet updated
@@ -329,6 +346,7 @@ describe("IracingAdapter on synthetic buffers", () => {
   const adapter = IracingAdapter.fromHeaderBytes(layout.header);
   const info: IracingSessionInfo = {
     trackName: "Test Ring",
+    trackConfig: "Grand Prix",
     trackLengthM: 3200,
     pitSpeedLimitMps: 20,
     currentSessionNum: 0,
@@ -427,6 +445,18 @@ describe("IracingAdapter on synthetic buffers", () => {
     });
   });
 
+  it("takes the lap limit from the session YAML when the live total is not available", () => {
+    const other = syntheticLayout(vars.filter((v) => v.name !== "SessionLapsTotal"));
+    const withoutTotal = Object.fromEntries(
+      Object.entries(base).filter(([name]) => name !== "SessionLapsTotal"),
+    );
+    const noTotal = IracingAdapter.fromHeaderBytes(other.header);
+    const state = noTotal.toSimState(other.buffer(withoutTotal), info);
+    expect(state.session).toMatchObject({ lapsTotal: 12, timing: "laps" });
+    // An unlimited live value is an answer and is not overridden by the YAML.
+    expect(run({ SessionLapsTotal: 32767 }).session.lapsTotal).toBeNull();
+  });
+
   it("maps the session info fields", () => {
     const s = run({});
     expect(s.session).toMatchObject({
@@ -520,7 +550,7 @@ describe("IracingAdapter on synthetic buffers", () => {
       estTimeS: 0,
       isPlayer: true,
       driverName: "Me",
-      classColour: "#ffda59",
+      classColour: null,
     });
     const noInfo = run(
       {
@@ -673,6 +703,22 @@ describe("IracingAdapter on synthetic buffers", () => {
     expect([1, 2, 3].map((i) => by(i)?.classPosition)).toEqual([1, 1, 2]);
     expect([1, 2, 3].map((i) => by(i)?.className)).toEqual(["Fast", "Slow", "Fast"]);
     expect(by(2)?.classColour).toBe("#33ceff");
+  });
+
+  it("shows no class colour in a single-class session", () => {
+    const single: IracingSessionInfo = {
+      ...info,
+      drivers: [1, 2].map((carIdx) => ({
+        ...(info.drivers[0] as IracingSessionInfo["drivers"][number]),
+        carIdx,
+        classId: "10",
+        className: "GT3",
+        classColour: "#ffffff",
+      })),
+    };
+    const s = run({ CarIdxTrackSurface: [-1, 3, 3] }, single);
+    expect(s.cars.length).toBe(2);
+    expect(s.cars.every((c) => c.classColour === null)).toBe(true);
   });
 
   it("reports nulls for everything the sim does not provide", () => {

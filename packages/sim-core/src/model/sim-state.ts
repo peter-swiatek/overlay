@@ -21,6 +21,9 @@ export const SIM_STATE_VERSION = 1;
 
 export type SimSource = "iracing" | "lmu" | "replay" | "mock";
 
+/** The sim a state came from, kept even when `source` is "replay" or "mock". */
+export type SimName = "iracing" | "lmu";
+
 export type SessionType = "practice" | "qualifying" | "race" | "warmup" | "other";
 
 /** Where the session is in its life; adapters map each sim's own states onto these. */
@@ -41,6 +44,8 @@ export interface SessionInfo {
   lapsRemaining: number | null;
   lapsTotal: number | null;
   trackName: string | null;
+  /** Layout of the track, e.g. "Full Course"; null when the sim does not name one. */
+  trackConfig: string | null;
   trackLengthM: number | null;
   pitSpeedLimitMps: number | null;
 }
@@ -133,6 +138,13 @@ export interface TyreSet {
 /** Spotter state: which sides have a car alongside. */
 export type CarLeftRight = "clear" | "left" | "right" | "both" | "twoLeft" | "twoRight";
 
+/** A point in the sim's world frame, metres. LMU: y is up, the ground plane is x/z. */
+export interface Vec3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
 export interface Player {
   inputs: PlayerInputs;
   /** -1 reverse, 0 neutral, 1..n forward. */
@@ -147,11 +159,19 @@ export interface Player {
   incidentCount: number | null;
   pitLimiter: boolean | null;
   carLeftRight: CarLeftRight | null;
+  /** Position in the world frame; LMU only (iRacing gives none). Feeds track outlines. */
+  worldPos: Vec3 | null;
+  /** Heading in radians, clockwise from north (iRacing YawNorth); null when not provided. */
+  yawRad: number | null;
+  /** Velocity in the car frame (iRacing VelocityX/Y/Z); null when not provided. */
+  velocityMps: Vec3 | null;
 }
 
 export interface SimState {
   version: typeof SIM_STATE_VERSION;
   source: SimSource;
+  /** The sim behind `source`; null for the mock and before a sim is known. */
+  sim: SimName | null;
   connected: boolean;
   /** Sim session time in seconds; null when unknown. */
   tickTimeS: number | null;
@@ -210,6 +230,7 @@ export function emptySimState(source: SimSource = "mock"): SimState {
   return {
     version: SIM_STATE_VERSION,
     source,
+    sim: null,
     connected: false,
     tickTimeS: null,
     session: {
@@ -221,6 +242,7 @@ export function emptySimState(source: SimSource = "mock"): SimState {
       lapsRemaining: null,
       lapsTotal: null,
       trackName: null,
+      trackConfig: null,
       trackLengthM: null,
       pitSpeedLimitMps: null,
     },
@@ -241,6 +263,9 @@ export function emptySimState(source: SimSource = "mock"): SimState {
       incidentCount: null,
       pitLimiter: null,
       carLeftRight: null,
+      worldPos: null,
+      yawRad: null,
+      velocityMps: null,
     },
   };
 }
@@ -257,6 +282,9 @@ export function isSimState(value: unknown): value is SimState {
   if (value["version"] !== SIM_STATE_VERSION) return false;
   if (typeof value["source"] !== "string" || !SOURCES.includes(value["source"])) return false;
   if (typeof value["connected"] !== "boolean") return false;
+  // `sim` was added later: absent in older data, which is fine.
+  const sim = value["sim"];
+  if (sim !== undefined && sim !== null && sim !== "iracing" && sim !== "lmu") return false;
   if (!isNullableNumber(value["tickTimeS"]) || !isNullableNumber(value["playerCarIdx"])) {
     return false;
   }

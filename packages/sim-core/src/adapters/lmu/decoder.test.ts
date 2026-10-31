@@ -109,6 +109,29 @@ describe("LmuDecoder on the on-track slice", () => {
     }
   });
 
+  it("names the sim and gives the player's world position", () => {
+    const positions = onTrack.frames.map(({ result }) => result.state.player.worldPos);
+    for (const { result } of onTrack.frames) {
+      expect(result.state.sim).toBe("lmu");
+      expect(result.state.session.trackConfig).toBeNull();
+    }
+    expect(positions.every((p) => p !== null)).toBe(true);
+    // The car is moving at 10 to 110 m/s, so the position has to follow the speed: over a
+    // second it covers about as far as the speed says.
+    const first = onTrack.frames[0]!.result.state;
+    const later = onTrack.frames.find(
+      ({ result }) => (result.state.tickTimeS ?? 0) >= (first.tickTimeS ?? 0) + 1,
+    )!.result.state;
+    const moved = Math.hypot(
+      (later.player.worldPos?.x ?? 0) - (first.player.worldPos?.x ?? 0),
+      (later.player.worldPos?.z ?? 0) - (first.player.worldPos?.z ?? 0),
+    );
+    const expected = ((first.player.speedMps ?? 0) + (later.player.speedMps ?? 0)) / 2;
+    const dt = (later.tickTimeS ?? 0) - (first.tickTimeS ?? 0);
+    expect(moved / dt).toBeGreaterThan(expected * 0.8);
+    expect(moved / dt).toBeLessThan(expected * 1.2);
+  });
+
   it("keeps lap percentages in [0, 1]", () => {
     for (const { result } of onTrack.frames) {
       for (const car of result.state.cars) {
@@ -175,6 +198,15 @@ describe("LmuDecoder on the on-track slice", () => {
     expect(player?.carNumber).toBe("83");
     expect(player?.classId).toBe("Hyper");
     expect(player?.classPosition).toBeGreaterThanOrEqual(1);
+  });
+
+  it("sets the class colour from the class name", () => {
+    const { state } = onTrack.frames.at(-1)!.result;
+    for (const car of state.cars) {
+      if (car.className === "Hyper") expect(car.classColour).toBe("#E4002B");
+      else if (car.className === "LMP2") expect(car.classColour).toBe("#0057B8");
+      else expect(car.classColour).toBeNull();
+    }
   });
 });
 

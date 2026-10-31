@@ -186,3 +186,43 @@ describe("TelemetryPublisher", () => {
     });
   });
 });
+
+describe("TelemetryPublisher requests", () => {
+  it("hands messages that are not acks to the handler and never the acks", () => {
+    const publisher = new TelemetryPublisher();
+    const port = new FakePort();
+    const seen: unknown[] = [];
+    publisher.addSubscriber(port, 30, (data) => seen.push(data));
+    port.ack(1);
+    port.raw({ type: "getTrackOutline", requestId: 7 });
+    port.raw("junk");
+    expect(seen).toEqual([{ type: "getTrackOutline", requestId: 7 }, "junk"]);
+  });
+
+  it("sends a reply at once, outside the rate limit and the ack window", () => {
+    const publisher = new TelemetryPublisher();
+    const port = new FakePort();
+    publisher.addSubscriber(port, 1, (_data, reply) =>
+      reply({ type: "trackOutline", requestId: 1 }),
+    );
+    // Two frames go out and stay unacknowledged: the subscriber now holds back further frames.
+    publisher.publish(frame(1), 0);
+    publisher.publish(frame(2), 1000);
+    publisher.publish(frame(3), 2000);
+    expect(port.seqs).toEqual([1, 2]);
+    port.raw({ type: "getTrackOutline", requestId: 1 });
+    expect(port.sent).toHaveLength(3);
+    expect(port.sent[2]).toEqual({ type: "trackOutline", requestId: 1 });
+  });
+
+  it("does not reply on a closed port", () => {
+    const publisher = new TelemetryPublisher();
+    const port = new FakePort();
+    let reply: ((m: unknown) => void) | undefined;
+    publisher.addSubscriber(port, 30, (_d, r) => (reply = r));
+    port.raw({});
+    port.close();
+    reply?.({ type: "late" });
+    expect(port.sent).toEqual([]);
+  });
+});

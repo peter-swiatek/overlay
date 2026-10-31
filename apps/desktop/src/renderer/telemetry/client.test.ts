@@ -32,7 +32,7 @@ function frame(seq: number, patch: Partial<TelemetryFrame> = {}): TelemetryFrame
     status: "live",
     error: null,
     state: emptySimState("mock"),
-    derived: { fuel: null, gaps: [] },
+    derived: { fuel: null, gaps: [], track: { trackKey: null, outlineReady: false } },
     ...patch,
   };
 }

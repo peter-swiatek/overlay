@@ -10,6 +10,7 @@ import {
   type SimState,
   type TyreCorner,
   type TyreSet,
+  type Vec3,
 } from "../../model/sim-state";
 import { IracingDecoder, type VarReader } from "./decoder";
 import type { IracingDriver, IracingSessionEntry, IracingSessionInfo } from "./session-yaml";
@@ -72,6 +73,7 @@ export class IracingAdapter {
     const r = this.decoder.reader(varBuffer);
     const state = emptySimState("iracing");
     state.connected = true;
+    state.sim = "iracing";
     state.tickTimeS = r.number("SessionTime");
     state.playerCarIdx = validIndex(r.number("PlayerCarIdx"));
     state.focusCarIdx = validIndex(r.number("CamCarIdx"));
@@ -92,7 +94,13 @@ function fillSession(state: SimState, r: VarReader, info: IracingSessionInfo | n
   const sessionNum = r.number("SessionNum");
   const entry = findSession(info, sessionNum);
   const timeTotal = positiveBelow(r.number("SessionTimeTotal"), TIME_UNLIMITED_S);
-  const lapsTotal = positiveBelow(r.number("SessionLapsTotal"), LAPS_UNLIMITED);
+  const lapsVar = r.number("SessionLapsTotal");
+  // Without the live value, the lap limit of the session's YAML entry stands in for it. An
+  // "unlimited" live value is an answer, so it is not overridden.
+  const lapsTotal = positiveBelow(
+    lapsVar === null ? (entry?.lapsLimit ?? null) : lapsVar,
+    LAPS_UNLIMITED,
+  );
   const s = state.session;
   s.type = entry?.type ?? null;
   s.phase = phase(r.number("SessionState"));
@@ -102,6 +110,7 @@ function fillSession(state: SimState, r: VarReader, info: IracingSessionInfo | n
   s.lapsRemaining = nonNegativeBelow(r.number("SessionLapsRemainEx"), LAPS_UNLIMITED);
   s.lapsTotal = lapsTotal;
   s.trackName = info?.trackName ?? null;
+  s.trackConfig = info?.trackConfig ?? null;
   s.trackLengthM = info?.trackLengthM ?? null;
   s.pitSpeedLimitMps = info?.pitSpeedLimitMps ?? null;
 }
@@ -159,6 +168,11 @@ function buildCars(r: VarReader, info: IracingSessionInfo | null, playerCarIdx: 
     if (carIdx >= count) continue;
     cars.push(buildCar(r, carIdx, byIdx.get(carIdx), playerCarIdx));
   }
+  // A single-class session has nothing to tell apart (iRacing reports plain white); show no colour.
+  const classIds = new Set(
+    cars.filter((c) => !c.isPaceCar && c.classId !== null).map((c) => c.classId),
+  );
+  if (classIds.size <= 1) for (const c of cars) c.classColour = null;
   return cars;
 }
 
@@ -228,6 +242,16 @@ function fillPlayer(state: SimState, r: VarReader, info: IracingSessionInfo | nu
   p.pitLimiter = !driving || warnings === null ? null : (warnings & ENGINE_PIT_LIMITER) !== 0;
   const lr = r.number("CarLeftRight");
   p.carLeftRight = !driving || lr === null ? null : (CAR_LEFT_RIGHT[lr] ?? null);
+  p.yawRad = live(r.number("YawNorth"));
+  p.velocityMps = live(velocity(r));
+}
+
+/** Car-frame velocity: X forward, Y to the left, Z up (checked against Speed in recordings). */
+function velocity(r: VarReader): Vec3 | null {
+  const x = r.number("VelocityX");
+  const y = r.number("VelocityY");
+  const z = r.number("VelocityZ");
+  return x === null || y === null || z === null ? null : { x, y, z };
 }
 
 /** iRacing: positive wheel angle is to the left; SimState: positive is right. */

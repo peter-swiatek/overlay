@@ -33,7 +33,11 @@ function simState(over: {
 describe("Deriver", () => {
   it("returns empty output for a disconnected state", () => {
     const out = new Deriver().next(emptySimState("lmu"));
-    expect(out).toEqual({ fuel: null, gaps: [] });
+    expect(out).toEqual({
+      fuel: null,
+      gaps: [],
+      track: { trackKey: null, outlineReady: false },
+    });
   });
 
   it("maps the session phase to the fuel tracker's session state", () => {
