@@ -6,6 +6,7 @@ import {
   type TelemetryFrame,
 } from "@overlay/sim-core";
 import type { TelemetrySourceChoice } from "../shared/telemetry-types";
+import type { FrameRecorder } from "../recorder";
 import { AutoSelector, DETECT_INTERVAL_MS, type LiveSim } from "./auto-select";
 import type { LiveSource, TelemetrySource } from "./source";
 
@@ -32,6 +33,8 @@ export interface EngineDeps {
   deriver?: Deriver;
   /** Reads the clock. Defaults to Date.now, which fake timers control. */
   nowMs?(): number;
+  /** Stores sessions and laps; the engine only hands it frames and tells it when a source ends. */
+  recorder?: FrameRecorder;
 }
 
 /**
@@ -70,6 +73,7 @@ export class TelemetryEngine {
   }
 
   stop(): void {
+    this.deps.recorder?.end("stop");
     this.running = false;
     clearTimeout(this.loopTimer);
     clearInterval(this.detectTimer);
@@ -155,6 +159,7 @@ export class TelemetryEngine {
     this.loopTimer = undefined;
     const active = this.active;
     this.active = null;
+    this.deps.recorder?.end("sourceSwitch");
     // Live sims stay open (the detector keeps probing them); only private sources close.
     if (active && active.id !== "iracing" && active.id !== "lmu") active.close();
   }
@@ -176,7 +181,10 @@ export class TelemetryEngine {
         if (sourceFrame.restart) this.deriver.reset();
         this.emitFrame(source.id, sourceFrame.state, sourceFrame.error ?? null);
       } else {
-        if (source.ended) return this.publishWaiting(null);
+        if (source.ended) {
+          this.deps.recorder?.end("sourceSwitch");
+          return this.publishWaiting(null);
+        }
         // A sim that stopped ticking (a crash) shows as waiting at once; only switching to
         // another sim waits for the 5 s hysteresis.
         if (source.stalled === true && !this.stallReported) {
@@ -195,7 +203,20 @@ export class TelemetryEngine {
 
   private emitFrame(id: SimSource, state: TelemetryFrame["state"], error: string | null): void {
     if (error !== null) this.emit(id, "error", error, state, emptyDerived());
-    else this.emit(id, "live", null, state, this.deriver.next(state));
+    else {
+      this.emit(id, "live", null, state, this.deriver.next(state));
+      this.record(id, state);
+    }
+  }
+
+  /** Hands the frame to the recorder after it was published, so recording never delays overlays. */
+  private record(source: SimSource, state: TelemetryFrame["state"]): void {
+    this.deps.recorder?.onFrame({
+      source,
+      state,
+      sessionNum: this.deriver.sessionNum,
+      fuelLaps: this.deriver.fuelTracker.lapRecords,
+    });
   }
 
   private publishWaiting(error: string | null): void {

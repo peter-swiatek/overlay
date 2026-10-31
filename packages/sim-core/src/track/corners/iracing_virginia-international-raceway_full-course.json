@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "trackKey": "iracing_virginia-international-raceway_full-course",
+  "trackName": "Virginia International Raceway (Full Course)",
+  "status": "derived",
+  "provisional": true,
+  "evidence": "Measured from two iRacing recordings at VIR Full Course (Mercedes GT3 session started 2026-10-30 06:48 UTC, Ferrari 296 GT3 session started 07:47 UTC). Outline integrated from the player's velocity and heading on clean laps, the best-closing kept (closure error 0.6 m of 5220 m); curvature taken from it with a 60 m moving average. A corner is a stretch where the radius stays under 400 m, same-direction stretches less than 40 m apart are joined, it is at least 40 m long and the car's speed falls at least 15 km/h below the fastest speed in the 200 m before it. Speed is the median per 0.1% of lap over 22 clean laps within 107% of the best (104.9 s, both recordings). Ten corners pass; the sim counts 18 turns, the rest are flat-out kinks or merged into a neighbour here. startPct and endPct are where the radius first drops under and last rises over 400 m, so they sit slightly outside the braking point and the exit. No names: numbering is by driving order from the start/finish line, not the track's own turn numbers.",
+  "corners": [
+    {
+      "number": 1,
+      "startPct": 0.062,
+      "endPct": 0.113
+    },
+    {
+      "number": 2,
+      "startPct": 0.122,
+      "endPct": 0.177
+    },
+    {
+      "number": 3,
+      "startPct": 0.186,
+      "endPct": 0.204
+    },
+    {
+      "number": 4,
+      "startPct": 0.207,
+      "endPct": 0.244
+    },
+    {
+      "number": 5,
+      "startPct": 0.445,
+      "endPct": 0.473
+    },
+    {
+      "number": 6,
+      "startPct": 0.489,
+      "endPct": 0.546
+    },
+    {
+      "number": 7,
+      "startPct": 0.764,
+      "endPct": 0.774
+    },
+    {
+      "number": 8,
+      "startPct": 0.778,
+      "endPct": 0.797
+    },
+    {
+      "number": 9,
+      "startPct": 0.799,
+      "endPct": 0.846
+    },
+    {
+      "number": 10,
+      "startPct": 0.851,
+      "endPct": 0.903
+    }
+  ]
+}

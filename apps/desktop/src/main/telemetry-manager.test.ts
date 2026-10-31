@@ -277,10 +277,41 @@ describe("TelemetryManager", () => {
     h2.manager.shutdown();
     expect(h2.children[0]?.commands("stop")).toHaveLength(1);
     h2.children[0]?.exit();
-    expect(h2.timers).toHaveLength(0);
+    // No restart timer; the only timer was the shutdown wait, which the exit cancelled.
+    expect(h2.timers.filter((t) => !t.cancelled)).toHaveLength(0);
     h2.manager.start();
     expect(h2.children).toHaveLength(1);
     expect(h2.manager.handleSubscribe(h2.window(), 30)).toBe(false);
+  });
+
+  it("shutdown waits for the process to exit, or kills it after the timeout", async () => {
+    const h = harness();
+    h.manager.start();
+    const child = h.children[0] as FakeChild;
+    let settled = false;
+    const done = h.manager.shutdown().then(() => (settled = true));
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    expect(child.commands("stop")).toHaveLength(1);
+    child.exit();
+    await done;
+    expect(settled).toBe(true);
+    expect(h.timers.at(-1)?.cancelled).toBe(true);
+
+    const h2 = harness();
+    h2.manager.start();
+    const stuck = h2.children[0] as FakeChild;
+    let killed = 0;
+    stuck.kill = () => void killed++;
+    const waiting = h2.manager.shutdown(3000);
+    const timer = h2.timers.at(-1);
+    expect(timer?.ms).toBe(3000);
+    timer?.fn();
+    await waiting;
+    expect(killed).toBe(1);
+
+    // Nothing running: resolves at once.
+    await expect(harness().manager.shutdown()).resolves.toBeUndefined();
   });
 
   it("applies settings changes: persists, sends setSource and notifies", () => {
