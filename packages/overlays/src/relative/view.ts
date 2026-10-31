@@ -17,9 +17,14 @@ export interface RelativeOptions {
   footerIds?: readonly string[];
 }
 
+/** A driver row carrying its gap-threat colour, so a row only re-renders when its own content changes. */
+export interface RelativeRow extends DriverRow {
+  threat: ThreatLevel;
+}
+
 export interface RelativeView {
   /** Farthest ahead first, then the focus car, then the nearest behind … farthest behind last. */
-  rows: DriverRow[];
+  rows: RelativeRow[];
   /** gapThreat per carIdx (empty when the option is off). */
   threats: Record<number, ThreatLevel>;
   headerIds: string[];
@@ -32,9 +37,9 @@ export interface RelativeView {
 const RED_WITHIN_S = 1.0;
 const YELLOW_WITHIN_S = 2.0;
 
-/** Only for a car behind (raw gap > 0), judged on the rounded gap shown in the row. */
+/** Only for a car behind (raw gap >= 0; the view puts exactly 0 behind), , judged on the rounded gap shown in the row. */
 export function gapThreat(row: DriverRow, rawGapS: number | null): ThreatLevel {
-  if (rawGapS === null || rawGapS <= 0 || row.relativeGapS === null) return null;
+  if (rawGapS === null || rawGapS < 0 || row.relativeGapS === null) return null;
   if (row.relativeGapS <= RED_WITHIN_S) return "red";
   if (row.relativeGapS <= YELLOW_WITHIN_S) return "yellow";
   return null;
@@ -53,7 +58,7 @@ interface Candidate {
 export function relativeView(
   frame: TelemetryFrame | null,
   options: RelativeOptions,
-  previous: readonly DriverRow[] = [],
+  previous: readonly RelativeRow[] = [],
 ): RelativeView {
   const headerIds = [...(options.headerIds ?? [])];
   const footerIds = [...(options.footerIds ?? [])];
@@ -90,10 +95,14 @@ export function relativeView(
       if (level !== null) threats[row.carIdx] = level;
     }
   }
+  const withThreat = (row: DriverRow): RelativeRow => ({
+    ...row,
+    threat: threats[row.carIdx] ?? null,
+  });
   const rows = reuseRows(previous, [
-    ...nearAhead.map((c) => c.row),
-    focus,
-    ...nearBehind.map((c) => c.row),
+    ...nearAhead.map((c) => withThreat(c.row)),
+    withThreat(focus),
+    ...nearBehind.map((c) => withThreat(c.row)),
   ]);
   return { rows, threats, headerIds, footerIds, flagColour };
 }

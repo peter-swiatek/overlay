@@ -30,6 +30,9 @@ const FORWARD_JUMP = 0.15;
 const PARADE_STATE = 3;
 const COOLDOWN_STATE = 5;
 
+/** The seed is dropped when the first own valid lap differs from its average by more than this share. */
+const SEED_MISMATCH = 0.2;
+
 /** At most this many seed laps are used. */
 const SEED_LAPS = 10;
 
@@ -94,6 +97,12 @@ export class FuelTracker {
       .filter((l) => Number.isFinite(l.used) && l.used >= this.minUse && l.used <= this.maxUse)
       .map((l) => l.used)
       .slice(-SEED_LAPS);
+  }
+
+  private seedUsable(own: readonly number[]): boolean {
+    if (this.seedUse.length === 0 || own.length === 0) return true;
+    const mean = this.seedUse.reduce((a, u) => a + u, 0) / this.seedUse.length;
+    return Math.abs(own[0]! - mean) <= SEED_MISMATCH * mean;
   }
 
   get lapRecords(): readonly FuelLapRecord[] {
@@ -284,7 +293,15 @@ export class FuelTracker {
     };
   }
 
+  /** Counts session resets (the lap records restart each time), so callers can tell a new record list from the old one. */
+  get resetCount(): number {
+    return this.resets;
+  }
+
+  private resets = 0;
+
   private resetSession(): void {
+    this.resets++;
     this.laps = [];
     this.current = null;
     this.expectWrap = false;
@@ -351,7 +368,10 @@ export class FuelTracker {
     const last = this.prev;
     // Seeded laps count until the session has 2 valid laps of its own, then they are ignored.
     const own = valid.map((l) => l.usedL);
-    const basis = valid.length >= 2 ? own : [...this.seedUse, ...own];
+    // A first own lap more than 20 % off the seed average means the seed is the wrong car or
+    // setup (LMU keys by class only), so it is dropped at once.
+    const seedBasis = this.seedUsable(own) ? this.seedUse : [];
+    const basis = valid.length >= 2 ? own : [...seedBasis, ...own];
     if (basis.length === 0 || last === null) {
       return {
         fuelLastLap: null,

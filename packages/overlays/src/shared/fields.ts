@@ -1,3 +1,5 @@
+import type { SimName } from "@overlay/sim-core/types";
+import type { FieldConfig } from "@overlay/ui/types";
 import type { OverlayFieldDef } from "../contract";
 
 export const DRIVER_FIELD_IDS = [
@@ -50,7 +52,7 @@ const SPECS: Record<DriverFieldId, FieldSpec> = {
   "stint-lap": { label: "Stint lap", defaultVisible: false, defaultWidthPct: 5 },
   "prev-stint": { label: "Prev stint", defaultVisible: false, defaultWidthPct: 5 },
   "pos-change": { label: "Pos change", defaultVisible: false, defaultWidthPct: 6 },
-  energy: { label: "Energy % (LMU)", defaultVisible: false, defaultWidthPct: 6, sims: ["lmu"] },
+  energy: { label: "Fuel % (LMU)", defaultVisible: false, defaultWidthPct: 6, sims: ["lmu"] },
 };
 
 /** Every driver column, in this order, with the reference labels and default widths. defaultVisible = Leaderboard defaults. */
@@ -68,5 +70,14 @@ export function driverFields(
     const spec = (SPECS as Partial<Record<string, FieldSpec>>)[id];
     if (spec === undefined) throw new Error(`Unknown driver field id: ${String(id)}`);
     return { id, ...spec, defaultVisible: visible.includes(id) };
+  });
+}
+
+/** The field config without the columns that only exist in another sim (no empty iRating column in LMU). Unknown sim keeps all. */
+export function fieldsForSim(config: readonly FieldConfig[], sim: SimName | null): FieldConfig[] {
+  if (sim === null) return [...config];
+  return config.filter((f) => {
+    const sims = DRIVER_FIELDS.find((d) => d.id === f.id)?.sims;
+    return sims === undefined || sims.includes(sim);
   });
 }

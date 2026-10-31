@@ -35,15 +35,33 @@ function slug(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** `${kind}|${sim}|${carSlug}|${trackKey}`; null when the sim, car or track is unknown. */
+/** LMU vehicleName: "<team> <year> #<number>:<livery tag>". */
+const LMU_ENTRY_NAME = /^(.+?)\s+\d{4}\s+#\w+:/;
+
+/**
+ * The car part of an LMU key. LMU's vehicleName names the team entry, not the car model, so
+ * keying on it would give every team, year and number its own history. When the name has the
+ * entry shape we key on the car class instead (Limitation: different models in one class, such
+ * as two Hypercars, share a history at a track; FuelTracker drops a seed whose average is more than 20 % from the first own lap).
+ * Without a class the name is stripped of its "#number:tag" suffix and year. A name without the
+ * entry shape (a plain car name) is used as it is.
+ */
+function lmuCarPart(carName: string, className: string | null): string {
+  if (!LMU_ENTRY_NAME.test(carName)) return carName;
+  if (className !== null && slug(className) !== "") return className;
+  return carName.replace(/\s+#\w+:.*$/, "").replace(/\s+\d{4}$/, "");
+}
+
+/** `${kind}|${sim}|${carSlug}|${trackKey}`; null when the sim, car or track is unknown. `className` is used for LMU only. */
 export function fuelHistoryKey(
   kind: FuelHistoryKind,
   sim: SimName | null,
   carName: string | null,
   trackKey: string | null,
+  className: string | null = null,
 ): string | null {
   if (sim === null || carName === null || trackKey === null || trackKey === "") return null;
-  const car = slug(carName);
+  const car = slug(sim === "lmu" ? lmuCarPart(carName, className) : carName);
   if (car === "") return null;
   return `${kind}|${sim}|${car}|${trackKey}`;
 }

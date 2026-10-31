@@ -21,6 +21,17 @@ describe("fuelHistoryKey", () => {
     );
   });
 
+  it("keys LMU team entries on the class, not on team, year or number", () => {
+    const a = fuelHistoryKey("fuel", "lmu", "Team Alpha 2024 #12:Blue", "t", "Hypercar");
+    const b = fuelHistoryKey("fuel", "lmu", "Team Beta 2025 #7:Red", "t", "Hypercar");
+    expect(a).toBe("fuel|lmu|hypercar|t");
+    expect(b).toBe(a);
+    expect(fuelHistoryKey("fuel", "lmu", "Team Alpha 2024 #12:Blue", "t", "LMGT3")).not.toBe(a);
+    expect(fuelHistoryKey("fuel", "lmu", "Team Alpha 2024 #12:Blue", "t")).toBe(
+      "fuel|lmu|team-alpha|t",
+    );
+  });
+
   it("strips accents like the track key does", () => {
     expect(fuelHistoryKey("fuel", "lmu", "Porsche Cayenne Café", "t")).toBe(
       "fuel|lmu|porsche-cayenne-cafe|t",

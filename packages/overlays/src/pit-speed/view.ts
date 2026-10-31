@@ -12,7 +12,7 @@ export interface PitSpeedView {
   /** -1..1: bar fill, 0 = exactly the limit, +-1 = +-20 % of the limit; null without a limit. */
   barPosition: number | null;
   limiterOn: boolean | null;
-  /** Metres to the pit box along the lap, only while on pit road before the box; null otherwise. */
+  /** Metres to the pit box along the lap, only while on pit road; null otherwise. */
   distanceToBoxM: number | null;
   inPitStall: boolean;
 }
@@ -54,8 +54,8 @@ export const EDIT_SAMPLE: PitSpeedView = {
 
 /**
  * Distance to the player's pit box. The reference gives no formula: we take the forward lap-fraction
- * difference (wrapped over the S/F line) times the track length, and treat anything beyond half
- * a lap as "the box is behind us".
+ * difference (wrapped over the S/F line) times the track length. It is shown whenever the car
+ * is on pit road and the box position is known (The reference gives no cutoff).
  */
 function distanceToBox(
   onPitRoad: boolean,
@@ -65,7 +65,6 @@ function distanceToBox(
 ): number | null {
   if (!onPitRoad || boxPct === null || carPct === null || trackLengthM === null) return null;
   const ahead = (boxPct - carPct + 1) % 1;
-  if (!(ahead < 0.5)) return null;
   return Math.round(ahead * trackLengthM);
 }
 

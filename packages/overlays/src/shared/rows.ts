@@ -44,9 +44,12 @@ export interface DriverRow {
   prevStintLaps: number | null;
   /** startPosition − overallPosition; null outside races or before the start. */
   positionsGained: number | null;
-  /** LMU Car.fuelFraction 0..1; null in iRacing. */
+  /**
+   * LMU Car.fuelFraction 0..1 (the fuel level, labelled "Fuel % (LMU)"); null in iRacing.
+   * Per-car virtual energy (TELEM.veFraction at offset 776 on other cars' rows) is unverified and deferred.
+   */
   energyFraction: number | null;
-  /** lapsCompleted + lapDistPct, for ordering; null unknown. */
+  /** lapsCompleted + lapDistPct, for ordering; null unknown. Not compared by reuseRows (callers sort before reusing). */
   progressLaps: number | null;
 }
 
@@ -71,6 +74,12 @@ function round(value: number | null, decimals: number): number | null {
 
 function difference(a: number | null, b: number | null, decimals: number): number | null {
   return a === null || b === null ? null : round(a - b, decimals);
+}
+
+function roundGap(gap: StandingsGap | null, decimals: number): StandingsGap | null {
+  if (gap === null) return null;
+  const seconds = round(gap.seconds, decimals);
+  return seconds === gap.seconds ? gap : { ...gap, seconds: seconds ?? gap.seconds };
 }
 
 function chosen(live: boolean, liveValue: number | null, official: number | null): number | null {
@@ -115,9 +124,9 @@ function buildRow(
     overallPosition,
     licence: car.license,
     iRating: car.iRating,
-    gapToLeader: entry?.gapToLeader ?? null,
-    gapToClassLeader: entry?.gapToClassLeader ?? null,
-    interval: entry?.interval ?? null,
+    gapToLeader: roundGap(entry?.gapToLeader ?? null, gapDecimals),
+    gapToClassLeader: roundGap(entry?.gapToClassLeader ?? null, gapDecimals),
+    interval: roundGap(entry?.interval ?? null, gapDecimals),
     relativeGapS,
     lastLapS: round(lastLap, lapDecimals),
     bestLapS: round(bestLap, lapDecimals),
@@ -170,6 +179,7 @@ function sameGap(a: StandingsGap | null, b: StandingsGap | null): boolean {
 
 function sameRow(a: DriverRow, b: DriverRow): boolean {
   for (const key of Object.keys(a) as Array<keyof DriverRow>) {
+    if (key === "progressLaps") continue;
     if (key === "gapToLeader" || key === "gapToClassLeader" || key === "interval") {
       if (!sameGap(a[key], b[key])) return false;
     } else if (a[key] !== b[key]) {
@@ -179,9 +189,9 @@ function sameRow(a: DriverRow, b: DriverRow): boolean {
   return true;
 }
 
-/** Next rows, reusing the previous object for each carIdx whose row is structurally equal. */
-export function reuseRows(prev: readonly DriverRow[], next: readonly DriverRow[]): DriverRow[] {
-  const before = new Map<number, DriverRow>();
+/** Next rows (already sorted by the caller), reusing the previous object for each carIdx whose row is structurally equal. */
+export function reuseRows<T extends DriverRow>(prev: readonly T[], next: readonly T[]): T[] {
+  const before = new Map<number, T>();
   for (const row of prev) before.set(row.carIdx, row);
   return next.map((row) => {
     const old = before.get(row.carIdx);

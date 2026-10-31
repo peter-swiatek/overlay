@@ -193,7 +193,13 @@ export class Deriver {
   ): string | null {
     const store = this.fuelHistory;
     if (store === null) return null;
-    const key = fuelHistoryKey(kind, state.sim, player.carName, trackKeyOf(state));
+    const key = fuelHistoryKey(
+      kind,
+      state.sim,
+      player.carName,
+      trackKeyOf(state),
+      player.className,
+    );
     if (key !== link.key) {
       link.key = key;
       link.seeded = false;
@@ -218,8 +224,16 @@ export class Deriver {
     out: FuelOutputs,
   ): void {
     const records = tracker.lapRecords;
-    if (records.length < link.records) link.records = records.length;
-    if (records.length === link.records) return;
+    // A session reset restarts the record list; a lap that closes on the same tick as the reset
+    // is then record 0 of the new list and must still be recorded.
+    if (tracker.resetCount !== link.epoch) {
+      link.epoch = tracker.resetCount;
+      link.records = 0;
+    }
+    if (records.length <= link.records) {
+      link.records = Math.min(link.records, records.length);
+      return;
+    }
     const store = this.fuelHistory;
     const live = state.source !== "replay" && state.source !== "mock";
     if (store !== null && key !== null && live) {
@@ -412,10 +426,12 @@ interface HistoryLink {
   key: string | null;
   seeded: boolean;
   records: number;
+  /** FuelTracker.resetCount when `records` was counted. */
+  epoch: number;
 }
 
 function newHistoryLink(): HistoryLink {
-  return { key: null, seeded: false, records: 0 };
+  return { key: null, seeded: false, records: 0, epoch: 0 };
 }
 
 // --- end fuel sample ---
