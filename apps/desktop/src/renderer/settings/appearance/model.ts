@@ -50,60 +50,140 @@ function mergeEdits(a: ThemeEdit, b: ThemeEdit): ThemeEdit {
   return merged;
 }
 
+export type ThemeWriterApi = Pick<OverlayApi["theme"], "save" | "setActive"> &
+  Partial<Pick<OverlayApi["theme"], "getState">>;
+
+export interface WriteOptions {
+  /**
+   * The theme the edit was made on. Without it the theme that is active when the job runs.
+   * A preset target is forked once; later writes to the same preset id go to that fork.
+   */
+  target?: string;
+  /** Activate a fork the write creates (default true). A custom target is never activated. */
+  activate?: boolean;
+}
+
+export interface ThemeWriter {
+  write(state: ThemeState, edit: ThemeEdit, options?: WriteOptions): Promise<ThemeState>;
+  /** Activates a theme through the same queue, so it lands after writes already issued. */
+  select(id: string): Promise<ThemeState>;
+  /** The theme a target id currently maps to (a preset that was forked maps to its fork). */
+  resolve(target: string): string;
+}
+
 interface Waiter {
   resolve(state: ThemeState): void;
   reject(error: unknown): void;
 }
-interface Job {
-  state: ThemeState;
-  edit: ThemeEdit;
-  waiters: Waiter[];
-}
+type Job =
+  | {
+      kind: "write";
+      state: ThemeState;
+      edit: ThemeEdit;
+      target: string | undefined;
+      activate: boolean;
+      waiters: Waiter[];
+    }
+  | { kind: "select"; state: ThemeState; id: string; waiters: Waiter[] };
 
 /**
  * Saves (and activates when planned) and returns the new state. One call is in flight at a
- * time; edits that arrive meanwhile are merged into one follow-up job (the latest value of
- * each field wins) that runs against the state the previous call returned.
+ * time; edits for the same target that arrive meanwhile are merged into one follow-up job
+ * (the latest value of each field wins) that runs against the state the previous call
+ * returned. After any failure the state is refetched, so a half-done fork (saved, not
+ * activated) is seen by the next job instead of being forked a second time.
  */
-export function createThemeWriter(api: Pick<OverlayApi["theme"], "save" | "setActive">): {
-  write(state: ThemeState, edit: ThemeEdit): Promise<ThemeState>;
-} {
+export function createThemeWriter(api: ThemeWriterApi): ThemeWriter {
+  const queue: Job[] = [];
   let busy = false;
-  let queued: Job | null = null;
+  /** Preset id -> the custom fork made from it; kept until that preset is selected again. */
+  const forks = new Map<string, string>();
 
-  async function apply(state: ThemeState, edit: ThemeEdit): Promise<ThemeState> {
-    const plan = planThemeEdit(state, edit);
-    const saved = await api.save(plan.theme);
-    return plan.activate ? api.setActive(plan.theme.id) : saved;
+  function resolveIn(state: ThemeState, target: string): string {
+    const fork = forks.get(target);
+    const known = [...state.presets, ...state.custom];
+    return fork !== undefined && known.some((t) => t.id === fork) ? fork : target;
   }
 
-  async function drain(first: Job): Promise<void> {
+  async function applyWrite(
+    state: ThemeState,
+    job: Extract<Job, { kind: "write" }>,
+  ): Promise<ThemeState> {
+    const all = [...state.presets, ...state.custom];
+    const wanted = job.target ?? activeTheme(state).id;
+    const id = resolveIn(state, wanted);
+    const base = all.find((t) => t.id === id);
+    if (!base) throw new Error("That theme no longer exists");
+    if (isPreset(state, base.id)) {
+      const theme = applyEdit(forkTheme(base, all), job.edit);
+      const saved = await api.save(theme);
+      forks.set(wanted, theme.id);
+      return job.activate ? api.setActive(theme.id) : saved;
+    }
+    const saved = await api.save(applyEdit(base, job.edit));
+    // Retry of a fork whose activation failed: the preset is still the active theme.
+    if (id !== wanted && job.activate && saved.activeId === wanted) return api.setActive(id);
+    return saved;
+  }
+
+  async function apply(state: ThemeState, job: Job): Promise<ThemeState> {
+    if (job.kind === "select") {
+      forks.delete(job.id);
+      return api.setActive(job.id);
+    }
+    return applyWrite(state, job);
+  }
+
+  async function drain(): Promise<void> {
     busy = true;
-    let job: Job | null = first;
-    let state = first.state;
-    while (job) {
+    let state: ThemeState | null = null;
+    for (let job = queue.shift(); job; job = queue.shift()) {
       try {
-        state = await apply(state, job.edit);
+        state = await apply(state ?? job.state, job);
         for (const w of job.waiters) w.resolve(state);
       } catch (error) {
+        try {
+          state = (await api.getState?.()) ?? state;
+        } catch {
+          // keep the last known state
+        }
         for (const w of job.waiters) w.reject(error);
       }
-      job = queued;
-      queued = null;
     }
     busy = false;
   }
 
+  function enqueue(job: Job): void {
+    queue.push(job);
+    if (!busy) void drain();
+  }
+
   return {
-    write(state, edit) {
+    write(state, edit, options = {}) {
+      const target = options.target;
+      const activate = options.activate ?? true;
       return new Promise<ThemeState>((resolve, reject) => {
         const waiter = { resolve, reject };
-        if (!busy) void drain({ state, edit, waiters: [waiter] });
-        else if (queued) {
-          queued.edit = mergeEdits(queued.edit, edit);
-          queued.waiters.push(waiter);
-        } else queued = { state, edit, waiters: [waiter] };
+        const last = queue[queue.length - 1];
+        if (last?.kind === "write" && last.target === target && last.activate === activate) {
+          last.edit = mergeEdits(last.edit, edit);
+          last.waiters.push(waiter);
+        } else enqueue({ kind: "write", state, edit, target, activate, waiters: [waiter] });
       });
+    },
+    select(id) {
+      return new Promise<ThemeState>((resolve, reject) => {
+        // The state is only used when nothing ran before; setActive returns the whole state.
+        enqueue({
+          kind: "select",
+          state: { activeId: id, presets: [], custom: [] },
+          id,
+          waiters: [{ resolve, reject }],
+        });
+      });
+    },
+    resolve(target) {
+      return forks.get(target) ?? target;
     },
   };
 }

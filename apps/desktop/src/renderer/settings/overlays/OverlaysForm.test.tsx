@@ -120,10 +120,25 @@ describe("generated panel", () => {
     const ir = render({ sim: "iracing" });
     expect(ir).toContain("LMU only");
     expect(ir).toMatch(/<option value="fancy"[^>]*disabled/);
-    expect(ir).toMatch(/aria-label="Show Delta stint"[^>]*disabled/);
     expect(ir).toMatch(/aria-disabled="true"/);
     const lmu = render({ sim: "lmu" });
     expect(lmu).not.toContain("LMU only");
+  });
+
+  it("lets a sim-excluded control be switched off but not on", () => {
+    const base = defaultInstanceSettings(testManifest);
+    const withD = (visible: boolean) =>
+      render({
+        sim: "iracing",
+        patch: {
+          common: {
+            ...base.common,
+            fields: base.common.fields.map((f) => (f.id === "d" ? { ...f, visible } : f)),
+          },
+        },
+      });
+    expect(withD(true)).not.toMatch(/aria-label="Show Delta stint"[^>]*disabled/);
+    expect(withD(false)).toMatch(/aria-label="Show Delta stint"[^>]*disabled/);
   });
 
   it("converts metres to feet for imperial units", () => {

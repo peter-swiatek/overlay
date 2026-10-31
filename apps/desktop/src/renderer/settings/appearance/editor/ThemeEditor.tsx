@@ -5,10 +5,23 @@ import {
   THEME_TOKEN_KEYS,
 } from "@overlay/theme";
 import type { Theme, ThemeState, ThemeTokenKey } from "@overlay/theme/types";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from "react";
 import type { OverlayApi } from "../../../../shared/types";
 import { Button, ColourInput } from "../../controls";
-import { activeTheme, createThemeWriter, isPreset, type ThemeEdit } from "../model";
+import {
+  activeTheme,
+  createThemeWriter,
+  isPreset,
+  type ThemeEdit,
+  type ThemeWriter,
+} from "../model";
 import { AlphaSlider } from "./AlphaSlider";
 import { contrastWarnings } from "./contrast";
 import { createDebouncer, type Timers } from "./debounce";
@@ -18,9 +31,13 @@ import "./editor.css";
 export type EditorApi = Pick<
   OverlayApi["theme"],
   "save" | "setActive" | "remove" | "importCode" | "exportCode" | "importFile" | "exportFile"
->;
+> &
+  Partial<Pick<OverlayApi["theme"], "getState">>;
 
 export const SAVE_DEBOUNCE_MS = 400;
+
+// useLayoutEffect warns during server rendering (used by the markup tests).
+const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 export const TOKEN_LABELS: Record<ThemeTokenKey, string> = {
   backgroundTint: "Background tint",
@@ -56,6 +73,10 @@ export interface ThemeEditorPanelProps {
   api: EditorApi;
   onState(next: ThemeState): void;
   onClose(): void;
+  /** The page's shared theme writer; without one the panel makes its own. */
+  writer?: ThemeWriter;
+  /** Set to a function that flushes the pending draft and resolves once it is saved. */
+  settleRef?: MutableRefObject<(() => Promise<unknown>) | null>;
   /** Tests inject timers and a clipboard. */
   timers?: Timers;
   writeClipboard?(text: string): Promise<void>;
@@ -81,28 +102,44 @@ export function ThemeEditorPanel(props: ThemeEditorPanelProps) {
   const onStateRef = useRef(props.onState);
   onStateRef.current = props.onState;
   const lastWrite = useRef<Promise<void>>(Promise.resolve());
-  const writer = useMemo(() => createThemeWriter(api), [api]);
+  const writer = useMemo(() => props.writer ?? createThemeWriter(api), [api, props.writer]);
+  /** The theme the draft was made on; the draft is only ever written there. */
+  const draftTarget = useRef<string | null>(null);
+  const inFlight = useRef(0);
 
   const accept = (next: ThemeState): void => {
     stateRef.current = next;
     onStateRef.current(next);
   };
 
-  const runSave = (): void => {
+  const runSave = (activate = true): void => {
     const edit = draftRef.current;
     if (!edit) return;
+    const target = draftTarget.current ?? activeTheme(stateRef.current).id;
+    draftTarget.current = target;
+    inFlight.current += 1;
     // The whole draft is sent each time (merging is idempotent), so a failed save is retried
     // with the next commit and a preset is forked exactly once by the writer.
-    lastWrite.current = writer.write(stateRef.current, edit).then(
+    lastWrite.current = writer.write(stateRef.current, edit, { target, activate }).then(
       (next) => {
+        inFlight.current -= 1;
         if (draftRef.current === edit) {
           draftRef.current = null;
+          draftTarget.current = null;
           setDraftEdit(null);
+        } else if (draftTarget.current === target) {
+          // Newer edits are waiting: they belong to the fork a preset target became.
+          draftTarget.current = writer.resolve(target);
         }
         setError(null);
         accept(next);
       },
-      (e: unknown) => setError(messageOf(e)),
+      (e: unknown) => {
+        inFlight.current -= 1;
+        setError(messageOf(e));
+        // Resync, so the next attempt starts from what was really saved.
+        void api.getState?.().then(accept, () => undefined);
+      },
     );
   };
 
@@ -115,6 +152,7 @@ export function ThemeEditorPanel(props: ThemeEditorPanelProps) {
   useEffect(() => () => deb.flush(), [deb]);
 
   const commit = (edit: ThemeEdit, now = false): void => {
+    if (draftRef.current === null) draftTarget.current = activeTheme(stateRef.current).id;
     draftRef.current = mergeEdit(draftRef.current ?? {}, edit);
     setDraftEdit(draftRef.current);
     if (now) {
@@ -128,6 +166,24 @@ export function ThemeEditorPanel(props: ThemeEditorPanelProps) {
     await lastWrite.current;
     return stateRef.current;
   };
+  const settleRef = props.settleRef;
+  if (settleRef) settleRef.current = settle;
+  useEffect(
+    () => () => {
+      if (settleRef) settleRef.current = null;
+    },
+    [settleRef],
+  );
+
+  // Backstop: if the active theme changes under a draft that no write is carrying, the draft
+  // is saved to the theme it was made on and does not touch the new one.
+  useIsoLayoutEffect(() => {
+    const target = draftTarget.current;
+    if (!draftRef.current || target === null || inFlight.current > 0) return;
+    if (target === active.id || writer.resolve(target) === active.id) return;
+    deb.cancel();
+    runSaveRef.current(false);
+  }, [active.id, writer, deb]);
 
   const guard = (fn: () => Promise<void>) => (): void => {
     setError(null);
@@ -140,7 +196,10 @@ export function ThemeEditorPanel(props: ThemeEditorPanelProps) {
     onClose();
   };
 
-  const theme = applyEdit(active, draftEdit);
+  const target = draftTarget.current;
+  const draftHere =
+    target !== null && (target === active.id || writer.resolve(target) === active.id);
+  const theme = applyEdit(active, draftHere ? draftEdit : null);
   const warnings = contrastWarnings(theme.tokens);
 
   const saveAsNew = guard(async () => {
@@ -150,8 +209,9 @@ export function ThemeEditorPanel(props: ThemeEditorPanelProps) {
     const st = stateRef.current;
     const fork = forkTheme(base, [...st.presets, ...st.custom]);
     await api.save(fork);
-    accept(await api.setActive(fork.id));
+    accept(await writer.select(fork.id));
     draftRef.current = null;
+    draftTarget.current = null;
     setDraftEdit(null);
   });
 
@@ -165,6 +225,7 @@ export function ThemeEditorPanel(props: ThemeEditorPanelProps) {
     await lastWrite.current;
     const id = activeTheme(stateRef.current).id;
     draftRef.current = null;
+    draftTarget.current = null;
     setDraftEdit(null);
     setConfirmDelete(false);
     accept(await api.remove(id));
@@ -216,7 +277,7 @@ export function ThemeEditorPanel(props: ThemeEditorPanelProps) {
 
   const useImported = guard(async () => {
     if (!imported) return;
-    accept(await api.setActive(imported.id));
+    accept(await writer.select(imported.id));
     setImported(null);
   });
 

@@ -1,13 +1,13 @@
 import { OVERLAY_MANIFESTS } from "@overlay/overlays/manifests";
 import type { OverlayInstanceSettings, OverlaySettingsPatch } from "@overlay/overlays/contract";
-import { applySettingsPatch } from "@overlay/overlays/settings";
 import type { SimName } from "@overlay/sim-core/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { displayPrefsOf } from "../../../shared/app-settings-types";
 import { useAppSettings } from "../controls/useAppSettings";
 import { browserTimer, createDebouncer } from "../overlays/debounce";
-import { simFromSource, settingsOf } from "../overlays/model";
+import { simFromSource } from "../overlays/model";
 import { OverlaysForm, defaultSelection } from "../overlays/OverlaysForm";
+import { createOverlaySender } from "../overlays/sender";
 
 export function OverlaysPage() {
   const { settings: app } = useAppSettings();
@@ -16,15 +16,25 @@ export function OverlaysPage() {
   const [sim, setSim] = useState<SimName>("iracing");
   const pickedByHand = useRef(false);
   const debouncer = useMemo(() => createDebouncer(browserTimer), []);
+  const sender = useMemo(
+    () =>
+      createOverlaySender({
+        manifests: OVERLAY_MANIFESTS,
+        debouncer,
+        update: (id, patch) => window.overlayApi.overlays.update(id, patch),
+        publish: (next) => setAll(next),
+      }),
+    [debouncer],
+  );
 
   useEffect(() => {
     const api = window.overlayApi;
     let alive = true;
     void api.overlays.getAll().then((s) => {
-      if (alive) setAll(s);
+      if (alive) sender.load(s);
     });
     const offChanged = api.overlays.onChanged((id, s) => {
-      setAll((prev) => (prev ? { ...prev, [id]: s } : prev));
+      sender.incoming(id, s);
     });
     void api.telemetry.getStatus().then((ev) => {
       if (alive && ev && !pickedByHand.current) setSim(simFromSource(ev.source));
@@ -38,23 +48,12 @@ export function OverlaysPage() {
       offStatus();
       debouncer.flush();
     };
-  }, [debouncer]);
+  }, [debouncer, sender]);
 
   const send = useCallback(
-    (id: string, patch: OverlaySettingsPatch, debounceKey?: string): void => {
-      const manifest = OVERLAY_MANIFESTS.find((m) => m.id === id);
-      if (!manifest) return;
-      // The same code main runs, so the optimistic state matches the confirmed one.
-      setAll((prev) =>
-        prev
-          ? { ...prev, [id]: applySettingsPatch(manifest, settingsOf(manifest, prev), patch) }
-          : prev,
-      );
-      const run = (): void => void window.overlayApi.overlays.update(id, patch);
-      if (debounceKey === undefined) run();
-      else debouncer.schedule(`${id}:${debounceKey}`, run);
-    },
-    [debouncer],
+    (id: string, patch: OverlaySettingsPatch, debounceKey?: string): void =>
+      sender.send(id, patch, debounceKey),
+    [sender],
   );
 
   if (!all || !app) return <p className="muted">Loading...</p>;

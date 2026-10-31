@@ -65,7 +65,7 @@ export function OverlaysForm(props: OverlaysFormProps) {
               <Toggle
                 label={`Enable ${m.title}`}
                 checked={enabled}
-                disabled={state.disabled}
+                disabled={state.disabled && !enabled}
                 onChange={(next) => props.onToggle(m.id, next)}
               />
             </li>

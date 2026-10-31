@@ -121,6 +121,78 @@ describe("createThemeWriter", () => {
   });
 });
 
+describe("createThemeWriter targets and select", () => {
+  function setup(failActivate = false) {
+    const log: string[] = [];
+    let customThemes: Theme[] = [];
+    let activeId = "graphite";
+    let failNext = failActivate;
+    const snapshot = (): ThemeState => ({ activeId, presets: THEME_PRESETS, custom: customThemes });
+    const api = {
+      async save(theme: Theme) {
+        log.push(`save:${theme.id}:${theme.font}`);
+        await Promise.resolve();
+        customThemes = customThemes.some((t) => t.id === theme.id)
+          ? customThemes.map((t) => (t.id === theme.id ? theme : t))
+          : [...customThemes, theme];
+        return snapshot();
+      },
+      async setActive(id: string) {
+        log.push(`active:${id}`);
+        if (failNext) {
+          failNext = false;
+          throw new Error("disk full");
+        }
+        activeId = id;
+        return snapshot();
+      },
+      async getState() {
+        return snapshot();
+      },
+    };
+    return { api, log, snapshot };
+  }
+
+  it("writes an edit to the theme it was made on, even after another theme is selected", async () => {
+    const { api, log, snapshot } = setup();
+    const writer = createThemeWriter(api);
+    const first = await writer.write(snapshot(), { font: "oswald" }, { target: "graphite" });
+    const forkId = first.activeId;
+    expect(forkId).toMatch(/^custom-/);
+    // A draft made on the fork is pending while the user picks Graphite from the gallery.
+    const pending = writer.write(first, { font: "manrope" }, { target: forkId });
+    const picked = writer.select("graphite");
+    const [afterEdit, afterSelect] = await Promise.all([pending, picked]);
+    expect(afterEdit.custom.find((t) => t.id === forkId)?.font).toBe("manrope");
+    expect(afterSelect.activeId).toBe("graphite");
+    expect(afterSelect.custom).toHaveLength(1);
+    expect(log.at(-1)).toBe("active:graphite");
+  });
+
+  it("does not fork a second time after a failed activation", async () => {
+    const { api, snapshot } = setup(true);
+    const writer = createThemeWriter(api);
+    await expect(
+      writer.write(snapshot(), { font: "oswald" }, { target: "graphite" }),
+    ).rejects.toThrow("disk full");
+    const retry = await writer.write(snapshot(), { weight: 700 }, { target: "graphite" });
+    expect(retry.custom).toHaveLength(1);
+    expect(retry.activeId).toBe(retry.custom[0]!.id);
+    expect(retry.custom[0]).toMatchObject({ font: "oswald" });
+  });
+
+  it("can save a fork without activating it", async () => {
+    const { api, snapshot } = setup();
+    const next = await createThemeWriter(api).write(
+      snapshot(),
+      { font: "oswald" },
+      { target: "graphite", activate: false },
+    );
+    expect(next.activeId).toBe("graphite");
+    expect(next.custom).toHaveLength(1);
+  });
+});
+
 const noop = () => undefined;
 function render(state: ThemeState, combinePills = false): string {
   return renderToStaticMarkup(

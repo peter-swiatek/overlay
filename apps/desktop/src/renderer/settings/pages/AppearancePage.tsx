@@ -12,6 +12,7 @@ import {
   createThemeWriter,
   isPreset,
   type ThemeEdit,
+  type ThemeWriter,
 } from "../appearance/model";
 import { Row, Section, Segmented, Toggle } from "../controls";
 import { useAppSettings } from "../controls/useAppSettings";
@@ -45,6 +46,8 @@ export interface AppearanceFormProps {
   onEdit(edit: ThemeEdit): void;
   onCombinePills(next: boolean): void;
   onState(next: ThemeState): void;
+  /** Shared with the colour editor; omitted in tests. */
+  writer?: ThemeWriter;
 }
 
 /** The page itself, separate from the IPC wiring so it renders with fake data. */
@@ -52,11 +55,24 @@ export function AppearanceForm(props: AppearanceFormProps) {
   const { state, combinePills, error } = props;
   const theme: Theme = activeTheme(state);
   const preset = isPreset(state, theme.id);
+  const settleRef = useRef<(() => Promise<unknown>) | null>(null);
   return (
     <>
       <Section title="Theme">
-        <ThemeGallery state={state} onSelect={props.onSelect} />
-        <ThemeEditorEntry state={state} onState={props.onState} />
+        <ThemeGallery
+          state={state}
+          onSelect={(id) => {
+            // A pending colour edit is saved to the theme it was made on first.
+            const settled = settleRef.current?.() ?? Promise.resolve();
+            void settled.then(() => props.onSelect(id));
+          }}
+        />
+        <ThemeEditorEntry
+          state={state}
+          onState={props.onState}
+          writer={props.writer}
+          settleRef={settleRef}
+        />
       </Section>
       <Section title="Typography">
         <Row label="Overlay font">
@@ -145,21 +161,26 @@ export function AppearancePage() {
 
   if (!state || !settings) return <p className="muted">Loading...</p>;
 
-  const fail = (e: unknown) =>
+  const fail = (e: unknown) => {
     setError(e instanceof Error ? e.message : "Could not save the theme");
+    // Resync with what main really has, so a half-done write is not repeated.
+    void window.overlayApi.theme.getState().then(accept, () => undefined);
+  };
   return (
     <AppearanceForm
       state={state}
       combinePills={settings.appearance.combinedLicencePill}
       error={error}
       onState={accept}
+      writer={writer}
       onSelect={(id) => {
         setError(null);
-        window.overlayApi.theme.setActive(id).then(accept, fail);
+        writer.select(id).then(accept, fail);
       }}
       onEdit={(edit) => {
         setError(null);
-        writer.write(latest.current ?? state, edit).then(accept, fail);
+        const from = latest.current ?? state;
+        writer.write(from, edit, { target: activeTheme(from).id }).then(accept, fail);
       }}
       onCombinePills={(combinedLicencePill) => update({ appearance: { combinedLicencePill } })}
     />

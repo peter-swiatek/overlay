@@ -202,7 +202,7 @@ function FieldList({
               <Toggle
                 label={`Show ${label}`}
                 checked={config.visible}
-                disabled={state.disabled}
+                disabled={state.disabled && !config.visible}
                 onChange={(visible) => onFields(setFieldPatch(fields, config.id, { visible }))}
               />
             </Row>
@@ -239,7 +239,7 @@ function FieldList({
             <Toggle
               label={`Show ${label}`}
               checked={config.visible}
-              disabled={state.disabled}
+              disabled={state.disabled && !config.visible}
               onChange={(visible) => onFields(setFieldPatch(fields, config.id, { visible }))}
             />
             <span className="ov-col-moves">
@@ -327,7 +327,12 @@ function SettingControl({
   switch (field.kind) {
     case "toggle":
       return (
-        <Toggle label={field.label} checked={value === true} disabled={off} onChange={onChange} />
+        <Toggle
+          label={field.label}
+          checked={value === true}
+          disabled={off && value !== true}
+          onChange={onChange}
+        />
       );
     case "number":
       return (
