@@ -1,0 +1,34 @@
+.ov-pill {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0 0.45em;
+  overflow: hidden;
+  border-radius: 0.6em;
+  line-height: 1.4;
+  font-size: 0.85em;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.ov-pill--plain {
+  background: color-mix(in srgb, var(--ov-text) 14%, transparent);
+  color: var(--ov-text);
+}
+
+.ov-delta {
+  font-variant-numeric: tabular-nums;
+}
+
+.ov-delta--gain {
+  color: var(--ov-locked-gain);
+}
+
+.ov-delta--loss {
+  color: var(--ov-locked-loss);
+}
+
+.ov-delta--none {
+  color: var(--ov-text-muted);
+}
