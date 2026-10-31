@@ -38,8 +38,11 @@ export function buildOverlayWindowOptions(
 
 export function buildSettingsWindowOptions(preloadPath: string): BrowserWindowConstructorOptions {
   return {
-    width: 560,
-    height: 640,
+    width: 920,
+    height: 680,
+    minWidth: 760,
+    minHeight: 560,
+    resizable: true,
     show: false,
     title: "Overlay settings",
     autoHideMenuBar: true,
