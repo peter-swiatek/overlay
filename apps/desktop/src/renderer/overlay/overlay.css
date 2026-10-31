@@ -96,3 +96,59 @@ body,
   background: linear-gradient(135deg, transparent 50%, #ffc400 50%);
   -webkit-app-region: no-drag;
 }
+
+.relative td.car-number {
+  border-left: 4px solid transparent;
+  text-align: center;
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  font-size: 14px;
+  text-align: center;
+  color: #c4c9d2;
+}
+
+.bar.clutch {
+  background: #3b8cee;
+}
+.clutch-track {
+  flex: 0.5;
+}
+.readout {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.gear {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1;
+}
+.speed {
+  font-size: 14px;
+  color: #c4c9d2;
+}
+.steer-track {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+.steer-mark {
+  position: absolute;
+  top: -2px;
+  width: 4px;
+  height: 12px;
+  margin-left: -2px;
+  background: #ffc400;
+  border-radius: 2px;
+}
