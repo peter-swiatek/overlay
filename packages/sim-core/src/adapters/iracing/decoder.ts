@@ -7,6 +7,7 @@
  * sessionInfoOffset@20, numVars@24, varHeaderOffset@28, numBuf@32, bufLen@36.
  * Var header (144 bytes): type i32@0, offset i32@4, count i32@8, name char[32]@16.
  */
+import { decodeSimLines, decodeSimText } from "../../sim-text";
 
 export const VarType = {
   Char: 0,
@@ -59,27 +60,9 @@ function isVarType(value: number): value is VarTypeId {
   return value >= VarType.Char && value <= VarType.Double;
 }
 
-// Windows-1252 code points for bytes 0x80..0x9F (0 = undefined in the standard). Node's
-// TextDecoder("windows-1252") returns plain Latin-1 there (C1 controls), so we map them ourselves.
-const CP1252_HIGH = [
-  0x20ac, 0, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021, 0x02c6, 0x2030, 0x0160, 0x2039, 0x0152,
-  0, 0x017d, 0, 0, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014, 0x02dc, 0x2122, 0x0161,
-  0x203a, 0x0153, 0, 0x017e, 0x0178,
-];
-
-/** iRacing writes the YAML in Windows-1252 (names with Š, ž, Œ ...); stops at the first NUL. */
+/** Session YAML text: UTF-8 when valid, else Windows-1252 (names with Š, ž, Œ ...); stops at the first NUL. */
 export function decodeSessionYaml(bytes: Uint8Array): string {
-  const end = bytes.indexOf(0);
-  const used = end < 0 ? bytes : bytes.subarray(0, end);
-  const parts: string[] = [];
-  const chunk = 8192;
-  for (let i = 0; i < used.length; i += chunk) {
-    const codes = Array.from(used.subarray(i, i + chunk), (b) =>
-      b >= 0x80 && b <= 0x9f ? CP1252_HIGH[b - 0x80] || b : b,
-    );
-    parts.push(String.fromCharCode(...codes));
-  }
-  return parts.join("");
+  return decodeSimLines(bytes);
 }
 
 function viewOf(bytes: Uint8Array): DataView {
@@ -104,10 +87,7 @@ export function parseIrsdkHeader(bytes: Uint8Array): IrsdkHeader {
 }
 
 function readName(bytes: Uint8Array, start: number): string {
-  let end = start;
-  const limit = start + NAME_BYTES;
-  while (end < limit && bytes[end] !== 0) end++;
-  return String.fromCharCode(...bytes.subarray(start, end));
+  return decodeSimText(bytes.subarray(start, start + NAME_BYTES));
 }
 
 export class IracingDecoder {
@@ -213,9 +193,7 @@ export class VarReader {
     if (info === undefined || info.type !== VarType.Char) return null;
     const end = info.offset + info.count;
     if (end > this.buffer.length) return null;
-    return (
-      Buffer.from(this.buffer.subarray(info.offset, end)).toString("latin1").split("\0")[0] ?? ""
-    );
+    return decodeSimText(this.buffer.subarray(info.offset, end));
   }
 
   private read(info: VarInfo, index: number): number {

@@ -12,3 +12,4 @@ export * as lmu from "./adapters/lmu";
 export function simCoreName(): string {
   return "@overlay/sim-core";
 }
+export * from "./sim-text";

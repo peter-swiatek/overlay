@@ -168,6 +168,11 @@ function buildCars(r: VarReader, info: IracingSessionInfo | null, playerCarIdx: 
     if (carIdx >= count) continue;
     cars.push(buildCar(r, carIdx, byIdx.get(carIdx), playerCarIdx));
   }
+  // A single-class session has nothing to tell apart (iRacing reports plain white); show no colour.
+  const classIds = new Set(
+    cars.filter((c) => !c.isPaceCar && c.classId !== null).map((c) => c.classId),
+  );
+  if (classIds.size <= 1) for (const c of cars) c.classColour = null;
   return cars;
 }
 
