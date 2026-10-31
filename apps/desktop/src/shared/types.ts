@@ -37,6 +37,8 @@ export interface AppInfo {
   /** Settings in effect for this run (stored settings plus --safe-mode). */
   effective: DisplaySettings;
   safeMode: boolean;
+  /** True in an installed build (app.isPackaged). */
+  isPackaged: boolean;
 }
 
 export interface ProcessMetric {

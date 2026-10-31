@@ -28,11 +28,16 @@ let store: ThemeStore;
 let files: Map<string, string>;
 let nextOpen: { canceled: boolean; filePaths: string[] };
 let nextSave: { canceled: boolean; filePath?: string };
+const dialogSenders: unknown[] = [];
 let saveOptions: { defaultPath: string; filters: { name: string; extensions: string[] }[] } | null;
 
 const deps: ThemeIpcDeps = {
-  showOpenDialog: async () => nextOpen,
-  showSaveDialog: async (options) => {
+  showOpenDialog: async (sender) => {
+    dialogSenders.push(sender);
+    return nextOpen;
+  },
+  showSaveDialog: async (_sender, options) => {
+    dialogSenders.push(_sender);
     saveOptions = options;
     return nextSave;
   },
@@ -53,6 +58,7 @@ beforeEach(() => {
   nextOpen = { canceled: true, filePaths: [] };
   nextSave = { canceled: true };
   saveOptions = null;
+  dialogSenders.length = 0;
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -139,6 +145,7 @@ describe("import and export by file", () => {
     nextOpen = { canceled: false, filePaths: ["/t.ovtheme.json"] };
     const result = await call(IPC.themeImportFile, settings);
     expect(result).toMatchObject({ ok: true, theme: { name: "Carbon" } });
+    expect(dialogSenders).toEqual([settings]);
     expect(store.getState().custom).toHaveLength(1);
   });
 
@@ -157,6 +164,7 @@ describe("import and export by file", () => {
   it("exports to the chosen path with a default name from the theme", async () => {
     nextSave = { canceled: false, filePath: "/out.ovtheme.json" };
     expect(await call(IPC.themeExportFile, settings, "midnight")).toBe(true);
+    expect(dialogSenders).toEqual([settings]);
     expect(saveOptions?.defaultPath).toBe("Midnight.ovtheme.json");
     expect(saveOptions?.filters[0]?.name).toBe("Overlay theme");
     expect(files.get("/out.ovtheme.json")).toContain('"format": "overlay-theme"');

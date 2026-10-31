@@ -42,8 +42,8 @@ describe("LayoutStore", () => {
     const file = join(dir, "nested", "layout.json");
     const store = new LayoutStore(file);
     const layout = {
-      relative: { x: 5, y: 6, width: 500, height: 400 },
-      "demo-inputs": { x: -1000, y: 20, width: 300, height: 150 },
+      relative: { x: 5, y: 6, width: 500, height: 400, scalePct: 125 },
+      "demo-inputs": { x: -1000, y: 20, width: 300, height: 150, scalePct: 100 },
     };
     store.save(layout);
     expect(store.load(OVERLAY_MANIFESTS)).toEqual(layout);
@@ -64,13 +64,38 @@ describe("LayoutStore", () => {
     };
     writeFileSync(file, JSON.stringify(m1));
     expect(new LayoutStore(file).load(OVERLAY_MANIFESTS)).toEqual({
-      relative: m1.relative,
-      "demo-inputs": m1.inputs,
+      relative: { ...m1.relative, scalePct: 100 },
+      "demo-inputs": { ...m1.inputs, scalePct: 100 },
     });
   });
 });
 
+describe("corrupt layout file", () => {
+  it("is moved aside to .bad-<timestamp> instead of being overwritten", () => {
+    const file = join(dir, "layout.json");
+    writeFileSync(file, "{not json");
+    const store = new LayoutStore(file);
+    expect(store.load(OVERLAY_MANIFESTS)).toEqual({});
+    store.save({});
+    const names = readdirSync(dir);
+    expect(names).toContain("layout.json");
+    expect(names.some((n) => /^layout\.json\.bad-\d+$/.test(n))).toBe(true);
+  });
+});
+
 describe("parseLayout", () => {
+  it("reads the stored scale and defaults to 100", () => {
+    const layout = parseLayout(
+      {
+        relative: { x: 1, y: 2, width: 300, height: 200, scalePct: 150 },
+        "demo-inputs": { x: 1, y: 2, width: 300, height: 200 },
+      },
+      OVERLAY_MANIFESTS,
+    );
+    expect(layout["relative"]?.scalePct).toBe(150);
+    expect(layout["demo-inputs"]?.scalePct).toBe(100);
+  });
+
   it("drops invalid entries and unknown ids", () => {
     const layout = parseLayout(
       {
@@ -80,7 +105,9 @@ describe("parseLayout", () => {
       },
       OVERLAY_MANIFESTS,
     );
-    expect(layout).toEqual({ relative: { x: 2, y: 2, width: 300, height: 200 } });
+    expect(layout).toEqual({
+      relative: { x: 2, y: 2, width: 300, height: 200, scalePct: 100 },
+    });
   });
 
   it("prefers demo-inputs over the legacy inputs entry", () => {
@@ -156,6 +183,21 @@ describe("planWindowChanges", () => {
       open: [],
       close: [],
     });
+  });
+
+  it("keeps developer-only overlays closed while developer tools are off", () => {
+    const dev = OVERLAY_MANIFESTS.filter((m) => m.dev === true).map((m) => m.id);
+    expect(dev).toContain("demo-inputs");
+    const settings = { "demo-inputs": on, relative: on };
+    expect(planWindowChanges(OVERLAY_MANIFESTS, settings, [], false)).toEqual({
+      open: ["relative"],
+      close: [],
+    });
+    expect(planWindowChanges(OVERLAY_MANIFESTS, settings, ["demo-inputs"], false)).toEqual({
+      open: ["relative"],
+      close: ["demo-inputs"],
+    });
+    expect(planWindowChanges(OVERLAY_MANIFESTS, settings, [], true).open).toContain("demo-inputs");
   });
 
   it("treats an overlay without settings as off", () => {

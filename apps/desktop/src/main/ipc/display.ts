@@ -9,6 +9,7 @@ export interface DisplayIpcDeps {
   /** Display settings in effect for this run (stored settings plus --safe-mode). */
   effective: DisplaySettings;
   safeMode: boolean;
+  isPackaged: boolean;
   relaunch(args: string[]): void;
   quit(): void;
 }
@@ -27,6 +28,7 @@ export function registerDisplayIpc(ctx: IpcContext, deps: DisplayIpcDeps): void 
       display: deps.settingsStore.load(),
       effective: deps.effective,
       safeMode: deps.safeMode,
+      isPackaged: deps.isPackaged,
     };
   });
   ipcMain.handle(IPC.setDisplaySettings, (event, patch: unknown) => {

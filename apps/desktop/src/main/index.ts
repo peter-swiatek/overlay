@@ -163,6 +163,7 @@ if (!app.requestSingleInstanceLock()) {
       settingsStore,
       effective,
       safeMode,
+      isPackaged: app.isPackaged,
       relaunch: (args) => app.relaunch({ args }),
       quit: () => app.quit(),
     });
@@ -170,7 +171,14 @@ if (!app.requestSingleInstanceLock()) {
       getCapture: () => capture,
       getAppMetrics: () => app.getAppMetrics(),
     });
-    appSettings.onChange(() => tray?.refresh());
+    let developerWas = appSettings.load().developer.enabled;
+    appSettings.onChange((next) => {
+      tray?.refresh();
+      if (next.developer.enabled !== developerWas) {
+        developerWas = next.developer.enabled;
+        overlays?.refreshDeveloperMode();
+      }
+    });
 
     const manager = new OverlayManager({
       layoutStore: new LayoutStore(join(userData, "layout.json")),
@@ -178,6 +186,7 @@ if (!app.requestSingleInstanceLock()) {
       manifests: OVERLAY_MANIFESTS,
       opacityWorkaround: effective.opacityWorkaround,
       onStateChange: () => tray?.refresh(),
+      isDeveloperEnabled: () => appSettings.load().developer.enabled,
     });
     overlays = manager;
     manager.start();

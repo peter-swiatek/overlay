@@ -1,8 +1,13 @@
 import type { OverlayInstanceSettings, OverlayManifest } from "@overlay/overlays/contract";
 import type { Bounds, Size } from "../shared/types";
 
+/** Bounds plus the scale (percent) they were sized for. M1 entries have no scale and mean 100. */
+export interface StoredBounds extends Bounds {
+  scalePct: number;
+}
+
 /** Bounds of every overlay the user has placed, keyed by manifest id. */
-export type Layout = Record<string, Bounds>;
+export type Layout = Record<string, StoredBounds>;
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
@@ -22,7 +27,7 @@ export function resizeBounds(bounds: Bounds, dx: number, dy: number, min: Size):
 /** Smallest window edge accepted from a stored layout (the manifest minimum is applied later). */
 const MIN_STORED_EDGE = 20;
 
-function parseBounds(value: unknown): Bounds | undefined {
+function parseBounds(value: unknown): StoredBounds | undefined {
   if (typeof value !== "object" || value === null) return undefined;
   const v = value as Record<string, unknown>;
   if (
@@ -37,7 +42,9 @@ function parseBounds(value: unknown): Bounds | undefined {
     { width: v["width"], height: v["height"] },
     { width: MIN_STORED_EDGE, height: MIN_STORED_EDGE },
   );
-  return { x: Math.round(v["x"]), y: Math.round(v["y"]), ...size };
+  const pct = v["scalePct"];
+  const scalePct = isFiniteNumber(pct) && pct > 0 ? pct : 100;
+  return { x: Math.round(v["x"]), y: Math.round(v["y"]), ...size, scalePct };
 }
 
 /** M1 stored the demo inputs window as "inputs"; it is "demo-inputs" now. */
@@ -113,15 +120,18 @@ export interface WindowPlan {
   close: string[];
 }
 
-/** Which windows to create and which to close so the open set matches the enabled overlays. */
+/** Which windows to create (developer-only manifests only while developer tools are on) and which to close so the open set matches the enabled overlays. */
 export function planWindowChanges(
   manifests: readonly OverlayManifest[],
   settingsById: Readonly<Record<string, OverlayInstanceSettings | undefined>>,
   openIds: Iterable<string>,
+  developerEnabled = true,
 ): WindowPlan {
   const open = new Set(openIds);
   const wanted = new Set(
-    manifests.filter((m) => settingsById[m.id]?.enabled === true).map((m) => m.id),
+    manifests
+      .filter((m) => settingsById[m.id]?.enabled === true && (developerEnabled || m.dev !== true))
+      .map((m) => m.id),
   );
   return {
     open: manifests.map((m) => m.id).filter((id) => wanted.has(id) && !open.has(id)),

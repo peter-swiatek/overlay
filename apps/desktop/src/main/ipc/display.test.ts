@@ -29,6 +29,7 @@ function setup() {
     settingsStore: { load: () => DEFAULT_DISPLAY_SETTINGS } as unknown as SettingsStore,
     effective: DEFAULT_DISPLAY_SETTINGS,
     safeMode: false,
+    isPackaged: true,
     relaunch,
     quit,
   });

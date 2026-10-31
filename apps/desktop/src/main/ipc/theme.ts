@@ -1,5 +1,5 @@
 import { readFile, stat, writeFile } from "node:fs/promises";
-import { dialog, ipcMain } from "electron";
+import { BrowserWindow, dialog, ipcMain } from "electron";
 import type { WebContents } from "electron";
 import {
   decodeThemeCode,
@@ -20,15 +20,21 @@ export interface FileFilter {
 
 /** The file system and dialogs the file import and export need; injected so tests need no Electron. */
 export interface ThemeIpcDeps {
-  showOpenDialog(options: {
-    title: string;
-    filters: FileFilter[];
-  }): Promise<{ canceled: boolean; filePaths: string[] }>;
-  showSaveDialog(options: {
-    title: string;
-    defaultPath: string;
-    filters: FileFilter[];
-  }): Promise<{ canceled: boolean; filePath?: string }>;
+  showOpenDialog(
+    sender: WebContents,
+    options: {
+      title: string;
+      filters: FileFilter[];
+    },
+  ): Promise<{ canceled: boolean; filePaths: string[] }>;
+  showSaveDialog(
+    sender: WebContents,
+    options: {
+      title: string;
+      defaultPath: string;
+      filters: FileFilter[];
+    },
+  ): Promise<{ canceled: boolean; filePath?: string }>;
   readText(path: string): Promise<string>;
   writeText(path: string, text: string): Promise<void>;
 }
@@ -39,8 +45,16 @@ export const THEME_FILE_FILTER: FileFilter = {
 };
 
 export const electronThemeIpcDeps: ThemeIpcDeps = {
-  showOpenDialog: (options) => dialog.showOpenDialog({ ...options, properties: ["openFile"] }),
-  showSaveDialog: (options) => dialog.showSaveDialog(options),
+  // Modal to the asking window so the dialog cannot hide behind it.
+  showOpenDialog: (sender, options) => {
+    const full = { ...options, properties: ["openFile" as const] };
+    const parent = BrowserWindow.fromWebContents(sender);
+    return parent ? dialog.showOpenDialog(parent, full) : dialog.showOpenDialog(full);
+  },
+  showSaveDialog: (sender, options) => {
+    const parent = BrowserWindow.fromWebContents(sender);
+    return parent ? dialog.showSaveDialog(parent, options) : dialog.showSaveDialog(options);
+  },
   readText: async (path) => {
     // A theme file is at most 64 KB; refuse to load anything bigger.
     if ((await stat(path)).size > MAX_THEME_FILE_BYTES) throw new Error("File too big");
@@ -126,7 +140,7 @@ export function createThemeHandlers(
     },
     [IPC.themeImportFile]: async (event): Promise<ThemeImportResult | null> => {
       settingsOnly(event.sender, IPC.themeImportFile);
-      const picked = await deps.showOpenDialog({
+      const picked = await deps.showOpenDialog(event.sender, {
         title: "Import theme",
         filters: [THEME_FILE_FILTER],
       });
@@ -145,7 +159,7 @@ export function createThemeHandlers(
       settingsOnly(event.sender, IPC.themeExportFile);
       const theme = findTheme(store, id);
       if (!theme) return false;
-      const picked = await deps.showSaveDialog({
+      const picked = await deps.showSaveDialog(event.sender, {
         title: "Export theme",
         defaultPath: themeFileName(theme.name),
         filters: [THEME_FILE_FILTER],

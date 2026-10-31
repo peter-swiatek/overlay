@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import type { AppSettings, AppSettingsPatch } from "../../../shared/app-settings-types";
-import type { BuildChannel } from "../../../shared/build-info";
 import type { TelemetrySourceChoice, TelemetrySourceView } from "../../../shared/telemetry-types";
 import { Row, Section, Segmented, Select, Toggle } from "../controls";
 import { useAppSettings } from "../controls/useAppSettings";
@@ -30,20 +29,20 @@ export function sourceOptions(
 }
 
 /** "Start with Windows" only does something in an installed Windows build. */
-export function startWithWindowsAvailable(channel: BuildChannel, platform: string): boolean {
-  return channel !== "local" && /win/i.test(platform);
+export function startWithWindowsAvailable(isPackaged: boolean, platform: string): boolean {
+  return isPackaged && /win/i.test(platform);
 }
 
 export function GeneralPage() {
   const { settings, update } = useAppSettings();
   const [source, setSource] = useState<TelemetrySourceView>();
-  const [channel, setChannel] = useState<BuildChannel>("release");
+  const [isPackaged, setIsPackaged] = useState(false);
 
   useEffect(() => {
     const api = window.overlayApi;
     let alive = true;
     void api.telemetry.getSource().then((v) => alive && setSource(v));
-    void api.getAppInfo().then((i) => alive && setChannel(i.build.channel));
+    void api.getAppInfo().then((i) => alive && setIsPackaged(i.isPackaged));
     const off = api.telemetry.onSourceChanged(setSource);
     return () => {
       alive = false;
@@ -57,7 +56,7 @@ export function GeneralPage() {
       settings={settings}
       update={update}
       source={source}
-      canAutostart={startWithWindowsAvailable(channel, navigator.platform)}
+      canAutostart={startWithWindowsAvailable(isPackaged, navigator.platform)}
       onSource={(choice) => void window.overlayApi.telemetry.setSource(choice).then(setSource)}
     />
   );

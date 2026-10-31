@@ -16,6 +16,7 @@ const info = (display: Partial<DisplaySettings>, safeMode = false): AppInfo => (
   display: { ...OFF, ...display },
   effective: OFF,
   safeMode,
+  isPackaged: true,
 });
 const render = (i: AppInfo | undefined) =>
   renderToStaticMarkup(
@@ -45,6 +46,14 @@ describe("DisplayView", () => {
     const html = render(info({ opacityWorkaround: true }));
     expect(html).toContain("Restart to apply your changes");
     expect(html).toContain("Restart now");
+  });
+
+  it("does not ask for a restart in safe mode, but offers Restart normally", () => {
+    expect(needsRestart(info({}, true))).toBe(false);
+    const html = render(info({}, true));
+    expect(html).toContain("Restart normally");
+    expect(html).not.toContain("Restart to apply your changes");
+    expect(render(info({}))).not.toContain("Restart normally");
   });
 
   it("shows the safe-mode note", () => {

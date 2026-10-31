@@ -23,6 +23,8 @@ export interface OverlayManagerDeps {
   manifests: readonly OverlayManifest[];
   opacityWorkaround: boolean;
   onStateChange: () => void;
+  /** Whether developer tools are on; developer-only overlays stay closed while they are off. */
+  isDeveloperEnabled?: () => boolean;
 }
 
 interface OpenOverlay {
@@ -59,6 +61,15 @@ export class OverlayManager {
     this.sync();
   }
 
+  /** Call when the developer-tools switch changes: opens or closes the developer-only overlays. */
+  refreshDeveloperMode(): void {
+    this.sync();
+  }
+
+  private developerEnabled(): boolean {
+    return this.deps.isDeveloperEnabled?.() ?? true;
+  }
+
   /** The overlay windows, for the z-order keeper. */
   getWindows(): BrowserWindow[] {
     return [...this.open.values()].map((o) => o.win);
@@ -75,7 +86,12 @@ export class OverlayManager {
   /** Opens and closes windows so they match the enabled overlays. */
   private sync(): void {
     const settings = this.deps.overlaySettings.getAll();
-    const plan = planWindowChanges(this.deps.manifests, settings, this.open.keys());
+    const plan = planWindowChanges(
+      this.deps.manifests,
+      settings,
+      this.open.keys(),
+      this.developerEnabled(),
+    );
     for (const id of plan.close) this.close(id);
     for (const id of plan.open) {
       const manifest = this.deps.manifests.find((m) => m.id === id);
@@ -88,6 +104,7 @@ export class OverlayManager {
     const manifest = this.deps.manifests.find((m) => m.id === id);
     if (!manifest) return;
     const current = this.open.get(id);
+    if (manifest.dev === true && !this.developerEnabled()) return;
     if (settings.enabled && !current) {
       this.create(manifest, settings);
     } else if (!settings.enabled && current) {
@@ -102,8 +119,17 @@ export class OverlayManager {
     const scalePct = settings.common.scalePct;
     const workAreas = screen.getAllDisplays().map((d) => d.workArea);
     const primary = screen.getPrimaryDisplay().workArea;
-    const bounds = initialBounds(manifest, this.layout[id], scalePct, workAreas, primary);
-    this.layout[id] = bounds;
+    const stored = this.layout[id];
+    // A scale change made while the overlay was off applies now.
+    const sized =
+      stored && stored.scalePct !== scalePct
+        ? {
+            ...stored,
+            ...scaleBounds(stored, stored.scalePct, scalePct, manifest.minSize),
+          }
+        : stored;
+    const bounds = initialBounds(manifest, sized, scalePct, workAreas, primary);
+    this.layout[id] = { ...bounds, scalePct };
 
     const win = new BrowserWindow(buildOverlayWindowOptions({ bounds, preloadPath }));
     this.open.set(id, { win, manifest, scalePct });
@@ -117,7 +143,7 @@ export class OverlayManager {
 
     const remember = (): void => {
       if (win.isDestroyed()) return;
-      this.layout[id] = win.getBounds();
+      this.layout[id] = { ...win.getBounds(), scalePct: this.open.get(id)?.scalePct ?? scalePct };
       this.scheduleSave();
     };
     win.on("moved", remember);
@@ -142,7 +168,7 @@ export class OverlayManager {
     if (!entry) return;
     this.open.delete(id);
     if (!entry.win.isDestroyed()) {
-      this.layout[id] = entry.win.getBounds();
+      this.layout[id] = { ...entry.win.getBounds(), scalePct: entry.scalePct };
       entry.win.close();
     }
     this.flushSave();
@@ -162,7 +188,7 @@ export class OverlayManager {
     );
     entry.scalePct = toPct;
     win.setBounds(next);
-    this.layout[manifest.id] = next;
+    this.layout[manifest.id] = { ...next, scalePct: toPct };
     this.scheduleSave();
   }
 
@@ -215,7 +241,7 @@ export class OverlayManager {
     const area = screen.getDisplayMatching(current).workArea;
     const next = clampToWorkArea(resizeBounds(current, dx, dy, min), area, min);
     entry.win.setBounds(next);
-    this.layout[id] = next;
+    this.layout[id] = { ...next, scalePct: entry.scalePct };
     this.scheduleSave();
   }
 

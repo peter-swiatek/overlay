@@ -28,7 +28,7 @@ export interface TelemetryIpcDeps {
   getSettings(): TelemetrySettings;
   updateSettings(patch: Partial<TelemetrySettings>): TelemetrySettings;
   getStatus(): TelemetryEvent | undefined;
-  pickReplayFile(): Promise<string | null>;
+  pickReplayFile(sender: WebContents): Promise<string | null>;
 }
 
 type Handler = (sender: WebContents, ...args: unknown[]) => unknown;
@@ -53,7 +53,7 @@ export function telemetryHandlers(
     },
     [IPC.telemetryPickReplay]: async (sender) => {
       guard(IPC.telemetryPickReplay, sender);
-      const path = await deps.pickReplayFile();
+      const path = await deps.pickReplayFile(sender);
       if (path === null) return sourceViewOf(deps.getSettings());
       return sourceViewOf(deps.updateSettings({ source: "replay", replayPath: path }));
     },

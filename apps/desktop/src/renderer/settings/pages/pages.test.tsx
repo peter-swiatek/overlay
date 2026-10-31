@@ -28,9 +28,9 @@ describe("sourceOptions", () => {
 
 describe("startWithWindowsAvailable", () => {
   it("needs a non-local build on Windows", () => {
-    expect(startWithWindowsAvailable("release", "Win32")).toBe(true);
-    expect(startWithWindowsAvailable("local", "Win32")).toBe(false);
-    expect(startWithWindowsAvailable("release", "Linux x86_64")).toBe(false);
+    expect(startWithWindowsAvailable(true, "Win32")).toBe(true);
+    expect(startWithWindowsAvailable(false, "Win32")).toBe(false);
+    expect(startWithWindowsAvailable(true, "Linux x86_64")).toBe(false);
   });
 });
 

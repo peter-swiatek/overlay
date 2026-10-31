@@ -32,7 +32,9 @@ export const DISPLAY_OPTIONS: readonly DisplayOption[] = [
 ];
 
 /** True when the stored settings differ from the ones this run started with. */
-export function needsRestart(info: Pick<AppInfo, "display" | "effective">): boolean {
+export function needsRestart(info: Pick<AppInfo, "display" | "effective" | "safeMode">): boolean {
+  // Safe mode forces every fallback on for one run, so stored and effective always differ.
+  if (info.safeMode) return false;
   return DISPLAY_OPTIONS.some(({ key }) => info.display[key] !== info.effective[key]);
 }
 
@@ -68,7 +70,10 @@ export function DisplayView({
         </Row>
       ))}
       {info?.safeMode && (
-        <p className="note">Running with --safe-mode: all four fallbacks are active.</p>
+        <p className="note">
+          Running with --safe-mode: all four fallbacks are active.{" "}
+          <Button onClick={onRestart}>Restart normally</Button>
+        </p>
       )}
       <p className="muted">
         Run the sim in borderless or windowed mode; exclusive fullscreen hides every overlay app.
