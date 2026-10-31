@@ -5,6 +5,7 @@ import {
   estimateFuelTankCapacity,
   fuelLapsRemaining,
 } from "./formulas";
+import type { SeedLap } from "./history";
 import type {
   FuelContext,
   FuelLapUse,
@@ -28,6 +29,9 @@ const FORWARD_JUMP = 0.15;
 /** iRacing SessionState: 3 parade laps, 5 checkered, 6 cooldown. */
 const PARADE_STATE = 3;
 const COOLDOWN_STATE = 5;
+
+/** At most this many seed laps are used. */
+const SEED_LAPS = 10;
 
 interface CurrentLap {
   startFuelL: number;
@@ -70,6 +74,8 @@ export class FuelTracker {
   /** Completed-lap counter and session time when the current stint began. */
   private stintStartLap = 0;
   private stintStartTimeS: number | null = null;
+  /** Use per lap from earlier sessions (oldest first), already within this tracker's limits. */
+  private seedUse: number[] = [];
 
   constructor(options: FuelTrackerOptions = {}) {
     this.minUse = options.minLapUse ?? 0.5;
@@ -77,6 +83,17 @@ export class FuelTracker {
     this.refuelJump = options.refuelJump ?? 1;
     this.pitRefuelJump = options.pitRefuelJump ?? 0.2;
     this.maxWindow = options.maxLapWindow ?? 5;
+  }
+
+  /**
+   * Laps from earlier sessions (oldest first). They stand in for valid laps until this session has
+   * 2 valid laps of its own; `[]` clears. Laps outside the validity limits are ignored.
+   */
+  seed(laps: readonly SeedLap[]): void {
+    this.seedUse = laps
+      .filter((l) => Number.isFinite(l.used) && l.used >= this.minUse && l.used <= this.maxUse)
+      .map((l) => l.used)
+      .slice(-SEED_LAPS);
   }
 
   get lapRecords(): readonly FuelLapRecord[] {
@@ -290,7 +307,11 @@ export class FuelTracker {
     };
   }
 
-  private lapFields(valid: readonly FuelLapRecord[], ctx: FuelContext): LapFields {
+  private lapFields(
+    valid: readonly FuelLapRecord[],
+    ctx: FuelContext,
+    basis: readonly number[],
+  ): LapFields {
     const recent: FuelLapUse[] = valid
       .slice(-10)
       .reverse()
@@ -301,9 +322,10 @@ export class FuelTracker {
       }));
     // The reference defines no 5- or 10-lap average; plain means over the newest valid laps, fewer when
     // the session has fewer.
+    // `basis` is the own valid laps, or the seed followed by them while the seed is in use.
     const mean = (n: number): number | null => {
-      const use = recent.slice(0, n);
-      return use.length === 0 ? null : use.reduce((a, l) => a + l.used, 0) / use.length;
+      const use = basis.slice(-n).reverse();
+      return use.length === 0 ? null : use.reduce((a, u) => a + u, 0) / use.length;
     };
     // The reference defines no per-hour figure: total use over total lap time, both over the valid laps
     // that have a lap time.
@@ -327,7 +349,10 @@ export class FuelTracker {
   snapshot(ctx: FuelContext): FuelOutputs {
     const valid = this.laps.filter((l) => l.valid);
     const last = this.prev;
-    if (valid.length === 0 || last === null) {
+    // Seeded laps count until the session has 2 valid laps of its own, then they are ignored.
+    const own = valid.map((l) => l.usedL);
+    const basis = valid.length >= 2 ? own : [...this.seedUse, ...own];
+    if (basis.length === 0 || last === null) {
       return {
         fuelLastLap: null,
         fuelAvgLap: null,
@@ -340,19 +365,21 @@ export class FuelTracker {
         pitWindow: null,
         tankCapacityL: ctx.tankCapacityL ?? this.tankEstimateL,
         validLapCount: valid.length,
-        ...this.lapFields(valid, ctx),
+        ...this.lapFields(valid, ctx, basis),
         ...this.stintFields(),
       };
     }
 
-    const ownAvg = valid.reduce((a, l) => a + l.usedL, 0) / valid.length;
-    const avg = ctx.fuelAvgOverride ?? ownAvg;
-    const max = Math.max(...valid.slice(-this.maxWindow).map((l) => l.usedL));
+    const basisAvg = basis.reduce((a, u) => a + u, 0) / basis.length;
+    const avg = ctx.fuelAvgOverride ?? basisAvg;
+    const max = Math.max(...basis.slice(-this.maxWindow));
     const currentFuel = last.fuelL;
     const completed = last.lap;
 
     // The reference estimate holds only until the first refuel, then the last value is kept.
-    if (ctx.tankCapacityL == null && !this.sawRefuel) {
+    // It needs this session's completed laps, so it uses the own average only (never the seed).
+    if (ctx.tankCapacityL == null && !this.sawRefuel && own.length > 0) {
+      const ownAvg = own.reduce((a, u) => a + u, 0) / own.length;
       this.tankEstimateL = estimateFuelTankCapacity(currentFuel, completed, ownAvg);
     }
     const tank = ctx.tankCapacityL ?? this.tankEstimateL;
@@ -360,10 +387,10 @@ export class FuelTracker {
     const remAvg = fuelLapsRemaining(currentFuel, avg);
     const target = remAvg === null ? null : computePlusOneLapTarget(currentFuel, remAvg);
     const lapsToGo = ctx.lapsToGo;
-    const needsTwo = valid.length >= 2 && lapsToGo != null;
+    const needsTwo = basis.length >= 2 && lapsToGo != null;
 
     return {
-      fuelLastLap: valid[valid.length - 1]!.usedL,
+      fuelLastLap: own.length === 0 ? null : own[own.length - 1]!,
       fuelAvgLap: avg,
       fuelMaxLap: max,
       lapsRemainingAvg: remAvg,
@@ -383,7 +410,7 @@ export class FuelTracker {
           : null,
       tankCapacityL: tank,
       validLapCount: valid.length,
-      ...this.lapFields(valid, ctx),
+      ...this.lapFields(valid, ctx, basis),
       ...this.stintFields(),
     };
   }

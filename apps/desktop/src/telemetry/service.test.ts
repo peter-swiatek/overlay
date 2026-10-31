@@ -105,6 +105,23 @@ describe("TelemetryService", () => {
     expect(events).toEqual([{ type: "status", status: "waiting", source: null, error: null }]);
   });
 
+  it("passes setFuelOptions to the deriver", () => {
+    const deriver = new Deriver();
+    const spy = vi.spyOn(deriver, "setKeepFuelData");
+    const service = new TelemetryService({
+      live: {},
+      createReplay: (path, speed, loop) => ReplayTelemetrySource.fromFile(path, { speed, loop }),
+      createMock: () => new MockTelemetrySource(),
+      monoMs: () => performance.now(),
+      sendToMain: () => {},
+      onStopped: () => {},
+      deriver,
+    });
+    service.handle({ type: "setFuelOptions", keepFuelData: true }, []);
+    service.handle({ type: "setFuelOptions", keepFuelData: false }, []);
+    expect(spy.mock.calls).toEqual([[true], [false]]);
+  });
+
   describe("track outlines", () => {
     const KEY = "iracing_virginia-international-raceway_full-course";
 

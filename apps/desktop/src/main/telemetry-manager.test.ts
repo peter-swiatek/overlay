@@ -126,6 +126,42 @@ describe("TelemetryManager", () => {
     });
   });
 
+  it("sends fuel options on change only and resends them after a restart", () => {
+    const h = harness();
+    h.manager.start();
+    const first = h.children[0] as FakeChild;
+    expect(first.commands("setFuelOptions")).toEqual([]);
+    h.manager.setFuelOptions({ keepFuelData: true });
+    h.manager.setFuelOptions({ keepFuelData: true });
+    expect(first.commands("setFuelOptions")).toEqual([
+      { type: "setFuelOptions", keepFuelData: true },
+    ]);
+    h.manager.setFuelOptions({ keepFuelData: false });
+    expect(first.commands("setFuelOptions")).toHaveLength(2);
+    h.manager.setFuelOptions({ keepFuelData: true });
+    first.exit();
+    h.timers[0]?.fn();
+    const second = h.children[1] as FakeChild;
+    expect(second.commands("setFuelOptions")).toEqual([
+      { type: "setFuelOptions", keepFuelData: true },
+    ]);
+    // Sent after the source, before any port.
+    expect(second.sent.map((s) => s.message.type).slice(0, 2)).toEqual([
+      "setSource",
+      "setFuelOptions",
+    ]);
+  });
+
+  it("holds fuel options set before start and sends them with the child", () => {
+    const h = harness();
+    h.manager.setFuelOptions({ keepFuelData: true });
+    expect(h.children).toHaveLength(0);
+    h.manager.start();
+    expect(h.children[0]?.commands("setFuelOptions")).toEqual([
+      { type: "setFuelOptions", keepFuelData: true },
+    ]);
+  });
+
   it("omits replayPath when none is set", () => {
     const h = harness();
     h.manager.start();
