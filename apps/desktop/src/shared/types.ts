@@ -3,6 +3,7 @@ import type { OverlayInstanceSettings, OverlaySettingsPatch } from "@overlay/ove
 import type { Theme, ThemeImportResult, ThemeState } from "@overlay/theme/types";
 import type { AppSettings, AppSettingsPatch } from "./app-settings-types";
 import type { CaptureSettings, CaptureStatus } from "./capture-types";
+import type { PerfCheckOutcome, PerfProgress } from "./perf-types";
 import type { TelemetryEvent, TelemetrySourceChoice, TelemetrySourceView } from "./telemetry-types";
 
 export type OverlayId = "relative" | "inputs";
@@ -52,6 +53,9 @@ export const IPC = {
   getAppInfo: "app:get-info",
   setDisplaySettings: "settings:set-display",
   getMetrics: "metrics:get",
+  perfStart: "perf:start",
+  perfCancel: "perf:cancel",
+  perfProgress: "perf:progress",
   getEditMode: "overlay:get-edit-mode",
   editModeChanged: "overlay:edit-mode-changed",
   resizeBy: "overlay:resize-by",
@@ -95,6 +99,10 @@ export interface OverlayApi {
   getAppInfo(): Promise<AppInfo>;
   setDisplaySettings(patch: Partial<DisplaySettings>): Promise<DisplaySettings>;
   getMetrics(): Promise<ProcessMetric[]>;
+  /** CPU budget check (settings window only): runs about two minutes, resolves with the outcome. */
+  startPerfCheck(): Promise<PerfCheckOutcome>;
+  cancelPerfCheck(): Promise<void>;
+  onPerfProgress(callback: (progress: PerfProgress) => void): () => void;
   getEditMode(): Promise<boolean>;
   onEditModeChanged(callback: (editing: boolean) => void): () => void;
   resizeBy(dx: number, dy: number): void;

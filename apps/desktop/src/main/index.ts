@@ -170,6 +170,9 @@ if (!app.requestSingleInstanceLock()) {
     registerDeveloperIpc(ctx, {
       getCapture: () => capture,
       getAppMetrics: () => app.getAppMetrics(),
+      allOverlayIds: OVERLAY_MANIFESTS.map((m) => m.id),
+      setOverlayOverride: (override) => overlays?.setEnabledOverride(override),
+      getSourceLabel: () => telemetry?.getSettings().source ?? "unknown",
     });
     let developerWas = appSettings.load().developer.enabled;
     appSettings.onChange((next) => {

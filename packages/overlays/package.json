@@ -11,7 +11,8 @@
     ".": "./src/index.ts",
     "./contract": "./src/contract.ts",
     "./manifests": "./src/manifests.ts",
-    "./settings": "./src/settings/index.ts"
+    "./settings": "./src/settings/index.ts",
+    "./views": "./src/views.ts"
   },
   "dependencies": {
     "@overlay/sim-core": "workspace:*",

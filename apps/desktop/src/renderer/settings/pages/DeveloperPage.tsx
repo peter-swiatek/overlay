@@ -7,6 +7,7 @@ import {
   type CaptureStatus,
 } from "../../../shared/capture-types";
 import type { TelemetrySourceChoice, TelemetrySourceView } from "../../../shared/telemetry-types";
+import type { PerfCheckResult, PerfProgress } from "../../../shared/perf-types";
 import type { ProcessMetric } from "../../../shared/types";
 import { Button, Row, Section, Segmented } from "../controls";
 
@@ -52,6 +53,138 @@ export function DataSourceSection({
         </Button>
       </Row>
     </Section>
+  );
+}
+
+export function CpuCheckSection() {
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<PerfProgress>();
+  const [result, setResult] = useState<PerfCheckResult>();
+  const [message, setMessage] = useState<string>();
+
+  useEffect(() => {
+    return window.overlayApi.onPerfProgress((p) => {
+      setRunning(true);
+      setProgress(p);
+    });
+  }, []);
+
+  const start = (): void => {
+    setRunning(true);
+    setResult(undefined);
+    setMessage(undefined);
+    void window.overlayApi
+      .startPerfCheck()
+      .then((outcome) => {
+        if (outcome.status === "done") setResult(outcome.result);
+        else if (outcome.status === "cancelled") setMessage("Cancelled. Overlays are restored.");
+        else setMessage(outcome.error);
+      })
+      .catch((error: unknown) => setMessage(error instanceof Error ? error.message : String(error)))
+      .finally(() => {
+        setRunning(false);
+        setProgress(undefined);
+      });
+  };
+
+  const doneS = progress?.overallDoneS ?? 0;
+  const totalS = progress?.overallTotalS ?? 0;
+  const stepText =
+    progress === undefined
+      ? "Starting..."
+      : progress.phase === "restore"
+        ? "Restoring overlays..."
+        : progress.phase === "settle"
+          ? `Phase ${progress.phaseId}: ${progress.label}, settling`
+          : `Phase ${progress.phaseId}: ${progress.label}, ${progress.elapsedS} of ${progress.totalS} s`;
+
+  return (
+    <Section
+      title="CPU budget"
+      description="Measures what the M2 overlays cost: 60 s with every overlay window closed, then 60 s with Leaderboard, Relative, Spotter, Pit speed and Fuel open, on the current data source. Your overlay settings are restored afterwards."
+    >
+      <Row label="Measure" help={running ? stepText : "Takes about two minutes."}>
+        {running ? (
+          <Button variant="danger" onClick={() => void window.overlayApi.cancelPerfCheck()}>
+            Cancel
+          </Button>
+        ) : (
+          <Button variant="primary" onClick={start}>
+            Measure CPU
+          </Button>
+        )}
+      </Row>
+      {running && (
+        <progress value={doneS} max={Math.max(1, totalS)} aria-label="CPU check progress" />
+      )}
+      {message && <p className="note">{message}</p>}
+      {result && <CpuCheckResult result={result} />}
+    </Section>
+  );
+}
+
+function CpuCheckResult({ result }: { result: PerfCheckResult }) {
+  const { phaseA, phaseB } = result;
+  return (
+    <>
+      <p className="note">
+        {result.pass ? "Within budget" : "Over budget"}: the overlays add{" "}
+        <strong>{result.budgetPct.toFixed(2)} %</strong> of the machine (target {result.targetPct} %
+        or less). {result.cores} cores, source {result.source}.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Phase</th>
+            <th>Mean %</th>
+            <th>p95 %</th>
+            <th>Samples</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[phaseA, phaseB].map((p) => (
+            <tr key={p.id}>
+              <td>{p.label}</td>
+              <td>{p.meanPct.toFixed(2)}</td>
+              <td>{p.p95Pct.toFixed(2)}</td>
+              <td>{p.samples}</td>
+            </tr>
+          ))}
+          <tr className="total">
+            <td>Difference</td>
+            <td>{result.budgetPct.toFixed(2)}</td>
+            <td>{result.p95DiffPct.toFixed(2)}</td>
+            <td />
+          </tr>
+        </tbody>
+      </table>
+      <table>
+        <thead>
+          <tr>
+            <th>Process type</th>
+            <th>Closed %</th>
+            <th>Open %</th>
+            <th>Added %</th>
+          </tr>
+        </thead>
+        <tbody>
+          {result.byType.map((t) => (
+            <tr key={t.type}>
+              <td>{t.type}</td>
+              <td>{t.aMeanPct.toFixed(2)}</td>
+              <td>{t.bMeanPct.toFixed(2)}</td>
+              <td>{t.deltaPct.toFixed(2)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {result.suggestions.map((text) => (
+        <p className="note" key={text}>
+          {text}
+        </p>
+      ))}
+      {result.file && <p className="muted">Saved to {result.file}</p>}
+    </>
   );
 }
 
@@ -157,6 +290,8 @@ export function DeveloperPage() {
           />
         </Row>
       </Section>
+
+      <CpuCheckSection />
 
       <Section title="Resource usage">
         <table>

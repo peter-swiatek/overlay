@@ -27,6 +27,9 @@ const api: OverlayApi = {
   getAppInfo: () => ipcRenderer.invoke(IPC.getAppInfo),
   setDisplaySettings: (patch) => ipcRenderer.invoke(IPC.setDisplaySettings, patch),
   getMetrics: () => ipcRenderer.invoke(IPC.getMetrics),
+  startPerfCheck: () => ipcRenderer.invoke(IPC.perfStart),
+  cancelPerfCheck: () => ipcRenderer.invoke(IPC.perfCancel),
+  onPerfProgress: (callback) => subscribe(IPC.perfProgress, callback),
   getEditMode: () => ipcRenderer.invoke(IPC.getEditMode),
   onEditModeChanged: (callback) => {
     const listener = (_event: unknown, editing: boolean): void => callback(editing);

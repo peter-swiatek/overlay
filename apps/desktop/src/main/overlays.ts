@@ -40,6 +40,8 @@ export class OverlayManager {
   private readonly layout: Layout;
   private editMode = false;
   private visible = true;
+  /** In-memory enabled states that win over the stored settings (never saved); null when off. */
+  private enabledOverride: Record<string, boolean> | null = null;
   private saveTimer: NodeJS.Timeout | undefined;
   /** Asks the z-order keeper to re-raise the overlays (never activates them). */
   onShouldRaise: (() => void) | undefined;
@@ -83,9 +85,28 @@ export class OverlayManager {
     return undefined;
   }
 
+  /**
+   * Temporarily opens or closes overlays regardless of their stored enabled state (the CPU check
+   * uses it). Ids missing from `override` keep their stored state; null restores everything.
+   * Nothing is written to the overlay settings.
+   */
+  setEnabledOverride(override: Record<string, boolean> | null): void {
+    this.enabledOverride = override;
+    this.sync();
+  }
+
+  private effectiveSettings(): Record<string, OverlayInstanceSettings> {
+    const all = this.deps.overlaySettings.getAll();
+    const override = this.enabledOverride;
+    if (override === null) return all;
+    return Object.fromEntries(
+      Object.entries(all).map(([id, s]) => [id, { ...s, enabled: override[id] ?? s.enabled }]),
+    );
+  }
+
   /** Opens and closes windows so they match the enabled overlays. */
   private sync(): void {
-    const settings = this.deps.overlaySettings.getAll();
+    const settings = this.effectiveSettings();
     const plan = planWindowChanges(
       this.deps.manifests,
       settings,
@@ -105,9 +126,10 @@ export class OverlayManager {
     if (!manifest) return;
     const current = this.open.get(id);
     if (manifest.dev === true && !this.developerEnabled()) return;
-    if (settings.enabled && !current) {
+    const enabled = this.enabledOverride?.[id] ?? settings.enabled;
+    if (enabled && !current) {
       this.create(manifest, settings);
-    } else if (!settings.enabled && current) {
+    } else if (!enabled && current) {
       this.close(id);
     } else if (current && current.scalePct !== settings.common.scalePct) {
       this.rescale(current, settings.common.scalePct);
