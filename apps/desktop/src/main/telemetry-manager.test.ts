@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { TelemetryCommand } from "../shared/telemetry-types";
+import type { TelemetryCommand, TelemetryEvent } from "../shared/telemetry-types";
 import {
   RESTART_BASE_MS,
   RESTART_MAX_MS,
@@ -50,6 +50,7 @@ interface Harness {
   posted: { sender: object; port: unknown }[];
   timers: { fn: () => void; ms: number; cancelled: boolean }[];
   settingsChanges: TelemetrySettings[];
+  statuses: TelemetryEvent[];
   overlays: Set<object>;
   clock: { now: number };
   window(): object;
@@ -61,6 +62,7 @@ function harness(initial: Partial<TelemetrySettings> = {}): Harness {
   const posted: Harness["posted"] = [];
   const timers: Harness["timers"] = [];
   const settingsChanges: TelemetrySettings[] = [];
+  const statuses: TelemetryEvent[] = [];
   const overlays = new Set<object>();
   let portNo = 0;
   const clock = { now: 1000 };
@@ -90,6 +92,7 @@ function harness(initial: Partial<TelemetrySettings> = {}): Harness {
         };
       },
       onSettingsChange: (s) => settingsChanges.push(s),
+      onStatusChange: (status) => statuses.push(status),
     },
   );
   return {
@@ -98,6 +101,7 @@ function harness(initial: Partial<TelemetrySettings> = {}): Harness {
     posted,
     timers,
     settingsChanges,
+    statuses,
     overlays,
     clock,
     window: () => {
@@ -341,5 +345,15 @@ describe("TelemetryManager", () => {
     expect(h.manager.getStatus()?.error).toBe("no file");
     h.children[0]?.exit();
     expect(h.manager.getStatus()).toBeUndefined();
+  });
+
+  it("reports each status message but not an exit", () => {
+    const h = harness();
+    h.manager.start();
+    h.children[0]?.emit({ type: "status", status: "waiting", source: null, error: null });
+    h.children[0]?.emit({ type: "status", status: "live", source: "mock", error: null });
+    h.children[0]?.emit({ type: "unrelated" });
+    h.children[0]?.exit();
+    expect(h.statuses.map((s) => s.status)).toEqual(["waiting", "live"]);
   });
 });

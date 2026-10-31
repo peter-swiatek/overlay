@@ -9,18 +9,28 @@ import {
   type WebContents,
 } from "electron";
 import pkg from "electron-updater";
+import { OVERLAY_MANIFESTS } from "@overlay/overlays/manifests";
 import { BUILD_INFO } from "../shared/build-info";
-import { IPC, type AppInfo } from "../shared/types";
+import { IPC } from "../shared/types";
+import { AppSettingsStore } from "./app-settings";
 import { CaptureManager } from "./capture-manager";
 import { CaptureSettingsStore } from "./capture-settings";
+import { registerAppSettingsIpc } from "./ipc/app-settings";
+import type { IpcContext } from "./ipc/context";
+import { registerDeveloperIpc } from "./ipc/developer";
+import { registerDisplayIpc } from "./ipc/display";
+import { registerOverlayIpc } from "./ipc/overlays";
+import { registerTelemetryIpc, sourceViewOf } from "./ipc/telemetry";
+import { registerThemeIpc } from "./ipc/theme";
 import { LayoutStore } from "./layout-store";
-import { summarizeMetrics } from "./metrics";
 import { OverlayManager } from "./overlays";
+import { OverlaySettingsStore } from "./overlay-settings-store";
 import { loadPage, preloadPath } from "./pages";
 import { SettingsStore, isSafeMode, resolveDisplaySettings } from "./settings";
 import { recorderForkArgs } from "../recorder/args";
 import { TelemetryManager } from "./telemetry-manager";
 import { TelemetrySettingsStore } from "./telemetry-settings";
+import { ThemeStore } from "./theme-store";
 import { AppTray } from "./tray";
 import { UpdateSettingsStore } from "./update-settings";
 import { Updater } from "./updater";
@@ -49,6 +59,7 @@ let tray: AppTray | undefined;
 let capture: CaptureManager | undefined;
 let telemetry: TelemetryManager | undefined;
 let updater: Updater | undefined;
+let overlaySettings: OverlaySettingsStore | undefined;
 let shuttingDown = false;
 let lastRecording = false;
 let lastCaptureError: string | null = null;
@@ -81,37 +92,16 @@ function deny(channel: string): never {
   throw new Error(`Rejected IPC from unexpected sender: ${channel}`);
 }
 
+/** Sends to every open overlay window and the settings window. */
+function broadcast(channel: string, ...args: unknown[]): void {
+  const targets = [...(overlays?.getWindows() ?? [])];
+  if (settingsWindow) targets.push(settingsWindow);
+  for (const win of targets) {
+    if (!win.isDestroyed()) win.webContents.send(channel, ...args);
+  }
+}
+
 function registerIpc(): void {
-  ipcMain.handle(IPC.getAppInfo, (event): AppInfo => {
-    if (!fromSettings(event.sender)) deny(IPC.getAppInfo);
-    return {
-      version: BUILD_INFO.version,
-      build: BUILD_INFO,
-      display: settingsStore.load(),
-      effective,
-      safeMode,
-    };
-  });
-  ipcMain.handle(IPC.setDisplaySettings, (event, patch: unknown) => {
-    if (!fromSettings(event.sender)) deny(IPC.setDisplaySettings);
-    return settingsStore.update(patch);
-  });
-  ipcMain.handle(IPC.getMetrics, (event) => {
-    if (!fromSettings(event.sender)) deny(IPC.getMetrics);
-    return summarizeMetrics(app.getAppMetrics());
-  });
-  ipcMain.handle(IPC.getCaptureStatus, (event) => {
-    if (!fromSettings(event.sender)) deny(IPC.getCaptureStatus);
-    return capture?.getStatus();
-  });
-  ipcMain.handle(IPC.getCaptureSettings, (event) => {
-    if (!fromSettings(event.sender)) deny(IPC.getCaptureSettings);
-    return capture?.getSettings();
-  });
-  ipcMain.handle(IPC.setCaptureSettings, (event, patch: unknown) => {
-    if (!fromSettings(event.sender)) deny(IPC.setCaptureSettings);
-    return capture?.setSettings(patch);
-  });
   ipcMain.on(IPC.telemetrySubscribe, (event, rateHz: unknown) => {
     // Silently ignores senders that are not overlay windows.
     telemetry?.handleSubscribe(event.sender, rateHz);
@@ -144,7 +134,35 @@ if (!app.requestSingleInstanceLock()) {
   app.on("second-instance", () => showSettings());
 
   void app.whenReady().then(() => {
+    overlaySettings = new OverlaySettingsStore(
+      join(userData, "overlay-settings.json"),
+      OVERLAY_MANIFESTS,
+    );
+    const appSettings = new AppSettingsStore(join(userData, "app-settings.json"));
+    const themes = new ThemeStore(join(userData, "themes.json"));
+    const ctx: IpcContext = {
+      userData,
+      isSettingsSender: fromSettings,
+      isOverlaySender: fromOverlay,
+      broadcast,
+      deny,
+    };
     registerIpc();
+    registerOverlayIpc(ctx, overlaySettings);
+    registerThemeIpc(ctx, themes);
+    registerAppSettingsIpc(ctx, appSettings);
+    registerDisplayIpc(ctx, {
+      settingsStore,
+      effective,
+      safeMode,
+      relaunch: (args) => (args.length > 0 ? app.relaunch({ args }) : app.relaunch()),
+      quit: () => app.quit(),
+    });
+    registerDeveloperIpc(ctx, {
+      getCapture: () => capture,
+      getAppMetrics: () => app.getAppMetrics(),
+    });
+    appSettings.onChange(() => tray?.refresh());
 
     const manager = new OverlayManager(
       new LayoutStore(join(userData, "layout.json")),
@@ -208,8 +226,13 @@ if (!app.requestSingleInstanceLock()) {
         const timer = setTimeout(fn, ms);
         return () => clearTimeout(timer);
       },
-      onSettingsChange: () => tray?.refresh(),
+      onSettingsChange: (settings) => {
+        tray?.refresh();
+        broadcast(IPC.telemetrySourceChanged, sourceViewOf(settings));
+      },
+      onStatusChange: (status) => broadcast(IPC.telemetryStatusChanged, status),
     });
+    registerTelemetryIpc(ctx, telemetry);
     telemetry.start();
 
     updater = new Updater({
@@ -234,10 +257,17 @@ if (!app.requestSingleInstanceLock()) {
       onChange: () => tray?.refresh(),
     });
 
-    tray = new AppTray(manager, capture, telemetry, updater, {
-      showSettings,
-      quit: () => app.quit(),
-    });
+    tray = new AppTray(
+      manager,
+      capture,
+      telemetry,
+      updater,
+      {
+        showSettings,
+        quit: () => app.quit(),
+      },
+      appSettings,
+    );
     updater.start();
 
     if (!globalShortcut.register(EDIT_SHORTCUT, () => manager.toggleEditMode())) {
@@ -265,5 +295,6 @@ if (!app.requestSingleInstanceLock()) {
     globalShortcut.unregisterAll();
     zorder?.dispose();
     overlays?.flushSave();
+    overlaySettings?.flush();
   });
 }

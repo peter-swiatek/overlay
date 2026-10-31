@@ -32,6 +32,7 @@ describe("settings", () => {
       disableHardwareAcceleration: true,
       disableDirectComposition: false,
       opacityWorkaround: true,
+      disableNativeOcclusion: false,
     });
   });
 
@@ -42,6 +43,7 @@ describe("settings", () => {
       disableHardwareAcceleration: true,
       disableDirectComposition: true,
       opacityWorkaround: true,
+      disableNativeOcclusion: true,
     });
     expect(resolveDisplaySettings(DEFAULT_DISPLAY_SETTINGS, false)).toEqual(
       DEFAULT_DISPLAY_SETTINGS,

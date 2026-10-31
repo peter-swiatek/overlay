@@ -5,6 +5,7 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   disableHardwareAcceleration: false,
   disableDirectComposition: false,
   opacityWorkaround: false,
+  disableNativeOcclusion: false,
 };
 
 const KEYS = Object.keys(DEFAULT_DISPLAY_SETTINGS) as (keyof DisplaySettings)[];
@@ -41,6 +42,7 @@ export function resolveDisplaySettings(
     disableHardwareAcceleration: true,
     disableDirectComposition: true,
     opacityWorkaround: true,
+    disableNativeOcclusion: true,
   };
 }
 

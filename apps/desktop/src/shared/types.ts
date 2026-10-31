@@ -1,5 +1,9 @@
 import type { BuildInfo } from "./build-info";
+import type { OverlayInstanceSettings, OverlaySettingsPatch } from "@overlay/overlays/contract";
+import type { Theme, ThemeImportResult, ThemeState } from "@overlay/theme/types";
+import type { AppSettings, AppSettingsPatch } from "./app-settings-types";
 import type { CaptureSettings, CaptureStatus } from "./capture-types";
+import type { TelemetryEvent, TelemetrySourceChoice, TelemetrySourceView } from "./telemetry-types";
 
 export type OverlayId = "relative" | "inputs";
 
@@ -20,6 +24,8 @@ export interface DisplaySettings {
   disableHardwareAcceleration: boolean;
   disableDirectComposition: boolean;
   opacityWorkaround: boolean;
+  /** Turns off Chromium's native window occlusion tracking (applied at startup by the display ticket). */
+  disableNativeOcclusion: boolean;
 }
 
 export interface AppInfo {
@@ -55,6 +61,31 @@ export const IPC = {
   telemetrySubscribe: "telemetry:subscribe",
   /** Main to renderer: carries the MessagePort that streams telemetry frames. */
   telemetryPort: "telemetry:port",
+  overlaysGetAll: "overlays:get-all",
+  overlaysGet: "overlays:get",
+  overlaysUpdate: "overlays:update",
+  overlaysReset: "overlays:reset",
+  overlaysChanged: "overlays:changed",
+  themeGetState: "theme:get-state",
+  themeGetActive: "theme:get-active",
+  themeSetActive: "theme:set-active",
+  themeSave: "theme:save",
+  themeRemove: "theme:remove",
+  themeImportCode: "theme:import-code",
+  themeExportCode: "theme:export-code",
+  themeImportFile: "theme:import-file",
+  themeExportFile: "theme:export-file",
+  themeChanged: "theme:changed",
+  appSettingsGet: "app-settings:get",
+  appSettingsUpdate: "app-settings:update",
+  appSettingsChanged: "app-settings:changed",
+  telemetryGetSource: "telemetry:get-source",
+  telemetrySetSource: "telemetry:set-source",
+  telemetryPickReplay: "telemetry:pick-replay",
+  telemetryGetStatus: "telemetry:get-status",
+  telemetryStatusChanged: "telemetry:status-changed",
+  telemetrySourceChanged: "telemetry:source-changed",
+  appRestart: "app:restart",
 } as const;
 
 /** The whole surface exposed to renderers through contextBridge. */
@@ -75,4 +106,37 @@ export interface OverlayApi {
    * listening. A higher rate than before brokers a new port.
    */
   subscribeTelemetry(rateHz: number): void;
+  overlays: {
+    getAll(): Promise<Record<string, OverlayInstanceSettings>>;
+    get(id: string): Promise<OverlayInstanceSettings | null>;
+    update(id: string, patch: OverlaySettingsPatch): Promise<OverlayInstanceSettings | null>;
+    reset(id: string): Promise<OverlayInstanceSettings | null>;
+    onChanged(callback: (id: string, settings: OverlayInstanceSettings) => void): () => void;
+  };
+  theme: {
+    getState(): Promise<ThemeState>;
+    getActive(): Promise<Theme>;
+    setActive(id: string): Promise<ThemeState>;
+    save(theme: Theme): Promise<ThemeState>;
+    remove(id: string): Promise<ThemeState>;
+    importCode(code: string): Promise<ThemeImportResult>;
+    exportCode(id: string): Promise<string | null>;
+    importFile(): Promise<ThemeImportResult | null>;
+    exportFile(id: string): Promise<boolean>;
+    onChanged(callback: (active: Theme) => void): () => void;
+  };
+  appSettings: {
+    get(): Promise<AppSettings>;
+    update(patch: AppSettingsPatch): Promise<AppSettings>;
+    onChanged(callback: (settings: AppSettings) => void): () => void;
+  };
+  telemetry: {
+    getSource(): Promise<TelemetrySourceView>;
+    setSource(source: Exclude<TelemetrySourceChoice, "replay">): Promise<TelemetrySourceView>;
+    pickReplayFile(): Promise<TelemetrySourceView>;
+    getStatus(): Promise<TelemetryEvent | null>;
+    onStatus(callback: (status: TelemetryEvent) => void): () => void;
+    onSourceChanged(callback: (view: TelemetrySourceView) => void): () => void;
+  };
+  restartApp(): Promise<void>;
 }

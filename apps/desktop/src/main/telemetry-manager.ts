@@ -27,6 +27,8 @@ export interface TelemetryManagerDeps {
   setTimer(fn: () => void, ms: number): () => void;
   nowMs(): number;
   onSettingsChange?: (settings: TelemetrySettings) => void;
+  /** Called on every status message from the child (not on exit). */
+  onStatusChange?: (status: TelemetryEvent) => void;
 }
 
 /** How long quitting waits for the telemetry process to finish writing. */
@@ -87,6 +89,7 @@ export class TelemetryManager {
     child.on("message", (message) => {
       if (this.child !== child || !isStatusEvent(message)) return;
       this.status = message;
+      this.deps.onStatusChange?.(message);
     });
     child.on("exit", () => {
       this.exitWaiters.get(child)?.();

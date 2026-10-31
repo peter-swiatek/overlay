@@ -1,9 +1,11 @@
 import { join } from "node:path";
-import { Menu, Tray, app, dialog, nativeImage } from "electron";
+import { Menu, Tray, app, nativeImage } from "electron";
 import { BUILD_INFO } from "../shared/build-info";
 import { MARKER_PRESETS } from "../shared/capture-types";
+import type { AppSettingsStore } from "./app-settings";
 import type { CaptureManager } from "./capture-manager";
 import type { OverlayManager } from "./overlays";
+import { pickReplayFile } from "./replay-dialog";
 import type { TelemetryManager } from "./telemetry-manager";
 import { buildAboutItem, buildDataSourceMenu, buildUpdateItems, trayTooltip } from "./tray-model";
 import type { Updater } from "./updater";
@@ -28,6 +30,8 @@ export class AppTray {
     private readonly telemetry: TelemetryManager,
     private readonly updater: Updater,
     private readonly actions: TrayActions,
+    // Used by the display and developer ticket (developer.enabled gates menu items).
+    readonly appSettings: AppSettingsStore,
   ) {
     this.tray = new Tray(nativeImage.createFromPath(trayIconPath()));
     this.tray.setToolTip(trayTooltip(BUILD_INFO));
@@ -74,7 +78,7 @@ export class AppTray {
           label: "Data source",
           submenu: buildDataSourceMenu(this.telemetry.getSettings(), {
             select: (source) => this.telemetry.updateSettings({ source }),
-            pickReplayFile: () => void this.pickReplayFile(),
+            pickReplayFile: () => void this.chooseReplayFile(),
           }),
         },
         { type: "separator" },
@@ -97,14 +101,9 @@ export class AppTray {
     );
   }
 
-  private async pickReplayFile(): Promise<void> {
-    const result = await dialog.showOpenDialog({
-      title: "Replay a recording",
-      properties: ["openFile"],
-      filters: [{ name: "Fixture recording", extensions: ["ovfx"] }],
-    });
-    const path = result.filePaths[0];
-    if (result.canceled || path === undefined) {
+  private async chooseReplayFile(): Promise<void> {
+    const path = await pickReplayFile();
+    if (path === null) {
       this.refresh(); // radio items flip on click even when nothing changed
       return;
     }

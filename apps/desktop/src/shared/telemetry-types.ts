@@ -22,6 +22,12 @@ import type { TrackOutline } from "@overlay/sim-core";
 
 export type TelemetrySourceChoice = "auto" | "iracing" | "lmu" | "replay" | "mock";
 
+/** What the settings window shows for the data source. */
+export interface TelemetrySourceView {
+  source: TelemetrySourceChoice;
+  replayPath: string | null;
+}
+
 export const MIN_TELEMETRY_RATE_HZ = 1;
 export const MAX_TELEMETRY_RATE_HZ = 60;
 export const DEFAULT_TELEMETRY_RATE_HZ = 30;
