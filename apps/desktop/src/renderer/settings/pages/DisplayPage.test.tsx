@@ -36,7 +36,7 @@ describe("DisplayView", () => {
     expect(html).toContain("Disable DirectComposition");
     expect(html).toContain("Transparency fix (window opacity 0.99)");
     expect(html).toContain("Disable native window occlusion");
-    expect(html.match(/<em>restart to apply<\/em>/g)).toHaveLength(4);
+    expect(html.match(/<em[^>]*>restart to apply<\/em>/g)).toHaveLength(4);
     expect(html).toContain("exclusive fullscreen hides every overlay app");
     expect(html).not.toContain("Restart now");
   });
