@@ -21,7 +21,10 @@ export function hostView(frame: TelemetryFrame | null, stale: boolean): HostView
   }
   const { state } = frame;
   const player = state.cars.find((car) => car.carIdx === state.playerCarIdx);
-  return { live: true, playerOnTrack: player?.isOnTrack ?? null, sim: state.sim, notice: null };
+  // LMU cars sit in their garage stall between runs, which is its "in the garage".
+  const inLmuGarage = state.sim === "lmu" && player?.inPitStall === true;
+  const playerOnTrack = player?.isOnTrack == null ? null : player.isOnTrack && !inLmuGarage;
+  return { live: true, playerOnTrack, sim: state.sim, notice: null };
 }
 
 export type Visibility = "show" | "notice" | "hidden" | "unsupported";

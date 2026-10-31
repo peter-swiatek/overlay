@@ -127,6 +127,13 @@ describe("hostView", () => {
       notice: null,
     });
   });
+  it("treats an LMU car in its garage stall as in the garage", () => {
+    const f = frame("live", true);
+    f.state.cars[0] = { ...f.state.cars[0]!, onPitRoad: true, inPitStall: true };
+    expect(hostView(f, false).playerOnTrack).toBe(false);
+    f.state.cars[0] = { ...f.state.cars[0]!, inPitStall: false };
+    expect(hostView(f, false).playerOnTrack).toBe(true);
+  });
   it("carries the notice when there is no live data", () => {
     expect(hostView(null, false)).toMatchObject({ live: false, notice: "Waiting for sim" });
     expect(hostView(frame("error", null), false)).toMatchObject({ notice: "Reader failed" });
