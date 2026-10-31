@@ -188,6 +188,59 @@ describe("mapSessionType", () => {
   });
 });
 
+describe("parseSessionYaml field data (synthetic)", () => {
+  const withOptions = (options: string[], driverInfo = ""): string =>
+    yamlWithDrivers(driver(1, { UserName: "A" }), driverInfo).replace(
+      "WeekendInfo:\n",
+      ["WeekendInfo:", " WeekendOptions:", ...options.map((o) => `  ${o}`), ""].join("\n"),
+    );
+
+  it.each([
+    ["25", 25],
+    ["unlimited", null],
+    ["0", null],
+    ["", null],
+  ])("IncidentLimit %j gives %s", (value, expected) => {
+    expect(parseSessionYaml(withOptions([`IncidentLimit: ${value}`])).incidentLimit).toBe(expected);
+  });
+
+  it("gives null when WeekendOptions or IncidentLimit is missing", () => {
+    expect(parseSessionYaml(yamlWithDrivers([])).incidentLimit).toBeNull();
+    expect(parseSessionYaml(withOptions(["NumStarters: 3"])).incidentLimit).toBeNull();
+  });
+
+  it("reads DriverPitTrkPct and rejects values outside 0..1", () => {
+    const pct = (v: string) =>
+      parseSessionYaml(yamlWithDrivers([], ` DriverPitTrkPct: ${v}`)).pitStallLapDistPct;
+    expect(pct("0.971175")).toBeCloseTo(0.971175, 6);
+    expect(pct("1.5")).toBeNull();
+    expect(pct("-1.000000")).toBeNull();
+    expect(parseSessionYaml(yamlWithDrivers([])).pitStallLapDistPct).toBeNull();
+  });
+
+  it("reads TeamName as UTF-8 and as Windows-1252, and null when empty", () => {
+    const text = yamlWithDrivers([
+      ...driver(1, { UserName: "Max Example", TeamName: "Zofia Świątkowska Racing" }),
+      ...driver(2, { UserName: "B", TeamName: "Écurie José María Pérez" }),
+      ...driver(3, { UserName: "C", TeamName: "" }),
+      ...driver(4, { UserName: "D", TeamName: "Bob: the #1 Team" }),
+    ]);
+    const utf8 = parseSessionYaml(decodeSessionYaml(Buffer.from(text, "utf8")));
+    const names = (info: ReturnType<typeof parseSessionYaml>) =>
+      info.drivers.map((d) => d.teamName);
+    expect(names(utf8)).toEqual([
+      "Zofia Świątkowska Racing",
+      "Écurie José María Pérez",
+      null,
+      "Bob: the #1 Team",
+    ]);
+    // cp1252 cannot hold Ś, ą, ł: use only characters it has.
+    const cp = yamlWithDrivers(driver(2, { UserName: "B", TeamName: "Écurie José María Pérez" }));
+    const parsed = parseSessionYaml(decodeSessionYaml(Buffer.from(cp, "latin1")));
+    expect(parsed.drivers[0]?.teamName).toBe("Écurie José María Pérez");
+  });
+});
+
 describe("SessionInfoCache driven by the real header counter", () => {
   const layout = syntheticLayout([{ name: "SessionTime", type: VarType.Double }]);
   const decoder = IracingDecoder.fromHeaderBytes(layout.header);

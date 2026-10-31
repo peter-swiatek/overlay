@@ -48,6 +48,7 @@ export interface LmuDecoderOptions {
 export const LMU_VALIDATED_GAME_VERSIONS: readonly number[] = [14200];
 
 const KELVIN = 273.15;
+const SECONDS_PER_DAY = 86_400;
 /** `maxLaps` and end times at or above these mean "no limit" (the sim writes INT_MAX). */
 const MAX_REAL_LAPS = 1_000_000;
 const MAX_REAL_END_ET_S = 1_000_000;
@@ -345,10 +346,16 @@ function readSession(
     // Neither the scoring block nor REST names the layout.
     trackConfig: null,
     trackLengthM: trackLengthM > 0 ? trackLengthM : null,
+    // No pit speed limit exists in the buffer or the recorded REST bodies (see layout.ts).
     pitSpeedLimitMps: null,
     incidentLimit: null,
-    timeOfDayS: null,
+    timeOfDayS: timeOfDay(f.f32(s + SESSION.timeOfDay)),
   };
+}
+
+/** Seconds after midnight; the sim keeps counting past 24 h in long sessions. */
+function timeOfDay(seconds: number): number | null {
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds % SECONDS_PER_DAY : null;
 }
 
 /**
@@ -427,6 +434,9 @@ function readCar(f: Frame, o: number, trackLengthM: number, rest: LmuRestSnapsho
   car.className = className;
   car.classColour = lmuClassColour(className);
   car.carNumber = extra?.carNumber ?? numberFromVehicleName(vehicleName);
+  car.teamName = teamFromVehicleName(vehicleName) ?? extra?.teamName ?? null;
+  car.worldPos = readWorldPos(f, o);
+  car.fuelFraction = f.u8(o + VEHICLE.fuelFraction) / 255;
   car.position = f.u8(o + VEHICLE.position) || null;
   car.lapsCompleted = laps;
   car.lapInProgress = laps + 1;
@@ -465,6 +475,16 @@ function inPitStall(
 
 export function numberFromVehicleName(name: string): string | null {
   return /#(\w+)/.exec(name)?.[1] ?? null;
+}
+
+/**
+ * vehicleName is "<team> <year> #<number>:<livery tag>" for every car in the recording (4,255
+ * rows, one shape), and REST fullTeamName equals the part before the year. Anything that does not
+ * match that shape gives no team rather than a guess.
+ */
+export function teamFromVehicleName(name: string): string | null {
+  const team = /^(.+?)\s+\d{4}\s+#\w+:/.exec(name)?.[1]?.trim();
+  return team === undefined || team.length === 0 ? null : team;
 }
 
 function lapPct(lapDist: number, trackLengthM: number): number | null {
@@ -519,6 +539,9 @@ function readPlayer(f: Frame, o: number, state: SimState): void {
   const energy = f.f32(o + TELEM.veFraction);
   player.energyFraction = energy >= 0 && energy <= 1 ? energy : null;
   player.pitLimiter = f.u8(o + TELEM.pitLimiterOn) === 1;
+  // The row holds the rear share, including live brake migration; SimState wants the front share.
+  const rear = f.f64(o + TELEM.rearBrakeBias);
+  player.brakeBias = rear > 0 && rear < 1 ? 1 - rear : null;
   player.tyres = readTyres(f, o);
 }
 

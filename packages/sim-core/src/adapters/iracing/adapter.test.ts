@@ -349,6 +349,8 @@ describe("IracingAdapter on synthetic buffers", () => {
     trackConfig: "Grand Prix",
     trackLengthM: 3200,
     pitSpeedLimitMps: 20,
+    incidentLimit: 17,
+    pitStallLapDistPct: 0.97,
     currentSessionNum: 0,
     sessions: [
       { sessionNum: 0, typeName: "Race", type: "race", lapsLimit: 12, timeLimitS: null },
@@ -368,6 +370,7 @@ describe("IracingAdapter on synthetic buffers", () => {
         iRating: 2000,
         license: "A 3.41",
         isPaceCar: false,
+        teamName: "Team Zofia Świątkowska",
       },
     ],
   };
@@ -745,6 +748,114 @@ describe("IracingAdapter on synthetic buffers", () => {
       windDirRad: null,
     });
     expect(s.player.energyFraction).toBeNull();
+  });
+});
+
+describe("IracingAdapter field data (synthetic)", () => {
+  const vars: SyntheticVar[] = [
+    { name: "SessionTime", type: VarType.Double },
+    { name: "PlayerCarIdx", type: VarType.Int },
+    { name: "CarIdxPosition", type: VarType.Int, count: 2 },
+    { name: "CarIdxTrackSurface", type: VarType.Int, count: 2 },
+    { name: "SessionTimeOfDay", type: VarType.Float },
+    { name: "WindVel", type: VarType.Float },
+    { name: "WindDir", type: VarType.Float },
+    { name: "RelativeHumidity", type: VarType.Float },
+    { name: "FogLevel", type: VarType.Float },
+    { name: "Precipitation", type: VarType.Float },
+    { name: "dcBrakeBias", type: VarType.Float },
+  ];
+  const layout = syntheticLayout(vars);
+  const adapter = IracingAdapter.fromHeaderBytes(layout.header);
+  const info: IracingSessionInfo = {
+    trackName: null,
+    trackConfig: null,
+    trackLengthM: null,
+    pitSpeedLimitMps: null,
+    incidentLimit: 25,
+    pitStallLapDistPct: 0.955,
+    currentSessionNum: 0,
+    sessions: [],
+    driverCarIdx: 0,
+    fuelCapacityL: null,
+    drivers: [
+      {
+        carIdx: 0,
+        driverName: "Max Example",
+        carName: null,
+        carNumber: null,
+        classId: null,
+        className: null,
+        classColour: null,
+        iRating: null,
+        license: null,
+        isPaceCar: false,
+        teamName: "Écurie José María Pérez",
+      },
+    ],
+  };
+  const run = (values: Record<string, number | number[]>, i: IracingSessionInfo | null = info) =>
+    adapter.toSimState(
+      layout.buffer({ PlayerCarIdx: 0, CarIdxTrackSurface: [3, 3], ...values }),
+      i,
+    );
+
+  it("copies session and car facts from the session info and the time of day from the var", () => {
+    const s = run({ SessionTimeOfDay: 45028 });
+    expect(s.session.incidentLimit).toBe(25);
+    expect(s.session.timeOfDayS).toBe(45028);
+    expect(s.player.pitStallLapDistPct).toBe(0.955);
+    expect(s.cars[0]?.teamName).toBe("Écurie José María Pérez");
+    expect(s.cars[0]?.worldPos).toBeNull();
+    expect(s.cars[0]?.fuelFraction).toBeNull();
+    const none = run({}, null);
+    expect(none.session.incidentLimit).toBeNull();
+    expect(none.player.pitStallLapDistPct).toBeNull();
+  });
+
+  it("reads the weather and wraps the wind direction into 0..2pi", () => {
+    const s = run({
+      WindVel: 3.5,
+      WindDir: 6.9,
+      RelativeHumidity: 0.75,
+      FogLevel: 0.25,
+      Precipitation: 0.5,
+    });
+    expect(s.conditions.windSpeedMps).toBeCloseTo(3.5, 5);
+    expect(s.conditions.windDirRad).toBeCloseTo(6.9 - 2 * Math.PI, 5);
+    expect(s.conditions.humidity).toBeCloseTo(0.75, 5);
+    expect(s.conditions.fogLevel).toBeCloseTo(0.25, 5);
+    expect(s.conditions.precipitation).toBeCloseTo(0.5, 5);
+    expect(run({ WindDir: -0.5 }).conditions.windDirRad).toBeCloseTo(2 * Math.PI - 0.5, 5);
+  });
+
+  it("leaves everything null when the build has none of the variables", () => {
+    const sparse = syntheticLayout([{ name: "SessionTime", type: VarType.Double }]);
+    const s = IracingAdapter.fromHeaderBytes(sparse.header).toSimState(
+      sparse.buffer({ SessionTime: 1 }),
+      null,
+    );
+    expect(s.session.timeOfDayS).toBeNull();
+    expect(s.player.brakeBias).toBeNull();
+    expect(s.conditions.windSpeedMps).toBeNull();
+  });
+
+  it.each([
+    [55.9646, 0.559646],
+    [30, 0.3],
+    [80, 0.8],
+    [0, null], // not set / garage
+    [29.9, null],
+    [80.1, null],
+    [-3, null], // an offset-style value
+  ] as const)("brake bias %f gives %s", (raw, expected) => {
+    const bias = run({ dcBrakeBias: raw }).player.brakeBias;
+    if (expected === null) expect(bias).toBeNull();
+    else expect(bias).toBeCloseTo(expected, 5);
+  });
+
+  it("gives no brake bias while the player is not in the world", () => {
+    expect(run({ dcBrakeBias: 55, CarIdxTrackSurface: [-1, -1] }).player.brakeBias).toBeNull();
   });
 });
 

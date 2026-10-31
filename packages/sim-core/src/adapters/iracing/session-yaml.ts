@@ -35,6 +35,8 @@ export interface IracingDriver {
   iRating: number | null;
   license: string | null;
   isPaceCar: boolean;
+  /** DriverInfo TeamName; iRacing fills it for solo drivers too. */
+  teamName: string | null;
 }
 
 export interface IracingSessionInfo {
@@ -43,6 +45,11 @@ export interface IracingSessionInfo {
   trackConfig: string | null;
   trackLengthM: number | null;
   pitSpeedLimitMps: number | null;
+  // Optional so session infos built by hand elsewhere (desktop tests) keep compiling.
+  /** WeekendOptions IncidentLimit; null for "unlimited" or missing. */
+  incidentLimit?: number | null;
+  /** DriverInfo DriverPitTrkPct: lap distance (0..1) of the player's pit stall. */
+  pitStallLapDistPct?: number | null;
   currentSessionNum: number | null;
   sessions: IracingSessionEntry[];
   driverCarIdx: number | null;
@@ -72,6 +79,8 @@ export function parseSessionYaml(text: string): IracingSessionInfo {
     trackConfig: str(weekend["TrackConfigName"]),
     trackLengthM: lengthToMetres(str(weekend["TrackLength"])),
     pitSpeedLimitMps: speedToMps(str(weekend["TrackPitSpeedLimit"])),
+    incidentLimit: incidentLimit(asDict(weekend["WeekendOptions"])["IncidentLimit"]),
+    pitStallLapDistPct: fraction(driver["DriverPitTrkPct"]),
     currentSessionNum: int(session["CurrentSessionNum"]),
     sessions: asArray(session["Sessions"]).flatMap((s) => {
       const parsed = extractSession(asDict(s));
@@ -193,7 +202,19 @@ function extractDriver(d: Dict): IracingDriver | null {
     iRating: int(d["IRating"]),
     license: str(d["LicString"]),
     isPaceCar: str(d["CarIsPaceCar"]) === "1",
+    teamName: str(d["TeamName"]),
   };
+}
+
+/** A positive whole number; "unlimited" and anything else is null. */
+function incidentLimit(value: unknown): number | null {
+  const n = int(value);
+  return n === null || n <= 0 ? null : n;
+}
+
+function fraction(value: unknown): number | null {
+  const n = num(value);
+  return n === null || n < 0 || n > 1 ? null : n;
 }
 
 function fuelCapacity(driver: Dict): number | null {
