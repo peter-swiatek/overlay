@@ -8,6 +8,7 @@
     "src/main",
     "src/capture",
     "src/telemetry",
+    "src/recorder",
     "src/preload",
     "src/shared",
     "electron.vite.config.ts",

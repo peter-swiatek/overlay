@@ -445,6 +445,18 @@ describe("IracingAdapter on synthetic buffers", () => {
     });
   });
 
+  it("takes the lap limit from the session YAML when the live total is not available", () => {
+    const other = syntheticLayout(vars.filter((v) => v.name !== "SessionLapsTotal"));
+    const withoutTotal = Object.fromEntries(
+      Object.entries(base).filter(([name]) => name !== "SessionLapsTotal"),
+    );
+    const noTotal = IracingAdapter.fromHeaderBytes(other.header);
+    const state = noTotal.toSimState(other.buffer(withoutTotal), info);
+    expect(state.session).toMatchObject({ lapsTotal: 12, timing: "laps" });
+    // An unlimited live value is an answer and is not overridden by the YAML.
+    expect(run({ SessionLapsTotal: 32767 }).session.lapsTotal).toBeNull();
+  });
+
   it("maps the session info fields", () => {
     const s = run({});
     expect(s.session).toMatchObject({

@@ -15,6 +15,7 @@ import type { LiveSource } from "./source";
 import { IracingLiveSource } from "./iracing-live";
 import { LmuLiveSource } from "./lmu-live";
 import { MockTelemetrySource } from "./mock";
+import { createRecorder, parseRecorderArgs } from "../recorder";
 import type { PortLike } from "./publisher";
 import { ReplayTelemetrySource } from "./replay";
 import { TelemetryService } from "./service";
@@ -55,6 +56,9 @@ async function main(): Promise<void> {
     live.lmu = new LmuLiveSource(shm, systemClock);
   }
 
+  // Main passes the userData path and retention in the fork arguments: this process has no `app`.
+  const recorder = createRecorder(parseRecorderArgs(process.argv.slice(1)));
+
   // Without a folder from the main process (`--user-data=`) outlines are kept in memory only.
   const userData = parseUserDataArg(process.argv);
   const deriver = new Deriver(
@@ -70,11 +74,15 @@ async function main(): Promise<void> {
   const service = new TelemetryService({
     live,
     deriver,
+    ...(recorder ? { recorder } : {}),
     createReplay: (path, speed, loop) => ReplayTelemetrySource.fromFile(path, { speed, loop }),
     createMock: () => new MockTelemetrySource(),
     monoMs: () => systemClock.monoMs(),
     sendToMain: (event) => parentPort.postMessage(event),
-    onStopped: () => process.exit(0),
+    onStopped: () => {
+      recorder?.shutdown();
+      process.exit(0);
+    },
   });
   ready.service = service;
   service.start();

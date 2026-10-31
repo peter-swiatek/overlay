@@ -1,4 +1,5 @@
 import type { TelemetrySourceChoice } from "../shared/telemetry-types";
+import { DEFAULT_RETENTION_DAYS, normalizeRetentionDays } from "../recorder/retention";
 import { readJsonFile, writeJsonFileAtomic } from "./json-file";
 
 export interface TelemetrySettings {
@@ -6,6 +7,8 @@ export interface TelemetrySettings {
   replayPath: string | null;
   /** Playback factor for replay, 0 to 16; 0 = as fast as possible. */
   replaySpeed: number;
+  /** Days to keep telemetry files (tier 2), at least 30; read when the telemetry process starts. */
+  retentionDays: number;
 }
 
 export const TELEMETRY_SOURCES: readonly TelemetrySourceChoice[] = [
@@ -21,6 +24,7 @@ export const DEFAULT_TELEMETRY_SETTINGS: TelemetrySettings = {
   source: "auto",
   replayPath: null,
   replaySpeed: 1,
+  retentionDays: DEFAULT_RETENTION_DAYS,
 };
 
 /** Keeps only known keys; anything invalid falls back to its default. */
@@ -39,6 +43,7 @@ export function parseTelemetrySettings(raw: unknown): TelemetrySettings {
   if (typeof speed === "number" && Number.isFinite(speed)) {
     out.replaySpeed = Math.min(MAX_REPLAY_SPEED, Math.max(0, speed));
   }
+  if ("retentionDays" in v) out.retentionDays = normalizeRetentionDays(v["retentionDays"]);
   return out;
 }
 

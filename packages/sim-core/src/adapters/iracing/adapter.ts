@@ -94,7 +94,13 @@ function fillSession(state: SimState, r: VarReader, info: IracingSessionInfo | n
   const sessionNum = r.number("SessionNum");
   const entry = findSession(info, sessionNum);
   const timeTotal = positiveBelow(r.number("SessionTimeTotal"), TIME_UNLIMITED_S);
-  const lapsTotal = positiveBelow(r.number("SessionLapsTotal"), LAPS_UNLIMITED);
+  const lapsVar = r.number("SessionLapsTotal");
+  // Without the live value, the lap limit of the session's YAML entry stands in for it. An
+  // "unlimited" live value is an answer, so it is not overridden.
+  const lapsTotal = positiveBelow(
+    lapsVar === null ? (entry?.lapsLimit ?? null) : lapsVar,
+    LAPS_UNLIMITED,
+  );
   const s = state.session;
   s.type = entry?.type ?? null;
   s.phase = phase(r.number("SessionState"));
