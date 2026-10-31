@@ -4,6 +4,7 @@ import { leaderboardManifest } from "./leaderboard/manifest";
 import { spotterManifest } from "./spotter/manifest";
 import { pitSpeedManifest } from "./pit-speed/manifest";
 import { fuelManifest } from "./fuel/manifest";
+import { demoInputsManifest } from "./demo-inputs/manifest";
 
 export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   relativeManifest,
@@ -11,6 +12,7 @@ export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   spotterManifest,
   pitSpeedManifest,
   fuelManifest,
+  demoInputsManifest,
 ];
 
 export function manifestById(id: string): OverlayManifest | undefined {

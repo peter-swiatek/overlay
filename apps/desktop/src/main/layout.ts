@@ -1,28 +1,8 @@
-import type { Bounds, OverlayId, Size } from "../shared/types";
+import type { OverlayInstanceSettings, OverlayManifest } from "@overlay/overlays/contract";
+import type { Bounds, Size } from "../shared/types";
 
-export interface OverlayDefinition {
-  id: OverlayId;
-  title: string;
-  defaultBounds: Bounds;
-  minSize: Size;
-}
-
-export const OVERLAY_DEFINITIONS: readonly OverlayDefinition[] = [
-  {
-    id: "relative",
-    title: "Demo Relative",
-    defaultBounds: { x: 60, y: 60, width: 360, height: 260 },
-    minSize: { width: 240, height: 180 },
-  },
-  {
-    id: "inputs",
-    title: "Demo Inputs",
-    defaultBounds: { x: 60, y: 360, width: 360, height: 160 },
-    minSize: { width: 200, height: 120 },
-  },
-];
-
-export type Layout = Record<OverlayId, Bounds>;
+/** Bounds of every overlay the user has placed, keyed by manifest id. */
+export type Layout = Record<string, Bounds>;
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
@@ -39,7 +19,10 @@ export function resizeBounds(bounds: Bounds, dx: number, dy: number, min: Size):
   return { x: bounds.x, y: bounds.y, ...size };
 }
 
-function parseBounds(value: unknown, def: OverlayDefinition): Bounds | undefined {
+/** Smallest window edge accepted from a stored layout (the manifest minimum is applied later). */
+const MIN_STORED_EDGE = 20;
+
+function parseBounds(value: unknown): Bounds | undefined {
   if (typeof value !== "object" || value === null) return undefined;
   const v = value as Record<string, unknown>;
   if (
@@ -50,18 +33,100 @@ function parseBounds(value: unknown, def: OverlayDefinition): Bounds | undefined
   ) {
     return undefined;
   }
-  const size = clampSize({ width: v["width"], height: v["height"] }, def.minSize);
+  const size = clampSize(
+    { width: v["width"], height: v["height"] },
+    { width: MIN_STORED_EDGE, height: MIN_STORED_EDGE },
+  );
   return { x: Math.round(v["x"]), y: Math.round(v["y"]), ...size };
 }
 
-/** Builds a complete layout from untrusted stored data, falling back to defaults per overlay. */
-export function parseLayout(raw: unknown): Layout {
+/** M1 stored the demo inputs window as "inputs"; it is "demo-inputs" now. */
+const LEGACY_IDS: Readonly<Record<string, string>> = { "demo-inputs": "inputs" };
+
+/**
+ * Reads stored bounds for the known overlays only. Invalid entries and unknown ids are dropped
+ * (the overlay then gets default bounds), and M1's "inputs" entry migrates to "demo-inputs".
+ */
+export function parseLayout(raw: unknown, manifests: readonly OverlayManifest[]): Layout {
   const stored = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
-  const layout = {} as Layout;
-  for (const def of OVERLAY_DEFINITIONS) {
-    layout[def.id] = parseBounds(stored[def.id], def) ?? { ...def.defaultBounds };
+  const layout: Layout = {};
+  for (const manifest of manifests) {
+    const legacyId = LEGACY_IDS[manifest.id];
+    const bounds =
+      parseBounds(stored[manifest.id]) ??
+      (legacyId === undefined ? undefined : parseBounds(stored[legacyId]));
+    if (bounds) layout[manifest.id] = bounds;
   }
   return layout;
+}
+
+/** A size scaled by a percentage, rounded to whole pixels. */
+export function scaleSize(size: Size, scalePct: number): Size {
+  return {
+    width: Math.round((size.width * scalePct) / 100),
+    height: Math.round((size.height * scalePct) / 100),
+  };
+}
+
+/** First-use bounds: the primary work area's origin plus the manifest offset, size scaled. */
+export function defaultBounds(
+  manifest: OverlayManifest,
+  scalePct: number,
+  primaryWorkArea: Bounds,
+): Bounds {
+  return {
+    x: primaryWorkArea.x + manifest.defaultPosition.x,
+    y: primaryWorkArea.y + manifest.defaultPosition.y,
+    ...scaleSize(manifest.defaultSize, scalePct),
+  };
+}
+
+/** Stored bounds while still on a screen, otherwise the defaults; never below the scaled minimum. */
+export function initialBounds(
+  manifest: OverlayManifest,
+  stored: Bounds | undefined,
+  scalePct: number,
+  workAreas: readonly Bounds[],
+  primaryWorkArea: Bounds,
+): Bounds {
+  const min = scaleSize(manifest.minSize, scalePct);
+  const bounds =
+    stored && isReachable(stored, workAreas)
+      ? { ...stored, ...clampSize(stored, min) }
+      : defaultBounds(manifest, scalePct, primaryWorkArea);
+  const area = workAreas.find((a) => isReachable(bounds, [a])) ?? primaryWorkArea;
+  return clampToWorkArea(bounds, area, min);
+}
+
+/**
+ * Resizes by the ratio of two scales keeping the top-left corner, never below the minimum size
+ * at the new scale. `minSize` is the manifest's size at 100 %.
+ */
+export function scaleBounds(bounds: Bounds, fromPct: number, toPct: number, minSize: Size): Bounds {
+  if (!(fromPct > 0) || !(toPct > 0)) return bounds;
+  const size = clampSize(scaleSize(bounds, (toPct / fromPct) * 100), scaleSize(minSize, toPct));
+  return { x: bounds.x, y: bounds.y, ...size };
+}
+
+export interface WindowPlan {
+  open: string[];
+  close: string[];
+}
+
+/** Which windows to create and which to close so the open set matches the enabled overlays. */
+export function planWindowChanges(
+  manifests: readonly OverlayManifest[],
+  settingsById: Readonly<Record<string, OverlayInstanceSettings | undefined>>,
+  openIds: Iterable<string>,
+): WindowPlan {
+  const open = new Set(openIds);
+  const wanted = new Set(
+    manifests.filter((m) => settingsById[m.id]?.enabled === true).map((m) => m.id),
+  );
+  return {
+    open: manifests.map((m) => m.id).filter((id) => wanted.has(id) && !open.has(id)),
+    close: [...open].filter((id) => !wanted.has(id)),
+  };
 }
 
 /** Shrinks bounds so the window does not extend past the work area (never below the minimum). */

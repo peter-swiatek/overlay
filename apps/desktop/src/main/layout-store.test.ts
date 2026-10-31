@@ -2,14 +2,28 @@ import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { OVERLAY_MANIFESTS } from "@overlay/overlays/manifests";
+import type { OverlayInstanceSettings, OverlayManifest } from "@overlay/overlays/contract";
 import {
-  OVERLAY_DEFINITIONS,
   clampToWorkArea,
+  defaultBounds,
+  initialBounds,
   isReachable,
   parseLayout,
+  planWindowChanges,
   resizeBounds,
+  scaleBounds,
 } from "./layout";
 import { LayoutStore } from "./layout-store";
+
+const manifest = (id: string): OverlayManifest => {
+  const found = OVERLAY_MANIFESTS.find((m) => m.id === id);
+  if (!found) throw new Error(`no manifest ${id}`);
+  return found;
+};
+const relative = manifest("relative");
+const demoInputs = manifest("demo-inputs");
+const primary = { x: 0, y: 0, width: 1920, height: 1040 };
 
 let dir: string;
 beforeEach(() => {
@@ -20,10 +34,8 @@ afterEach(() => {
 });
 
 describe("LayoutStore", () => {
-  it("returns defaults when the file is missing", () => {
-    const layout = new LayoutStore(join(dir, "layout.json")).load();
-    expect(layout.relative).toEqual(OVERLAY_DEFINITIONS[0]?.defaultBounds);
-    expect(layout.inputs).toEqual(OVERLAY_DEFINITIONS[1]?.defaultBounds);
+  it("returns an empty layout when the file is missing", () => {
+    expect(new LayoutStore(join(dir, "layout.json")).load(OVERLAY_MANIFESTS)).toEqual({});
   });
 
   it("round-trips a saved layout and leaves no temp file", () => {
@@ -31,28 +43,144 @@ describe("LayoutStore", () => {
     const store = new LayoutStore(file);
     const layout = {
       relative: { x: 5, y: 6, width: 500, height: 400 },
-      inputs: { x: -1000, y: 20, width: 300, height: 150 },
+      "demo-inputs": { x: -1000, y: 20, width: 300, height: 150 },
     };
     store.save(layout);
-    expect(store.load()).toEqual(layout);
+    expect(store.load(OVERLAY_MANIFESTS)).toEqual(layout);
     expect(readdirSync(join(dir, "nested"))).toEqual(["layout.json"]);
   });
 
-  it("falls back to defaults for corrupt files", () => {
+  it("falls back to an empty layout for corrupt files", () => {
     const file = join(dir, "layout.json");
     writeFileSync(file, "{not json");
-    expect(new LayoutStore(file).load()).toEqual(parseLayout(undefined));
+    expect(new LayoutStore(file).load(OVERLAY_MANIFESTS)).toEqual({});
+  });
+
+  it("migrates an M1 layout file", () => {
+    const file = join(dir, "layout.json");
+    const m1 = {
+      relative: { x: 1, y: 2, width: 360, height: 260 },
+      inputs: { x: 3, y: 4, width: 360, height: 160 },
+    };
+    writeFileSync(file, JSON.stringify(m1));
+    expect(new LayoutStore(file).load(OVERLAY_MANIFESTS)).toEqual({
+      relative: m1.relative,
+      "demo-inputs": m1.inputs,
+    });
   });
 });
 
 describe("parseLayout", () => {
-  it("replaces invalid entries and enforces the minimum size", () => {
-    const layout = parseLayout({
-      relative: { x: 1.6, y: 2, width: 10, height: 10 },
-      inputs: { x: "a", y: 2, width: 300, height: 300 },
+  it("drops invalid entries and unknown ids", () => {
+    const layout = parseLayout(
+      {
+        relative: { x: 1.6, y: 2, width: 300, height: 200 },
+        "demo-inputs": { x: "a", y: 2, width: 300, height: 300 },
+        ghost: { x: 1, y: 2, width: 300, height: 300 },
+      },
+      OVERLAY_MANIFESTS,
+    );
+    expect(layout).toEqual({ relative: { x: 2, y: 2, width: 300, height: 200 } });
+  });
+
+  it("prefers demo-inputs over the legacy inputs entry", () => {
+    const layout = parseLayout(
+      {
+        "demo-inputs": { x: 9, y: 9, width: 300, height: 200 },
+        inputs: { x: 1, y: 1, width: 300, height: 200 },
+      },
+      OVERLAY_MANIFESTS,
+    );
+    expect(layout["demo-inputs"]?.x).toBe(9);
+  });
+
+  it("ignores non-object input", () => {
+    expect(parseLayout(null, OVERLAY_MANIFESTS)).toEqual({});
+    expect(parseLayout([1, 2], OVERLAY_MANIFESTS)).toEqual({});
+  });
+});
+
+describe("defaultBounds / initialBounds", () => {
+  it("uses the work area origin, the manifest offset and the scaled size", () => {
+    const area = { x: 100, y: 50, width: 1920, height: 1040 };
+    expect(defaultBounds(relative, 100, area)).toEqual({
+      x: 140,
+      y: 650,
+      width: 420,
+      height: 300,
     });
-    expect(layout.relative).toEqual({ x: 2, y: 2, width: 240, height: 180 });
-    expect(layout.inputs).toEqual(OVERLAY_DEFINITIONS[1]?.defaultBounds);
+    expect(defaultBounds(relative, 150, area)).toMatchObject({ width: 630, height: 450 });
+  });
+
+  it("keeps reachable stored bounds and raises them to the scaled minimum", () => {
+    const stored = { x: 10, y: 10, width: 100, height: 100 };
+    expect(initialBounds(relative, stored, 100, [primary], primary)).toEqual({
+      x: 10,
+      y: 10,
+      width: 260,
+      height: 140,
+    });
+  });
+
+  it("falls back to defaults when the stored bounds are off screen", () => {
+    const stored = { x: -5000, y: 10, width: 400, height: 300 };
+    expect(initialBounds(demoInputs, stored, 100, [primary], primary)).toEqual({
+      x: 60,
+      y: 360,
+      width: 360,
+      height: 160,
+    });
+  });
+
+  it("shrinks to the work area but never below the minimum size", () => {
+    const small = { x: 0, y: 0, width: 800, height: 700 };
+    const b = initialBounds(relative, undefined, 100, [small], small);
+    expect(b).toEqual({ x: 40, y: 600, width: 420, height: 140 });
+  });
+});
+
+describe("planWindowChanges", () => {
+  const on = { enabled: true } as OverlayInstanceSettings;
+  const off = { enabled: false } as OverlayInstanceSettings;
+  it("opens enabled overlays and closes disabled or unknown ones", () => {
+    const plan = planWindowChanges(
+      OVERLAY_MANIFESTS,
+      { relative: on, leaderboard: on, spotter: off },
+      ["relative", "spotter", "ghost"],
+    );
+    expect(plan).toEqual({ open: ["leaderboard"], close: ["spotter", "ghost"] });
+  });
+
+  it("does nothing when the open set already matches", () => {
+    expect(planWindowChanges(OVERLAY_MANIFESTS, { relative: on }, ["relative"])).toEqual({
+      open: [],
+      close: [],
+    });
+  });
+
+  it("treats an overlay without settings as off", () => {
+    expect(planWindowChanges(OVERLAY_MANIFESTS, {}, [])).toEqual({ open: [], close: [] });
+  });
+});
+
+describe("scaleBounds", () => {
+  const min = { width: 260, height: 140 };
+  const b = { x: 40, y: 50, width: 420, height: 300 };
+  it("scales by the ratio and keeps the top-left corner", () => {
+    expect(scaleBounds(b, 100, 150, min)).toEqual({ x: 40, y: 50, width: 630, height: 450 });
+    expect(scaleBounds(b, 150, 100, min)).toEqual({ x: 40, y: 50, width: 280, height: 200 });
+  });
+  it("never goes below the minimum at the new scale", () => {
+    const big = { width: 400, height: 300 };
+    expect(scaleBounds({ ...b, width: 300, height: 200 }, 100, 50, big)).toEqual({
+      x: 40,
+      y: 50,
+      width: 200,
+      height: 150,
+    });
+  });
+  it("ignores invalid scales", () => {
+    expect(scaleBounds(b, 0, 100, min)).toBe(b);
   });
 });
 

@@ -65,43 +65,6 @@ export function relativeRows(frame: TelemetryFrame | null): RelativeRow[] {
   ];
 }
 
-export interface InputsView {
-  /** 0..1, except steer (-1..1). */
-  throttle: number;
-  brake: number;
-  clutch: number;
-  steer: number;
-  /** -1 reverse, 0 neutral, 1..n. */
-  gear: number;
-  speedKph: number;
-}
-
-const ZERO_INPUTS: InputsView = {
-  throttle: 0,
-  brake: 0,
-  clutch: 0,
-  steer: 0,
-  gear: 0,
-  speedKph: 0,
-};
-
-const clamp = (v: number | null, lo: number, hi: number): number =>
-  v === null || !Number.isFinite(v) ? 0 : Math.min(hi, Math.max(lo, v));
-
-/** Player inputs; all zero unless the frame is live. */
-export function inputsView(frame: TelemetryFrame | null): InputsView {
-  if (frame === null || frame.status !== "live") return ZERO_INPUTS;
-  const { inputs, gear, speedMps } = frame.state.player;
-  return {
-    throttle: clamp(inputs.throttle, 0, 1),
-    brake: clamp(inputs.brake, 0, 1),
-    clutch: clamp(inputs.clutch, 0, 1),
-    steer: clamp(inputs.steer, -1, 1),
-    gear: Math.round(clamp(gear, -1, 20)),
-    speedKph: clamp(speedMps, 0, 200) * 3.6,
-  };
-}
-
 /** "-0.8" for a car ahead, "+1.3" for one behind, "-" when there is no gap. */
 export function formatGap(gapS: number | null): string {
   if (gapS === null) return "-";

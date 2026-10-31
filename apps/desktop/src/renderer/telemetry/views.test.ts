@@ -1,6 +1,6 @@
 import { emptyCar, emptySimState, type TelemetryFrame } from "@overlay/sim-core";
 import { describe, expect, it } from "vitest";
-import { formatGap, formatGear, formatLap, inputsView, relativeRows, statusNotice } from "./views";
+import { formatGap, formatGear, formatLap, relativeRows, statusNotice } from "./views";
 
 function liveFrame(gaps: Record<number, number | null>, player: number | null = 0): TelemetryFrame {
   const state = emptySimState("mock");
@@ -70,30 +70,6 @@ describe("relativeRows", () => {
     expect(relativeRows(null)).toEqual([]);
     expect(relativeRows({ ...liveFrame({ 1: 1 }), status: "waiting" })).toEqual([]);
     expect(relativeRows({ ...liveFrame({ 1: 1 }), status: "error", error: "x" })).toEqual([]);
-  });
-});
-
-describe("inputsView", () => {
-  it("converts and clamps the player's inputs", () => {
-    const frame = liveFrame({});
-    frame.state.player.inputs = { throttle: 0.4, brake: 1.5, clutch: null, steer: -2 };
-    frame.state.player.gear = 4;
-    frame.state.player.speedMps = 50;
-    expect(inputsView(frame)).toEqual({
-      throttle: 0.4,
-      brake: 1,
-      clutch: 0,
-      steer: -1,
-      gear: 4,
-      speedKph: 180,
-    });
-  });
-
-  it("is all zero unless live", () => {
-    const frame = liveFrame({});
-    frame.state.player.speedMps = 50;
-    expect(inputsView({ ...frame, status: "waiting" }).speedKph).toBe(0);
-    expect(inputsView(null).throttle).toBe(0);
   });
 });
 
