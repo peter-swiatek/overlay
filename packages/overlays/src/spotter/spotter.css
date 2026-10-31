@@ -1,0 +1,51 @@
+.spotter {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spotter-gap {
+  flex: none;
+}
+
+.spotter-bar {
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  border-radius: 3px;
+}
+
+.spotter-bar--track {
+  background: var(--ov-border);
+}
+
+.spotter-block {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  border-radius: 3px;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--spotter-colour) 0%, transparent),
+    var(--spotter-colour) 30%,
+    var(--spotter-colour) 70%,
+    color-mix(in srgb, var(--spotter-colour) 0%, transparent)
+  );
+}
+
+/* Second, offset outline for two cars on one side. */
+.spotter-block--double {
+  box-shadow:
+    inset 0 0 0 1px var(--spotter-colour),
+    inset 0 0 0 4px transparent,
+    inset 0 0 0 5px var(--spotter-colour);
+}
+
+:root:not([data-reduced-effects="true"]) .spotter:not(.spotter--editing) .spotter-block {
+  transition:
+    transform 120ms linear,
+    opacity 150ms ease-out;
+}
