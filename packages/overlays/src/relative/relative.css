@@ -1,0 +1,26 @@
+.ov-rel {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--ov-bg);
+  color: var(--ov-text);
+  font-family: var(--ov-font-family, inherit);
+  font-size: var(--ov-font-size, 14px);
+}
+
+.ov-rel-empty {
+  padding: 8px var(--ov-cell-pad-x, 8px);
+  color: var(--ov-text-muted);
+}
+
+.ov-rel-threat--red {
+  color: var(--ov-locked-loss);
+}
+
+.ov-rel-threat--yellow {
+  color: var(--ov-locked-rejoin-yellow);
+}
