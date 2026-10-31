@@ -29,6 +29,8 @@ export interface TelemetryManagerDeps {
   onSettingsChange?: (settings: TelemetrySettings) => void;
 }
 
+/** How long quitting waits for the telemetry process to finish writing. */
+export const SHUTDOWN_WAIT_MS = 3000;
 export const RESTART_BASE_MS = 500;
 export const RESTART_MAX_MS = 10_000;
 /** A process must stay up this long before its next crash restarts without extra delay. */
@@ -55,6 +57,8 @@ export class TelemetryManager {
   private restartAttempt = 0;
   private startedAtMs = 0;
   private cancelRestart: (() => void) | undefined;
+  /** Resolvers waiting for a child to exit (see `shutdown`). */
+  private readonly exitWaiters = new Map<TelemetryChild, () => void>();
 
   constructor(
     private readonly store: TelemetrySettingsStorage,
@@ -84,19 +88,39 @@ export class TelemetryManager {
       if (this.child !== child || !isStatusEvent(message)) return;
       this.status = message;
     });
-    child.on("exit", () => this.onExit(child));
+    child.on("exit", () => {
+      this.exitWaiters.get(child)?.();
+      this.onExit(child);
+    });
     this.sendSource();
     for (const [sender, rate] of this.rates) this.broker(sender, rate);
   }
 
-  /** Sends `stop` and turns restarts off. Call on app quit. */
-  shutdown(): void {
+  /**
+   * Sends `stop` and turns restarts off. Call on app quit. The returned promise settles when the
+   * process has exited (it writes its last rows and closes its files first) or, failing that,
+   * after `timeoutMs`, when the process is killed.
+   */
+  shutdown(timeoutMs = SHUTDOWN_WAIT_MS): Promise<void> {
     this.quitting = true;
     this.cancelRestart?.();
     this.cancelRestart = undefined;
     const child = this.child;
     this.child = undefined;
-    child?.postMessage({ type: "stop" });
+    if (!child) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      const cancelTimer = this.deps.setTimer(() => {
+        this.exitWaiters.delete(child);
+        child.kill();
+        resolve();
+      }, timeoutMs);
+      this.exitWaiters.set(child, () => {
+        cancelTimer();
+        this.exitWaiters.delete(child);
+        resolve();
+      });
+      child.postMessage({ type: "stop" });
+    });
   }
 
   updateSettings(patch: unknown): TelemetrySettings {
