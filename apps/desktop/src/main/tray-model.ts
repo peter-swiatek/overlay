@@ -16,17 +16,22 @@ export interface RadioItem {
   click: () => void;
 }
 
-const FIXED: { source: Exclude<TelemetrySourceChoice, "replay">; label: string }[] = [
+type FixedSource = Exclude<TelemetrySourceChoice, "replay">;
+
+const ALWAYS: { source: FixedSource; label: string }[] = [
   { source: "auto", label: "Auto" },
   { source: "iracing", label: "iRacing" },
   { source: "lmu", label: "LMU" },
-  { source: "mock", label: "Mock" },
 ];
 
-/** The "Data source" submenu: Auto, iRacing, LMU, Replay file..., Mock. */
+/**
+ * The "Data source" submenu. Mock and Replay file are test sources: they show only with developer
+ * tools on, or while one of them is the current source (so the checked item is never hidden).
+ */
 export function buildDataSourceMenu(
   settings: TelemetrySettings,
   actions: DataSourceActions,
+  developerEnabled = false,
 ): RadioItem[] {
   const item = (label: string, checked: boolean, click: () => void): RadioItem => ({
     label,
@@ -34,21 +39,18 @@ export function buildDataSourceMenu(
     checked,
     click,
   });
-  const fixed = (entry: (typeof FIXED)[number]): RadioItem =>
-    item(entry.label, settings.source === entry.source, () => actions.select(entry.source));
-  const [auto, iracing, lmu, mock] = FIXED.map(fixed) as [
-    RadioItem,
-    RadioItem,
-    RadioItem,
-    RadioItem,
-  ];
-  return [
-    auto,
-    iracing,
-    lmu,
-    item("Replay file...", settings.source === "replay", () => actions.pickReplayFile()),
-    mock,
-  ];
+  const items = ALWAYS.map((entry) =>
+    item(entry.label, settings.source === entry.source, () => actions.select(entry.source)),
+  );
+  if (developerEnabled || settings.source === "mock") {
+    items.push(item("Mock", settings.source === "mock", () => actions.select("mock")));
+  }
+  if (developerEnabled || settings.source === "replay") {
+    items.push(
+      item("Replay file...", settings.source === "replay", () => actions.pickReplayFile()),
+    );
+  }
+  return items;
 }
 
 /** Tray tooltip, e.g. "Overlay 0.1.0". */

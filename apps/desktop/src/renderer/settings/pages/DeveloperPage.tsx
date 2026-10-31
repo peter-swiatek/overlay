@@ -6,14 +6,65 @@ import {
   type CaptureSettings,
   type CaptureStatus,
 } from "../../../shared/capture-types";
+import type { TelemetrySourceChoice, TelemetrySourceView } from "../../../shared/telemetry-types";
 import type { ProcessMetric } from "../../../shared/types";
+import { Button, Row, Section, Segmented } from "../controls";
 
 const METRICS_INTERVAL_MS = 2000;
 
+const SOURCE_OPTIONS: { value: TelemetrySourceChoice; label: string }[] = [
+  { value: "auto", label: "Auto" },
+  { value: "iracing", label: "iRacing" },
+  { value: "lmu", label: "LMU" },
+  { value: "mock", label: "Mock" },
+  { value: "replay", label: "Replay file" },
+];
+
+export function DataSourceSection({
+  view,
+  onSelect,
+  onPickReplay,
+}: {
+  view: TelemetrySourceView | undefined;
+  onSelect(source: Exclude<TelemetrySourceChoice, "replay">): void;
+  onPickReplay(): void;
+}) {
+  const source = view?.source ?? "auto";
+  return (
+    <Section
+      title="Data source"
+      description="Where telemetry comes from. Test sources are for development."
+    >
+      <Row label="Source">
+        <Segmented
+          value={source}
+          options={SOURCE_OPTIONS}
+          onChange={(next) => {
+            if (next === source) return;
+            if (next === "replay") onPickReplay();
+            else onSelect(next);
+          }}
+        />
+      </Row>
+      <Row label="Replay file" help={view?.replayPath ?? "none chosen"}>
+        <Button variant="secondary" onClick={onPickReplay}>
+          Choose replay file...
+        </Button>
+      </Row>
+    </Section>
+  );
+}
+
 export function DeveloperPage() {
+  const [sourceView, setSourceView] = useState<TelemetrySourceView>();
   const [metrics, setMetrics] = useState<ProcessMetric[]>([]);
   const [capture, setCapture] = useState<CaptureStatus>(IDLE_CAPTURE_STATUS);
   const [captureSettings, setCaptureSettings] = useState<CaptureSettings>();
+
+  useEffect(() => {
+    void window.overlayApi.telemetry.getSource().then(setSourceView);
+    return window.overlayApi.telemetry.onSourceChanged(setSourceView);
+  }, []);
 
   useEffect(() => {
     void window.overlayApi.getCaptureStatus().then((s) => s && setCapture(s));
@@ -41,12 +92,18 @@ export function DeveloperPage() {
 
   return (
     <>
-      <section>
-        <h2>Fixture recording</h2>
-        <p className="muted">
-          Start and stop from the tray menu. Files go to the fixtures folder (tray: Open fixtures
-          folder).
-        </p>
+      <DataSourceSection
+        view={sourceView}
+        onSelect={(source) =>
+          void window.overlayApi.telemetry.setSource(source).then(setSourceView)
+        }
+        onPickReplay={() => void window.overlayApi.telemetry.pickReplayFile().then(setSourceView)}
+      />
+
+      <Section
+        title="Fixture recording"
+        description="Start and stop from the tray menu. Files go to the fixtures folder (tray: Open fixtures folder)."
+      >
         <table>
           <tbody>
             <tr>
@@ -84,8 +141,7 @@ export function DeveloperPage() {
           </tbody>
         </table>
         {capture.error && <p className="note">{capture.error}</p>}
-        <label className="option">
-          <span>LMU frames per second</span>
+        <Row label="LMU frames per second">
           <input
             type="number"
             min={MIN_LMU_FRAME_HZ}
@@ -99,11 +155,10 @@ export function DeveloperPage() {
               }
             }}
           />
-        </label>
-      </section>
+        </Row>
+      </Section>
 
-      <section>
-        <h2>Resource usage</h2>
+      <Section title="Resource usage">
         <table>
           <thead>
             <tr>
@@ -131,7 +186,7 @@ export function DeveloperPage() {
           </tbody>
         </table>
         <p className="muted">Refreshes every 2 s.</p>
-      </section>
+      </Section>
     </>
   );
 }

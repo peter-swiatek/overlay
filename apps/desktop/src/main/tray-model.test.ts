@@ -5,11 +5,35 @@ import type { UpdateState } from "./updater";
 
 const actions = () => ({ select: vi.fn(), pickReplayFile: vi.fn() });
 
+const labels = (menu: { label: string }[]) => menu.map((i) => i.label);
+const checked = (menu: { label: string; checked: boolean }[]) =>
+  menu.filter((i) => i.checked).map((i) => i.label);
+
 describe("data source menu", () => {
-  it("lists Auto, iRacing, LMU, Replay file, Mock as radio items", () => {
+  it("shows three items with developer tools off", () => {
     const menu = buildDataSourceMenu(DEFAULT_TELEMETRY_SETTINGS, actions());
-    expect(menu.map((i) => i.label)).toEqual(["Auto", "iRacing", "LMU", "Replay file...", "Mock"]);
+    expect(labels(menu)).toEqual(["Auto", "iRacing", "LMU"]);
     expect(menu.every((i) => i.type === "radio")).toBe(true);
+  });
+
+  it("shows five items with developer tools on", () => {
+    const menu = buildDataSourceMenu(DEFAULT_TELEMETRY_SETTINGS, actions(), true);
+    expect(labels(menu)).toEqual(["Auto", "iRacing", "LMU", "Mock", "Replay file..."]);
+  });
+
+  it("keeps Mock visible and checked when current, with developer tools off", () => {
+    const menu = buildDataSourceMenu({ ...DEFAULT_TELEMETRY_SETTINGS, source: "mock" }, actions());
+    expect(labels(menu)).toEqual(["Auto", "iRacing", "LMU", "Mock"]);
+    expect(checked(menu)).toEqual(["Mock"]);
+  });
+
+  it("keeps Replay file visible and checked when current, with developer tools off", () => {
+    const menu = buildDataSourceMenu(
+      { ...DEFAULT_TELEMETRY_SETTINGS, source: "replay" },
+      actions(),
+    );
+    expect(labels(menu)).toEqual(["Auto", "iRacing", "LMU", "Replay file..."]);
+    expect(checked(menu)).toEqual(["Replay file..."]);
   });
 
   it("checks exactly the current choice", () => {
@@ -20,14 +44,14 @@ describe("data source menu", () => {
       ["replay", "Replay file..."],
       ["mock", "Mock"],
     ] as const) {
-      const menu = buildDataSourceMenu({ ...DEFAULT_TELEMETRY_SETTINGS, source }, actions());
-      expect(menu.filter((i) => i.checked).map((i) => i.label)).toEqual([label]);
+      const menu = buildDataSourceMenu({ ...DEFAULT_TELEMETRY_SETTINGS, source }, actions(), true);
+      expect(checked(menu)).toEqual([label]);
     }
   });
 
   it("selects directly, but asks for a file for replay", () => {
     const a = actions();
-    const menu = buildDataSourceMenu(DEFAULT_TELEMETRY_SETTINGS, a);
+    const menu = buildDataSourceMenu(DEFAULT_TELEMETRY_SETTINGS, a, true);
     const click = (label: string): void => menu.find((i) => i.label === label)?.click();
     click("iRacing");
     click("LMU");
