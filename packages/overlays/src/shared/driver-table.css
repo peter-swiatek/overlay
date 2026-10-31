@@ -1,0 +1,37 @@
+/* Rows are display: contents, so these style cell content, never the row. */
+.ov-driver-number {
+  display: inline-block;
+  min-width: 100%;
+  box-sizing: border-box;
+  padding: 0 4px;
+  border-radius: 3px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ov-info-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  padding: 3px var(--ov-cell-pad-x, 8px);
+  font-family: var(--ov-font-family, inherit);
+  font-weight: var(--ov-font-weight, 500);
+  font-size: var(--ov-font-size, 14px);
+  color: var(--ov-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.ov-info-item {
+  white-space: nowrap;
+}
+
+.ov-info-label {
+  margin-right: 4px;
+  color: var(--ov-text-muted);
+}
+
+.ov-info-item--unavailable {
+  color: var(--ov-text-muted);
+}
