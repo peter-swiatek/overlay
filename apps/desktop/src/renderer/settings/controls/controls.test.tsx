@@ -12,7 +12,6 @@ import {
   Slider,
   Toggle,
   clampToStep,
-  inRange,
   isColourText,
   parseNumberDraft,
 } from ".";
@@ -85,9 +84,22 @@ describe("settings controls", () => {
     );
     expect(html).toContain('value="100"');
     expect(html).toContain("%</span>");
-    expect(html).toMatch(
-      /aria-label="Increase"[^>]*disabled=""|disabled=""[^>]*aria-label="Increase"/,
+    // End buttons stay focusable: aria-disabled, not disabled.
+    expect(html).toMatch(/aria-label="Increase"[^>]*aria-disabled="true"/);
+    expect(html).not.toMatch(/aria-label="Increase"[^>]*disabled=""/);
+    const named = renderToStaticMarkup(
+      <NumberStepper value={70} min={50} max={100} step={5} label="Scale" onChange={noop} />,
     );
+    expect(named).toContain('role="spinbutton"');
+    expect(named).toContain('aria-label="Scale"');
+    expect(named).toContain('aria-valuemin="50"');
+    expect(named).toContain('aria-valuemax="100"');
+    expect(named).toContain('aria-valuenow="70"');
+    expect(
+      renderToStaticMarkup(
+        <Slider value={1} min={0} max={2} step={1} label="Gain" onChange={noop} />,
+      ),
+    ).toContain('aria-label="Gain"');
     const off = renderToStaticMarkup(
       <NumberStepper value={70} min={50} max={100} step={5} onChange={noop} disabled />,
     );
@@ -109,8 +121,6 @@ describe("settings controls", () => {
     expect(parseNumberDraft("1e")).toBeNull();
     expect(parseNumberDraft("75")).toBe(75);
     expect(parseNumberDraft("7.5")).toBe(7.5);
-    expect(inRange(75, 50, 100)).toBe(true);
-    expect(inRange(7, 50, 100)).toBe(false);
   });
 
   it("accepts alpha colours only when allowed", () => {
@@ -125,6 +135,11 @@ describe("settings controls", () => {
     expect(html).toContain('type="color"');
     expect(html).toContain('value="#ffc400"');
     expect(html).toContain("Undo</button>");
+    const named = renderToStaticMarkup(
+      <ColourInput value="#ffc400" label="Accent" onChange={noop} />,
+    );
+    expect(named).toContain('aria-label="Accent (hex)"');
+    expect(named).toContain('aria-label="Accent picker"');
   });
 
   it("renders button variants", () => {

@@ -12,6 +12,9 @@
     "./types": "./src/types.ts",
     "./format": "./src/format/index.ts"
   },
+  "dependencies": {
+    "@overlay/theme": "workspace:*"
+  },
   "peerDependencies": {
     "react": "^18.3.1"
   },

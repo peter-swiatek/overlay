@@ -1,3 +1,4 @@
+import { LOCKED_COLOURS } from "@overlay/theme";
 import type { LicenceClass } from "../format/licence";
 
 /** WCAG relative luminance of "#rgb" or "#rrggbb"; null when the value is not a hex colour. */
@@ -23,10 +24,18 @@ export function readableTextColour(backgroundHex: string): string {
   return l !== null && l > 0.179 ? DARK : LIGHT;
 }
 
-/**
- * Licence backgrounds are locked CSS variables whose values this package does not see, so text
- * is chosen from the nominal licence colours: yellow (C) and orange (D) are light, the rest dark.
- */
+const LICENCE_KEYS = {
+  R: "licenceR",
+  D: "licenceD",
+  C: "licenceC",
+  B: "licenceB",
+  A: "licenceA",
+  P: "licencePro",
+} as const satisfies Record<LicenceClass, keyof typeof LOCKED_COLOURS>;
+
+/** Text colour chosen from the luminance of the locked licence colour; unknown gets light text. */
 export function licenceTextColour(licenceClass: LicenceClass | null): string {
-  return licenceClass === "C" || licenceClass === "D" ? DARK : LIGHT;
+  return licenceClass === null
+    ? LIGHT
+    : readableTextColour(LOCKED_COLOURS[LICENCE_KEYS[licenceClass]]);
 }

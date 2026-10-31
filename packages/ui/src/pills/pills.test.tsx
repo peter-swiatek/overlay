@@ -20,6 +20,10 @@ describe("text colour", () => {
     expect(licenceTextColour("C")).toBe("#000000");
     expect(licenceTextColour("A")).toBe("#ffffff");
     expect(licenceTextColour(null)).toBe("#ffffff");
+    expect(licenceTextColour("B")).toBe("#000000");
+    expect(licenceTextColour("D")).toBe("#000000");
+    expect(licenceTextColour("R")).toBe("#000000"); // L = 0.185, just over the 0.179 crossover
+    expect(licenceTextColour("P")).toBe("#ffffff");
   });
 });
 

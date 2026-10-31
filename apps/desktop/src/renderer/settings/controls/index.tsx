@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 // Form controls shared by every settings page. The props are the contract (C11).
 
@@ -147,6 +147,8 @@ interface NumberControlProps {
   max: number;
   step: number;
   unit?: string;
+  /** Accessible name of the control. */
+  label?: string;
   onChange(next: number): void;
   disabled?: boolean;
 }
@@ -167,17 +169,13 @@ export function parseNumberDraft(text: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** While typing, only values already inside the range are committed; the rest wait for blur. */
-export function inRange(value: number, min: number, max: number): boolean {
-  return value >= min && value <= max;
-}
-
 export function NumberStepper({
   value,
   min,
   max,
   step,
   unit,
+  label,
   onChange,
   disabled,
 }: NumberControlProps) {
@@ -188,43 +186,56 @@ export function NumberStepper({
     if (next !== value) onChange(next);
   };
   const bump = (direction: 1 | -1): void => {
+    if (disabled) return;
     setDraft(null);
     commit(value + direction * step);
   };
+  // aria-disabled (not disabled) at the range ends so a focused button keeps focus.
   return (
     <span className="ctl-number">
       <button
         type="button"
-        aria-label="Decrease"
-        disabled={disabled || value <= min}
+        aria-label={label ? `Decrease ${label}` : "Decrease"}
+        disabled={disabled}
+        aria-disabled={disabled || value <= min ? true : undefined}
         onClick={() => bump(-1)}
       >
         −
       </button>
       <input
         type="text"
+        role="spinbutton"
         inputMode="decimal"
+        aria-label={label}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuenow={value}
         value={draft ?? String(value)}
         disabled={disabled}
-        onChange={(e) => {
-          setDraft(e.target.value);
-          const n = parseNumberDraft(e.target.value);
-          if (n !== null && inRange(n, min, max)) commit(n);
-        }}
+        onChange={(e) => setDraft(e.target.value)}
         onBlur={() => {
+          // Typing only edits the draft; the value is committed here, on Enter and on the buttons.
           const n = draft === null ? null : parseNumberDraft(draft);
           if (n !== null) commit(n);
           setDraft(null);
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
-          if (e.key === "Escape") setDraft(null);
+          else if (e.key === "Escape") setDraft(null);
+          else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            bump(1);
+          } else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            bump(-1);
+          }
         }}
       />
       <button
         type="button"
-        aria-label="Increase"
-        disabled={disabled || value >= max}
+        aria-label={label ? `Increase ${label}` : "Increase"}
+        disabled={disabled}
+        aria-disabled={disabled || value >= max ? true : undefined}
         onClick={() => bump(1)}
       >
         +
@@ -234,11 +245,21 @@ export function NumberStepper({
   );
 }
 
-export function Slider({ value, min, max, step, unit, onChange, disabled }: NumberControlProps) {
+export function Slider({
+  value,
+  min,
+  max,
+  step,
+  unit,
+  label,
+  onChange,
+  disabled,
+}: NumberControlProps) {
   return (
     <span className="ctl-slider">
       <input
         type="range"
+        aria-label={label}
         value={value}
         min={min}
         max={max}
@@ -268,23 +289,58 @@ export function ColourInput({
   allowAlpha,
   onReset,
   resetLabel,
+  label,
 }: {
   value: string;
   onChange(next: string): void;
   allowAlpha?: boolean;
   onReset?: () => void;
   resetLabel?: string;
+  /** Accessible name; the text field and the picker are named "<label> (hex)" and "<label> picker". */
+  label?: string;
 }) {
   const alpha = allowAlpha ?? false;
   const rgb = value.slice(0, 7);
   const [draft, setDraft] = useState<string | null>(null);
+  // The picker's in-progress colour; it is committed once, when the picker closes or blurs.
+  const [picked, setPicked] = useState<string | null>(null);
+  const pickedRef = useRef<string | null>(null);
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const alphaRef = useRef(alpha);
+  alphaRef.current = alpha;
+  const pickerRef = useRef<HTMLInputElement>(null);
+
+  const commitPicked = useCallback((): void => {
+    const rgbNext = pickedRef.current;
+    pickedRef.current = null;
+    setPicked(null);
+    if (rgbNext === null) return;
+    // The native picker has no alpha channel, so keep the existing alpha suffix.
+    const current = valueRef.current;
+    const suffix = alphaRef.current && HEX_RGBA.test(current) ? current.slice(7) : "";
+    const next = rgbNext.toLowerCase() + suffix;
+    if (next !== current) onChangeRef.current(next);
+  }, []);
+
+  useEffect(() => {
+    // The native "change" event fires when the picker is dismissed, unlike React's onChange,
+    // which follows every "input" event while dragging.
+    const el = pickerRef.current;
+    el?.addEventListener("change", commitPicked);
+    return () => el?.removeEventListener("change", commitPicked);
+  }, [commitPicked]);
+
+  const name = (suffix: string, fallback: string): string =>
+    label ? `${label} ${suffix}` : fallback;
   return (
     <span className="ctl-colour">
       <input
         type="text"
-        aria-label="Colour (hex)"
+        aria-label={name("(hex)", "Colour (hex)")}
         value={draft ?? value}
-        maxLength={alpha ? 9 : 7}
         spellCheck={false}
         onChange={(e) => {
           // Partial input stays in the draft; only a complete valid hex is committed.
@@ -299,15 +355,16 @@ export function ColourInput({
         }}
       />
       <input
+        ref={pickerRef}
         type="color"
-        aria-label="Colour picker"
-        value={HEX_RGB.test(rgb) ? rgb : "#000000"}
+        aria-label={name("picker", "Colour picker")}
+        value={picked ?? (HEX_RGB.test(rgb) ? rgb : "#000000")}
         onChange={(e) => {
           setDraft(null);
-          // The native picker has no alpha channel, so keep the existing alpha suffix.
-          const suffix = alpha && HEX_RGBA.test(value) ? value.slice(7) : "";
-          onChange(e.target.value.toLowerCase() + suffix);
+          pickedRef.current = e.target.value;
+          setPicked(e.target.value);
         }}
+        onBlur={commitPicked}
       />
       {onReset && (
         <button

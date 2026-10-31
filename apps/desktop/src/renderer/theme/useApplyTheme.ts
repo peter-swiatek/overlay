@@ -20,13 +20,25 @@ export function useApplyTheme(): Theme | null {
       lockedApplied = true;
     }
     let cancelled = false;
+    // Set once a theme:changed push arrives; a slower getActive() reply is then stale.
+    let pushed = false;
     const apply = (next: Theme): void => {
       if (cancelled) return;
       applyThemeToRoot(root, next);
       setTheme(next);
     };
-    void window.overlayApi.theme.getActive().then(apply);
-    const off = window.overlayApi.theme.onChanged(apply);
+    window.overlayApi.theme
+      .getActive()
+      .then((initial) => {
+        if (!pushed) apply(initial);
+      })
+      .catch((err: unknown) => {
+        console.error("Could not load the active theme", err);
+      });
+    const off = window.overlayApi.theme.onChanged((next) => {
+      pushed = true;
+      apply(next);
+    });
     return () => {
       cancelled = true;
       off();
