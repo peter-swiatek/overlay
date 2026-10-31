@@ -30,7 +30,7 @@ export function registerDisplayIpc(ctx: IpcContext, deps: DisplayIpcDeps): void 
   });
   ipcMain.handle(IPC.appRestart, (event): void => {
     if (!ctx.isSettingsSender(event.sender)) ctx.deny(IPC.appRestart);
-    deps.relaunch([]);
+    deps.relaunch(process.argv.slice(1));
     deps.quit();
   });
 }

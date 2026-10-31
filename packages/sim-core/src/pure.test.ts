@@ -18,6 +18,8 @@ function specifiers(text: string): string[] {
   const out: string[] = [];
   const re = /(?:\bimport|\bexport)\s+(?:[^"';]*?\bfrom\s*)?["']([^"']+)["']/g;
   for (let m = re.exec(text); m !== null; m = re.exec(text)) out.push(m[1]!);
+  const dynamic = /\b(?:import|require)\s*\(\s*["'`]([^"'`]+)["'`]/g;
+  for (let m = dynamic.exec(text); m !== null; m = dynamic.exec(text)) out.push(m[1]!);
   return out;
 }
 

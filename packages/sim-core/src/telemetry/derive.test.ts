@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FIXTURE_DIR, loadSlice, toStates } from "../adapters/iracing/slice-support";
 import { emptyCar, emptySimState, type SessionPhase, type SimState } from "../model";
+import type { StandingsInputs } from "../calc/standings";
 import { Deriver } from "./derive";
 import { emptyDerived, type Derived } from "./frame";
 
@@ -88,6 +89,50 @@ describe("Deriver", () => {
     const away = emptyCar(1);
     s.cars.push(away);
     expect(new Deriver().next(s).gaps).toEqual([{ carIdx: 1, gapS: null, tier: "unavailable" }]);
+  });
+
+  describe("class indices", () => {
+    it("hands out 1, 2, ... on first sight, maps empty to 0 and clears on reset", () => {
+      const d = new Deriver();
+      expect(d.classIndex("")).toBe(0);
+      expect(d.classIndex("Hyper")).toBe(1);
+      expect(d.classIndex("LMGT3")).toBe(2);
+      expect(d.classIndex("Hyper")).toBe(1);
+      d.reset();
+      expect(d.classIndex("LMGT3")).toBe(1);
+    });
+
+    it("keeps LMU class bests and track references apart", () => {
+      const d = new Deriver();
+      const specs = [
+        { idx: 0, name: "Ava Quill", cls: "Hyper", lapS: 60 },
+        { idx: 1, name: "Bo Fenwick", cls: "LMGT3", lapS: 90 },
+      ];
+      for (let t = 0; t <= 200; t += 0.5) {
+        const s = emptySimState("lmu");
+        s.connected = true;
+        s.tickTimeS = 10 + t;
+        s.playerCarIdx = 0;
+        s.session.type = "race";
+        s.session.phase = "racing";
+        s.cars = specs.map(({ idx, name, cls, lapS }) => {
+          const car = emptyCar(idx);
+          car.connected = true;
+          car.driverName = name;
+          car.classId = cls;
+          car.lapsCompleted = Math.floor(t / lapS);
+          car.lapDistPct = (t % lapS) / lapS;
+          car.isOnTrack = true;
+          return car;
+        });
+        d.next(s);
+      }
+      const inputs = (d as unknown as { standingsInputs(): StandingsInputs }).standingsInputs();
+      expect(inputs.classBestLapS("Hyper")).toBeCloseTo(60, 0);
+      expect(inputs.classBestLapS("LMGT3")).toBeCloseTo(90, 0);
+      expect(inputs.trackReference("Hyper")?.lapTimeS).toBeCloseTo(60, 0);
+      expect(inputs.trackReference("LMGT3")?.lapTimeS).toBeCloseTo(90, 0);
+    });
   });
 
   describe("session change", () => {

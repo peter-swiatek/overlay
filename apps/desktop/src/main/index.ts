@@ -155,7 +155,7 @@ if (!app.requestSingleInstanceLock()) {
       settingsStore,
       effective,
       safeMode,
-      relaunch: (args) => (args.length > 0 ? app.relaunch({ args }) : app.relaunch()),
+      relaunch: (args) => app.relaunch({ args }),
       quit: () => app.quit(),
     });
     registerDeveloperIpc(ctx, {
@@ -228,7 +228,10 @@ if (!app.requestSingleInstanceLock()) {
       },
       onSettingsChange: (settings) => {
         tray?.refresh();
-        broadcast(IPC.telemetrySourceChanged, sourceViewOf(settings));
+        // Carries the replay path: settings window only.
+        if (settingsWindow && !settingsWindow.isDestroyed()) {
+          settingsWindow.webContents.send(IPC.telemetrySourceChanged, sourceViewOf(settings));
+        }
       },
       onStatusChange: (status) => broadcast(IPC.telemetryStatusChanged, status),
     });
@@ -242,6 +245,7 @@ if (!app.requestSingleInstanceLock()) {
         // The installer stops our processes shortly after it starts: finish the recordings first.
         await Promise.allSettled([telemetry?.shutdown(), capture?.shutdown()]);
         overlays?.flushSave();
+        overlaySettings?.flush();
       },
       settings: new UpdateSettingsStore(join(userData, "updates.json")),
       channel: BUILD_INFO.channel,

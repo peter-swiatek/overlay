@@ -38,6 +38,8 @@ export class Deriver {
   private readonly standings = new StandingsTracker();
   private readonly proximity = new ProximityTracker();
 
+  private readonly classIndices = new Map<string, number>();
+
   constructor(options: DeriverOptions = {}) {
     this.track = new TrackTracker({
       ...(options.trackOutlines ? { store: options.trackOutlines } : {}),
@@ -59,6 +61,18 @@ export class Deriver {
     this.standings.reset();
     this.proximity.reset();
     this.track.reset();
+    this.classIndices.clear();
+  }
+
+  /** Stable per-session class number: 0 for "", then 1, 2, ... in order of first sight. */
+  classIndex(key: string): number {
+    if (key === "") return 0;
+    let index = this.classIndices.get(key);
+    if (index === undefined) {
+      index = this.classIndices.size + 1;
+      this.classIndices.set(key, index);
+    }
+    return index;
   }
 
   /** Number of resets so far; this is the `sessionNum` the fuel tracker sees. */
@@ -117,7 +131,7 @@ export class Deriver {
   private recordCars(state: SimState, tickS: number): void {
     for (const car of state.cars) {
       if (car.isPaceCar === true) continue;
-      const classId = Number(car.classId) || 0;
+      const classId = this.classIndex(car.classId ?? "");
       const done = this.recorder.update(carTick(car, tickS, classId));
       if (done) this.laps.record(car.carIdx, done.lapTimeS, done.clean, classId);
     }
@@ -190,7 +204,7 @@ export class Deriver {
         out.push({ carIdx: car.carIdx, gapS: null, tier: "unavailable" });
         continue;
       }
-      const classId = Number(car.classId) || 0;
+      const classId = this.classIndex(car.classId ?? "");
       const result = relativeGap(
         { carIdx: player.carIdx, lapDistPct: player.lapDistPct },
         { carIdx: car.carIdx, lapDistPct: pct },
@@ -215,19 +229,16 @@ export class Deriver {
   }
   private standingsInputs(): StandingsInputs {
     const { recorder, laps } = this;
+    const classIndex = (key: string): number => this.classIndex(key);
     return {
       carReference: (carIdx) => recorder.carReference(carIdx),
-      trackReference: (classKey) => recorder.trackReference(classNumber(classKey)),
+      trackReference: (classKey) => recorder.trackReference(classIndex(classKey)),
       averageLapS: (carIdx) => laps.average(carIdx),
       bestLapS: (carIdx) => laps.best(carIdx),
-      classBestLapS: (classKey) => laps.classBest(classNumber(classKey)),
+      classBestLapS: (classKey) => laps.classBest(classIndex(classKey)),
       sessionBestLapS: () => laps.sessionBest(),
     };
   }
-}
-
-function classNumber(classKey: string): number {
-  return Number(classKey) || 0;
 }
 
 function findPlayer(state: SimState): Car | null {
