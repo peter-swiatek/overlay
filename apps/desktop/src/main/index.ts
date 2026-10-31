@@ -216,8 +216,8 @@ if (!app.requestSingleInstanceLock()) {
       getAutoUpdater: () => pkg.autoUpdater,
       prepareToQuit: async () => {
         shuttingDown = true;
-        telemetry?.shutdown();
-        await capture?.shutdown();
+        // The installer stops our processes shortly after it starts: finish the recordings first.
+        await Promise.allSettled([telemetry?.shutdown(), capture?.shutdown()]);
         overlays?.flushSave();
       },
       settings: new UpdateSettingsStore(join(userData, "updates.json")),
