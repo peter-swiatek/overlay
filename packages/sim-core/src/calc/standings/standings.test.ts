@@ -257,6 +257,49 @@ describe("strength of field", () => {
 });
 
 describe("pit tracking", () => {
+  it("does not count a garage exit by cars that start outside the world", () => {
+    const t = new StandingsTracker();
+    const at = (connected: boolean, onPitRoad: boolean) =>
+      t.next(
+        mkState([{ carIdx: 0, connected, onPitRoad, lapsCompleted: null, lapDistPct: 0.5 }], {
+          phase: "gridding",
+        }),
+        mkInputs(),
+      );
+    // Garage: not in the world, pit-road flag off then on; then onto pit road; then out.
+    at(false, false);
+    at(false, true);
+    at(true, true);
+    const out = at(true, false);
+    expect(out?.entries[0]?.pitStops).toBe(0);
+    // A later real visit still counts (no stall information, so entry and exit decide).
+    at(true, true);
+    expect(at(true, false)?.entries[0]?.pitStops).toBe(1);
+  });
+
+  it("does not let an earlier spell on track make the garage exit a stop", () => {
+    const h = newPitHistory();
+    stepPit(h, false, 0);
+    stepPit(h, true, 0, false);
+    stepPit(h, true, 0, true, true);
+    stepPit(h, false, 0);
+    expect(h.pitStops).toBe(0);
+  });
+
+  it("does not count a drive-through when the stall is known, and counts a stop", () => {
+    const h = newPitHistory();
+    stepPit(h, false, 3);
+    stepPit(h, true, 3, true, false);
+    stepPit(h, true, 3, true, false);
+    stepPit(h, false, 3, true, false);
+    expect(h).toMatchObject({ pitStops: 0, stintStartLap: 3 });
+    stepPit(h, true, 4, true, false);
+    stepPit(h, true, 4, true, true);
+    stepPit(h, true, 4, true, false);
+    stepPit(h, false, 4, true, false);
+    expect(h).toMatchObject({ pitStops: 1, lastPitLap: 4, stintStartLap: 4 });
+  });
+
   it("does not count the initial garage exit", () => {
     const h = newPitHistory();
     stepPit(h, true, 0);
@@ -305,6 +348,21 @@ describe("pit tracking", () => {
     });
   });
 
+  it("counts a 12-lap race from a grid start as 12 stint laps", () => {
+    const t = new StandingsTracker();
+    let stint: number | null = null;
+    for (let lap = -1; lap <= 12; lap++) {
+      const s = t.next(
+        mkState([{ carIdx: 0, lapsCompleted: lap < 0 ? null : lap, lapDistPct: 0.5 }], {
+          phase: "racing",
+        }),
+        mkInputs(),
+      );
+      stint = s?.entries[0]?.stintLaps ?? null;
+    }
+    expect(stint).toBe(12);
+  });
+
   it("has no stint length while lapsCompleted is unknown", () => {
     expect(by(run([{ carIdx: 0, lapsCompleted: null }]), 0).stintLaps).toBeNull();
   });
@@ -335,7 +393,117 @@ describe("start positions and reset", () => {
     t.next(grid("gridding", true), mkInputs());
     t.next(grid("racing", true), mkInputs());
     t.reset();
-    const after = t.next(grid("racing", true), mkInputs());
-    expect(after?.entries.map((e) => e.startPosition)).toEqual([null, null]);
+    // Joining a race already a lap in has no start grid.
+    const midRace = mkState(
+      [
+        { carIdx: 0, position: 1, lapsCompleted: 3, lapDistPct: 0.2 },
+        { carIdx: 1, position: 2, lapsCompleted: 3, lapDistPct: 0.1 },
+      ],
+      { phase: "racing" },
+    );
+    expect(t.next(midRace, mkInputs())?.entries.map((e) => e.startPosition)).toEqual([null, null]);
+  });
+
+  it("records the grid when the previous phase is unknown (LMU maps most phases to null)", () => {
+    const t = new StandingsTracker();
+    const green = t.next(grid("racing", true), mkInputs());
+    expect(green?.entries.map((e) => e.startPosition)).toEqual([1, 2]);
+  });
+
+  it("treats a missing lap count with a known lap fraction as a lap behind on the iRacing grid", () => {
+    const t = new StandingsTracker();
+    // Before the first crossing iRacing reports -1 completed laps (null here); the car nearest
+    // the line is at pct 0.98, the front row.
+    const green = mkState(
+      [
+        { carIdx: 0, position: 2, lapsCompleted: null, lapDistPct: 0.97 },
+        { carIdx: 1, position: 1, lapsCompleted: null, lapDistPct: 0.98 },
+      ],
+      { phase: "racing" },
+    );
+    const s = t.next(green, mkInputs());
+    expect(s?.entries.map((e) => e.startPosition)).toEqual([2, 1]);
+    expect(s?.entries[1]?.progressLaps).toBeCloseTo(-0.02);
+  });
+});
+
+describe("timed race finish", () => {
+  const car = (idx: number, position: number, laps: number | null, pct: number, over = {}) => ({
+    carIdx: idx,
+    position,
+    lapsCompleted: laps,
+    lapDistPct: pct,
+    ...over,
+  });
+  const frame = (phase: "racing" | "checkered" | "cooldown", cars: CarSpec[]) =>
+    mkState(cars, { phase });
+  const order = (s: ReturnType<StandingsTracker["next"]>) =>
+    [...(s?.entries ?? [])]
+      .sort((a, b) => (a.livePosition ?? 99) - (b.livePosition ?? 99))
+      .map((e) => e.carIdx);
+
+  it("does not let a lapped car that crosses before the leader take P1", () => {
+    const t = new StandingsTracker();
+    t.next(
+      frame("racing", [car(0, 1, 11, 0.9), car(1, 2, 11, 0.5), car(2, 3, 7, 0.99)]),
+      mkInputs(),
+    );
+    // Time is up; the lapped car crosses first.
+    let s = t.next(
+      frame("checkered", [car(0, 1, 11, 0.95), car(1, 2, 11, 0.55), car(2, 3, 8, 0.0)]),
+      mkInputs(),
+    );
+    expect(order(s)).toEqual([0, 1, 2]);
+    // The leader takes the flag, then the lapped car (a lap down) crosses again later.
+    s = t.next(
+      frame("checkered", [car(0, 1, 12, 0.0), car(1, 2, 11, 0.7), car(2, 3, 8, 0.4)]),
+      mkInputs(),
+    );
+    expect(order(s)).toEqual([0, 1, 2]);
+    expect(s?.entries[0]?.progressLaps).toBe(12);
+    s = t.next(
+      frame("checkered", [car(0, 1, null, 0.0), car(1, 2, 12, 0.0), car(2, 3, 8, 0.6)]),
+      mkInputs(),
+    );
+    expect(order(s)).toEqual([0, 1, 2]);
+    // Cars that leave the world after the flag keep their place.
+    s = t.next(
+      frame("checkered", [
+        car(0, 1, null, 0, { connected: false }),
+        car(1, 2, null, 0, { connected: false }),
+        car(2, 3, 8, 0.9),
+      ]),
+      mkInputs(),
+    );
+    expect(order(s)).toEqual([0, 1, 2]);
+    expect(s?.entries[1]?.livePosition).toBe(2);
+  });
+
+  it("ranks a car that left the world before finishing and follows official positions in cooldown", () => {
+    const t = new StandingsTracker();
+    t.next(frame("racing", [car(0, 1, 5, 0.5), car(1, 2, 5, 0.4), car(2, 3, 4, 0.9)]), mkInputs());
+    t.next(
+      frame("checkered", [car(0, 1, 5, 0.6), car(1, 2, 5, 0.5), car(2, 3, 4, 0.95)]),
+      mkInputs(),
+    );
+    let s = t.next(
+      frame("checkered", [
+        car(0, 1, 5, 0.7),
+        car(1, 2, 5, 0.6),
+        car(2, 3, null, 0, { connected: false }),
+      ]),
+      mkInputs(),
+    );
+    expect(order(s)).toEqual([0, 1, 2]);
+    // The sim's own results win in cooldown, even where the live order disagrees.
+    s = t.next(
+      frame("cooldown", [
+        car(0, 2, null, 0, { connected: false }),
+        car(1, 1, null, 0, { connected: false }),
+        car(2, 3, null, 0, { connected: false }),
+      ]),
+      mkInputs(),
+    );
+    expect(order(s)).toEqual([1, 0, 2]);
   });
 });

@@ -23,7 +23,9 @@ export function computePlusOneLapTarget(currentFuelL: number, lapsRemainingAvg: 
  * Fuel to add so the car reaches the finish with `safetyMarginLaps` to spare. Derived from the reference
  * fuel delta (`currentFuel - requiredFuel`, with `requiredFuel = lapsToGo * perLap` as the tracker
  * uses): refuel is the shortfall once the margin laps are added, never negative, and capped at the
- * room left in the tank when the capacity is known. The reference gives no refuel formula of its own.
+ * tank capacity when it is known (the most one stop can take is a full tank; the room left right
+ * now would undercount, since fuel burns before the car reaches the pits). The reference gives no refuel
+ * formula of its own.
  */
 export function computeRefuel(input: {
   lapsToGo: number | null;
@@ -38,7 +40,7 @@ export function computeRefuel(input: {
   const required = (lapsToGo + safetyMarginLaps) * perLap;
   const refuel = Math.max(0, required - currentFuel);
   if (tankCapacity === null) return refuel;
-  return Math.min(refuel, Math.max(0, tankCapacity - currentFuel));
+  return Math.min(refuel, Math.max(0, tankCapacity));
 }
 
 /**

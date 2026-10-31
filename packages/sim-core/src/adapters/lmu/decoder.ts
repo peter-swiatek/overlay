@@ -182,6 +182,7 @@ export class LmuDecoder {
     };
     state.flags = playerRow === null ? null : readFlags(f, playerRow);
     state.player.worldPos = playerRow === null ? null : readWorldPos(f, playerRow);
+    state.player.yawRad = playerRow === null ? null : readYaw(f, playerRow);
 
     const telemetryRow = playerId === null ? null : findTelemetryRow(f, playerId);
     if (telemetryRow !== null) readPlayer(f, telemetryRow, state);
@@ -434,7 +435,7 @@ function readCar(f: Frame, o: number, trackLengthM: number, rest: LmuRestSnapsho
   car.className = className;
   car.classColour = lmuClassColour(className);
   car.carNumber = extra?.carNumber ?? numberFromVehicleName(vehicleName);
-  car.teamName = teamFromVehicleName(vehicleName) ?? extra?.teamName ?? null;
+  car.teamName = extra?.teamName ?? teamFromVehicleName(vehicleName);
   car.worldPos = readWorldPos(f, o);
   car.fuelFraction = f.u8(o + VEHICLE.fuelFraction) / 255;
   car.position = f.u8(o + VEHICLE.position) || null;
@@ -443,7 +444,9 @@ function readCar(f: Frame, o: number, trackLengthM: number, rest: LmuRestSnapsho
   car.lapDistPct = lapPct(f.f64(o + VEHICLE.lapDistance), trackLengthM);
   car.onPitRoad = inPits;
   car.inPitStall = inPitStall(f, o, inPits, extra?.pitState ?? null);
-  car.isOnTrack = controlKnown ? !inPits : null;
+  // Like iRacing, "on track" means in the world (a car in the pits is), so overlays and the
+  // spotter can tell the pits from a car that is not there.
+  car.isOnTrack = controlKnown ? true : null;
   car.lastLapS = positiveOrNull(f.f64(o + VEHICLE.lastLapTime));
   car.bestLapS = positiveOrNull(f.f64(o + VEHICLE.bestLapTime));
   car.estTimeS = timeIntoLap >= 0 && Number.isFinite(timeIntoLap) ? timeIntoLap : null;
@@ -543,6 +546,20 @@ function readPlayer(f: Frame, o: number, state: SimState): void {
   const rear = f.f64(o + TELEM.rearBrakeBias);
   player.brakeBias = rear > 0 && rear < 1 ? 1 - rear : null;
   player.tyres = readTyres(f, o);
+}
+
+/**
+ * Heading of the car's nose in the SimState convention for LMU: with the ground plane x/z and north
+ * taken as -z (the way rFactor 2 cars face at yaw 0), the nose direction is (-sin yaw, -cos yaw).
+ * The nose is minus the third column of the orientation matrix, so yaw = atan2(m[0][2], m[2][2]).
+ * Null when the matrix is not finite or the nose points (almost) straight up or down.
+ */
+function readYaw(f: Frame, row: number): number | null {
+  const o = row + VEHICLE.orientation;
+  const m02 = f.f64(o + 2 * 8);
+  const m22 = f.f64(o + 8 * 8);
+  if (!Number.isFinite(m02 + m22) || Math.hypot(m02, m22) < 0.5) return null;
+  return Math.atan2(m02, m22);
 }
 
 function readWorldPos(f: Frame, row: number): Vec3 | null {
