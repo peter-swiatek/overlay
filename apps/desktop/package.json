@@ -16,6 +16,7 @@
     "dist:win": "node scripts/dist-win.mjs"
   },
   "dependencies": {
+    "electron-updater": "6.8.12",
     "koffi": "3.3.5"
   },
   "devDependencies": {

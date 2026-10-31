@@ -21,7 +21,7 @@ const SEMVER =
  * @param {string} input.pkgVersion Version from apps/desktop/package.json.
  * @param {string} [input.tag] Git tag when the build is a tag push, e.g. "v0.1.0".
  * @param {number | string} [input.runNumber] CI run number. Absent for local builds.
- * @param {string} [input.devWord] Prerelease word for non-tag CI builds: "ci" (ci.yml) or "dev" (release dispatch).
+ * @param {string} [input.devWord] Prerelease word for non-tag CI builds: "ci" (ci.yml) or "beta" (release dispatch).
  * @returns {BuildIdentity}
  */
 export function computeBuildIdentity({ pkgVersion, tag, runNumber, devWord = "ci" }) {

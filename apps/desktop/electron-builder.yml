@@ -5,6 +5,7 @@ publish:
   provider: github
   owner: peter-swiatek
   repo: overlay-releases
+  updaterCacheDirName: overlay-updater
 directories:
   output: release
 files:
@@ -17,6 +18,9 @@ asarUnpack:
 extraResources:
   - from: resources/tray.ico
     to: tray.ico
+# win.verifyUpdateCodeSignature is left at its default on purpose. Unsigned builds write no
+# publisherName to app-update.yml, so unsigned updates are accepted; if signing is added later the
+# check turns on automatically.
 win:
   target:
     - target: nsis

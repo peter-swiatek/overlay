@@ -1,7 +1,7 @@
 // Workflow entry point: prints the build env as KEY=value lines and appends them to $GITHUB_ENV.
 // Runs on import (no "is main" guard, so a symlinked or wrapped invocation cannot silently skip it).
 //
-//   node scripts/version-cli.mjs [--word ci|dev]
+//   node scripts/version-cli.mjs [--word ci|beta]
 //
 // Reads GITHUB_REF_TYPE/GITHUB_REF_NAME, GITHUB_RUN_NUMBER, GITHUB_SHA, and OVERLAY_PR_HEAD_SHA
 // (the pull request head, preferred for the displayed sha because GITHUB_SHA is a merge commit).

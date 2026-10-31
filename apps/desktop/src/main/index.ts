@@ -8,6 +8,7 @@ import {
   utilityProcess,
   type WebContents,
 } from "electron";
+import pkg from "electron-updater";
 import { BUILD_INFO } from "../shared/build-info";
 import { IPC, type AppInfo } from "../shared/types";
 import { CaptureManager } from "./capture-manager";
@@ -21,6 +22,8 @@ import { recorderForkArgs } from "../recorder/args";
 import { TelemetryManager } from "./telemetry-manager";
 import { TelemetrySettingsStore } from "./telemetry-settings";
 import { AppTray } from "./tray";
+import { UpdateSettingsStore } from "./update-settings";
+import { Updater } from "./updater";
 import { buildSettingsWindowOptions } from "./window-options";
 import { ZOrderKeeper, hwndOf } from "./zorder";
 
@@ -45,6 +48,7 @@ let overlays: OverlayManager | undefined;
 let tray: AppTray | undefined;
 let capture: CaptureManager | undefined;
 let telemetry: TelemetryManager | undefined;
+let updater: Updater | undefined;
 let shuttingDown = false;
 let lastRecording = false;
 let lastCaptureError: string | null = null;
@@ -208,7 +212,33 @@ if (!app.requestSingleInstanceLock()) {
     });
     telemetry.start();
 
-    tray = new AppTray(manager, capture, telemetry, { showSettings, quit: () => app.quit() });
+    updater = new Updater({
+      getAutoUpdater: () => pkg.autoUpdater,
+      prepareToQuit: async () => {
+        shuttingDown = true;
+        // The installer stops our processes shortly after it starts: finish the recordings first.
+        await Promise.allSettled([telemetry?.shutdown(), capture?.shutdown()]);
+        overlays?.flushSave();
+      },
+      settings: new UpdateSettingsStore(join(userData, "updates.json")),
+      channel: BUILD_INFO.channel,
+      isPackaged: app.isPackaged,
+      setTimer: (fn, ms) => {
+        const timer = setTimeout(fn, ms);
+        return () => clearTimeout(timer);
+      },
+      setRepeating: (fn, ms) => {
+        const timer = setInterval(fn, ms);
+        return () => clearInterval(timer);
+      },
+      onChange: () => tray?.refresh(),
+    });
+
+    tray = new AppTray(manager, capture, telemetry, updater, {
+      showSettings,
+      quit: () => app.quit(),
+    });
+    updater.start();
 
     if (!globalShortcut.register(EDIT_SHORTCUT, () => manager.toggleEditMode())) {
       console.warn(`Could not register ${EDIT_SHORTCUT}`);
@@ -231,6 +261,7 @@ if (!app.requestSingleInstanceLock()) {
     void Promise.allSettled(waits).finally(() => app.quit());
   });
   app.on("will-quit", () => {
+    updater?.stop();
     globalShortcut.unregisterAll();
     zorder?.dispose();
     overlays?.flushSave();
