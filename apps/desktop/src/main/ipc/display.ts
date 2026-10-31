@@ -1,7 +1,7 @@
 import { ipcMain } from "electron";
 import { BUILD_INFO } from "../../shared/build-info";
 import { IPC, type AppInfo, type DisplaySettings } from "../../shared/types";
-import type { SettingsStore } from "../settings";
+import { SAFE_MODE_FLAG, type SettingsStore } from "../settings";
 import type { IpcContext } from "./context";
 
 export interface DisplayIpcDeps {
@@ -11,6 +11,11 @@ export interface DisplayIpcDeps {
   safeMode: boolean;
   relaunch(args: string[]): void;
   quit(): void;
+}
+
+/** Arguments for the relaunched process: ours minus --safe-mode, which is a one-run choice. */
+export function relaunchArgs(argv: readonly string[]): string[] {
+  return argv.slice(1).filter((arg) => arg !== SAFE_MODE_FLAG);
 }
 
 export function registerDisplayIpc(ctx: IpcContext, deps: DisplayIpcDeps): void {
@@ -30,7 +35,7 @@ export function registerDisplayIpc(ctx: IpcContext, deps: DisplayIpcDeps): void 
   });
   ipcMain.handle(IPC.appRestart, (event): void => {
     if (!ctx.isSettingsSender(event.sender)) ctx.deny(IPC.appRestart);
-    deps.relaunch(process.argv.slice(1));
+    deps.relaunch(relaunchArgs(process.argv));
     deps.quit();
   });
 }

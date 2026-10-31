@@ -26,7 +26,12 @@ import { LayoutStore } from "./layout-store";
 import { OverlayManager } from "./overlays";
 import { OverlaySettingsStore } from "./overlay-settings-store";
 import { loadPage, preloadPath } from "./pages";
-import { SettingsStore, isSafeMode, resolveDisplaySettings } from "./settings";
+import {
+  SettingsStore,
+  buildCommandLineSwitches,
+  isSafeMode,
+  resolveDisplaySettings,
+} from "./settings";
 import { recorderForkArgs } from "../recorder/args";
 import { TelemetryManager } from "./telemetry-manager";
 import { TelemetrySettingsStore } from "./telemetry-settings";
@@ -51,7 +56,10 @@ const stored = settingsStore.load();
 const effective = resolveDisplaySettings(stored, safeMode);
 
 if (effective.disableHardwareAcceleration) app.disableHardwareAcceleration();
-if (effective.disableDirectComposition) app.commandLine.appendSwitch("disable-direct-composition");
+for (const { name, value } of buildCommandLineSwitches(effective)) {
+  if (value === undefined) app.commandLine.appendSwitch(name);
+  else app.commandLine.appendSwitch(name, value);
+}
 
 let settingsWindow: BrowserWindow | undefined;
 let overlays: OverlayManager | undefined;

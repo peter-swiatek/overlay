@@ -30,8 +30,7 @@ export class AppTray {
     private readonly telemetry: TelemetryManager,
     private readonly updater: Updater,
     private readonly actions: TrayActions,
-    // Used by the display and developer ticket (developer.enabled gates menu items).
-    readonly appSettings: AppSettingsStore,
+    private readonly appSettings: AppSettingsStore,
   ) {
     this.tray = new Tray(nativeImage.createFromPath(trayIconPath()));
     this.tray.setToolTip(trayTooltip(BUILD_INFO));
@@ -76,10 +75,14 @@ export class AppTray {
         { type: "separator" },
         {
           label: "Data source",
-          submenu: buildDataSourceMenu(this.telemetry.getSettings(), {
-            select: (source) => this.telemetry.updateSettings({ source }),
-            pickReplayFile: () => void this.chooseReplayFile(),
-          }),
+          submenu: buildDataSourceMenu(
+            this.telemetry.getSettings(),
+            {
+              select: (source) => this.telemetry.updateSettings({ source }),
+              pickReplayFile: () => void this.chooseReplayFile(),
+            },
+            this.appSettings.load().developer.enabled,
+          ),
         },
         { type: "separator" },
         ...buildUpdateItems(
