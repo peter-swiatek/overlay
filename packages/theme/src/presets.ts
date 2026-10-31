@@ -21,5 +21,106 @@ export const GRAPHITE: Theme = {
   compact: false,
 };
 
-/** The theme ticket adds the other presets. */
-export const THEME_PRESETS: readonly Theme[] = [GRAPHITE];
+const MIDNIGHT: Theme = {
+  id: "midnight",
+  name: "Midnight",
+  tokens: {
+    backgroundTint: "#060b1abd",
+    row: "#00000000",
+    rowAlt: "#8aa4ff0d",
+    header: "#8aa4ff1a",
+    accent: "#5b8cff",
+    text: "#e8eeff",
+    textMuted: "#aab6d8",
+    border: "#8aa4ff26",
+    ownRow: "#5b8cff40",
+  },
+  font: "manrope",
+  weight: 500,
+  compact: false,
+};
+
+const CARBON: Theme = {
+  id: "carbon",
+  name: "Carbon",
+  tokens: {
+    backgroundTint: "#000000c7",
+    row: "#00000000",
+    rowAlt: "#ffffff08",
+    header: "#ffffff12",
+    accent: "#ff7a1a",
+    text: "#ffffff",
+    textMuted: "#bdbdbd",
+    border: "#ffffff1a",
+    ownRow: "#ff7a1a40",
+  },
+  font: "barlow-condensed",
+  weight: 600,
+  compact: true,
+};
+
+const PADDOCK: Theme = {
+  id: "paddock",
+  name: "Paddock",
+  tokens: {
+    backgroundTint: "#0b1410bd",
+    row: "#00000000",
+    rowAlt: "#ffffff0a",
+    header: "#2dd4bf1a",
+    accent: "#2dd4bf",
+    text: "#eef7f3",
+    textMuted: "#b4c8bf",
+    border: "#2dd4bf29",
+    ownRow: "#2dd4bf3d",
+  },
+  font: "inter",
+  weight: 600,
+  compact: false,
+};
+
+const GLACIER: Theme = {
+  id: "glacier",
+  name: "Glacier",
+  tokens: {
+    backgroundTint: "#f1f5f9eb",
+    row: "#ffffff66",
+    rowAlt: "#0f172a0a",
+    header: "#0f172a14",
+    accent: "#0369a1",
+    text: "#0f172a",
+    textMuted: "#475569",
+    border: "#0f172a26",
+    ownRow: "#0369a133",
+  },
+  font: "inter",
+  weight: 600,
+  compact: false,
+};
+
+const AURORA: Theme = {
+  id: "aurora",
+  name: "Aurora",
+  tokens: {
+    backgroundTint: "#0d0a1cbd",
+    row: "#00000000",
+    rowAlt: "#c4b5fd0d",
+    header: "#c4b5fd1a",
+    accent: "#f472b6",
+    text: "#f3effe",
+    textMuted: "#bcb3d6",
+    border: "#c4b5fd26",
+    ownRow: "#f472b640",
+  },
+  font: "oswald",
+  weight: 500,
+  compact: false,
+};
+
+export const THEME_PRESETS: readonly Theme[] = [
+  GRAPHITE,
+  MIDNIGHT,
+  CARBON,
+  PADDOCK,
+  GLACIER,
+  AURORA,
+];

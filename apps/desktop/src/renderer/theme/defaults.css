@@ -1,0 +1,43 @@
+/* Graphite and the locked colours, so the first paint is themed before IPC answers. */
+/* defaults.test.ts keeps this file in step with packages/theme. */
+:root {
+  --ov-bg: #0a0c10b8;
+  --ov-row: #00000000;
+  --ov-row-alt: #ffffff0a;
+  --ov-header: #ffffff14;
+  --ov-accent: #ffc400;
+  --ov-text: #f2f4f8;
+  --ov-text-muted: #c4c9d2;
+  --ov-border: #ffffff1f;
+  --ov-own-row: #ffc40047;
+  --ov-font-family: "Inter", system-ui, sans-serif;
+  --ov-font-weight: 500;
+  --ov-font-size: 14px;
+  --ov-row-height: 24px;
+  --ov-cell-pad-x: 8px;
+  --ov-locked-gain: #22c55e;
+  --ov-locked-loss: #ef4444;
+  --ov-locked-fastest: #a855f7;
+  --ov-locked-licence-r: #e0322c;
+  --ov-locked-licence-d: #f28c28;
+  --ov-locked-licence-c: #f2c12e;
+  --ov-locked-licence-b: #3bb54a;
+  --ov-locked-licence-a: #2f6fde;
+  --ov-locked-licence-pro: #1a1a1a;
+  --ov-locked-rejoin-yellow: #facc15;
+  --ov-locked-rejoin-red: #ef4444;
+  --ov-locked-lap-faster: #22c55e;
+  --ov-locked-lap-slower: #ef4444;
+  --ov-locked-flag-green: #16a34a;
+  --ov-locked-flag-yellow: #facc15;
+  --ov-locked-flag-blue: #2563eb;
+  --ov-locked-flag-white: #f8fafc;
+  --ov-locked-flag-red: #dc2626;
+  --ov-locked-flag-black: #111111;
+}
+
+:root[data-compact="true"] {
+  --ov-font-size: 12px;
+  --ov-row-height: 20px;
+  --ov-cell-pad-x: 5px;
+}
