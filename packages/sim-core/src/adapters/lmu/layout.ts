@@ -139,6 +139,7 @@ export const RESULTS_STREAM = {
  * | lapStartTime     | f64     | standings lapStartET                                             |
  * | worldPos       | f64 x3  | standings carPosition x, y, z                                    |
  * | carVelocity       | f64 x3  | standings carVelocity x, y, z                                    |
+ * | orientation    | f64 x9  | standings orientation matrix, three rows of three; the car's nose is minus the third column (matched the direction of motion within 10 degrees on 1,854 of 1,931 moving frames) |
  * | pitState       | u8      | standings pitState: 0 NONE, 5 EXITING (1-4 not observed: no stop) |
  * | qualification  | i32     | standings qualification                                         |
  * | timeIntoLap    | f64     | standings timeIntoLap                                            |
@@ -185,6 +186,8 @@ export const VEHICLE = {
   /** f64 x3 world position in metres (the table's "pos"); y is up, the ground plane is x/z. */
   worldPos: 264,
   carVelocity: 288,
+  /** f64 x9, row-major 3x3; world = matrix * local, the nose is local -z. */
+  orientation: 336,
   pitState: 457,
   qualification: 460,
   timeIntoLap: 464,

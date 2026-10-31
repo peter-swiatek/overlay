@@ -34,11 +34,13 @@ const MAX_JUMP_DT_S = 1;
 export const LMU_RIGHT_SIGN = 1;
 
 /**
- * When the sim gives a heading (`yawRad`, clockwise from north) we take north to be -z, the direction
- * rFactor 2 cars face at yaw 0, so F = (sin yaw, -cos yaw). To be confirmed on track as well.
+ * When the sim gives a heading (`yawRad`) we take north to be -z, the direction rFactor 2 cars face
+ * at yaw 0. The ground plane is left-handed, so a clockwise turn from above (north towards east)
+ * moves the nose towards -x: F = (-sin yaw, -cos yaw). The LMU decoder fills yawRad from the
+ * orientation matrix with that same convention (verified against the direction of motion).
  */
-function headingFromYaw(yawRad: number): [number, number] {
-  return [Math.sin(yawRad), -Math.cos(yawRad)];
+export function headingFromYaw(yawRad: number): [number, number] {
+  return [-Math.sin(yawRad), -Math.cos(yawRad)];
 }
 
 interface Remembered {
@@ -111,8 +113,16 @@ export class ProximityTracker {
         break;
       }
     }
-    if (player === undefined || player.lapDistPct === null || player.isOnTrack === false)
+    // Not in the world (garage, disconnected): no spotter. In the pits is fine; the pit-road rule
+    // in `eligible` pairs the player with cars on pit road.
+    if (
+      player === undefined ||
+      player.lapDistPct === null ||
+      !player.connected ||
+      player.isOnTrack === false
+    ) {
       return null;
+    }
     const pitRoad = player.onPitRoad === true;
     const tickS = state.tickTimeS;
     if (tickS !== null && this.lastTickS !== null && tickS < this.lastTickS) this.memory.clear();

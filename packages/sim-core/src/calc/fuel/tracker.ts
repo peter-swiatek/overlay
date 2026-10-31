@@ -61,6 +61,8 @@ export class FuelTracker {
   private expectWrap = false;
   /** Pct wrapped before the counter ticked, so the coming increment must not count again. */
   private expectCounter = false;
+  /** The lap record closed by a pct wrap, still waiting for the counter value after it ticks. */
+  private pendingLap: FuelLapRecord | null = null;
   private sawRefuel = false;
   private tankEstimateL: number | null = null;
   /** Lap times live beside the records because FuelLapRecord is a frozen contract type. */
@@ -145,6 +147,8 @@ export class FuelTracker {
     if (counterTicked) {
       if (this.expectCounter) {
         this.expectCounter = false;
+        // The wrap closed this lap with the old counter; the lap number is the value after the tick.
+        if (this.pendingLap !== null) this.pendingLap.lapNumber = s.lap;
       } else {
         crossed = true;
         // Counter first: the pct wrap is still to come while we are before the line.
@@ -188,16 +192,25 @@ export class FuelTracker {
     }
     this.expectWrap = false;
     this.expectCounter = false;
+    this.pendingLap = null;
     const midLap = s.lapDistPct > MID_LAP_START_MIN && s.lapDistPct < MID_LAP_START_MAX;
     this.beginLap(s, nextLapReason ?? (midLap ? "unknownStart" : null));
   }
 
   private finishLap(s: FuelSample): void {
     const cur = this.current;
+    this.pendingLap = null;
     if (cur !== null) {
       const usedL = cur.startFuelL - s.fuelL;
       const reason = this.classify(cur, usedL);
       this.pushLap(cur, s, usedL, reason);
+      // After a pct wrap the counter has not ticked yet: the lap is the next counter value, and
+      // is corrected when the tick arrives.
+      if (this.expectCounter) {
+        const rec = this.laps[this.laps.length - 1] as FuelLapRecord;
+        rec.lapNumber = s.lap + 1;
+        this.pendingLap = rec;
+      }
     }
     this.beginLap(s, null);
   }
@@ -223,7 +236,10 @@ export class FuelTracker {
 
   /** A stint begins at the first sample of a session and at every detected refuel. */
   private startStint(s: FuelSample): void {
-    this.stintStartLap = s.lap;
+    // iRacing counts -1 completed laps on the grid and 0 after the first crossing, so a 12-lap race
+    // would read 13. A grid start (negative counter, not on pit road) counts from 0, the same
+    // definition as the standings' stint laps.
+    this.stintStartLap = s.lap < 0 && !s.onPitRoad ? 0 : s.lap;
     this.stintStartTimeS = Number.isFinite(s.sessionTimeS) ? s.sessionTimeS : null;
   }
 
@@ -256,6 +272,7 @@ export class FuelTracker {
     this.current = null;
     this.expectWrap = false;
     this.expectCounter = false;
+    this.pendingLap = null;
     this.sawRefuel = false;
     this.tankEstimateL = null;
   }

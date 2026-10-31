@@ -292,7 +292,7 @@ const SESSION_STATE_OTHER = 1;
 
 /** Thresholds in percent of a full virtual energy tank (see the LMU recording check). */
 const ENERGY_OPTIONS: FuelTrackerOptions = {
-  minLapUse: 0.1,
+  minLapUse: 0.5,
   maxLapUse: 50,
   pitRefuelJump: 0.5,
   refuelJump: 2,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyCar, emptySimState } from "../../model";
 import type { Car, CarLeftRight, SimState, Vec3 } from "../../model";
-import { CAR_LENGTH_M, LMU_RIGHT_SIGN, ProximityTracker } from "./index";
+import { CAR_LENGTH_M, LMU_RIGHT_SIGN, ProximityTracker, headingFromYaw } from "./index";
 
 const TRACK_M = 5000;
 
@@ -205,7 +205,7 @@ describe("iRacing proximity", () => {
       player,
       car(1, { lapDistPct: near, onPitRoad: true }),
       car(2, { lapDistPct: near, isPaceCar: true }),
-      car(3, { lapDistPct: near, isOnTrack: false }),
+      car(3, { lapDistPct: near, isOnTrack: false, connected: false }),
       car(4, { lapDistPct: near, connected: false }),
     ];
     expect(t.next(iracing("clear", cars))?.nearby).toEqual([]);
@@ -248,8 +248,7 @@ function place(
   right: number,
 ): { x: number; z: number } {
   const a = (headingDeg * Math.PI) / 180;
-  const fx = Math.sin(a);
-  const fz = -Math.cos(a);
+  const [fx, fz] = headingFromYaw(a);
   const rx = LMU_RIGHT_SIGN * fz;
   const rz = -LMU_RIGHT_SIGN * fx;
   return { x: origin.x + fx * fwd + rx * right, z: origin.z + fz * fwd + rz * right };
@@ -257,6 +256,36 @@ function place(
 
 describe("LMU proximity", () => {
   const origin: Vec3 = { x: 100, y: 5, z: -40 };
+
+  it("takes a yaw of 90 degrees as the nose towards -x (left-handed ground plane)", () => {
+    const [fx, fz] = headingFromYaw(Math.PI / 2);
+    expect(fx).toBeCloseTo(-1, 9);
+    expect(fz).toBeCloseTo(0, 9);
+    const [nx, nz] = headingFromYaw(0);
+    expect([nx, nz]).toEqual([-0, -1]);
+  });
+
+  it("runs the pit-road rule for a player in the pits (in the world, on pit road)", () => {
+    const t = new ProximityTracker();
+    const s = lmu(origin, [
+      { idx: 1, ...place(origin, 0, 0, -3) },
+      { idx: 2, ...place(origin, 0, 0, 3) },
+    ]);
+    s.player.yawRad = 0;
+    s.cars[0] = car(0, { onPitRoad: true, isOnTrack: true });
+    s.cars[1] = { ...s.cars[1]!, onPitRoad: true, isOnTrack: true };
+    // Car 2 is on the track proper and is ignored while the player is on pit road.
+    const out = t.next(s);
+    expect(out?.carLeftRight).toBe("left");
+    expect(out?.nearby.map((c) => c.carIdx)).toEqual([1]);
+  });
+
+  it("gives no spotter for a player who is not in the world", () => {
+    const t = new ProximityTracker();
+    const s = lmu(origin, [{ idx: 1, ...place(origin, 0, 0, -3) }], { yaw: 0 });
+    s.cars[0] = car(0, { connected: false });
+    expect(t.next(s)).toBeNull();
+  });
 
   it.each([0, 90, 180, 270, 37])("places cars in the player frame at heading %i degrees", (deg) => {
     const yaw = (deg * Math.PI) / 180;

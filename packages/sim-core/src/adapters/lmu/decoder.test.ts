@@ -465,6 +465,50 @@ describe("field data for overlays", () => {
     expect(teamFromVehicleName("")).toBeNull();
   });
 
+  it("prefers the REST team name over the one parsed from the vehicle name", () => {
+    const decoder = new LmuDecoder();
+    const parsed = decoder.decode(raw).state.cars[0]?.teamName;
+    expect(parsed).not.toBeNull();
+    decoder.observeRest({
+      path: "/rest/watch/standings",
+      status: 200,
+      body: [{ slotID: raw.readInt32LE(rowOf(0)), fullTeamName: "Max Example Racing" }],
+    });
+    expect(decoder.decode(raw).state.cars[0]?.teamName).toBe("Max Example Racing");
+  });
+
+  it("reads the player's heading from the orientation matrix (nose = minus the third column)", () => {
+    const playerRow = rowOf(onTrack.frames[0]!.result.state.cars.findIndex((c) => c.isPlayer));
+    const withNose = (fx: number, fz: number) => {
+      const edited = Buffer.from(raw);
+      // Rows of the matrix; only the third column matters: column 3 = -(nose).
+      const o = playerRow + VEHICLE.orientation;
+      [1, 0, -fx, 0, 1, 0, 0, 0, -fz].forEach((v, i) => edited.writeDoubleLE(v, o + i * 8));
+      return new LmuDecoder().decode(edited).state.player.yawRad;
+    };
+    const dir = (yaw: number | null) => [-Math.sin(yaw as number), -Math.cos(yaw as number)];
+    // Nose towards -z (yaw 0), towards -x (yaw 90 degrees), towards +z, and a slanted one.
+    expect(withNose(0, -1)).toBeCloseTo(0, 9);
+    expect(withNose(-1, 0)).toBeCloseTo(Math.PI / 2, 9);
+    expect(Math.abs(withNose(0, 1) as number)).toBeCloseTo(Math.PI, 9);
+    const k = Math.SQRT1_2;
+    const [dx, dz] = dir(withNose(k, k));
+    expect(dx).toBeCloseTo(k, 9);
+    expect(dz).toBeCloseTo(k, 9);
+    // A matrix with the nose pointing straight up gives no heading.
+    expect(withNose(0, 0)).toBeNull();
+  });
+
+  it("keeps a car in the pits in the world and tells it from one that is not there", () => {
+    const edited = Buffer.from(raw);
+    edited.writeUInt8(1, rowOf(1) + VEHICLE.pitting);
+    edited.writeInt8(1, rowOf(1) + VEHICLE.inControl);
+    edited.writeInt8(-1, rowOf(2) + VEHICLE.inControl);
+    const { cars } = new LmuDecoder().decode(edited).state;
+    expect(cars[1]).toMatchObject({ onPitRoad: true, isOnTrack: true, connected: true });
+    expect(cars[2]).toMatchObject({ isOnTrack: null, connected: false });
+  });
+
   it("falls back to the REST team name when the vehicle name has no recognisable shape", () => {
     const edited = Buffer.from(raw);
     const at = rowOf(0) + VEHICLE.vehicleName.offset;

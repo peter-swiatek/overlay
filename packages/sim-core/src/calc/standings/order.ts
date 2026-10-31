@@ -3,7 +3,7 @@ export interface OrderCar {
   carIdx: number;
   /** Official position (S/F based). */
   position: number | null;
-  /** lapsCompleted + lapDistPct; null when unknown. */
+  /** lapsCompleted + lapDistPct (frozen at the line for a finisher); null when unknown. */
   progress: number | null;
   bestLapS: number | null;
   /** 1.. for cars that took the chequered flag, in finishing order; 0 = still racing. */
@@ -22,16 +22,17 @@ export function hasOfficialOrder(car: OrderCar): boolean {
 }
 
 function cmpRace(a: OrderCar, b: OrderCar): number {
-  // Finished cars keep the order in which they finished, ahead of everyone still racing.
+  // Distance covered decides; a finisher's distance is frozen at the line. The finishing order
+  // only separates cars level on distance.
+  if (a.progress !== null && b.progress !== null && a.progress !== b.progress) {
+    return b.progress - a.progress;
+  }
+  if ((a.progress === null) !== (b.progress === null)) return a.progress === null ? 1 : -1;
   if (a.finishRank !== b.finishRank) {
     if (a.finishRank === 0) return 1;
     if (b.finishRank === 0) return -1;
     return a.finishRank - b.finishRank;
   }
-  if (a.progress !== null && b.progress !== null && a.progress !== b.progress) {
-    return b.progress - a.progress;
-  }
-  if ((a.progress === null) !== (b.progress === null)) return a.progress === null ? 1 : -1;
   return cmpNullsLast(a.position, b.position) || a.carIdx - b.carIdx;
 }
 

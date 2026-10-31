@@ -162,9 +162,11 @@ describe("computeRefuel", () => {
   it("adds the safety margin laps", () => {
     expect(computeRefuel({ ...base, safetyMarginLaps: 1.5 })).toBeCloseTo(18, 9);
   });
-  it("caps at the room in the tank", () => {
-    expect(computeRefuel({ ...base, tankCapacity: 12 })).toBeCloseTo(7, 9);
-    expect(computeRefuel({ ...base, currentFuel: 14, tankCapacity: 12 })).toBe(0);
+  it("caps at the tank capacity, not at the room left now", () => {
+    // 15 L short; the stop can take at most a full tank, however much fuel is on board today.
+    expect(computeRefuel({ ...base, tankCapacity: 12 })).toBeCloseTo(12, 9);
+    expect(computeRefuel({ ...base, currentFuel: 14, tankCapacity: 12 })).toBeCloseTo(6, 9);
+    expect(computeRefuel({ ...base, currentFuel: 9, tankCapacity: 12 })).toBeCloseTo(11, 9);
   });
   it("is null when an input is missing or use is not positive", () => {
     expect(computeRefuel({ ...base, lapsToGo: null })).toBeNull();
