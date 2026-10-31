@@ -10,17 +10,19 @@ import {
 } from "./rest-client";
 import type { RecordSink, SimCapture } from "./sim-capture";
 import { STALE_CLOSE_MS } from "./sim-capture";
-import type { Clock, SharedMapping, SharedMemorySource } from "./shm";
+import { copyConsistent, type Clock, type SharedMapping, type SharedMemorySource } from "./shm";
 
-// Only names are needed: frames are stored as raw bytes, so no struct layout is used here.
-export const LMU_DATA_NAME = "LMU_Data";
-export const LMU_DATA_EVENT_NAME = "LMU_Data_Event";
-export const LMU_LOCK_DATA_NAME = "LMU_SharedMemoryLockData";
-export const LMU_LOCK_EVENT_NAME = "LMU_SharedMemoryLockEvent";
+export * from "./lmu-names";
+import {
+  LMU_MAX_COPY_ATTEMPTS,
+  LMU_DATA_NAME,
+  LMU_DATA_EVENT_NAME,
+  LMU_LOCK_DATA_NAME,
+  LMU_LOCK_EVENT_NAME,
+  LMU_LIVE_WINDOW_MS,
+} from "./lmu-names";
 
 export const LMU_BURST_FRAMES = 1000;
-export const LMU_MAX_COPY_ATTEMPTS = 5;
-export const LMU_LIVE_WINDOW_MS = 5000;
 export const LMU_REST_INTERVAL_MS = 1000;
 export const LMU_DEFAULT_HZ = 5;
 const LOCK_BYTES = 8;
@@ -214,14 +216,12 @@ export class LmuCapture implements SimCapture {
 
   private async captureFrame(sink: RecordSink, burst: boolean): Promise<void> {
     const lockBefore = this.readLock();
-    let consistent = false;
-    let attempts = 0;
-    while (attempts < LMU_MAX_COPY_ATTEMPTS && !consistent) {
-      attempts++;
-      this.copyInto(this.copyA);
-      this.copyInto(this.copyB);
-      consistent = this.copyA.equals(this.copyB);
-    }
+    const { consistent, attempts } = copyConsistent(
+      this.data,
+      this.copyA,
+      this.copyB,
+      LMU_MAX_COPY_ATTEMPTS,
+    );
     const lockAfter = this.readLock();
     const now = this.clock.monoMs();
     this.noteBuffer(this.copyB, now);
