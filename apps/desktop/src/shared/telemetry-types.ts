@@ -44,6 +44,8 @@ export type TelemetryCommand =
       replayLoop?: boolean;
     }
   | { type: "subscribe"; rateHz: number }
+  /** The Fuel overlay's options that the telemetry process acts on. */
+  | { type: "setFuelOptions"; keepFuelData: boolean }
   | { type: "stop" };
 
 /** Subscriber to telemetry process: this frame has been handled. */

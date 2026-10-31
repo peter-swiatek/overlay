@@ -56,6 +56,15 @@ export const fuelManifest: OverlayManifest = {
       default: true,
       help: "Update targets continuously, not only at the start/finish line.",
     },
+    // The reference does not show its default; off is the conservative choice.
+    {
+      key: "keep-fuel-data",
+      label: "Keep fuel data",
+      kind: "toggle",
+      section: "Fuel",
+      default: false,
+      help: "Start each session with your last 10 valid laps of fuel use in this car at this track.",
+    },
   ],
   rateHz: 5,
   defaultEnabled: true,

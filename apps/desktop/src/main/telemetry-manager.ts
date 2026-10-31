@@ -55,6 +55,8 @@ export class TelemetryManager {
   private status: TelemetryEvent | undefined;
   /** Rate (Hz) of the newest port brokered to each window (or asked for, while no child runs). */
   private readonly rates = new Map<object, number>();
+  /** The Fuel overlay's options, once main has told us; resent to every new child. */
+  private fuelOptions: { keepFuelData: boolean } | undefined;
   private quitting = false;
   private restartAttempt = 0;
   private startedAtMs = 0;
@@ -96,6 +98,7 @@ export class TelemetryManager {
       this.onExit(child);
     });
     this.sendSource();
+    this.postFuelOptions();
     for (const [sender, rate] of this.rates) this.broker(sender, rate);
   }
 
@@ -164,6 +167,21 @@ export class TelemetryManager {
     child.postMessage({ type: "subscribe", rateHz: rate }, [port1]);
     this.deps.postPortToRenderer(sender, port2);
     return true;
+  }
+
+  /** Remembers the options, sends them to the running child (only when changed) and after every (re)start. */
+  setFuelOptions(options: { keepFuelData: boolean }): void {
+    const changed = this.fuelOptions?.keepFuelData !== options.keepFuelData;
+    this.fuelOptions = { keepFuelData: options.keepFuelData };
+    if (changed) this.postFuelOptions();
+  }
+
+  private postFuelOptions(): void {
+    if (this.fuelOptions === undefined) return;
+    this.child?.postMessage({
+      type: "setFuelOptions",
+      keepFuelData: this.fuelOptions.keepFuelData,
+    });
   }
 
   private sendSource(): void {

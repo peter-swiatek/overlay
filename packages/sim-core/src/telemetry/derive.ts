@@ -1,7 +1,10 @@
 import {
   estimateRaceLapsRemaining,
+  fuelHistoryKey,
   FuelTracker,
   type FuelContext,
+  type FuelHistoryKind,
+  type FuelHistoryStore,
   type FuelOutputs,
   type FuelSample,
   type FuelTrackerOptions,
@@ -10,7 +13,7 @@ import { MiniSectorRecorder, RollingLapTimes, relativeGap, type GapCarTick } fro
 import { ProximityTracker } from "../calc/proximity";
 import { StandingsTracker, type StandingsInputs } from "../calc/standings";
 import type { Car, SessionPhase, SessionType, SimState } from "../model";
-import { TrackTracker, type TrackOutline, type TrackOutlineStore } from "../track";
+import { TrackTracker, trackKeyOf, type TrackOutline, type TrackOutlineStore } from "../track";
 import { emptyDerived, type Derived, type DerivedGap } from "./frame";
 
 /** The clock going back by more than this means a new session or a restarted replay. */
@@ -27,6 +30,8 @@ export interface DeriverOptions {
   trackOutlines?: TrackOutlineStore;
   /** Clock for outline timestamps. */
   now?: () => Date;
+  /** Fuel use of earlier sessions; without it nothing is recorded or seeded. */
+  fuelHistory?: FuelHistoryStore;
 }
 
 export class Deriver {
@@ -42,6 +47,7 @@ export class Deriver {
   private readonly classIndices = new Map<string, number>();
 
   constructor(options: DeriverOptions = {}) {
+    this.fuelHistory = options.fuelHistory ?? null;
     this.track = new TrackTracker({
       ...(options.trackOutlines ? { store: options.trackOutlines } : {}),
       ...(options.now ? { now: options.now } : {}),
@@ -142,21 +148,90 @@ export class Deriver {
 
   private fuel = new FuelTracker();
   private fuelSamples = 0;
+  private fuelLink = newHistoryLink();
+
+  private readonly fuelHistory: FuelHistoryStore | null;
+  private keepFuelData = false;
 
   /** Same bookkeeping on LMU's virtual energy, in percent. */
   private energy = new FuelTracker(ENERGY_OPTIONS);
   private energySamples = 0;
+  private energyLink = newHistoryLink();
 
   /** The energy tracker, for tests that inspect lap records. */
   get energyTracker(): FuelTracker {
     return this.energy;
   }
 
+  /**
+   * Keep fuel data: seed the trackers with the last laps in this car at this track until the
+   * session has 2 valid laps of its own. Takes effect on the next tick; laps are recorded either way.
+   */
+  setKeepFuelData(on: boolean): void {
+    this.keepFuelData = on;
+  }
+
   private resetFuel(): void {
     this.fuel = new FuelTracker();
     this.fuelSamples = 0;
+    this.fuelLink = newHistoryLink();
     this.energy = new FuelTracker(ENERGY_OPTIONS);
     this.energySamples = 0;
+    this.energyLink = newHistoryLink();
+  }
+
+  /**
+   * Finds the history key and seeds on a key change or when the option flips. `load` runs only
+   * then; per tick this is a key build and two compares. Null when nothing is kept.
+   */
+  private seedHistory(
+    kind: FuelHistoryKind,
+    tracker: FuelTracker,
+    link: HistoryLink,
+    state: SimState,
+    player: Car,
+  ): string | null {
+    const store = this.fuelHistory;
+    if (store === null) return null;
+    const key = fuelHistoryKey(kind, state.sim, player.carName, trackKeyOf(state));
+    if (key !== link.key) {
+      link.key = key;
+      link.seeded = false;
+    }
+    const want = this.keepFuelData && key !== null;
+    if (want && !link.seeded) {
+      tracker.seed(store.load(key));
+      link.seeded = true;
+    } else if (!want && link.seeded) {
+      tracker.seed([]);
+      link.seeded = false;
+    }
+    return key;
+  }
+
+  /** Records each valid lap that closed since the last tick; invalid laps never. */
+  private recordHistory(
+    tracker: FuelTracker,
+    link: HistoryLink,
+    key: string | null,
+    state: SimState,
+    out: FuelOutputs,
+  ): void {
+    const records = tracker.lapRecords;
+    if (records.length < link.records) link.records = records.length;
+    if (records.length === link.records) return;
+    const store = this.fuelHistory;
+    const live = state.source !== "replay" && state.source !== "mock";
+    if (store !== null && key !== null && live) {
+      for (let i = link.records; i < records.length; i++) {
+        const rec = records[i]!;
+        if (!rec.valid) continue;
+        const lapTimeS =
+          out.recentLaps.find((l) => l.lapNumber === rec.lapNumber)?.lapTimeS ?? null;
+        store.record(key, { used: rec.usedL, lapTimeS });
+      }
+    }
+    link.records = records.length;
   }
 
   private updateFuel(
@@ -173,7 +248,10 @@ export class Deriver {
       this.fuelSamples++;
     }
     if (this.fuelSamples === 0 || player === null) return null;
-    return this.fuel.snapshot(this.fuelContext(state, player));
+    const key = this.seedHistory("fuel", this.fuel, this.fuelLink, state, player);
+    const out = this.fuel.snapshot(this.fuelContext(state, player));
+    this.recordHistory(this.fuel, this.fuelLink, key, state, out);
+    return out;
   }
 
   private fuelContext(state: SimState, player: Car): FuelContext {
@@ -210,7 +288,13 @@ export class Deriver {
       this.energySamples++;
     }
     if (this.energySamples === 0) return null;
-    return this.energy.snapshot({ lapsToGo: this.lapsToGo(state, player), tankCapacityL: 100 });
+    const key = this.seedHistory("energy", this.energy, this.energyLink, state, player);
+    const out = this.energy.snapshot({
+      lapsToGo: this.lapsToGo(state, player),
+      tankCapacityL: 100,
+    });
+    this.recordHistory(this.energy, this.energyLink, key, state, out);
+    return out;
   }
 
   // --- end fuel and energy ---
@@ -321,6 +405,17 @@ function fuelSample(
     isPaceLap: phase === "formation",
     sessionType: state.session.type ?? "other",
   };
+}
+
+/** Per tracker: the history key in force, whether it is seeded, and how many lap records are already handled. */
+interface HistoryLink {
+  key: string | null;
+  seeded: boolean;
+  records: number;
+}
+
+function newHistoryLink(): HistoryLink {
+  return { key: null, seeded: false, records: 0 };
 }
 
 // --- end fuel sample ---

@@ -255,6 +255,13 @@ if (!app.requestSingleInstanceLock()) {
       onStatusChange: (status) => broadcast(IPC.telemetryStatusChanged, status),
     });
     registerTelemetryIpc(ctx, telemetry);
+    // The Fuel overlay's "Keep fuel data" option reaches the telemetry process through the manager.
+    const keepFuelData = (s: { options: Record<string, unknown> } | undefined): boolean =>
+      s?.options["keep-fuel-data"] === true;
+    telemetry.setFuelOptions({ keepFuelData: keepFuelData(overlaySettings.get("fuel")) });
+    overlaySettings.onChange((id, s) => {
+      if (id === "fuel") telemetry?.setFuelOptions({ keepFuelData: keepFuelData(s) });
+    });
     telemetry.start();
 
     updater = new Updater({
