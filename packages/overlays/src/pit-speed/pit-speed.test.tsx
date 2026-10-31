@@ -91,10 +91,13 @@ describe("pitSpeedView", () => {
     expect(pitSpeedView(f).distanceToBoxM).toBe(200);
   });
 
-  it("gives no distance when the box is behind or off pit road", () => {
+  it("shows the distance on pit road even when the box is more than half a lap ahead", () => {
     const f = frame();
     f.state.player.pitStallLapDistPct = 0.9;
-    expect(pitSpeedView(f).distanceToBoxM).toBeNull();
+    expect(pitSpeedView(f).distanceToBoxM).toBeGreaterThan(0);
+  });
+
+  it("gives no distance off pit road", () => {
     const g = frame({ pitRoad: false, limiter: true });
     g.state.player.pitStallLapDistPct = 0.03;
     expect(pitSpeedView(g).distanceToBoxM).toBeNull();

@@ -148,4 +148,31 @@ describe("reuseRows", () => {
     expect(reuseRows(a, withGap(1.5))[0]).toBe(a[0]);
     expect(reuseRows(a, withGap(1.6))[0]).not.toBe(a[0]);
   });
+
+  it("reuses every row when two frames differ only below the displayed precision", () => {
+    const build = (lap: number, noise: number) =>
+      driverRows(
+        fixtureFrame({
+          cars: [0, 1, 2].map((i) => ({
+            carIdx: i,
+            position: i + 1,
+            classPosition: i + 1,
+            lapsCompleted: 3,
+            lapDistPct: lap,
+          })),
+          standings: [0, 1, 2].map((i) => ({
+            carIdx: i,
+            progressLaps: 3 + lap,
+            gapToClassLeader: { laps: 0, seconds: i * 1.3 + noise },
+            gapToLeader: { laps: 0, seconds: i * 1.3 + noise },
+            interval: { laps: 0, seconds: 1.3 + noise },
+          })),
+          gaps: [0, 1, 2].map((i) => ({ carIdx: i, gapS: i + noise, tier: "position" as const })),
+        }),
+        OPTS,
+      );
+    const a = build(0.5, 0);
+    const b = reuseRows(a, build(0.5005, 0.0004));
+    expect(b.every((row, i) => row === a[i])).toBe(true);
+  });
 });

@@ -224,7 +224,7 @@ function render(
 
 describe("FuelOverlay", () => {
   it("renders the default fields in both layouts", () => {
-    const vertical = render(frame(outputs()));
+    const vertical = render(frame(outputs(), { fuelL: 30 }));
     expect(vertical).toContain("fuel--vertical");
     expect(vertical).toContain("AVG 5L");
     expect(vertical).toContain("Laps 14–19");
@@ -246,8 +246,23 @@ describe("FuelOverlay", () => {
   it("explains an unreachable pit window and shows -- while null", () => {
     const only = ["pit-window"];
     const bad = outputs({ pitWindow: { start: 20, end: 10, feasible: false } });
-    expect(render(frame(bad), settingsWith({}, only))).toContain("not reachable on one stop");
+    expect(render(frame(bad, { fuelL: 30 }), settingsWith({}, only))).toContain(
+      "not reachable on one stop",
+    );
     expect(render(frame(outputs({ pitWindow: null })), settingsWith({}, only))).toContain(">--<");
+  });
+
+  it("says no stop is needed when the refuel is zero", () => {
+    // Default 40 L covers the 15 laps to go: refuel 0.
+    const html = render(frame(outputs()), settingsWith({}, ["pit-window"]));
+    expect(html).toContain("No stop needed");
+    expect(html).not.toContain("Laps 14");
+  });
+
+  it("scales history bars against the largest lap shown", () => {
+    const html = render(frame(outputs()), settingsWith({}, ["fuel-history"]));
+    expect(html).toContain("height:100%");
+    expect(html).toContain("height:38%");
   });
 
   it("shows imperial gallons", () => {

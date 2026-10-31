@@ -135,4 +135,12 @@ describe("RelativeOverlay", () => {
     const noFocus = fixtureFrame({ playerCarIdx: null, cars: [{ carIdx: 1 }] });
     expect(render(noFocus)).toContain("No cars nearby");
   });
+
+  it("leaves out iRacing-only columns in LMU", () => {
+    const headers = (f: TelemetryFrame) =>
+      render(f, { "row-labels": true }).match(/role="columnheader"/g)?.length ?? 0;
+    const iracing = frame();
+    const lmu = { ...iracing, state: { ...iracing.state, sim: "lmu" as const } } as TelemetryFrame;
+    expect(headers(iracing) - headers(lmu)).toBe(2);
+  });
 });

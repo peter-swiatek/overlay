@@ -5,6 +5,7 @@ import { useOverlayRuntime } from "../runtime";
 import { optionBoolean, optionNumber, optionStrings } from "../settings";
 import {
   driverColumns,
+  fieldsForSim,
   driverRowStyle,
   infoItems,
   InfoStrip,
@@ -33,7 +34,7 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
   const headerIds = optionStrings(settings, "header-fields");
 
   const previous = useRef<LeaderboardView | null>(null);
-  const { view, header } = useTelemetry((frame) => {
+  const { view, header, sim } = useTelemetry((frame) => {
     const next = reuseView(
       previous.current,
       leaderboardView(frame, {
@@ -49,6 +50,7 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
     previous.current = next;
     return {
       view: next,
+      sim: frame?.state.sim ?? null,
       header: sessionHeader
         ? infoItems(frame, headerIds, {
             prefs,
@@ -80,12 +82,16 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
       table.lapDecimals,
     ],
   );
+  const fields = useMemo(
+    () => fieldsForSim(settings.common.fields, sim),
+    [settings.common.fields, sim],
+  );
   const gapRows = useMemo(() => new Set(view.afterGap), [view.afterGap]);
   const rowCount = view.sections.reduce((n, s) => n + s.rows.length, 0);
 
   const common = {
     columns,
-    config: settings.common.fields,
+    config: fields,
     rowKey: (r: DriverRow) => r.carIdx,
     widthMode: table.widthMode,
     widthScalePct: table.widthScalePct,

@@ -51,7 +51,7 @@ describe("driver kit timing", () => {
     const median = samples[4] ?? 0;
     console.log(`driverRows + 60 x ${columns.length} cells: median ${median.toFixed(2)} ms`);
     // The rows alone are far cheaper; this renders every cell of every column through React.
-    expect(median).toBeLessThan(500);
+    expect(median).toBeLessThan(75);
   });
 
   it("builds 60 rows in about a millisecond", () => {
@@ -68,6 +68,6 @@ describe("driver kit timing", () => {
     const samples = Array.from({ length: 21 }, run).sort((a, b) => a - b);
     const median = samples[10] ?? 0;
     console.log(`driverRows 60 cars: median ${median.toFixed(3)} ms`);
-    expect(median).toBeLessThan(10);
+    expect(median).toBeLessThan(2);
   });
 });

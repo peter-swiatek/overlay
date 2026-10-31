@@ -178,7 +178,7 @@ describe("Deriver fuel history", () => {
     const store = new FakeStore();
     store.data.set(
       FUEL_KEY,
-      [3, 3].map((used) => ({ used, lapTimeS: null })),
+      [2.2, 2.2].map((used) => ({ used, lapTimeS: null })),
     );
     const d = new Deriver({ fuelHistory: store });
     const drive = new Drive();
@@ -188,7 +188,7 @@ describe("Deriver fuel history", () => {
     drive.tick++;
     drive.pct = 0.05;
     const on = d.next(drive.state());
-    expect(on.fuel?.fuelAvgLap).toBeCloseTo((3 + 3 + 2) / 3, 9);
+    expect(on.fuel?.fuelAvgLap).toBeCloseTo((2.2 + 2.2 + 2) / 3, 9);
     drive.tick++;
     drive.pct = 0.15;
     d.next(drive.state());

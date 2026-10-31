@@ -59,6 +59,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
 function pitWindowText(view: FuelView): string {
   const w = view.pitWindow;
   if (w === null) return NO_VALUE;
+  if (view.refuel !== null && view.refuel <= 0) return "No stop needed";
   if (!w.feasible) return "Pit window: not reachable on one stop";
   return `Laps ${w.start}–${w.end}`;
 }
@@ -92,7 +93,10 @@ function renderField(id: string, view: FuelView, fmt: Fmt, title: string): React
           </table>
         </Section>
       );
-    case "fuel-history":
+    case "fuel-history": {
+      // Bars scale against the largest lap shown, so older laps (6-10) are not squashed by a
+      // maximum from a lap that is no longer on screen.
+      const shownMax = Math.max(0, ...view.history.map((lap) => lap.used));
       return (
         <Section id={id} title={title}>
           {view.history.length === 0 ? (
@@ -104,7 +108,9 @@ function renderField(id: string, view: FuelView, fmt: Fmt, title: string): React
                   <div className="fuel-history-track">
                     <div
                       className="fuel-history-fill"
-                      style={{ height: `${(lap.fraction * 100).toFixed(0)}%` }}
+                      style={{
+                        height: `${(shownMax > 0 ? Math.min(1, lap.used / shownMax) * 100 : 0).toFixed(0)}%`,
+                      }}
                     />
                   </div>
                   <span className="fuel-small">{fmt.amount(lap.used, 2)}</span>
@@ -114,6 +120,7 @@ function renderField(id: string, view: FuelView, fmt: Fmt, title: string): React
           )}
         </Section>
       );
+    }
     case "fuel-level":
       return (
         <Section id={id} title={title}>

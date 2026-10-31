@@ -41,15 +41,26 @@ describe("FuelTracker seed", () => {
 
   it("an own lap joins the seed", () => {
     const t = new FuelTracker();
-    t.seed(seed(3, 3));
+    t.seed(seed(2.2, 2.2));
     feed(t, new FakeDriver(20, 2), 1);
     const out = t.snapshot(ctx);
     expect(out.validLapCount).toBe(1);
-    expect(out.fuelAvgLap).toBeCloseTo((3 + 3 + 2) / 3, 9);
-    expect(out.fuelMaxLap).toBe(3);
+    expect(out.fuelAvgLap).toBeCloseTo((2.2 + 2.2 + 2) / 3, 9);
+    expect(out.fuelMaxLap).toBe(2.2);
     expect(out.fuelLastLap).toBeCloseTo(2, 9);
     expect(out.recentLaps).toHaveLength(1);
     expect(out.fuelDelta).not.toBeNull();
+  });
+
+  it("is dropped when the first own lap is more than 20 % off its average", () => {
+    const far = new FuelTracker();
+    far.seed(seed(3, 3));
+    feed(far, new FakeDriver(20, 2), 1);
+    expect(far.snapshot(ctx).fuelAvgLap).toBeCloseTo(2, 9);
+    const near = new FuelTracker();
+    near.seed(seed(2.3, 2.3));
+    feed(near, new FakeDriver(20, 2), 1);
+    expect(near.snapshot(ctx).fuelAvgLap).toBeCloseTo((2.3 + 2.3 + 2) / 3, 9);
   });
 
   it("is ignored from the second own valid lap on", () => {
@@ -89,7 +100,7 @@ describe("FuelTracker seed", () => {
 
   it("takes the max over the last 5 of the seed and own laps", () => {
     const t = new FuelTracker();
-    t.seed(seed(9, 2, 2, 2, 2));
+    t.seed(seed(2.4, 2, 2, 2, 2));
     feed(t, new FakeDriver(20, 2), 1);
     expect(t.snapshot(ctx).fuelMaxLap).toBe(2);
   });

@@ -1,3 +1,4 @@
+import type { SimName } from "@overlay/sim-core/types";
 import { DataTable } from "@overlay/ui";
 import type { CSSProperties } from "react";
 import { useMemo, useRef } from "react";
@@ -8,18 +9,20 @@ import {
   InfoStrip,
   driverColumns,
   driverRowStyle,
+  fieldsForSim,
   infoItems,
   readTableOptions,
   type DriverRow,
   type InfoItem,
 } from "../shared";
 import "./relative.css";
-import { relativeView, type RelativeView } from "./view";
+import { relativeView, type RelativeRow, type RelativeView } from "./view";
 
 interface Selected {
   view: RelativeView;
   header: InfoItem[];
   footer: InfoItem[];
+  sim: SimName | null;
 }
 
 export function RelativeOverlay({ settings }: OverlayProps) {
@@ -36,7 +39,7 @@ export function RelativeOverlay({ settings }: OverlayProps) {
   const behind = optionNumber(settings, "drivers-behind");
   const hideInPits = optionBoolean(settings, "hide-in-pits");
   const gapThreat = optionBoolean(settings, "gap-threat");
-  const previous = useRef<readonly DriverRow[]>([]);
+  const previous = useRef<readonly RelativeRow[]>([]);
 
   const { prefs, livePositions, combinedLicencePill } = runtime;
   const { gapDecimals, lapDecimals, sessionDisplay } = table;
@@ -61,11 +64,16 @@ export function RelativeOverlay({ settings }: OverlayProps) {
     const ctx = { prefs, sessionDisplay, showDqLimit, now: new Date() };
     return {
       view,
+      sim: frame?.state.sim ?? null,
       header: infoItems(frame, headerIds, ctx),
       footer: infoItems(frame, footerIds, ctx),
     };
   }, 10);
-  const { view } = selected;
+  const { view, sim } = selected;
+  const fields = useMemo(
+    () => fieldsForSim(settings.common.fields, sim),
+    [settings.common.fields, sim],
+  );
 
   const columns = useMemo(() => {
     const base = driverColumns({
@@ -82,20 +90,12 @@ export function RelativeOverlay({ settings }: OverlayProps) {
         ? {
             ...column,
             render: (row: DriverRow) => (
-              <span className={threatClass(view.threats[row.carIdx])}>{column.render(row)}</span>
+              <span className={threatClass((row as RelativeRow).threat)}>{column.render(row)}</span>
             ),
           }
         : column,
     );
-  }, [
-    prefs,
-    table.nameDisplay,
-    table.nameFormat,
-    gapDecimals,
-    lapDecimals,
-    combinedLicencePill,
-    view.threats,
-  ]);
+  }, [prefs, table.nameDisplay, table.nameFormat, gapDecimals, lapDecimals, combinedLicencePill]);
 
   const style: CSSProperties | undefined =
     flagBorder && view.flagColour !== null
@@ -110,7 +110,7 @@ export function RelativeOverlay({ settings }: OverlayProps) {
       ) : (
         <DataTable
           columns={columns}
-          config={settings.common.fields}
+          config={fields}
           rows={view.rows}
           rowKey={(r) => r.carIdx}
           widthMode={table.widthMode}
