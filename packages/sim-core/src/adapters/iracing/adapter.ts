@@ -18,6 +18,7 @@ import type { IracingDriver, IracingSessionEntry, IracingSessionInfo } from "./s
 /** iRacing's "no limit" markers. */
 const LAPS_UNLIMITED = 32767;
 const TIME_UNLIMITED_S = 604800;
+const SECONDS_PER_DAY = 86400;
 
 /** irsdk_Flags bits we show. */
 const FLAG_CHECKERED = 0x1;
@@ -83,6 +84,7 @@ export class IracingAdapter {
       airTempC: r.number("AirTemp"),
       trackTempC: r.number("TrackTempCrew"),
       wetness: wetness(r.number("TrackWetness")),
+      ...weather(r),
     };
     state.flags = flags(r.number("SessionFlags"));
     state.cars = buildCars(r, info, state.playerCarIdx);
@@ -114,6 +116,8 @@ function fillSession(state: SimState, r: VarReader, info: IracingSessionInfo | n
   s.trackConfig = info?.trackConfig ?? null;
   s.trackLengthM = info?.trackLengthM ?? null;
   s.pitSpeedLimitMps = info?.pitSpeedLimitMps ?? null;
+  s.incidentLimit = info?.incidentLimit ?? null;
+  s.timeOfDayS = nonNegativeBelow(r.number("SessionTimeOfDay"), SECONDS_PER_DAY + 1);
 }
 
 function findSession(
@@ -136,6 +140,37 @@ function phase(value: number | null): SessionPhase | null {
 function wetness(value: number | null): number | null {
   if (value === null || value < 1 || value > 7) return null;
   return (value - 1) / 6;
+}
+
+/**
+ * Weather at the start/finish line. The var headers label precipitation, humidity and fog "%"
+ * but the recordings show 0..1 (humidity 0.71..0.84, precipitation and fog 0 on dry days), so
+ * they are only clamped. WindDir is in radians and drifts outside 0..2pi in recordings (6.06 to
+ * 7.26), so it is wrapped. The header text ("Wind direction at start/finish line") does not say
+ * whether it is where the wind comes from; we follow the SimState contract (from, clockwise
+ * from north) without a way to prove it from a recording.
+ */
+function weather(
+  r: VarReader,
+): Pick<
+  SimState["conditions"],
+  "precipitation" | "humidity" | "fogLevel" | "windSpeedMps" | "windDirRad"
+> {
+  const wind = r.number("WindVel");
+  const dir = r.number("WindDir");
+  return {
+    precipitation: unit(r.number("Precipitation")),
+    humidity: unit(r.number("RelativeHumidity")),
+    fogLevel: unit(r.number("FogLevel")),
+    windSpeedMps: wind === null || wind < 0 ? null : wind,
+    windDirRad: dir === null ? null : wrapRadians(dir),
+  };
+}
+
+function wrapRadians(value: number): number {
+  const full = 2 * Math.PI;
+  const wrapped = value % full;
+  return wrapped < 0 ? wrapped + full : wrapped;
 }
 
 function flags(bits: number | null): Flags | null {
@@ -196,6 +231,7 @@ function buildCar(
     car.iRating = driver.iRating;
     car.license = driver.license;
     car.isPaceCar = driver.isPaceCar;
+    car.teamName = driver.teamName;
   }
   car.position = atLeast(r.number("CarIdxPosition", carIdx), 1);
   car.classPosition = atLeast(r.number("CarIdxClassPosition", carIdx), 1);
@@ -245,6 +281,17 @@ function fillPlayer(state: SimState, r: VarReader, info: IracingSessionInfo | nu
   p.carLeftRight = !driving || lr === null ? null : (CAR_LEFT_RIGHT[lr] ?? null);
   p.yawRad = live(r.number("YawNorth"));
   p.velocityMps = live(velocity(r));
+  p.pitStallLapDistPct = info?.pitStallLapDistPct ?? null;
+  p.brakeBias = live(brakeBias(r.number("dcBrakeBias")));
+}
+
+/**
+ * dcBrakeBias is the front share in percent on most cars (55.96 in the recordings; 0 while the
+ * car is not driving). Some cars report an offset or a step instead, which cannot be read as a
+ * share, so anything outside 30..80 is unknown.
+ */
+function brakeBias(value: number | null): number | null {
+  return value === null || value < 30 || value > 80 ? null : value / 100;
 }
 
 /** Car-frame velocity: X forward, Y to the left, Z up (checked against Speed in recordings). */
