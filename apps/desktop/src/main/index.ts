@@ -164,11 +164,13 @@ if (!app.requestSingleInstanceLock()) {
     });
     appSettings.onChange(() => tray?.refresh());
 
-    const manager = new OverlayManager(
-      new LayoutStore(join(userData, "layout.json")),
-      effective.opacityWorkaround,
-      () => tray?.refresh(),
-    );
+    const manager = new OverlayManager({
+      layoutStore: new LayoutStore(join(userData, "layout.json")),
+      overlaySettings,
+      manifests: OVERLAY_MANIFESTS,
+      opacityWorkaround: effective.opacityWorkaround,
+      onStateChange: () => tray?.refresh(),
+    });
     overlays = manager;
     manager.start();
 

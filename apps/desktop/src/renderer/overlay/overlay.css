@@ -6,7 +6,8 @@ body,
   height: 100%;
   background: transparent;
   overflow: hidden;
-  font-family: "Segoe UI", system-ui, sans-serif;
+  font-family: var(--ov-font-family, "Segoe UI", system-ui, sans-serif);
+  font-weight: var(--ov-font-weight, 400);
   user-select: none;
 }
 
@@ -16,30 +17,19 @@ body,
   height: 100%;
 }
 
+/* Opacity, zoom and --ov-row-opacity are set inline by the host; the edit frame sits outside. */
+.overlay-content {
+  width: 100%;
+  height: 100%;
+}
+
 .panel {
   box-sizing: border-box;
   width: 100%;
   height: 100%;
-  background: rgba(10, 12, 16, 0.72);
-  color: #f2f4f8;
+  background: var(--ov-bg, rgba(10, 12, 16, 0.72));
+  color: var(--ov-text, #f2f4f8);
   border-radius: 6px;
-}
-
-.relative {
-  border-collapse: collapse;
-  font-size: 15px;
-  font-variant-numeric: tabular-nums;
-}
-.relative td {
-  padding: 2px 8px;
-  text-align: right;
-}
-.relative td.name {
-  text-align: left;
-  width: 100%;
-}
-.relative tr.me {
-  background: rgba(255, 196, 0, 0.28);
 }
 
 .inputs {
@@ -97,11 +87,6 @@ body,
   -webkit-app-region: no-drag;
 }
 
-.relative td.car-number {
-  border-left: 4px solid transparent;
-  text-align: center;
-}
-
 .notice {
   display: flex;
   align-items: center;
@@ -109,7 +94,7 @@ body,
   padding: 8px;
   font-size: 14px;
   text-align: center;
-  color: #c4c9d2;
+  color: var(--ov-text-muted, #c4c9d2);
 }
 
 .bar.clutch {
@@ -134,7 +119,7 @@ body,
 }
 .speed {
   font-size: 14px;
-  color: #c4c9d2;
+  color: var(--ov-text-muted, #c4c9d2);
 }
 .steer-track {
   position: relative;
