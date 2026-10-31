@@ -8,6 +8,7 @@
 import { join } from "node:path";
 import { Worker } from "node:worker_threads";
 import { Deriver } from "@overlay/sim-core";
+import { BUILD_INFO } from "../shared/build-info";
 import type { TelemetryCommand } from "../shared/telemetry-types";
 import { createWindowsSharedMemorySource } from "../capture/shm-windows";
 import { systemClock } from "../capture/shm";
@@ -31,6 +32,7 @@ function spawnSessionWorker(): WorkerLike {
 }
 
 async function main(): Promise<void> {
+  console.info(`[overlay-telemetry] version ${BUILD_INFO.displayVersion}`);
   // Messages that arrive while the shared-memory module loads are replayed once the service exists.
   const early: { command: TelemetryCommand; ports: PortLike[] }[] = [];
   const ready: { service?: TelemetryService } = {};

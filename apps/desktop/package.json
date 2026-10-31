@@ -1,6 +1,6 @@
 {
   "name": "@overlay/desktop",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "productName": "Overlay",
   "description": "Overlay desktop shell",
@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "icons": "node scripts/generate-icon.mjs",
-    "dist:win": "pnpm run build && electron-builder --win nsis --publish never"
+    "dist:win": "node scripts/dist-win.mjs"
   },
   "dependencies": {
     "koffi": "3.3.5"

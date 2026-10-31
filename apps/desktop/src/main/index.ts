@@ -8,6 +8,7 @@ import {
   utilityProcess,
   type WebContents,
 } from "electron";
+import { BUILD_INFO } from "../shared/build-info";
 import { IPC, type AppInfo } from "../shared/types";
 import { CaptureManager } from "./capture-manager";
 import { CaptureSettingsStore } from "./capture-settings";
@@ -24,6 +25,10 @@ import { buildSettingsWindowOptions } from "./window-options";
 import { ZOrderKeeper, hwndOf } from "./zorder";
 
 const EDIT_SHORTCUT = "Control+Shift+F10";
+
+console.info(
+  `[overlay] version ${BUILD_INFO.displayVersion} (${BUILD_INFO.channel}, built ${BUILD_INFO.buildDate})`,
+);
 
 // Display fallbacks must be applied before app is ready, so read them synchronously now.
 const userData = app.getPath("userData");
@@ -75,7 +80,13 @@ function deny(channel: string): never {
 function registerIpc(): void {
   ipcMain.handle(IPC.getAppInfo, (event): AppInfo => {
     if (!fromSettings(event.sender)) deny(IPC.getAppInfo);
-    return { version: app.getVersion(), display: settingsStore.load(), effective, safeMode };
+    return {
+      version: BUILD_INFO.version,
+      build: BUILD_INFO,
+      display: settingsStore.load(),
+      effective,
+      safeMode,
+    };
   });
   ipcMain.handle(IPC.setDisplaySettings, (event, patch: unknown) => {
     if (!fromSettings(event.sender)) deny(IPC.setDisplaySettings);

@@ -1,7 +1,10 @@
 appId: com.peterswiatek.overlay
 productName: Overlay
 npmRebuild: false
-publish: null
+publish:
+  provider: github
+  owner: peter-swiatek
+  repo: overlay-releases
 directories:
   output: release
 files:
