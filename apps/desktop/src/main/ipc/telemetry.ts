@@ -1,8 +1,12 @@
-import { ipcMain } from "electron";
-import type { TelemetrySourceChoice, TelemetrySourceView } from "../../shared/telemetry-types";
+import { ipcMain, type WebContents } from "electron";
+import type {
+  TelemetryEvent,
+  TelemetrySourceChoice,
+  TelemetrySourceView,
+} from "../../shared/telemetry-types";
 import { IPC } from "../../shared/types";
-import { pickReplayFile } from "../replay-dialog";
 import type { TelemetryManager } from "../telemetry-manager";
+import { pickReplayFile } from "../replay-dialog";
 import { TELEMETRY_SOURCES, type TelemetrySettings } from "../telemetry-settings";
 import type { IpcContext } from "./context";
 
@@ -10,7 +14,9 @@ export function sourceViewOf(settings: TelemetrySettings): TelemetrySourceView {
   return { source: settings.source, replayPath: settings.replayPath };
 }
 
-function isChoice(value: unknown): value is Exclude<TelemetrySourceChoice, "replay"> {
+export function isSettableSource(
+  value: unknown,
+): value is Exclude<TelemetrySourceChoice, "replay"> {
   return (
     typeof value === "string" &&
     value !== "replay" &&
@@ -18,24 +24,54 @@ function isChoice(value: unknown): value is Exclude<TelemetrySourceChoice, "repl
   );
 }
 
+export interface TelemetryIpcDeps {
+  getSettings(): TelemetrySettings;
+  updateSettings(patch: Partial<TelemetrySettings>): TelemetrySettings;
+  getStatus(): TelemetryEvent | undefined;
+  pickReplayFile(): Promise<string | null>;
+}
+
+type Handler = (sender: WebContents, ...args: unknown[]) => unknown;
+
+/** The pure handlers, keyed by channel; every one is for the settings window only. */
+export function telemetryHandlers(
+  ctx: Pick<IpcContext, "isSettingsSender" | "deny">,
+  deps: TelemetryIpcDeps,
+): Record<string, Handler> {
+  const guard = (channel: string, sender: WebContents): void => {
+    if (!ctx.isSettingsSender(sender)) ctx.deny(channel);
+  };
+  return {
+    [IPC.telemetryGetSource]: (sender) => {
+      guard(IPC.telemetryGetSource, sender);
+      return sourceViewOf(deps.getSettings());
+    },
+    [IPC.telemetrySetSource]: (sender, source) => {
+      guard(IPC.telemetrySetSource, sender);
+      if (!isSettableSource(source)) return sourceViewOf(deps.getSettings());
+      return sourceViewOf(deps.updateSettings({ source }));
+    },
+    [IPC.telemetryPickReplay]: async (sender) => {
+      guard(IPC.telemetryPickReplay, sender);
+      const path = await deps.pickReplayFile();
+      if (path === null) return sourceViewOf(deps.getSettings());
+      return sourceViewOf(deps.updateSettings({ source: "replay", replayPath: path }));
+    },
+    [IPC.telemetryGetStatus]: (sender) => {
+      guard(IPC.telemetryGetStatus, sender);
+      return deps.getStatus() ?? null;
+    },
+  };
+}
+
 export function registerTelemetryIpc(ctx: IpcContext, telemetry: TelemetryManager): void {
-  ipcMain.handle(IPC.telemetryGetSource, (event) => {
-    if (!ctx.isSettingsSender(event.sender)) ctx.deny(IPC.telemetryGetSource);
-    return sourceViewOf(telemetry.getSettings());
+  const handlers = telemetryHandlers(ctx, {
+    getSettings: () => telemetry.getSettings(),
+    updateSettings: (patch) => telemetry.updateSettings(patch),
+    getStatus: () => telemetry.getStatus(),
+    pickReplayFile,
   });
-  ipcMain.handle(IPC.telemetrySetSource, (event, source: unknown) => {
-    if (!ctx.isSettingsSender(event.sender)) ctx.deny(IPC.telemetrySetSource);
-    if (!isChoice(source)) return sourceViewOf(telemetry.getSettings());
-    return sourceViewOf(telemetry.updateSettings({ source }));
-  });
-  ipcMain.handle(IPC.telemetryPickReplay, async (event) => {
-    if (!ctx.isSettingsSender(event.sender)) ctx.deny(IPC.telemetryPickReplay);
-    const path = await pickReplayFile();
-    if (path === null) return sourceViewOf(telemetry.getSettings());
-    return sourceViewOf(telemetry.updateSettings({ source: "replay", replayPath: path }));
-  });
-  ipcMain.handle(IPC.telemetryGetStatus, (event) => {
-    if (!ctx.isSettingsSender(event.sender)) ctx.deny(IPC.telemetryGetStatus);
-    return telemetry.getStatus() ?? null;
-  });
+  for (const [channel, handler] of Object.entries(handlers)) {
+    ipcMain.handle(channel, (event, ...args: unknown[]) => handler(event.sender, ...args));
+  }
 }

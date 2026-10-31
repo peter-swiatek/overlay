@@ -39,6 +39,16 @@ describe("buildOverlayWindowOptions", () => {
 });
 
 describe("buildSettingsWindowOptions", () => {
+  it("is a resizable 920x680 window with a 760x560 minimum", () => {
+    expect(buildSettingsWindowOptions("/p/index.cjs")).toMatchObject({
+      width: 920,
+      height: 680,
+      minWidth: 760,
+      minHeight: 560,
+      resizable: true,
+    });
+  });
+
   it("is sandboxed and isolated", () => {
     expect(buildSettingsWindowOptions("/p/index.cjs").webPreferences).toMatchObject({
       contextIsolation: true,
