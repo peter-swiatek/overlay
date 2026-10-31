@@ -4,6 +4,7 @@ import {
   type FuelContext,
   type FuelOutputs,
   type FuelSample,
+  type FuelTrackerOptions,
 } from "../calc/fuel";
 import { MiniSectorRecorder, RollingLapTimes, relativeGap, type GapCarTick } from "../calc/gaps";
 import { ProximityTracker } from "../calc/proximity";
@@ -142,9 +143,20 @@ export class Deriver {
   private fuel = new FuelTracker();
   private fuelSamples = 0;
 
+  /** Same bookkeeping on LMU's virtual energy, in percent. */
+  private energy = new FuelTracker(ENERGY_OPTIONS);
+  private energySamples = 0;
+
+  /** The energy tracker, for tests that inspect lap records. */
+  get energyTracker(): FuelTracker {
+    return this.energy;
+  }
+
   private resetFuel(): void {
     this.fuel = new FuelTracker();
     this.fuelSamples = 0;
+    this.energy = new FuelTracker(ENERGY_OPTIONS);
+    this.energySamples = 0;
   }
 
   private updateFuel(
@@ -152,7 +164,10 @@ export class Deriver {
     player: Car | null,
     tickS: number | null,
   ): FuelOutputs | null {
-    const sample = player === null ? null : fuelSample(state, player, tickS, this.sessionCounter);
+    const sample =
+      player === null
+        ? null
+        : fuelSample(state, player, tickS, this.sessionCounter, state.player.fuelL);
     if (sample !== null) {
       this.fuel.update(sample);
       this.fuelSamples++;
@@ -181,16 +196,21 @@ export class Deriver {
     return s.lapsTotal === null ? null : s.lapsTotal - done - pct;
   }
 
-  /** LMU virtual energy through the fuel calculator; the fuel outputs ticket fills it in. */
+  /** LMU virtual energy through the fuel calculator, in percent; null when the car has none. */
   private updateEnergy(
     state: SimState,
     player: Car | null,
     tickS: number | null,
   ): FuelOutputs | null {
-    void state;
-    void player;
-    void tickS;
-    return null;
+    const fraction = state.player.energyFraction;
+    if (player === null || fraction === null) return null;
+    const sample = fuelSample(state, player, tickS, this.sessionCounter, fraction * 100);
+    if (sample !== null) {
+      this.energy.update(sample);
+      this.energySamples++;
+    }
+    if (this.energySamples === 0) return null;
+    return this.energy.snapshot({ lapsToGo: this.lapsToGo(state, player), tankCapacityL: 100 });
   }
 
   // --- end fuel and energy ---
@@ -270,13 +290,21 @@ const SESSION_STATE: Partial<Record<SessionPhase, number>> = {
 };
 const SESSION_STATE_OTHER = 1;
 
+/** Thresholds in percent of a full virtual energy tank (see the LMU recording check). */
+const ENERGY_OPTIONS: FuelTrackerOptions = {
+  minLapUse: 0.1,
+  maxLapUse: 50,
+  pitRefuelJump: 0.5,
+  refuelJump: 2,
+};
+
 function fuelSample(
   state: SimState,
   car: Car,
   tickS: number | null,
   sessionNum: number,
+  fuelL: number | null,
 ): FuelSample | null {
-  const fuelL = state.player.fuelL;
   if (tickS === null || fuelL === null || car.lapDistPct === null) return null;
   const phase = state.session.phase;
   return {

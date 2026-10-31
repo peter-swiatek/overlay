@@ -7,6 +7,7 @@ import {
 } from "./formulas";
 import type {
   FuelContext,
+  FuelLapUse,
   FuelInvalidReason,
   FuelLapRecord,
   FuelOutputs,
@@ -32,6 +33,8 @@ interface CurrentLap {
   startFuelL: number;
   startedOnPitRoad: boolean;
   startState: number;
+  /** Session time at the start crossing; null when the sample carried none. */
+  startTimeS: number | null;
   /** Lowest fuel seen this lap; refuel is judged by the cumulative rise above it. */
   minFuelL: number;
   refuelled: boolean;
@@ -60,6 +63,11 @@ export class FuelTracker {
   private expectCounter = false;
   private sawRefuel = false;
   private tankEstimateL: number | null = null;
+  /** Lap times live beside the records because FuelLapRecord is a frozen contract type. */
+  private readonly lapTimes = new WeakMap<FuelLapRecord, number | null>();
+  /** Completed-lap counter and session time when the current stint began. */
+  private stintStartLap = 0;
+  private stintStartTimeS: number | null = null;
 
   constructor(options: FuelTrackerOptions = {}) {
     this.minUse = options.minLapUse ?? 0.5;
@@ -77,12 +85,14 @@ export class FuelTracker {
     const prev = this.prev;
     this.prev = s;
     if (prev === null) {
+      this.startStint(s);
       const midLap = s.lapDistPct > MID_LAP_START_MIN && s.lapDistPct < MID_LAP_START_MAX;
       this.beginLap(s, midLap ? "unknownStart" : null);
       return;
     }
     if (s.sessionNum !== prev.sessionNum) {
       this.resetSession();
+      this.startStint(s);
       this.beginLap(s, "sessionChange");
       return;
     }
@@ -95,6 +105,7 @@ export class FuelTracker {
       }
       // Counter went backwards mid-session: treated like a session change.
       this.resetSession();
+      this.startStint(s);
       this.beginLap(s, "sessionChange");
       return;
     }
@@ -158,6 +169,7 @@ export class FuelTracker {
     cur.minFuelL = Math.min(cur.minFuelL, s.fuelL);
     const inPits = s.inPitStall || s.onPitRoad;
     if (rise > this.refuelJump || (inPits && rise > this.pitRefuelJump)) {
+      if (!cur.refuelled) this.startStint(s);
       cur.refuelled = true;
       this.sawRefuel = true;
     }
@@ -172,14 +184,7 @@ export class FuelTracker {
   ): void {
     const cur = this.current;
     if (cur !== null) {
-      this.laps.push({
-        lapNumber: s.lap,
-        startState: cur.startState,
-        endState: s.sessionState,
-        usedL: cur.startFuelL - s.fuelL,
-        valid: false,
-        reason,
-      });
+      this.pushLap(cur, s, cur.startFuelL - s.fuelL, reason);
     }
     this.expectWrap = false;
     this.expectCounter = false;
@@ -192,16 +197,34 @@ export class FuelTracker {
     if (cur !== null) {
       const usedL = cur.startFuelL - s.fuelL;
       const reason = this.classify(cur, usedL);
-      this.laps.push({
-        lapNumber: s.lap,
-        startState: cur.startState,
-        endState: s.sessionState,
-        usedL,
-        valid: reason === null,
-        reason,
-      });
+      this.pushLap(cur, s, usedL, reason);
     }
     this.beginLap(s, null);
+  }
+
+  private pushLap(
+    cur: CurrentLap,
+    s: FuelSample,
+    usedL: number,
+    reason: FuelInvalidReason | null,
+  ): void {
+    const record: FuelLapRecord = {
+      lapNumber: s.lap,
+      startState: cur.startState,
+      endState: s.sessionState,
+      usedL,
+      valid: reason === null,
+      reason,
+    };
+    this.laps.push(record);
+    const t = cur.startTimeS === null ? null : cleanTime(s.sessionTimeS - cur.startTimeS);
+    this.lapTimes.set(record, t);
+  }
+
+  /** A stint begins at the first sample of a session and at every detected refuel. */
+  private startStint(s: FuelSample): void {
+    this.stintStartLap = s.lap;
+    this.stintStartTimeS = Number.isFinite(s.sessionTimeS) ? s.sessionTimeS : null;
   }
 
   private classify(cur: CurrentLap, usedL: number): FuelInvalidReason | null {
@@ -221,6 +244,7 @@ export class FuelTracker {
       minFuelL: s.fuelL,
       startedOnPitRoad: s.onPitRoad,
       startState: s.sessionState,
+      startTimeS: Number.isFinite(s.sessionTimeS) ? s.sessionTimeS : null,
       refuelled: false,
       paceLap: s.isPaceLap,
       forcedReason: forced,
@@ -234,6 +258,53 @@ export class FuelTracker {
     this.expectCounter = false;
     this.sawRefuel = false;
     this.tankEstimateL = null;
+  }
+
+  /** The figures that exist from the first sample on, before any valid lap. */
+  private stintFields(): Pick<FuelOutputs, "stintLaps" | "stintTimeS"> {
+    const last = this.prev;
+    if (last === null) return { stintLaps: 0, stintTimeS: null };
+    return {
+      stintLaps: Math.max(0, last.lap - this.stintStartLap),
+      stintTimeS:
+        this.stintStartTimeS === null || !Number.isFinite(last.sessionTimeS)
+          ? null
+          : Math.max(0, last.sessionTimeS - this.stintStartTimeS),
+    };
+  }
+
+  private lapFields(valid: readonly FuelLapRecord[], ctx: FuelContext): LapFields {
+    const recent: FuelLapUse[] = valid
+      .slice(-10)
+      .reverse()
+      .map((l) => ({
+        lapNumber: l.lapNumber,
+        used: l.usedL,
+        lapTimeS: this.lapTimes.get(l) ?? null,
+      }));
+    // The reference defines no 5- or 10-lap average; plain means over the newest valid laps, fewer when
+    // the session has fewer.
+    const mean = (n: number): number | null => {
+      const use = recent.slice(0, n);
+      return use.length === 0 ? null : use.reduce((a, l) => a + l.used, 0) / use.length;
+    };
+    // The reference defines no per-hour figure: total use over total lap time, both over the valid laps
+    // that have a lap time.
+    let usedTimed = 0;
+    let timeS = 0;
+    for (const l of valid) {
+      const t = this.lapTimes.get(l) ?? null;
+      if (t === null) continue;
+      usedTimed += l.usedL;
+      timeS += t;
+    }
+    return {
+      fuelAvg5Lap: mean(5),
+      fuelAvg10Lap: mean(10),
+      recentLaps: recent,
+      lapsToGo: ctx.lapsToGo,
+      fuelPerHour: timeS > 0 ? usedTimed / (timeS / 3600) : null,
+    };
   }
 
   snapshot(ctx: FuelContext): FuelOutputs {
@@ -252,7 +323,8 @@ export class FuelTracker {
         pitWindow: null,
         tankCapacityL: ctx.tankCapacityL ?? this.tankEstimateL,
         validLapCount: valid.length,
-        ...stubFuelFields(ctx),
+        ...this.lapFields(valid, ctx),
+        ...this.stintFields(),
       };
     }
 
@@ -294,31 +366,17 @@ export class FuelTracker {
           : null,
       tankCapacityL: tank,
       validLapCount: valid.length,
-      ...stubFuelFields(ctx),
+      ...this.lapFields(valid, ctx),
+      ...this.stintFields(),
     };
   }
 }
 
-/** Placeholders for the figures the fuel outputs ticket computes. */
-function stubFuelFields(
-  ctx: FuelContext,
-): Pick<
+type LapFields = Pick<
   FuelOutputs,
-  | "fuelAvg5Lap"
-  | "fuelAvg10Lap"
-  | "recentLaps"
-  | "lapsToGo"
-  | "stintLaps"
-  | "stintTimeS"
-  | "fuelPerHour"
-> {
-  return {
-    fuelAvg5Lap: null,
-    fuelAvg10Lap: null,
-    recentLaps: [],
-    lapsToGo: ctx.lapsToGo,
-    stintLaps: 0,
-    stintTimeS: null,
-    fuelPerHour: null,
-  };
+  "fuelAvg5Lap" | "fuelAvg10Lap" | "recentLaps" | "lapsToGo" | "fuelPerHour"
+>;
+
+function cleanTime(t: number): number | null {
+  return Number.isFinite(t) && t > 0 ? t : null;
 }
