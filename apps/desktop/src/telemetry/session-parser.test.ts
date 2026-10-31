@@ -30,6 +30,7 @@ class ScriptedWorker implements WorkerLike {
     const job = this.jobs[this.jobs.length - 1] as SessionJob;
     const info = {
       trackName,
+      trackConfig: null,
       trackLengthM: null,
       pitSpeedLimitMps: null,
       currentSessionNum: null,

@@ -199,6 +199,23 @@ describe("S/F crossing slice (lap increments)", async () => {
     }
   });
 
+  it("names the sim and the layout, and reads heading and car-frame velocity", () => {
+    for (const s of states) {
+      expect(s.sim).toBe("iracing");
+      expect(s.session.trackConfig).toBe("Full Course");
+      expect(s.player.worldPos).toBeNull();
+    }
+    // At racing speed the forward component is the speed and the sideways one is small.
+    const s = states[500] as SimState;
+    const v = s.player.velocityMps;
+    expect(v).not.toBeNull();
+    expect(Math.hypot(v?.x ?? 0, v?.y ?? 0)).toBeCloseTo(s.player.speedMps ?? 0, 0);
+    expect(v?.x).toBeGreaterThan(20);
+    expect(Math.abs(v?.y ?? 99)).toBeLessThan(5);
+    expect(s.player.yawRad).toBeGreaterThanOrEqual(-Math.PI);
+    expect(s.player.yawRad).toBeLessThanOrEqual(2 * Math.PI);
+  });
+
   it("publishes the last lap time about two seconds after the crossing", () => {
     const crossed = firstIndex(states, (s) => car([s], 0, 14).lapsCompleted === 5);
     expect(car(states, crossed, 14).lastLapS).toBeCloseTo(105.6988, 3); // previous lap, not yet updated
@@ -329,6 +346,7 @@ describe("IracingAdapter on synthetic buffers", () => {
   const adapter = IracingAdapter.fromHeaderBytes(layout.header);
   const info: IracingSessionInfo = {
     trackName: "Test Ring",
+    trackConfig: "Grand Prix",
     trackLengthM: 3200,
     pitSpeedLimitMps: 20,
     currentSessionNum: 0,

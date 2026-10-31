@@ -1,0 +1,122 @@
+{
+  "version": 1,
+  "trackKey": "lmu_circuit-de-la-sarthe_13620m",
+  "trackName": "Circuit de la Sarthe (Le Mans 24h layout)",
+  "status": "derived",
+  "provisional": true,
+  "evidence": "Measured from one LMU recording at Circuit de la Sarthe (Ferrari 499P, session started 2026-10-30 08:42 UTC, 13624 m lap): the only complete lap in it, an out lap from the pit exit, using the scoring world positions (outline length 13584 m). Curvature taken from the outline with a 100 m moving average. A corner is a stretch where the radius stays under 600 m, same-direction stretches less than 100 m apart are joined, it is at least 60 m long and its tightest radius is under 350 m. Speed is not used because the lap includes a standstill. 22 corners pass; the circuit has more, the slight kinks on the Mulsanne straight and the flat-out ones before the line are left out. Only two are named, Tertre Rouge (the long right-hander at the start of the Mulsanne straight) and Mulsanne Corner (the right-hander at its far end, tightest radius 56 m after a 5.6 km straight); other names are not assigned because their position cannot be told from this one slow lap.",
+  "corners": [
+    {
+      "number": 1,
+      "startPct": 0.038,
+      "endPct": 0.052
+    },
+    {
+      "number": 2,
+      "startPct": 0.057,
+      "endPct": 0.062
+    },
+    {
+      "number": 3,
+      "startPct": 0.064,
+      "endPct": 0.071
+    },
+    {
+      "number": 4,
+      "startPct": 0.075,
+      "endPct": 0.081
+    },
+    {
+      "number": 5,
+      "startPct": 0.085,
+      "endPct": 0.097
+    },
+    {
+      "number": 6,
+      "startPct": 0.101,
+      "endPct": 0.111
+    },
+    {
+      "number": 7,
+      "name": "Tertre Rouge",
+      "startPct": 0.114,
+      "endPct": 0.151
+    },
+    {
+      "number": 8,
+      "startPct": 0.291,
+      "endPct": 0.297
+    },
+    {
+      "number": 9,
+      "startPct": 0.299,
+      "endPct": 0.306
+    },
+    {
+      "number": 10,
+      "startPct": 0.309,
+      "endPct": 0.316
+    },
+    {
+      "number": 11,
+      "startPct": 0.435,
+      "endPct": 0.451
+    },
+    {
+      "number": 12,
+      "startPct": 0.454,
+      "endPct": 0.462
+    },
+    {
+      "number": 13,
+      "name": "Mulsanne Corner",
+      "startPct": 0.56,
+      "endPct": 0.571
+    },
+    {
+      "number": 14,
+      "startPct": 0.701,
+      "endPct": 0.712
+    },
+    {
+      "number": 15,
+      "startPct": 0.716,
+      "endPct": 0.728
+    },
+    {
+      "number": 16,
+      "startPct": 0.74,
+      "endPct": 0.75
+    },
+    {
+      "number": 17,
+      "startPct": 0.834,
+      "endPct": 0.854
+    },
+    {
+      "number": 18,
+      "startPct": 0.857,
+      "endPct": 0.883
+    },
+    {
+      "number": 19,
+      "startPct": 0.886,
+      "endPct": 0.904
+    },
+    {
+      "number": 20,
+      "startPct": 0.907,
+      "endPct": 0.919
+    },
+    {
+      "number": 21,
+      "startPct": 0.967,
+      "endPct": 0.973
+    },
+    {
+      "number": 22,
+      "startPct": 0.976,
+      "endPct": 0.991
+    }
+  ]
+}

@@ -10,6 +10,7 @@ import {
   type SimState,
   type TyreCorner,
   type TyreSet,
+  type Vec3,
 } from "../../model";
 import {
   HEADER,
@@ -166,6 +167,7 @@ export class LmuDecoder {
     const playerId = playerRow === null ? null : f.i32(playerRow + VEHICLE.slotId);
     const state = emptySimState("lmu");
     state.connected = true;
+    state.sim = "lmu";
     state.tickTimeS = f.f64(SCORING_BASE + SESSION.currentEventTime);
     state.cars = cars;
     state.playerCarIdx = playerId;
@@ -177,6 +179,7 @@ export class LmuDecoder {
       wetness: clamp01(f.f64(SCORING_BASE + SESSION.averagePathWetness)),
     };
     state.flags = playerRow === null ? null : readFlags(f, playerRow);
+    state.player.worldPos = playerRow === null ? null : readWorldPos(f, playerRow);
 
     const telemetryRow = playerId === null ? null : findTelemetryRow(f, playerId);
     if (telemetryRow !== null) readPlayer(f, telemetryRow, state);
@@ -338,6 +341,8 @@ function readSession(
     lapsRemaining: lapLimited && leaderLaps !== null ? Math.max(0, maxLaps - leaderLaps) : null,
     lapsTotal: lapLimited ? maxLaps : null,
     trackName: track.length > 0 ? track : null,
+    // Neither the scoring block nor REST names the layout.
+    trackConfig: null,
     trackLengthM: trackLengthM > 0 ? trackLengthM : null,
     pitSpeedLimitMps: null,
   };
@@ -511,6 +516,12 @@ function readPlayer(f: Frame, o: number, state: SimState): void {
   player.energyFraction = energy >= 0 && energy <= 1 ? energy : null;
   player.pitLimiter = f.u8(o + TELEM.pitLimiterOn) === 1;
   player.tyres = readTyres(f, o);
+}
+
+function readWorldPos(f: Frame, row: number): Vec3 | null {
+  const o = row + VEHICLE.worldPos;
+  const pos = { x: f.f64(o), y: f.f64(o + 8), z: f.f64(o + 16) };
+  return Number.isFinite(pos.x + pos.y + pos.z) ? pos : null;
 }
 
 function readTyres(f: Frame, row: number): TyreSet | null {

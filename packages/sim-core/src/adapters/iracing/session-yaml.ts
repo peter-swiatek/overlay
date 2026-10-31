@@ -39,6 +39,8 @@ export interface IracingDriver {
 
 export interface IracingSessionInfo {
   trackName: string | null;
+  /** WeekendInfo TrackConfigName, e.g. "Full Course". */
+  trackConfig: string | null;
   trackLengthM: number | null;
   pitSpeedLimitMps: number | null;
   currentSessionNum: number | null;
@@ -67,6 +69,7 @@ export function parseSessionYaml(text: string): IracingSessionInfo {
   });
   return {
     trackName: str(weekend["TrackDisplayName"]) ?? str(weekend["TrackName"]),
+    trackConfig: str(weekend["TrackConfigName"]),
     trackLengthM: lengthToMetres(str(weekend["TrackLength"])),
     pitSpeedLimitMps: speedToMps(str(weekend["TrackPitSpeedLimit"])),
     currentSessionNum: int(session["CurrentSessionNum"]),

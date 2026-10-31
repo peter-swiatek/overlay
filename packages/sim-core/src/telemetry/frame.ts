@@ -1,6 +1,7 @@
 import type { FuelOutputs } from "../calc/fuel";
 import type { GapResult } from "../calc/gaps";
 import type { SimSource, SimState } from "../model";
+import { emptyDerivedTrack, type DerivedTrack } from "../track/tracker";
 
 export type TelemetryStatus = "live" | "waiting" | "error";
 
@@ -16,6 +17,11 @@ export interface Derived {
   fuel: FuelOutputs | null;
   /** Every other non-pace car, in the order of `state.cars`. */
   gaps: DerivedGap[];
+  /**
+   * Which track this is and whether its outline is known. The outline itself is large, so it is
+   * not in the frame: overlays ask for it with the `getTrackOutline` command.
+   */
+  track: DerivedTrack;
 }
 
 /** What the telemetry process publishes to overlay renderers. Plain structured-cloneable data. */
@@ -30,5 +36,5 @@ export interface TelemetryFrame {
 }
 
 export function emptyDerived(): Derived {
-  return { fuel: null, gaps: [] };
+  return { fuel: null, gaps: [], track: emptyDerivedTrack() };
 }
