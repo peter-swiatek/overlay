@@ -59,6 +59,18 @@ function sameRowView<Row>(a: RowViewProps<Row>, b: RowViewProps<Row>): boolean {
   );
 }
 
+/**
+ * Plain text goes in a span that can shrink and show an ellipsis: `text-overflow` does not apply
+ * to the anonymous box of text inside a flex cell. Elements (pills, badges) are left as they are.
+ */
+function cellContent(node: ReactNode): ReactNode {
+  return typeof node === "string" || typeof node === "number" ? (
+    <span className="ov-cell-text">{node}</span>
+  ) : (
+    node
+  );
+}
+
 /** One body row. Skips rendering while the row object, columns and row decoration are unchanged. */
 function RowViewInner<Row>({ row, columns, alt, own, className, style }: RowViewProps<Row>) {
   const classes = ["ov-row", alt ? "ov-row--alt" : "", own ? "ov-row--own" : "", className ?? ""];
@@ -66,7 +78,7 @@ function RowViewInner<Row>({ row, columns, alt, own, className, style }: RowView
     <div className={classes.filter(Boolean).join(" ")} style={style} role="row">
       {columns.map((column) => (
         <div key={column.id} className={`ov-cell${alignClass(column.align)}`} role="cell">
-          {column.render(row)}
+          {cellContent(column.render(row))}
         </div>
       ))}
     </div>
@@ -108,7 +120,7 @@ export function DataTable<Row>(props: DataTableProps<Row>): JSX.Element {
               className={`ov-cell${alignClass(column.align)}`}
               role="columnheader"
             >
-              {column.label}
+              {cellContent(column.label)}
             </div>
           ))}
         </div>

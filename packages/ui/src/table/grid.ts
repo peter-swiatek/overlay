@@ -11,6 +11,11 @@ export interface TableColumn<Row> {
   grow?: boolean;
   /** Typical content width in characters, for auto and compact. */
   chars: number;
+  /**
+   * Narrowest the column may get, in characters (defaults to `chars`). The column never shrinks
+   * below this, whatever the width mode, so its text stays readable.
+   */
+  minChars?: number;
   /** Custom mode width (% of the table) when FieldConfig.widthPct is null. */
   defaultWidthPct: number;
   render(row: Row): ReactNode;
@@ -30,20 +35,26 @@ export function orderedColumns<Row>(
   return out;
 }
 
-const GROW = "minmax(0, 1fr)";
-
 function round(n: number): string {
   return String(Math.round(n * 100) / 100);
 }
 
+/** The smallest track size of a column: its minimum characters plus the cell padding both sides. */
+function minTrack<Row>(column: TableColumn<Row>, scale: number): string {
+  const chars = (column.minChars ?? column.chars) * scale;
+  return `calc(${round(chars)}ch + 2 * var(--ov-cell-pad-x, 8px))`;
+}
+
 /**
- * CSS grid-template-columns for the visible columns. Rules:
- * - custom: each column is `(config.widthPct ?? defaultWidthPct) * scale / 100` as a `%`.
+ * CSS grid-template-columns for the visible columns. Every column has a floor (`minChars`, else
+ * `chars`, plus cell padding) so text stays readable at any overlay width. Rules:
+ * - custom: each column is `minmax(<floor>, (config.widthPct ?? defaultWidthPct) * scale / 100 %)`.
  *   If those add up to under 100 and a grow column exists, the first grow column becomes
- *   `minmax(0, 1fr)` and takes the rest; otherwise the percentages are used as they are.
- * - auto: `max-content` for fixed columns, `minmax(0, 1fr)` for grow columns. Scale is not used.
- * - compact: `<chars * scale / 100>ch` for fixed columns, `minmax(0, 1fr)` for grow columns.
- *   (The smaller cell padding comes from the stylesheet, not from here.)
+ *   `minmax(<floor>, 1fr)` and takes the rest. The floor grows with the scale but never shrinks.
+ * - auto: `minmax(<floor>, max-content)` for fixed columns, `minmax(<floor>, 1fr)` for grow
+ *   columns. Scale is not used.
+ * - compact: `<chars * scale / 100>ch` for fixed columns (never below the floor in characters),
+ *   `minmax(<floor>, 1fr)` for grow columns. The smaller cell padding comes from the stylesheet.
  * An empty column list gives an empty string.
  */
 export function gridTemplate<Row>(
@@ -54,17 +65,31 @@ export function gridTemplate<Row>(
 ): string {
   const visible = orderedColumns(columns, config);
   const scale = scalePct / 100;
+  const grow = (c: TableColumn<Row>, s: number): string => `minmax(${minTrack(c, s)}, 1fr)`;
   if (mode === "auto") {
-    return visible.map((c) => (c.grow ? GROW : "max-content")).join(" ");
+    return visible
+      .map((c) => (c.grow ? grow(c, 1) : `minmax(${minTrack(c, 1)}, max-content)`))
+      .join(" ");
   }
   if (mode === "compact") {
-    return visible.map((c) => (c.grow ? GROW : `${round(c.chars * scale)}ch`)).join(" ");
+    return visible
+      .map((c) =>
+        c.grow ? grow(c, 1) : `${round(Math.max(c.chars * scale, c.minChars ?? c.chars))}ch`,
+      )
+      .join(" ");
   }
+  const floorScale = Math.max(1, scale);
   const widths = visible.map((c) => {
     const own = config.find((f) => f.id === c.id)?.widthPct ?? null;
     return (own ?? c.defaultWidthPct) * scale;
   });
   const sum = widths.reduce((a, b) => a + b, 0);
   const growIndex = visible.findIndex((c) => c.grow);
-  return widths.map((w, i) => (sum < 100 && i === growIndex ? GROW : `${round(w)}%`)).join(" ");
+  return visible
+    .map((c, i) =>
+      sum < 100 && i === growIndex
+        ? grow(c, floorScale)
+        : `minmax(${minTrack(c, floorScale)}, ${round(widths[i] ?? 0)}%)`,
+    )
+    .join(" ");
 }

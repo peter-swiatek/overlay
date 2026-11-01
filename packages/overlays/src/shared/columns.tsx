@@ -71,6 +71,8 @@ type Align = "left" | "center" | "right";
 
 interface Layout {
   chars: number;
+  /** Narrowest the column may get; defaults to `chars`. */
+  minChars?: number;
   align?: Align;
   grow?: boolean;
 }
@@ -80,7 +82,7 @@ const LAYOUT: Record<DriverFieldId, Layout> = {
   "overall-position": { chars: 3, align: "center" },
   "car-number": { chars: 4, align: "center" },
   "car-class": { chars: 6, align: "center" },
-  driver: { chars: 18, align: "left", grow: true },
+  driver: { chars: 18, minChars: 10, align: "left", grow: true },
   licence: { chars: 6, align: "center" },
   irating: { chars: 6, align: "center" },
   gap: { chars: 6, align: "right" },
@@ -152,6 +154,7 @@ export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[
       align: layout.align,
       grow: layout.grow,
       chars: layout.chars,
+      minChars: layout.minChars,
       defaultWidthPct: field?.defaultWidthPct ?? 8,
       render: renderers[id],
     };

@@ -24,6 +24,13 @@
   background: color-mix(in srgb, var(--ov-row) calc(var(--ov-row-opacity, 1) * 100%), transparent);
 }
 
+.ov-cell-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .ov-table--compact .ov-cell {
   padding: 0 calc(var(--ov-cell-pad-x, 8px) / 2);
 }

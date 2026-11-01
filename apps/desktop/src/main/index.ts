@@ -118,6 +118,10 @@ function registerIpc(): void {
     if (!fromOverlay(event.sender)) deny(IPC.getEditMode);
     return overlays?.isEditMode ?? false;
   });
+  ipcMain.on(IPC.contentMinSize, (event, size: unknown) => {
+    if (!fromOverlay(event.sender)) return;
+    overlays?.setContentMinFromSender(event.sender, size);
+  });
   ipcMain.on(IPC.resizeBy, (event, dx: unknown, dy: unknown) => {
     if (!fromOverlay(event.sender)) return;
     if (typeof dx === "number" && typeof dy === "number") {

@@ -158,3 +158,36 @@ export function isReachable(bounds: Bounds, workAreas: readonly Bounds[]): boole
     return w >= 40 && h >= 40;
   });
 }
+
+/** Largest content minimum accepted from a renderer (window DIPs). */
+export const MAX_CONTENT_MIN = 4000;
+
+/**
+ * Validates a `{ width, height }` content minimum from an overlay renderer. Edges are rounded up
+ * and clamped to 0..4000 (0 means "no minimum on this axis"); anything else gives undefined.
+ */
+export function parseContentMin(value: unknown): Size | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const v = value as Record<string, unknown>;
+  const w = v["width"];
+  const h = v["height"];
+  if (!isFiniteNumber(w) || !isFiniteNumber(h)) return undefined;
+  const edge = (n: number): number => Math.min(MAX_CONTENT_MIN, Math.max(0, Math.ceil(n)));
+  return { width: edge(w), height: edge(h) };
+}
+
+/** The window minimum: the larger of the scaled manifest minimum and what the content reported. */
+export function effectiveMinSize(manifestMin: Size, scalePct: number, contentMin: Size): Size {
+  return clampSize(scaleSize(manifestMin, scalePct), contentMin);
+}
+
+/**
+ * Grows bounds to at least `min`, keeping the top-left corner, then moves them back up/left
+ * if that pushed them past the work area (never past the area's own top-left).
+ */
+export function growToMin(bounds: Bounds, min: Size, area: Bounds): Bounds {
+  const size = clampSize(bounds, min);
+  const x = Math.max(area.x, Math.min(bounds.x, area.x + area.width - size.width));
+  const y = Math.max(area.y, Math.min(bounds.y, area.y + area.height - size.height));
+  return { x, y, ...size };
+}

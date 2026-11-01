@@ -23,6 +23,12 @@ body,
   height: 100%;
 }
 
+/* Fills the window; the host briefly sets min-content on it to measure the content's minimum. */
+.overlay-fit {
+  width: 100%;
+  height: 100%;
+}
+
 .panel {
   box-sizing: border-box;
   width: 100%;

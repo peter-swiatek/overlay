@@ -1,5 +1,6 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useRef, type CSSProperties, type ReactNode } from "react";
 import type { CommonOverlaySettings, OverlayManifest } from "@overlay/overlays/contract";
+import { useReportContentMin } from "./contentMin";
 import { EditFrame } from "./EditFrame";
 
 /** Style of the wrapper that applies opacity, scale and (for tables) row opacity to the content. */
@@ -25,10 +26,15 @@ interface Props {
 
 /** Root of an overlay window: scaled, faded content with the edit frame on top, unscaled. */
 export function OverlayFrame({ manifest, common, editing, children }: Props) {
+  const fitRef = useRef<HTMLDivElement>(null);
+  // Tables may drop rows, so only their width is a hard minimum; other overlays need both.
+  useReportContentMin(fitRef, !manifest.table);
   return (
     <div className="overlay">
       <div className="overlay-content" style={contentStyle(common, manifest.table)}>
-        {children}
+        <div className="overlay-fit" ref={fitRef}>
+          {children}
+        </div>
       </div>
       {editing && <EditFrame name={manifest.title} />}
     </div>

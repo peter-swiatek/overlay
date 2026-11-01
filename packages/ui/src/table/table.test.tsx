@@ -42,32 +42,71 @@ describe("orderedColumns", () => {
   });
 });
 
+/** The floor of a column: its characters plus the cell padding on both sides. */
+const floor = (chars: number): string => `calc(${chars}ch + 2 * var(--ov-cell-pad-x, 8px))`;
+
 describe("gridTemplate", () => {
   it("custom: widths times scale; grow column takes the rest when the sum is under 100", () => {
     // name 60, pos 20 -> 80 < 100
-    expect(gridTemplate(COLUMNS, CONFIG, "custom", 100)).toBe("minmax(0, 1fr) 20%");
+    expect(gridTemplate(COLUMNS, CONFIG, "custom", 100)).toBe(
+      `minmax(${floor(20)}, 1fr) minmax(${floor(3)}, 20%)`,
+    );
     const full: FieldConfig[] = [
       { id: "pos", visible: true, widthPct: 20 },
       { id: "name", visible: true, widthPct: 50 },
       { id: "gap", visible: true, widthPct: 30 },
     ];
-    expect(gridTemplate(COLUMNS, full, "custom", 100)).toBe("20% 50% 30%");
-    expect(gridTemplate(COLUMNS, full, "custom", 50)).toBe("10% minmax(0, 1fr) 15%");
-    expect(gridTemplate(COLUMNS, full, "custom", 150)).toBe("30% 75% 45%");
+    expect(gridTemplate(COLUMNS, full, "custom", 100)).toBe(
+      `minmax(${floor(3)}, 20%) minmax(${floor(20)}, 50%) minmax(${floor(6)}, 30%)`,
+    );
+    expect(gridTemplate(COLUMNS, full, "custom", 50)).toBe(
+      `minmax(${floor(3)}, 10%) minmax(${floor(20)}, 1fr) minmax(${floor(6)}, 15%)`,
+    );
+    // The floor grows with the scale, but never shrinks below the base width.
+    expect(gridTemplate(COLUMNS, full, "custom", 150)).toBe(
+      `minmax(${floor(4.5)}, 30%) minmax(${floor(30)}, 75%) minmax(${floor(9)}, 45%)`,
+    );
+  });
+  it("custom: a tiny percentage still has a floor", () => {
+    const cfg: FieldConfig[] = [
+      { id: "pos", visible: true, widthPct: 1 },
+      { id: "gap", visible: true, widthPct: 1 },
+    ];
+    expect(gridTemplate(COLUMNS, cfg, "custom", 100)).toBe(
+      `minmax(${floor(3)}, 1%) minmax(${floor(6)}, 1%)`,
+    );
   });
   it("custom: falls back to the default width", () => {
     const cfg: FieldConfig[] = [
       { id: "pos", visible: true, widthPct: null },
       { id: "gap", visible: true, widthPct: null },
     ];
-    expect(gridTemplate(COLUMNS, cfg, "custom", 100)).toBe("10% 30%");
+    expect(gridTemplate(COLUMNS, cfg, "custom", 100)).toBe(
+      `minmax(${floor(3)}, 10%) minmax(${floor(6)}, 30%)`,
+    );
   });
-  it("auto: max-content and a flexible grow column, scale ignored", () => {
-    expect(gridTemplate(COLUMNS, CONFIG, "auto", 120)).toBe("minmax(0, 1fr) max-content");
+  it("auto: floor to max-content and a flexible grow column, scale ignored", () => {
+    expect(gridTemplate(COLUMNS, CONFIG, "auto", 120)).toBe(
+      `minmax(${floor(20)}, 1fr) minmax(${floor(3)}, max-content)`,
+    );
+  });
+  it("minChars lowers the floor below chars", () => {
+    const cols: TableColumn<Car>[] = COLUMNS.map((c) =>
+      c.id === "name" ? { ...c, minChars: 8 } : c,
+    );
+    expect(gridTemplate(cols, CONFIG, "auto", 100)).toBe(
+      `minmax(${floor(8)}, 1fr) minmax(${floor(3)}, max-content)`,
+    );
   });
   it("compact: ch widths scaled, grow column flexible", () => {
-    expect(gridTemplate(COLUMNS, CONFIG, "compact", 100)).toBe("minmax(0, 1fr) 3ch");
-    expect(gridTemplate(COLUMNS, CONFIG, "compact", 150)).toBe("minmax(0, 1fr) 4.5ch");
+    expect(gridTemplate(COLUMNS, CONFIG, "compact", 100)).toBe(`minmax(${floor(20)}, 1fr) 3ch`);
+    expect(gridTemplate(COLUMNS, CONFIG, "compact", 150)).toBe(`minmax(${floor(20)}, 1fr) 4.5ch`);
+  });
+  it("compact: never narrower than minChars", () => {
+    const cols: TableColumn<Car>[] = COLUMNS.map((c) =>
+      c.id === "pos" ? { ...c, minChars: 3 } : c,
+    );
+    expect(gridTemplate(cols, CONFIG, "compact", 50)).toBe(`minmax(${floor(20)}, 1fr) 3ch`);
   });
   it("returns an empty string without visible columns", () => {
     expect(gridTemplate(COLUMNS, [], "auto", 100)).toBe("");
@@ -100,7 +139,9 @@ describe("DataTable markup", () => {
         }
       />,
     );
-    expect(html).toContain("grid-template-columns:minmax(0, 1fr) 20%");
+    expect(html).toContain(
+      `grid-template-columns:minmax(${floor(20)}, 1fr) minmax(${floor(3)}, 20%)`,
+    );
     expect(html).toContain("--ov-section-colour:#ff0000");
     expect(html).toContain("GTP");
     expect(html).toContain("GT3");

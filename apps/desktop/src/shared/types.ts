@@ -59,6 +59,8 @@ export const IPC = {
   getEditMode: "overlay:get-edit-mode",
   editModeChanged: "overlay:edit-mode-changed",
   resizeBy: "overlay:resize-by",
+  /** Overlay renderer to main: the smallest size its content needs, in CSS px (= window DIPs). */
+  contentMinSize: "overlays:content-min-size",
   getCaptureStatus: "capture:get-status",
   captureStatusChanged: "capture:status-changed",
   getCaptureSettings: "capture:get-settings",
@@ -106,6 +108,8 @@ export interface OverlayApi {
   getEditMode(): Promise<boolean>;
   onEditModeChanged(callback: (editing: boolean) => void): () => void;
   resizeBy(dx: number, dy: number): void;
+  /** Overlay windows only: reports the smallest window size the content needs (CSS px). */
+  reportContentMinSize(size: Size): void;
   getCaptureStatus(): Promise<CaptureStatus>;
   onCaptureStatus(callback: (status: CaptureStatus) => void): () => void;
   getCaptureSettings(): Promise<CaptureSettings>;

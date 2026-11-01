@@ -1,9 +1,12 @@
 import { BrowserWindow, screen } from "electron";
 import type { OverlayInstanceSettings, OverlayManifest } from "@overlay/overlays/contract";
-import { IPC } from "../shared/types";
+import { IPC, type Size } from "../shared/types";
 import {
   clampToWorkArea,
+  effectiveMinSize,
+  growToMin,
   initialBounds,
+  parseContentMin,
   planWindowChanges,
   resizeBounds,
   scaleBounds,
@@ -32,6 +35,12 @@ interface OpenOverlay {
   manifest: OverlayManifest;
   /** The scale the window is currently sized for. */
   scalePct: number;
+  /** The smallest size the content reported it needs (window DIPs); zero until it reports. */
+  contentMin: Size;
+}
+
+function minArgs(size: Size): [number, number] {
+  return [size.width, size.height];
 }
 
 /** Owns the overlay windows: one per enabled overlay, edit mode and layout persistence. */
@@ -154,7 +163,8 @@ export class OverlayManager {
     this.layout[id] = { ...bounds, scalePct };
 
     const win = new BrowserWindow(buildOverlayWindowOptions({ bounds, preloadPath }));
-    this.open.set(id, { win, manifest, scalePct });
+    this.open.set(id, { win, manifest, scalePct, contentMin: { width: 0, height: 0 } });
+    win.setMinimumSize(...minArgs(scaleSize(manifest.minSize, scalePct)));
     win.setAlwaysOnTop(true, "screen-saver");
     win.setVisibleOnAllWorkspaces(true);
     // On Windows any setOpacity call makes the window layered, so only call it for the workaround.
@@ -202,13 +212,16 @@ export class OverlayManager {
     if (win.isDestroyed()) return;
     const current = win.getBounds();
     const area = screen.getDisplayMatching(current).workArea;
-    const min = scaleSize(manifest.minSize, toPct);
+    // The reported content minimum was measured at the old scale; it is re-measured shortly.
+    entry.contentMin = scaleSize(entry.contentMin, (toPct / entry.scalePct) * 100);
+    const min = effectiveMinSize(manifest.minSize, toPct, entry.contentMin);
     const next = clampToWorkArea(
-      scaleBounds(current, entry.scalePct, toPct, manifest.minSize),
+      growToMin(scaleBounds(current, entry.scalePct, toPct, manifest.minSize), min, area),
       area,
       min,
     );
     entry.scalePct = toPct;
+    win.setMinimumSize(...minArgs(min));
     win.setBounds(next);
     this.layout[manifest.id] = { ...next, scalePct: toPct };
     this.scheduleSave();
@@ -258,10 +271,28 @@ export class OverlayManager {
     const id = this.idOfSender(sender);
     const entry = id === undefined ? undefined : this.open.get(id);
     if (id === undefined || !entry || entry.win.isDestroyed()) return;
-    const min = scaleSize(entry.manifest.minSize, entry.scalePct);
+    const min = effectiveMinSize(entry.manifest.minSize, entry.scalePct, entry.contentMin);
     const current = entry.win.getBounds();
     const area = screen.getDisplayMatching(current).workArea;
     const next = clampToWorkArea(resizeBounds(current, dx, dy, min), area, min);
+    entry.win.setBounds(next);
+    this.layout[id] = { ...next, scalePct: entry.scalePct };
+    this.scheduleSave();
+  }
+
+  /** Handles the content's reported minimum size: raises the window minimum and grows the window. */
+  setContentMinFromSender(sender: Electron.WebContents, payload: unknown): void {
+    const reported = parseContentMin(payload);
+    const id = this.idOfSender(sender);
+    const entry = id === undefined ? undefined : this.open.get(id);
+    if (!reported || id === undefined || !entry || entry.win.isDestroyed()) return;
+    entry.contentMin = reported;
+    const min = effectiveMinSize(entry.manifest.minSize, entry.scalePct, reported);
+    entry.win.setMinimumSize(...minArgs(min));
+    const current = entry.win.getBounds();
+    if (current.width >= min.width && current.height >= min.height) return;
+    const area = screen.getDisplayMatching(current).workArea;
+    const next = growToMin(current, min, area);
     entry.win.setBounds(next);
     this.layout[id] = { ...next, scalePct: entry.scalePct };
     this.scheduleSave();

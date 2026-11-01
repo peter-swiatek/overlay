@@ -6,6 +6,9 @@ import { OVERLAY_MANIFESTS } from "@overlay/overlays/manifests";
 import type { OverlayInstanceSettings, OverlayManifest } from "@overlay/overlays/contract";
 import {
   clampToWorkArea,
+  effectiveMinSize,
+  growToMin,
+  parseContentMin,
   defaultBounds,
   initialBounds,
   isReachable,
@@ -270,5 +273,51 @@ describe("clampToWorkArea", () => {
       width: 100,
       height: 80,
     });
+  });
+});
+
+describe("content minimum size", () => {
+  it("parseContentMin rounds up, clamps to 0..4000 and rejects bad input", () => {
+    expect(parseContentMin({ width: 300.2, height: 80 })).toEqual({ width: 301, height: 80 });
+    expect(parseContentMin({ width: -5, height: 99999 })).toEqual({ width: 0, height: 4000 });
+    expect(parseContentMin({ width: Number.NaN, height: 1 })).toBeUndefined();
+    expect(parseContentMin({ width: "3", height: 1 })).toBeUndefined();
+    expect(parseContentMin(null)).toBeUndefined();
+  });
+
+  it("effectiveMinSize is the larger of scaled manifest minimum and reported content", () => {
+    const manifestMin = { width: 300, height: 160 };
+    expect(effectiveMinSize(manifestMin, 150, { width: 0, height: 0 })).toEqual({
+      width: 450,
+      height: 240,
+    });
+    expect(effectiveMinSize(manifestMin, 100, { width: 520, height: 100 })).toEqual({
+      width: 520,
+      height: 160,
+    });
+  });
+
+  it("growToMin keeps the top-left and only grows", () => {
+    const area = { x: 0, y: 0, width: 1920, height: 1080 };
+    const min = { width: 500, height: 200 };
+    expect(growToMin({ x: 100, y: 100, width: 300, height: 400 }, min, area)).toEqual({
+      x: 100,
+      y: 100,
+      width: 500,
+      height: 400,
+    });
+    const big = { x: 5, y: 6, width: 800, height: 600 };
+    expect(growToMin(big, min, area)).toEqual(big);
+  });
+
+  it("growToMin moves the window back onto the display when growing pushes it off", () => {
+    const area = { x: 1920, y: 0, width: 1920, height: 1080 };
+    expect(
+      growToMin({ x: 3700, y: 1000, width: 200, height: 70 }, { width: 500, height: 200 }, area),
+    ).toEqual({ x: 3340, y: 880, width: 500, height: 200 });
+    // Larger than the display: stays at the display's top-left.
+    expect(
+      growToMin({ x: 2000, y: 10, width: 200, height: 70 }, { width: 2500, height: 200 }, area),
+    ).toEqual({ x: 1920, y: 10, width: 2500, height: 200 });
   });
 });
