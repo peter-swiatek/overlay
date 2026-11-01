@@ -5,7 +5,7 @@ import type { TelemetryEvent, TelemetrySourceChoice } from "../../../shared/tele
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { displayPrefsOf } from "../../../shared/app-settings-types";
 import { useAppSettings } from "../controls/useAppSettings";
-import { browserTimer, createDebouncer } from "../overlays/debounce";
+import { browserTimer, createDebouncer, registerFlusher } from "../overlays/debounce";
 import { simForGame } from "../overlays/model";
 import { OverlaysForm, defaultSelection } from "../overlays/OverlaysForm";
 import { createOverlaySender } from "../overlays/sender";
@@ -45,6 +45,15 @@ export function OverlaysPage() {
     void api.telemetry.getSource().then((view) => {
       if (alive) setChoice(view.source);
     });
+    // The window can close, hide or quit with a slider change still waiting out its delay.
+    const flush = (): void => debouncer.flush();
+    const onVisibility = (): void => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    const unregister = registerFlusher(flush);
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", onVisibility);
     const offSource = api.telemetry.onSourceChanged((view) => setChoice(view.source));
     void api.telemetry.getStatus().then((ev) => {
       if (alive) setStatus(ev);
@@ -52,6 +61,10 @@ export function OverlaysPage() {
     const offStatus = api.telemetry.onStatus(setStatus);
     return () => {
       alive = false;
+      unregister();
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
       offChanged();
       offSizes();
       offSource();

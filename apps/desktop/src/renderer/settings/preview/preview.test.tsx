@@ -14,8 +14,10 @@ import {
   FALLBACK_CH_PX,
   captionText,
   computeMeasure,
+  bootFeed,
   createFeedDriver,
   createFrameStore,
+  createLazy,
   createPreviewRuntime,
   fitScale,
   previewPaused,
@@ -209,8 +211,77 @@ describe("demo feed", () => {
   });
 });
 
+describe("feed boot", () => {
+  it("starts the driver once the feed exists, unless paused", () => {
+    const starts: string[] = [];
+    const driver = { start: () => void starts.push("start") };
+    expect(
+      bootFeed(
+        () => "feed",
+        driver,
+        false,
+        () => undefined,
+      ),
+    ).toBe("feed");
+    expect(
+      bootFeed(
+        () => "feed",
+        driver,
+        true,
+        () => undefined,
+      ),
+    ).toBe("feed");
+    expect(starts).toEqual(["start"]);
+  });
+
+  it("starts nothing and reports when the feed cannot be built", () => {
+    const starts: string[] = [];
+    const errors: unknown[] = [];
+    const out = bootFeed(
+      () => {
+        throw new Error("boom");
+      },
+      { start: () => void starts.push("start") },
+      false,
+      (e) => void errors.push(e),
+    );
+    expect(out).toBeNull();
+    expect(starts).toEqual([]);
+    expect(errors).toHaveLength(1);
+  });
+
+  it("builds the shared feed once, and retries after a failure", () => {
+    let builds = 0;
+    const get = createLazy(() => {
+      builds += 1;
+      if (builds === 1) throw new Error("first fails");
+      return { id: builds };
+    });
+    expect(() => get()).toThrow();
+    const a = get();
+    expect(get()).toBe(a);
+    expect(builds).toBe(2);
+  });
+});
+
 describe("css scoping", () => {
   const dir = __dirname;
+
+  it("settings css has no bare table rules and no overlay table class names", () => {
+    const settings = join(dir, "..");
+    const files = [
+      join(settings, "settings.css"),
+      join(settings, "overlays", "overlays.css"),
+      join(settings, "overlays", "columns.css"),
+    ];
+    for (const file of files) {
+      const text = readFileSync(file, "utf8");
+      // Element rules would restyle the Fuel overlay's own table in the preview.
+      expect(text, file).not.toMatch(/^\s*(table|th|td|tr)\s*[,{:]/m);
+      // `.ov-section` and `.ov-row` are the overlay table's (display: contents).
+      expect(text, file).not.toMatch(/\.ov-(section|row)\b(?!-)/);
+    }
+  });
 
   it("never imports the overlay window stylesheet", () => {
     const sources = readdirSync(dir).filter((f) => /\.tsx?$/.test(f) && !f.includes(".test."));

@@ -3,6 +3,7 @@ import type { TelemetryEvent, TelemetrySourceChoice } from "../../../shared/tele
 import type { AppInfo, AppState } from "../../../shared/types";
 import { Segmented, Toggle } from "../controls";
 import { useAppSettings } from "../controls/useAppSettings";
+import { flushPendingSettings } from "../overlays/debounce";
 import { gameOptions, statusLabel, statusTone } from "../shell-model";
 
 export interface TopBarViewProps {
@@ -104,6 +105,12 @@ export function TopBarView(props: TopBarViewProps) {
   );
 }
 
+/** Quits after sending any slider change that is still waiting out its delay. */
+export function quitApp(quit: () => Promise<void> | void): void {
+  flushPendingSettings();
+  void quit();
+}
+
 export function TopBar() {
   const { settings } = useAppSettings();
   const [info, setInfo] = useState<AppInfo>();
@@ -146,7 +153,7 @@ export function TopBar() {
       }}
       onVisible={(overlaysVisible) => void api.appState.set({ overlaysVisible }).then(setAppState)}
       onLocked={(overlaysLocked) => void api.appState.set({ overlaysLocked }).then(setAppState)}
-      onQuit={() => void api.quit()}
+      onQuit={() => quitApp(() => api.quit())}
     />
   );
 }

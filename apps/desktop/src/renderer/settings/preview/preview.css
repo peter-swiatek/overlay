@@ -55,6 +55,10 @@
   visibility: hidden;
   width: 10ch;
   height: 0;
+  /* Same font as .ov-table, so one ch here is one ch there (the compact theme is smaller). */
+  font-family: var(--ov-font-family, inherit);
+  font-weight: var(--ov-font-weight, 500);
+  font-size: var(--ov-font-size, 14px);
 }
 
 .pv-window .panel {

@@ -40,6 +40,7 @@ describe("relaunchArgs", () => {
   it("drops the executable and --safe-mode, keeps the rest in order", () => {
     expect(relaunchArgs(["app.exe", "--safe-mode", "--foo", "bar"])).toEqual(["--foo", "bar"]);
     expect(relaunchArgs(["app.exe"])).toEqual([]);
+    expect(relaunchArgs(["app.exe", "--hidden", "--foo"])).toEqual(["--foo"]);
     expect(relaunchArgs(["app.exe", "--a", "--safe-mode", "--safe-mode"])).toEqual(["--a"]);
   });
 });

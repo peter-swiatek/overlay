@@ -6,6 +6,7 @@ import {
   decideClose,
   launchPlan,
   parseMainWindowState,
+  revealMainWindow,
   shouldMinimiseOnConnect,
 } from "./main-window";
 
@@ -14,6 +15,22 @@ function settings(startHiddenAtLogin: boolean): AppSettings {
   s.general.startHiddenAtLogin = startHiddenAtLogin;
   return s;
 }
+
+describe("revealMainWindow", () => {
+  it("maximises before showing, and only when the saved state was maximised", () => {
+    const calls: string[] = [];
+    const win = {
+      maximize: () => void calls.push("maximize"),
+      show: () => void calls.push("show"),
+      focus: () => void calls.push("focus"),
+    };
+    revealMainWindow(win, true);
+    expect(calls).toEqual(["maximize", "show", "focus"]);
+    calls.length = 0;
+    revealMainWindow(win, false);
+    expect(calls).toEqual(["show", "focus"]);
+  });
+});
 
 describe("launchPlan", () => {
   it("starts hidden for the login flag when startHiddenAtLogin is on", () => {

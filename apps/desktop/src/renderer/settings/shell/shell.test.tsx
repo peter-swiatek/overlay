@@ -2,7 +2,8 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from "rea
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { Segmented, Toggle } from "../controls";
-import { OverflowMenu, TopBarView, type TopBarViewProps } from "./TopBar";
+import { registerFlusher } from "../overlays/debounce";
+import { OverflowMenu, TopBarView, quitApp, type TopBarViewProps } from "./TopBar";
 import { DEFAULT_APP_SETTINGS } from "../../../shared/app-settings-types";
 import { WELCOME_TEXT, WelcomeCard, welcomeVisible } from "./Welcome";
 
@@ -101,6 +102,17 @@ describe("TopBarView", () => {
     const menu = find(TopBarView(p), (e) => e.type === OverflowMenu);
     (menu?.props.onQuit as () => void)();
     expect(p.onQuit).toHaveBeenCalled();
+  });
+});
+
+describe("quitApp", () => {
+  it("sends pending slider changes before it quits", () => {
+    const order: string[] = [];
+    const off = registerFlusher(() => void order.push("flush"));
+    quitApp(() => void order.push("quit"));
+    off();
+    quitApp(() => void order.push("quit"));
+    expect(order).toEqual(["flush", "quit", "quit"]);
   });
 });
 

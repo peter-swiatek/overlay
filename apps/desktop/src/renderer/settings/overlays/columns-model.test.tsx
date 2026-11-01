@@ -1,4 +1,4 @@
-import type { OverlayManifest } from "@overlay/overlays/contract";
+import type { OverlayManifest, OverlaySettingsPatch } from "@overlay/overlays/contract";
 import { columnFloorChars } from "@overlay/overlays/fields";
 import { OVERLAY_MANIFESTS } from "@overlay/overlays/manifests";
 import { applySettingsPatch, defaultInstanceSettings } from "@overlay/overlays/settings";
@@ -53,11 +53,26 @@ describe("floorPctFor", () => {
     expect(floorPctFor(leaderboard, "driver")).toBe(columnFloorPct(10, width, 7, 8, 100));
   });
 
-  it("grows with the Fine-tune scale and is 1 for unknown columns", () => {
-    const at = (widthScalePct: number) =>
-      floorPctFor(leaderboard, "gap", { tableWidthPx: 400, chPx: 7, widthScalePct });
-    expect(at(150)).toBeGreaterThan(at(100));
-    expect(at(60)).toBe(at(100));
+  it("is in the stored unit: stored width times Fine-tune draws at the floor, one less does not", () => {
+    for (const fine of [50, 75, 100, 150]) {
+      for (const id of ["gap", "last-lap", "driver"]) {
+        const inputs = { tableWidthPx: 600, chPx: 7, widthScalePct: fine };
+        const stored = floorPctFor(leaderboard, id, inputs);
+        const drawnFloor = columnFloorPct(columnFloorChars(id)!, 600, 7, 8, fine);
+        expect(stored * (fine / 100)).toBeGreaterThanOrEqual(drawnFloor - 1e-9);
+        if (stored > 1) expect((stored - 1) * (fine / 100)).toBeLessThan(drawnFloor);
+      }
+    }
+    // 150 %: the drawn floor is 10 % of the table, so a stored 7 % (drawn 10.5 %) is reachable.
+    const pos = floorPctFor(leaderboard, "position", {
+      tableWidthPx: 600,
+      chPx: 7,
+      widthScalePct: 150,
+    });
+    expect(pos).toBeLessThan(10);
+  });
+
+  it("is 1 for unknown columns", () => {
     expect(floorPctFor(leaderboard, "nope")).toBe(1);
   });
 });
@@ -174,6 +189,47 @@ describe("reorder then width", () => {
     expect(fieldsNow().map((f) => f.id)).toEqual(order);
     expect(shown[leaderboard.id]!.options["column-width"]).toBe("custom");
     expect(fieldsNow().find((f) => f.id === "gap")!.widthPct).toBe(22);
+  });
+});
+
+describe("multi-tick width drag from Auto", () => {
+  it("still sends column-width custom to main and keeps the last width", () => {
+    const timers = new Map<number, () => void>();
+    let n = 0;
+    const timer: TimerApi<number> = {
+      set: (fn) => {
+        timers.set(++n, fn);
+        return n;
+      },
+      clear: (h) => void timers.delete(h),
+    };
+    const sent: OverlaySettingsPatch[] = [];
+    let shown: AllSettings = {};
+    const sender = createOverlaySender({
+      manifests: [leaderboard],
+      debouncer: createDebouncer(timer),
+      update: async (_id, patch) => void sent.push(patch),
+      publish: (next) => (shown = next),
+    });
+    const id = leaderboard.id;
+    sender.load({ [id]: base });
+    // What ColumnEditor.changeWidth does for each slider tick.
+    for (const pct of [12, 15, 19, 22]) {
+      const mode = shown[id]!.options["column-width"] === "custom" ? "custom" : "auto";
+      const plan = planWidthChange(shown[id]!.common.fields, "gap", pct, mode);
+      sender.send(
+        id,
+        plan.setCustom ? customWidthPatch(plan.fields) : { common: { fields: plan.fields } },
+        "fields-width",
+      );
+    }
+    [...timers.values()].forEach((f) => f());
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.options).toEqual({ "column-width": "custom" });
+    expect(sent[0]!.common!.fields!.find((f) => f.id === "gap")!.widthPct).toBe(22);
+    // The echo of what main stored keeps the page on Custom.
+    sender.incoming(id, applySettingsPatch(leaderboard, base, sent[0]!));
+    expect(shown[id]!.options["column-width"]).toBe("custom");
   });
 });
 

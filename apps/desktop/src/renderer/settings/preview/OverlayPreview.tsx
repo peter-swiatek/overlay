@@ -13,8 +13,10 @@ import { PreviewStage } from "./PreviewStage";
 import {
   captionText,
   computeMeasure,
+  bootFeed,
   createFeedDriver,
   createFrameStore,
+  createLazy,
   createPreviewRuntime,
   fitScale,
   previewPaused,
@@ -34,6 +36,8 @@ export interface PreviewMeasure {
    */
   tableWidthPx: number;
   chPx: number;
+  /** The theme's horizontal cell padding in the same space; absent when it could not be read. */
+  cellPadPx?: number;
 }
 
 /**
@@ -96,6 +100,9 @@ function usePaused(): boolean {
   return paused;
 }
 
+/** One warmed-up feed for the whole settings window; the previews take turns using it. */
+const sharedDemoFeed = createLazy(() => createDemoFeed());
+
 /** Steps the demo feed into the store while not paused. The feed is built after first paint. */
 function useDemoFeed(store: FrameStore, paused: boolean): void {
   const feedRef = useRef<DemoFeed | null>(null);
@@ -117,12 +124,9 @@ function useDemoFeed(store: FrameStore, paused: boolean): void {
   useEffect(() => {
     // The warm-up simulates laps synchronously; do it after the fallback has painted.
     const timer = window.setTimeout(() => {
-      try {
-        feedRef.current = createDemoFeed();
-      } catch (err) {
-        console.error("Preview: demo feed failed; keeping the fallback frame", err);
-      }
-      if (!pausedRef.current) driver.start();
+      feedRef.current = bootFeed(sharedDemoFeed, driver, pausedRef.current, (err) =>
+        console.error("Preview: demo feed failed; keeping the fallback frame", err),
+      );
     }, 0);
     return () => {
       window.clearTimeout(timer);
@@ -226,9 +230,19 @@ export function OverlayPreview({ manifest, settings, size, onMeasure }: OverlayP
         drawnProbeWidth: probe ? probe.getBoundingClientRect().width : 0,
         fit: layout.fit,
         scalePct,
+        cellPadValue: probe
+          ? getComputedStyle(probe).getPropertyValue("--ov-cell-pad-x")
+          : undefined,
       });
       const prev = lastMeasure.current;
-      if (prev && prev.tableWidthPx === next.tableWidthPx && prev.chPx === next.chPx) return;
+      if (
+        prev &&
+        prev.tableWidthPx === next.tableWidthPx &&
+        prev.chPx === next.chPx &&
+        prev.cellPadPx === next.cellPadPx
+      ) {
+        return;
+      }
       lastMeasure.current = next;
       onMeasureRef.current(next);
     };

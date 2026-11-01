@@ -156,6 +156,7 @@ export function OverlayPanel({
           }
           tableWidthPx={measure && measure.tableWidthPx > 0 ? measure.tableWidthPx : undefined}
           chPx={measure && measure.chPx > 0 ? measure.chPx : undefined}
+          cellPadPx={measure?.cellPadPx}
         />
       )}
       {multiFields(manifest).length > 0 && (
@@ -214,8 +215,8 @@ export function OverlayPanel({
 /** A panel section that can be folded away; open by default. */
 function Collapsible({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <details className="ctl-section ov-section" open>
-      <summary className="ov-section-head">
+    <details className="ctl-section ovs-section" open>
+      <summary className="ovs-section-head">
         <h2>{title}</h2>
       </summary>
       <div className="ctl-rows">{children}</div>

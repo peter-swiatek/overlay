@@ -26,6 +26,23 @@ export function launchPlan(argv: readonly string[], settings: AppSettings): Laun
   return { showWindow: !hidden };
 }
 
+/** The slice of BrowserWindow that `revealMainWindow` drives. */
+export interface Revealable {
+  maximize(): void;
+  show(): void;
+  focus(): void;
+}
+
+/**
+ * Shows the finished window. Maximise comes first, here and not at creation: maximizing a hidden
+ * window also shows it, which would put a blank window on screen before the page has loaded.
+ */
+export function revealMainWindow(win: Revealable, maximized: boolean): void {
+  if (maximized) win.maximize();
+  win.show();
+  win.focus();
+}
+
 export interface CloseInput {
   closeAction: AppSettings["general"]["closeAction"];
   /** True once the app is quitting (tray Quit, updater, OS shutdown). */

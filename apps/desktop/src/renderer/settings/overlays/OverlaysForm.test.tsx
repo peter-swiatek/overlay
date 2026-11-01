@@ -10,7 +10,7 @@ import { DEFAULT_DISPLAY_PREFS } from "@overlay/ui/types";
 import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { FieldPicker } from "./FieldPicker";
+import { FieldPicker, parsePickDrag, pickDragType } from "./FieldPicker";
 import { SettingRow } from "./OverlayPanel";
 import { OverlaysForm } from "./OverlaysForm";
 import { testManifest, testTableManifest } from "./test-manifest";
@@ -348,6 +348,49 @@ describe("FieldPicker", () => {
     expect(box(list, "Dd")?.props.disabled).toBe(false);
     (box(list, "Dd")?.props as { onChange(): void }).onChange();
     expect(sent).toEqual([["a"]]);
+  });
+
+  it("only accepts a drop that carries this picker's own drag type", () => {
+    const sent: (readonly string[])[] = [];
+    const chips = findAll(
+      picker(["a", "b", "c"], null, (next) => void sent.push(next)),
+      (el) => el.type === "li",
+    );
+    type Drop = {
+      onDragOver(e: unknown): void;
+      onDrop(e: unknown): void;
+    };
+    const data = (map: Record<string, string>) => {
+      let prevented = false;
+      return {
+        e: {
+          preventDefault: () => (prevented = true),
+          dataTransfer: {
+            types: Object.keys(map),
+            getData: (t: string) => map[t] ?? "",
+          },
+        },
+        prevented: () => prevented,
+      };
+    };
+    const target = chips[1]!.props as unknown as Drop;
+    const own = pickDragType("k");
+    // Same picker: accepted, and the chip at 0 moves to 1.
+    const ok = data({ [own]: "0" });
+    target.onDragOver(ok.e);
+    expect(ok.prevented()).toBe(true);
+    target.onDrop(ok.e);
+    expect(sent).toEqual([["b", "a", "c"]]);
+    // Another picker's chip, a text-less drag (column handle) and a stale index do nothing.
+    const other = data({ [pickDragType("other")]: "2" });
+    target.onDragOver(other.e);
+    expect(other.prevented()).toBe(false);
+    target.onDrop(other.e);
+    target.onDrop(data({}).e);
+    target.onDrop(data({ [own]: "9" }).e);
+    expect(sent).toHaveLength(1);
+    expect(parsePickDrag("", 3)).toBeNull();
+    expect(parsePickDrag("2", 3)).toBe(2);
   });
 
   it("ticking appends, and reorder keeps the order within the maximum", () => {

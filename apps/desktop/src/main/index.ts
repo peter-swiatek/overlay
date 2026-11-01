@@ -32,6 +32,7 @@ import {
   decideClose,
   launchPlan,
   loadMainWindowState,
+  revealMainWindow,
   saveMainWindowState,
   shouldMinimiseOnConnect,
 } from "./main-window";
@@ -116,11 +117,7 @@ function showMainWindow(): void {
   );
   const win = new BrowserWindow(buildMainWindowOptions(preloadPath, state));
   mainWindow = win;
-  if (state.maximized) win.maximize();
-  win.once("ready-to-show", () => {
-    win.show();
-    win.focus();
-  });
+  win.once("ready-to-show", () => revealMainWindow(win, state.maximized));
   let saveTimer: NodeJS.Timeout | undefined;
   const scheduleSave = (): void => {
     clearTimeout(saveTimer);
@@ -147,6 +144,10 @@ function showMainWindow(): void {
     } else if (decision.quit) {
       app.quit();
     }
+  });
+  // Windows log-off or shutdown: let the window close instead of hiding it to the tray.
+  win.on("session-end", () => {
+    quitting = true;
   });
   win.on("closed", () => {
     clearTimeout(saveTimer);

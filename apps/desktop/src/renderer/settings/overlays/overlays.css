@@ -40,23 +40,23 @@
     padding-bottom: 8px;
   }
 }
-.ov-section > summary {
+.ovs-section > summary {
   cursor: pointer;
   list-style: none;
 }
-.ov-section > summary::-webkit-details-marker {
+.ovs-section > summary::-webkit-details-marker {
   display: none;
 }
-.ov-section > summary h2 {
+.ovs-section > summary h2 {
   display: inline;
 }
-.ov-section > summary h2::before {
+.ovs-section > summary h2::before {
   content: "\25B8";
   display: inline-block;
   width: 1em;
   color: var(--muted);
 }
-.ov-section[open] > summary h2::before {
+.ovs-section[open] > summary h2::before {
   content: "\25BE";
 }
 .ov-multi-count {

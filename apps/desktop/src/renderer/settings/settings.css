@@ -429,22 +429,22 @@ input:disabled {
 section > h2 {
   font-size: 15px;
 }
-table {
+.stats-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
-th,
-td {
+.stats-table th,
+.stats-table td {
   text-align: right;
   padding: 3px 6px;
   border-bottom: 1px solid var(--border);
 }
-th:first-child,
-td:first-child {
+.stats-table th:first-child,
+.stats-table td:first-child {
   text-align: left;
 }
-.total td {
+.stats-table .total td {
   font-weight: 600;
 }

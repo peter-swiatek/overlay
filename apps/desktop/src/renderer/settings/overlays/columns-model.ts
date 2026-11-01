@@ -20,7 +20,7 @@ export const FALLBACK_CELL_PAD_PX = 8;
 export const GROW_FIELD_ID = "driver";
 
 /**
- * Narrowest width (whole %) the slider allows for a column. Table width falls back to the overlay's
+ * Narrowest width (whole %, in the stored unit the slider edits) the slider allows for a column. Table width falls back to the overlay's
  * window width and ch to 7 px. Columns without a known floor (not a driver column) get 1.
  */
 export function floorPctFor(
@@ -33,13 +33,18 @@ export function floorPctFor(
   const chars = driverFloor ?? def?.minChars ?? def?.chars;
   if (chars === undefined) return 1;
   const width = inputs.tableWidthPx ?? manifest.defaultSize.width;
-  return columnFloorPct(
+  const fineTune = inputs.widthScalePct ?? 100;
+  const drawn = columnFloorPct(
     chars,
     width,
     inputs.chPx ?? FALLBACK_CH_PX,
     inputs.cellPadPx ?? FALLBACK_CELL_PAD_PX,
-    inputs.widthScalePct ?? 100,
+    fineTune,
   );
+  // The grid draws a stored width times the Fine-tune scale, so convert the drawn floor back
+  // to the stored unit the slider edits.
+  if (!(fineTune > 0)) return drawn;
+  return Math.min(100, Math.max(1, Math.ceil((drawn * 100) / fineTune - 1e-9)));
 }
 
 /** The width a slider shows: the stored or default width, never below the floor. */

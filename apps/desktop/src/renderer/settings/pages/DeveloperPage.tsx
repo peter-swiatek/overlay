@@ -132,7 +132,7 @@ function CpuCheckResult({ result }: { result: PerfCheckResult }) {
         <strong>{result.budgetPct.toFixed(2)} %</strong> of the machine (target {result.targetPct} %
         or less). {result.cores} cores, source {result.source}.
       </p>
-      <table>
+      <table className="stats-table">
         <thead>
           <tr>
             <th>Phase</th>

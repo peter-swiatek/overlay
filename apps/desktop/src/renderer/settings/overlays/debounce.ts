@@ -17,6 +17,22 @@ export interface Debouncer {
   flush(): void;
 }
 
+const flushers = new Set<() => void>();
+
+/**
+ * Registers something with unsent changes (a debouncer). `flushPendingSettings()` runs every
+ * registered one: call it before the window goes away, e.g. on Quit. Returns the unregister.
+ */
+export function registerFlusher(flush: () => void): () => void {
+  flushers.add(flush);
+  return () => void flushers.delete(flush);
+}
+
+/** Sends every pending debounced change now. Safe to call at any time. */
+export function flushPendingSettings(): void {
+  for (const flush of [...flushers]) flush();
+}
+
 export function createDebouncer<H>(timer: TimerApi<H>): Debouncer {
   const pending = new Map<string, { handle: H; run: () => void }>();
   return {

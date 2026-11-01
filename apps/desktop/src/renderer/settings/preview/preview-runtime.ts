@@ -72,15 +72,23 @@ export interface MeasureInput {
   drawnProbeWidth: number;
   fit: number;
   scalePct: number;
+  /** The theme's `--ov-cell-pad-x` as read from the probe, e.g. "5px"; absent when unset. */
+  cellPadValue?: string;
 }
 
 /** The numbers reported through `onMeasure`, rounded so tiny jitter does not re-report. */
-export function computeMeasure(input: MeasureInput): { tableWidthPx: number; chPx: number } {
+export function computeMeasure(input: MeasureInput): {
+  tableWidthPx: number;
+  chPx: number;
+  cellPadPx?: number;
+} {
   const table = toOverlayPx(input.drawnTableWidth, input.fit, input.scalePct);
   const ch = toOverlayPx(input.drawnProbeWidth / 10, input.fit, input.scalePct);
+  const pad = parseFloat(input.cellPadValue ?? "");
   return {
     tableWidthPx: Math.round(table * 10) / 10,
     chPx: ch > 0 ? Math.round(ch * 100) / 100 : FALLBACK_CH_PX,
+    ...(pad > 0 ? { cellPadPx: pad } : {}),
   };
 }
 
@@ -142,6 +150,40 @@ export interface DriverOptions {
   onFrame(frame: TelemetryFrame): void;
   timers: Timers;
   hz?: number;
+}
+
+/**
+ * Builds a value once and hands the same one out afterwards. A failed build is not remembered,
+ * so the next call tries again. The demo feed's warm-up takes 50 to 150 ms, so the previews
+ * (one per overlay selection) share one feed.
+ */
+export function createLazy<T>(create: () => T): () => T {
+  let value: { v: T } | null = null;
+  return () => {
+    if (value === null) value = { v: create() };
+    return value.v;
+  };
+}
+
+/**
+ * Builds the feed and starts the driver. When the feed cannot be built nothing is started and
+ * null comes back, so a failed preview never keeps a timer running.
+ */
+export function bootFeed<F>(
+  create: () => F,
+  driver: { start(): void },
+  paused: boolean,
+  onError: (err: unknown) => void,
+): F | null {
+  let feed: F;
+  try {
+    feed = create();
+  } catch (err) {
+    onError(err);
+    return null;
+  }
+  if (!paused) driver.start();
+  return feed;
 }
 
 /** Steps the demo feed at a fixed rate; `stop()` is what pausing does. */

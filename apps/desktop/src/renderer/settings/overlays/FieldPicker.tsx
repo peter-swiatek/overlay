@@ -42,9 +42,26 @@ export function optionList(
   });
 }
 
+/**
+ * The drag type for one picker. It carries the setting's key (lower-cased, as the browser does
+ * to drag types), so a chip from another list, or a drag that is not a chip at all (a column
+ * handle), is never accepted.
+ */
+export function pickDragType(fieldKey: string): string {
+  return `application/x-ov-pick.${fieldKey.toLowerCase()}`;
+}
+
+/** The dragged chip's index from a drop's data, or null when it is not a valid index here. */
+export function parsePickDrag(data: string, length: number): number | null {
+  if (!/^\d+$/.test(data)) return null;
+  const from = Number(data);
+  return from < length ? from : null;
+}
+
 // No hooks here, so the tree can be inspected without a DOM: the drag source index travels in
 // the drag event's data.
 export function FieldPicker({ field, values, sim, disabled, onChange }: FieldPickerProps) {
+  const dragType = pickDragType(field.key);
   const full = field.max !== undefined && values.length >= field.max;
   const labelOf = (v: string): string => field.options.find((o) => o.value === v)?.label ?? v;
   return (
@@ -60,14 +77,14 @@ export function FieldPicker({ field, values, sim, disabled, onChange }: FieldPic
               key={v}
               className="ov-chip"
               draggable={!disabled}
-              onDragStart={(e) => e.dataTransfer.setData("text/plain", String(i))}
+              onDragStart={(e) => e.dataTransfer.setData(dragType, String(i))}
               onDragOver={(e) => {
-                if (!disabled) e.preventDefault();
+                if (!disabled && e.dataTransfer.types.includes(dragType)) e.preventDefault();
               }}
               onDrop={(e) => {
                 e.preventDefault();
-                const from = Number(e.dataTransfer.getData("text/plain"));
-                if (!disabled && Number.isInteger(from)) {
+                const from = parsePickDrag(e.dataTransfer.getData(dragType), values.length);
+                if (!disabled && from !== null) {
                   onChange(reorderPick(values, from, i, field.max));
                 }
               }}
