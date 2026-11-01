@@ -1,0 +1,82 @@
+/*
+ * Scoped to the preview. The overlay window's stylesheet (renderer/overlay/overlay.css) is not
+ * imported here: its `html, body, #root` rules would restyle the settings window. Overlay
+ * components bring their own `ov-` / module CSS; only the shared `.panel` shell is mirrored.
+ */
+.pv-root {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pv-pane {
+  /* Checkerboard hints that the overlay is see-through on the game. */
+  background: repeating-conic-gradient(rgba(128, 128, 128, 0.14) 0% 25%, transparent 0% 50%) 0 0 /
+    16px 16px;
+  border: 1px solid var(--border, rgba(128, 128, 128, 0.3));
+  border-radius: 8px;
+  padding: 12px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 80px;
+}
+
+.pv-sizer {
+  position: relative;
+  flex: none;
+}
+
+.pv-scale {
+  transform-origin: 0 0;
+}
+
+.pv-window {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  user-select: none;
+  pointer-events: none;
+  font-family: var(--ov-font-family, "Segoe UI", system-ui, sans-serif);
+  font-weight: var(--ov-font-weight, 400);
+  color: var(--ov-text, #f2f4f8);
+}
+
+.pv-content,
+.pv-fit {
+  width: 100%;
+  height: 100%;
+}
+
+.pv-ch-probe {
+  position: absolute;
+  visibility: hidden;
+  width: 10ch;
+  height: 0;
+}
+
+.pv-window .panel {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  background: var(--ov-bg, rgba(10, 12, 16, 0.72));
+  color: var(--ov-text, #f2f4f8);
+  border-radius: 6px;
+}
+
+.pv-window .notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.pv-caption {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.7;
+}
