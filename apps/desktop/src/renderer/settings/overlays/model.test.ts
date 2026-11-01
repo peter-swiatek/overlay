@@ -11,14 +11,18 @@ import {
   addPick,
   fromDisplay,
   isAvailableIn,
+  isSegmentedSelect,
   listOverlays,
   moveField,
   movePick,
+  multiFields,
   panelSections,
+  pickCounter,
   removePick,
+  reorderPick,
   setFieldPatch,
   simBadge,
-  simFromSource,
+  simForGame,
   toDisplay,
 } from "./model";
 import { testManifest } from "./test-manifest";
@@ -49,6 +53,12 @@ describe("panelSections", () => {
     expect(titles).toEqual(["Layout", "Colours", "Options"]);
     expect(panelSections(testManifest)[0]?.fields.map((f) => f.key)).toEqual(["size", "mode"]);
   });
+
+  it("leaves multi settings to the Header and footer section", () => {
+    expect(multiFields(testManifest).map((f) => f.key)).toEqual(["extras"]);
+    const keys = panelSections(testManifest).flatMap((s) => s.fields.map((f) => f.key));
+    expect(keys).not.toContain("extras");
+  });
 });
 
 describe("sims", () => {
@@ -58,11 +68,46 @@ describe("sims", () => {
     expect(simBadge(["iracing", "lmu"])).toBe("iRacing / LMU only");
     expect(isAvailableIn(undefined, "lmu")).toBe(true);
     expect(isAvailableIn(["lmu"], "iracing")).toBe(false);
+    expect(isAvailableIn(["lmu"], null)).toBe(true);
   });
 
-  it("defaults the filter from the telemetry source", () => {
-    expect(simFromSource("lmu")).toBe("lmu");
-    for (const s of ["iracing", "replay", "mock", null]) expect(simFromSource(s)).toBe("iracing");
+  it("follows the picked game, else the connected sim, else nothing", () => {
+    const live = (source: "iracing" | "lmu" | "mock" | "replay" | null) =>
+      ({ status: "live", source }) as const;
+    expect(simForGame("lmu", live("iracing"))).toBe("lmu");
+    expect(simForGame("iracing", null)).toBe("iracing");
+    expect(simForGame("auto", live("lmu"))).toBe("lmu");
+    expect(simForGame("auto", live("iracing"))).toBe("iracing");
+    expect(simForGame("auto", null)).toBeNull();
+    expect(simForGame("auto", { status: "waiting", source: "lmu" })).toBeNull();
+    expect(simForGame("auto", live("mock"))).toBeNull();
+    expect(simForGame("mock", live("mock"))).toBeNull();
+    expect(simForGame("replay", live("replay"))).toBeNull();
+  });
+});
+
+describe("pickers and segmented selects", () => {
+  it("counts picks", () => {
+    expect(pickCounter(3, 5)).toBe("3 of 5");
+    expect(pickCounter(2)).toBe("2 picked");
+  });
+
+  it("reorders by drag and keeps the maximum", () => {
+    expect(reorderPick(["a", "b", "c"], 0, 2, 3)).toEqual(["b", "c", "a"]);
+    expect(reorderPick(["a", "b", "c"], 2, 0)).toEqual(["c", "a", "b"]);
+    expect(reorderPick(["a", "b", "c"], 0, 2, 3)).toHaveLength(3);
+    expect(reorderPick(["a", "b"], 0, 5)).toEqual(["a", "b"]);
+  });
+
+  it("uses a segmented control for up to three plain options", () => {
+    const select = (options: { value: string; label: string; sims?: ["lmu"] }[]) =>
+      ({ key: "k", label: "K", kind: "select", default: "a", options }) as const;
+    const o = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({ value: `v${i}`, label: `V${i}` }));
+    expect(isSegmentedSelect(select(o(2)))).toBe(true);
+    expect(isSegmentedSelect(select(o(3)))).toBe(true);
+    expect(isSegmentedSelect(select(o(4)))).toBe(false);
+    expect(isSegmentedSelect(select([{ value: "a", label: "A", sims: ["lmu"] }]))).toBe(false);
   });
 });
 
