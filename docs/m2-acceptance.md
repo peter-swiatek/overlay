@@ -105,7 +105,7 @@ The option list from the requirements catalogue. "Left out" means we decided not
 
 - [ ] Appearance page: the preset gallery lists the presets. Clicking one recolours every open overlay at once.
 - [ ] Font (all four: Manrope, Oswald, Inter, Barlow Condensed), weight, and Compact mode changes show in open overlays. Each font really renders (not a fallback) in the gallery and in the overlays.
-- [ ] Editing a preset's font or colour creates exactly ONE "(custom)" copy and activates it; further edits change that copy, no second fork.
+- [ ] Built-in themes are read-only: with a preset active, the colour editor, font, weight and Compact mode controls are disabled and a note says built-in themes can't be changed. "New theme from this…" asks for a name (default "<preset> copy"), creates the theme and makes it active; its controls are editable. "New theme" is also available while a custom theme is active. Creating a 51st theme shows the 50-theme limit error.
 - [ ] Switching presets in the gallery while an edit is still pending does not put the edit on the newly selected theme.
 - [ ] Colour editor: editing a colour updates open overlays once per release of the picker (not on every drag step). Contrast warnings appear for low-contrast pairs. The live preview matches.
 - [ ] Locked colours (licence classes, flags and similar) cannot be edited in the editor.

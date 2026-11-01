@@ -290,9 +290,11 @@ export function ColourInput({
   onReset,
   resetLabel,
   label,
+  disabled,
 }: {
   value: string;
   onChange(next: string): void;
+  disabled?: boolean;
   allowAlpha?: boolean;
   onReset?: () => void;
   resetLabel?: string;
@@ -340,6 +342,7 @@ export function ColourInput({
       <input
         type="text"
         aria-label={name("(hex)", "Colour (hex)")}
+        disabled={disabled}
         value={draft ?? value}
         spellCheck={false}
         onChange={(e) => {
@@ -358,6 +361,7 @@ export function ColourInput({
         ref={pickerRef}
         type="color"
         aria-label={name("picker", "Colour picker")}
+        disabled={disabled}
         value={picked ?? (HEX_RGB.test(rgb) ? rgb : "#000000")}
         onChange={(e) => {
           setDraft(null);
@@ -369,6 +373,7 @@ export function ColourInput({
       {onReset && (
         <button
           type="button"
+          disabled={disabled}
           onClick={() => {
             setDraft(null);
             onReset();

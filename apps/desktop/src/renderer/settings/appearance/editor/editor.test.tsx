@@ -191,18 +191,25 @@ describe("editor render", () => {
     expect(render(stateOf(themed.id, [themed]))).toContain("--ov-accent:#ff00aa");
   });
 
-  it("disables Rename and Delete and shows the fork note for a preset", () => {
+  it("locks colours, rename and delete and shows the note for a preset", () => {
     const html = render(stateOf("graphite"));
-    expect(html).toContain("Presets never change; your first edit makes a custom copy.");
+    expect(html).toContain("Built-in themes can&#x27;t be changed.");
+    expect(html).not.toContain("first edit makes a custom copy");
     expect(html).toMatch(/<input[^>]*aria-label="Theme name"[^>]*disabled/);
     expect(html).toMatch(/<button[^>]*data-variant="danger"[^>]*disabled=""[^>]*>Delete/);
+    const tokens = html.slice(html.indexOf('class="ed-tokens"'), html.indexOf("ed-manage"));
+    const inputs = tokens.match(/<input[^>]*>/g)!;
+    expect(inputs.length).toBeGreaterThan(0);
+    expect(inputs.every((i) => i.includes("disabled"))).toBe(true);
   });
 
-  it("enables Rename and Delete and hides the note for a custom theme", () => {
+  it("enables colours, rename and delete and hides the note for a custom theme", () => {
     const html = render(stateOf(custom.id, [custom]));
-    expect(html).not.toContain("Presets never change");
+    expect(html).not.toContain("Built-in themes");
     expect(html).not.toMatch(/aria-label="Theme name"[^>]*disabled/);
     expect(html).not.toMatch(/data-variant="danger"[^>]*disabled/);
+    const tokens = html.slice(html.indexOf('class="ed-tokens"'), html.indexOf("ed-manage"));
+    expect(tokens).not.toContain("disabled");
   });
 
   it("shows a warning next to Text", () => {
@@ -222,7 +229,7 @@ describe("editor render", () => {
     render(stateOf("graphite"));
     vi.unstubAllGlobals();
     expect(html).toContain("Edit colours");
-    expect(html).not.toContain("Presets never change");
+    expect(html).not.toContain("Built-in themes");
     expect(doc.documentElement).toEqual({});
   });
 });
