@@ -3,7 +3,7 @@ import { DRIVER_FIELD_IDS, driverFields, type DriverFieldId } from "../shared/fi
 import { HEADER_FIELD_OPTIONS } from "../shared/info";
 import { TABLE_OPTION_FIELDS } from "../shared/options";
 
-// The reference: "as Leaderboard, minus class and overall columns", in kit order.
+// Reference: "as Leaderboard, minus class and overall columns", in kit order.
 const COLUMN_IDS: readonly DriverFieldId[] = DRIVER_FIELD_IDS.filter(
   (id) => id !== "overall-position" && id !== "car-class",
 );

@@ -16,7 +16,7 @@ export function usableReference(ref: GapReferenceLap | undefined): ref is GapRef
   );
 }
 
-/** The reference lap-time chain: car average, car best, class best, session best, 90 s. */
+/** Lap-time chain: car average, car best, class best, session best, 90 s. */
 export function lapTimeChain(
   average: number | null | undefined,
   best: number | null | undefined,

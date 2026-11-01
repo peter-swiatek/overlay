@@ -32,7 +32,7 @@ export interface RelativeView {
   flagColour: string | null;
 }
 
-// Default chosen by the orchestrator, not confirmed by Peter (The reference threat rule is undocumented):
+// Default chosen by the orchestrator, not confirmed by Peter (the reference threat rule is undocumented):
 // a car behind within 1.0 s shows red, within 2.0 s yellow. Cars ahead are never coloured.
 const RED_WITHIN_S = 1.0;
 const YELLOW_WITHIN_S = 2.0;

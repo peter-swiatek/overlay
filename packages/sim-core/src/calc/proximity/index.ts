@@ -6,7 +6,7 @@ export * from "./types";
 
 /**
  * Typical car length. GT3 is about 4.6 m, Hypercar about 5.0 m; per-class lengths can come later.
- * The reference reference gives no formula for the spotter, so this and the thresholds below are our choice.
+ * The reference gives no formula for the spotter, so this and the thresholds below are our choice.
  */
 export const CAR_LENGTH_M = 4.8;
 const NEARBY_M = 20;

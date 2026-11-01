@@ -53,9 +53,9 @@ export const EDIT_SAMPLE: PitSpeedView = {
 };
 
 /**
- * Distance to the player's pit box. The reference gives no formula: we take the forward lap-fraction
+ * Distance to the player's pit box. No reference formula: we take the forward lap-fraction
  * difference (wrapped over the S/F line) times the track length. It is shown whenever the car
- * is on pit road and the box position is known (The reference gives no cutoff).
+ * is on pit road and the box position is known (no reference cutoff).
  */
 function distanceToBox(
   onPitRoad: boolean,

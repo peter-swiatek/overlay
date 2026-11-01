@@ -1,5 +1,5 @@
 /**
- * Relative gap module (The reference overlay two-tier gap).
+ * Relative gap module (two-tier gap).
  *
  * SIGN CONVENTION (single source of truth for this module):
  *   gap = focusTime - targetTime   (mini-sector tier)

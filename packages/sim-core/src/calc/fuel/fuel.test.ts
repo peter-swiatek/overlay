@@ -7,7 +7,7 @@ import {
 } from "./index";
 import { FakeDriver, feed } from "./testHelpers";
 
-describe("The reference doc example", () => {
+describe("reference doc example", () => {
   it("2.5 L/lap with fuel for 3 laps targets 1.875 L/lap to make 4", () => {
     const t = new FuelTracker();
     feed(t, new FakeDriver(12.5, 2.5), 2);

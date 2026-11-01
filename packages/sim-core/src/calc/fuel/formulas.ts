@@ -44,7 +44,7 @@ export function computeRefuel(input: {
 }
 
 /**
- * The reference +1 lap target generalised (`currentFuel / (floor(lapsRemaining) + 1)`): the per-lap use
+ * The +1 lap target generalised (`currentFuel / (floor(lapsRemaining) + 1)`): the per-lap use
  * that stretches the fuel to `floor(lapsRemaining) + extra` laps, for each extra asked for.
  * Targets that would need zero or fewer laps are left out.
  */
@@ -63,7 +63,7 @@ export function computeLapTargets(
 }
 
 /**
- * Laps of fuel per full tank at a given use: The reference `maxLapsPerTank` (`tankCapacity / fuelAvgLap`)
+ * Laps of fuel per full tank at a given use: the reference `maxLapsPerTank` (`tankCapacity / fuelAvgLap`)
  * from the pit window, shown as the "stint" column. Null when either input is unknown.
  */
 export function lapsPerTank(tankCapacity: number | null, perLap: number | null): number | null {
@@ -72,7 +72,7 @@ export function lapsPerTank(tankCapacity: number | null, perLap: number | null):
 }
 
 /**
- * The reference pit window. `currentLap` is completed laps, `totalLaps` the race distance in laps
+ * Pit window. `currentLap` is completed laps, `totalLaps` the race distance in laps
  * (completed + lap fraction + laps to go). End keeps a one-lap buffer; start is the earliest lap from which one
  * full tank still reaches the finish.
  */
@@ -97,7 +97,7 @@ function round9(v: number): number {
   return Math.round(v * 1e9) / 1e9;
 }
 
-/** The reference tank estimate; only right before the first refuel. */
+/** Tank estimate; only right before the first refuel. */
 export function estimateFuelTankCapacity(
   currentFuelL: number,
   completedLaps: number,

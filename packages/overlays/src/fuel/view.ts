@@ -12,7 +12,7 @@ import {
  *
  * Defaults chosen by the orchestrator, not yet confirmed by Peter:
  *  - "Max" basis of the usage bars (Fuel history and Usage) is FuelOutputs.fuelMaxLap, the maximum
- *    per-lap use over the last 5 valid laps (The reference "Fuel max lap"). The reference "Max basis: Session /
+ *    per-lap use over the last 5 valid laps ("Fuel max lap"). The "Max basis: Session /
  *    Tank" select is therefore not offered. The fuel level bar is a tank gauge: 100 % = capacity.
  *  - Safety margin defaults to 1 lap (see manifest.ts).
  */
@@ -51,7 +51,7 @@ export interface FuelView {
   lapsLeft: { avg: number | null; last: number | null; worst: number | null };
   /** Per value: "gain" when it covers lapsToGo + safety margin, "loss" when not, null when unknown. */
   lapsLeftState: { avg: Tone; last: Tone; worst: Tone };
-  /** Null until 2 valid laps (The reference). */
+  /** Null until 2 valid laps. */
   pitWindow: FuelPitWindow | null;
   refuel: number | null;
   usage: { avg10: number | null; avg5: number | null; last: number | null };
@@ -103,7 +103,7 @@ export function fuelView(frame: TelemetryFrame | null, options: FuelViewOptions)
     label,
     perLap: amount(perLap),
     laps: laps(current === null || perLap === null ? null : fuelLapsRemaining(current, perLap)),
-    // The reference: "stint" = laps per full tank.
+    // "Stint" = laps per full tank.
     stintLaps: laps(lapsPerTank(capacity, perLap)),
     refuel: amount(
       computeRefuel({

@@ -2,7 +2,7 @@
 
 Goal: prove the five core overlays (Leaderboard, Relative, Spotter, Pit Speed, Fuel Calculator), the theme system, the settings pages and the display fallbacks work on real iRacing and LMU. Record results next to each line, as in the M1 checklist. It is written to be done in two or three sessions: session 1 is the install, the settings pages and the CPU check (no sim needed for most), session 2 is iRacing, session 3 is LMU.
 
-Tags: `[iR]` iRacing only, `[LMU]` LMU only. An untagged line applies to both sims. Items marked **Decide** are defaults we guessed and need your answer. Use plain notes ("The reference shows X, we show Y") for anything that differs.
+Tags: `[iR]` iRacing only, `[LMU]` LMU only. An untagged line applies to both sims. Items marked **Decide** are defaults we guessed and need your answer. Use plain notes ("the reference shows X, we show Y") for anything that differs.
 
 All checks run on the integration build `claude/m2-integration` (CI installer artifact `overlay-windows-installer`). Nothing merges before this list passes.
 
@@ -24,9 +24,9 @@ All checks run on the integration build `claude/m2-integration` (CI installer ar
 - [ ] Field toggles work, and a field greyed out for the other sim can still be switched off. [LMU] iRating and Safety rating columns are not shown as empty columns (they are iRacing only).
 - [ ] Restart the app: positions, sizes, scale, fields and column order are all remembered.
 
-## 2. Leaderboard (one line per the reference option)
+## 2. Leaderboard (one line per option)
 
-the reference list from `overlays-catalogue.md`. "Left out" means we decided not to build it in M2.
+The option list from the requirements catalogue. "Left out" means we decided not to build it in M2.
 
 - [ ] Row opacity.
 - [ ] Column width: Custom / Auto / Compact; Width fine-tune %.
@@ -39,16 +39,16 @@ the reference list from `overlays-catalogue.md`. "Left out" means we decided not
 - [ ] Left out of M2: Highlight incidents, Show penalty threshold (no per-car data yet; not in our option list), Show driver tags (M5). Note if you miss any.
 - [ ] Header fields (pick up to 6): SoF, Incidents, Laps/time remaining, Sim time, Real time, Air temp, Track temp, Track wetness, Precipitation, Humidity, Fog level, Wind direction, Current lap, Brake bias. [LMU] shows "--" for SoF, incidents, precipitation, humidity, fog and wind.
 - [ ] Visible fields: Position, Overall position, Car number, Car class, Driver name, Safety rating, iRating, Gap, Interval, Last lap, Best lap, Avg lap, Last lap delta, Best lap delta, Lap number, Pit lane, Pit stall, Last pitted, Stint lap, Prev stint, Pos change, Fuel % (LMU). Each shows a sensible value.
-- [ ] Left out of M2 fields: Country flag, Flags, iRating change, Manufacturer, Push to pass, Tyre compound, Session info, Sim time and Real time as columns (no data in SimState, licensing questions, or no the reference formula).
+- [ ] Left out of M2 fields: Country flag, Flags, iRating change, Manufacturer, Push to pass, Tyre compound, Session info, Sim time and Real time as columns (no data in SimState, licensing questions, or no reference formula).
 - [ ] Column order and Column widths (see section 1).
 - [ ] Multi-class: coloured class header bars in the sim's class colours (iRacing multi-class; LMU Hypercar, LMP2, GT3). Single-class iRacing shows no class colour.
 
-## 3. Relative (one line per the reference option)
+## 3. Relative (one line per option)
 
 - [ ] Same controls as Leaderboard: Row opacity, Column width, Width fine-tune, decimals, Name display, Name format, Session display (tick the same lines as section 2).
 - [ ] Drivers ahead and Drivers behind steppers (cars ahead above you, behind below).
 - [ ] Hide cars in pits works through a whole pit cycle (the car disappears on entry and returns on exit). Cars that left the session do not show.
-- [ ] Gap threat colours: a car closing from behind turns yellow then red. **Decide** (unconfirmed default): red at 1.0 s or less, yellow at 2.0 s or less. What does the reference use?
+- [ ] Gap threat colours: a car closing from behind turns yellow then red. **Decide** (unconfirmed default): red at 1.0 s or less, yellow at 2.0 s or less. What should it be?
 - [ ] Layout: Weather header; Show row labels; Session footer; Flag border follows the flag shown in the car; Show DQ limit.
 - [ ] Header fields (up to 5) and Footer fields (up to 5) work.
 - [ ] Visible fields as the Leaderboard, minus the class and overall columns.
@@ -56,7 +56,7 @@ the reference list from `overlays-catalogue.md`. "Left out" means we decided not
 - [ ] Left out of M2: Highlight incidents, Show penalty threshold, Show driver tags.
 - [ ] Settings, Performance, Live position tracking on and off changes the position column in both Relative and Leaderboard (off = the sim's official positions, on = distance-based, updating mid-lap).
 
-## 4. Spotter (one line per the reference option)
+## 4. Spotter (one line per option)
 
 - [ ] Space between bars (px), Bar length (px), Bar colour (picker with reset). We also have Bar width.
 - [ ] Bar colour "Use theme accent" follows a theme change.
@@ -67,23 +67,23 @@ the reference list from `overlays-catalogue.md`. "Left out" means we decided not
 - [ ] Settings, Performance, Reduce visual effects on: no fades or sliding.
 - [ ] Left out of M2: car-alongside audio and faster-class beeps (M5).
 
-## 5. Pit Speed (one line per the reference option)
+## 5. Pit Speed (one line per option)
 
 - [ ] Visible: Pit stop info (plus our Speed, Limit and Limiter toggles).
 - [ ] [iR] Speed and limit agree with the in-car display in km/h and mph. The bar flips to red above the limit. The overlay is hidden on track with the limiter off.
-- [ ] [iR] **Decide** (unconfirmed default): pit stop info shows "Box in N m" counting down to your stall, then "In pit stall" while stopped. Does the reference show this?
+- [ ] [iR] **Decide** (unconfirmed default): pit stop info shows "Box in N m" counting down to your stall, then "In pit stall" while stopped. Is that what you want?
 - [ ] [LMU] Speed and limiter state are right. **Decide**: LMU does not report the pit limit, so we show "Limit not reported" instead of the bar. Acceptable, or do you want a manual limit setting?
 
-## 6. Fuel Calculator (one line per the reference option)
+## 6. Fuel Calculator (one line per option)
 
 - [ ] Layout Vertical / Horizontal.
 - [ ] Safety margin (laps).
 - [ ] Live fuel updates: off means the targets change only at the start/finish line.
 - [ ] Keep fuel data (see section 11).
 - [ ] Visible: Consumption, Fuel history, Fuel level, Fuel-to-finish targets, Laps left avg/last/worst, Laps remaining, Pit window, Refuel amount, Usage avg 10 / avg 5 / last lap.
-- [ ] Fuel bar and litres/percent, laps remaining, stint time. **Decide** (unconfirmed default): fuel history bars show 100% = the largest lap use of the last 5 laps. Does the reference scale it that way?
-- [ ] [iR] In a race, after 2 valid laps the pit window and refuel amount appear. LAST / AVG 5L / AVG 10L agree with the reference within rounding. With zero refuel needed the overlay says "No stop needed".
-- [ ] **Decide** (unconfirmed default): refuel = shortfall to the finish plus the safety margin, capped at one tank, using the session average. Does the reference use the 5-lap average instead? Compare the refuel amount against the reference and against the pit box.
+- [ ] Fuel bar and litres/percent, laps remaining, stint time. **Decide** (unconfirmed default): fuel history bars show 100% = the largest lap use of the last 5 laps. Is that the scale you want?
+- [ ] [iR] In a race, after 2 valid laps the pit window and refuel amount appear. LAST / AVG 5L / AVG 10L agree with the reference values within rounding. With zero refuel needed the overlay says "No stop needed".
+- [ ] **Decide** (unconfirmed default): refuel = shortfall to the finish plus the safety margin, capped at one tank, using the session average. Should it use the 5-lap average instead? Compare the refuel amount against the pit box.
 - [ ] Imperial units show gallons.
 - [ ] [LMU] With virtual energy: values in %, and the refuel figure matches what the LMU pit menu needs. Energy thresholds were never tuned on a clean lap recording, so note odd laps.
 - [ ] Left out of M2: "Max basis Session / Tank" (not mapped; we always use the max lap use of the last 5), Auto fuel from 5-lap average (pit-box writes, M5), Team fuel sharing (Release 3).
@@ -157,6 +157,6 @@ Settings, Developer page, "Measure CPU" (ticket M2-21, built in parallel; if the
 3. Gap threat: red up to 1.0 s, yellow up to 2.0 s. OK?
 4. LMU Pit Speed: "Limit not reported". OK?
 5. Fuel "Max basis Session / Tank": not mapped. Do you use it?
-6. Refuel amount: shortfall + margin, capped at one tank, from the session average. Does the reference use the 5-lap average?
-7. Does the reference count a drive-through as a pit stop?
+6. Refuel amount: shortfall + margin, capped at one tank, from the session average. Should it use the 5-lap average?
+7. Should a drive-through count as a pit stop?
 8. Anything on the "left out of M2" lines you want sooner?

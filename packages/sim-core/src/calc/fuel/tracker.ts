@@ -396,7 +396,7 @@ export class FuelTracker {
     const currentFuel = last.fuelL;
     const completed = last.lap;
 
-    // The reference estimate holds only until the first refuel, then the last value is kept.
+    // The estimate holds only until the first refuel, then the last value is kept.
     // It needs this session's completed laps, so it uses the own average only (never the seed).
     if (ctx.tankCapacityL == null && !this.sawRefuel && own.length > 0) {
       const ownAvg = own.reduce((a, u) => a + u, 0) / own.length;

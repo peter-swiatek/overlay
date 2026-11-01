@@ -1,7 +1,7 @@
 import type { OverlayManifest } from "../contract";
 
 /**
- * Not mapped in M2: The reference "Max basis: Session / Tank" select (its two values are not described
+ * Not mapped in M2: the "Max basis: Session / Tank" select (its two values are not described
  * anywhere we can see). Usage bars use fuelMaxLap instead; see view.ts.
  * Append new settings at the end of the list (M2-20 adds `keep-fuel-data`, section "Fuel").
  */
@@ -56,7 +56,7 @@ export const fuelManifest: OverlayManifest = {
       default: true,
       help: "Update targets continuously, not only at the start/finish line.",
     },
-    // The reference does not show its default; off is the conservative choice.
+    // No reference default; off is the conservative choice.
     {
       key: "keep-fuel-data",
       label: "Keep fuel data",

@@ -22,7 +22,7 @@ export interface StandingsEntry {
   gapToClassLeader: StandingsGap | null;
   /** To the car one live place ahead in the same class; null for the class leader. */
   interval: StandingsGap | null;
-  /** Rolling average of the last 5 clean laps (The reference average lap). */
+  /** Rolling average of the last 5 clean laps (the reference average lap). */
   avgLapS: number | null;
   /** This car's best lap is the fastest overall / in its class this session. */
   sessionBest: boolean;
