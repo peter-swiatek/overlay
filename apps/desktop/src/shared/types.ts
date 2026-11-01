@@ -15,6 +15,22 @@ export interface Bounds {
   height: number;
 }
 
+/**
+ * Main-window state shared by the top bar, the tray and Ctrl+Shift+F10.
+ * `overlaysLocked` is the inverse of the manager's edit mode: locked means clicks pass through.
+ */
+export interface AppState {
+  overlaysVisible: boolean;
+  overlaysLocked: boolean;
+}
+
+/** An overlay window's real on-screen size: DIP width/height (already scaled) and its scale. */
+export interface OverlaySize {
+  width: number;
+  height: number;
+  scalePct: number;
+}
+
 export interface Size {
   width: number;
   height: number;
@@ -94,6 +110,18 @@ export const IPC = {
   telemetryStatusChanged: "telemetry:status-changed",
   telemetrySourceChanged: "telemetry:source-changed",
   appRestart: "app:restart",
+  /** Main window only: returns `AppState`. */
+  appStateGet: "app-state:get",
+  /** Main window only: takes `Partial<AppState>`, returns the new `AppState`. */
+  appStateSet: "app-state:set",
+  /** Main to every window: carries the new `AppState` after any change (tray, shortcut, window). */
+  appStateChanged: "app-state:changed",
+  /** Main window only: returns `Record<overlayId, OverlaySize>`. */
+  overlaysGetSizes: "overlays:get-sizes",
+  /** Main to the main window: carries `Record<overlayId, OverlaySize>` after a layout save. */
+  overlaysSizesChanged: "overlays:sizes-changed",
+  /** Main window only: quits the whole app (overlays included). */
+  appQuit: "app:quit",
 } as const;
 
 /** The whole surface exposed to renderers through contextBridge. */
@@ -126,6 +154,16 @@ export interface OverlayApi {
     update(id: string, patch: OverlaySettingsPatch): Promise<OverlayInstanceSettings | null>;
     reset(id: string): Promise<OverlayInstanceSettings | null>;
     onChanged(callback: (id: string, settings: OverlayInstanceSettings) => void): () => void;
+    /** Main window only: real on-screen size of every overlay window, keyed by overlay id. */
+    getSizes(): Promise<Record<string, OverlaySize>>;
+    /** Main window only: fires after an overlay is resized or rescaled (debounced layout save). */
+    onSizesChanged(callback: (sizes: Record<string, OverlaySize>) => void): () => void;
+  };
+  /** Main window only: overlay visibility and lock state. */
+  appState: {
+    get(): Promise<AppState>;
+    set(patch: Partial<AppState>): Promise<AppState>;
+    onChanged(callback: (state: AppState) => void): () => void;
   };
   theme: {
     getState(): Promise<ThemeState>;
@@ -153,4 +191,6 @@ export interface OverlayApi {
     onSourceChanged(callback: (view: TelemetrySourceView) => void): () => void;
   };
   restartApp(): Promise<void>;
+  /** Main window only: quits the app. */
+  quit(): Promise<void>;
 }

@@ -16,6 +16,7 @@ import { AppSettingsStore } from "./app-settings";
 import { CaptureManager } from "./capture-manager";
 import { CaptureSettingsStore } from "./capture-settings";
 import { registerAppSettingsIpc } from "./ipc/app-settings";
+import { registerAppStateIpc } from "./ipc/app-state";
 import type { IpcContext } from "./ipc/context";
 import { registerDeveloperIpc } from "./ipc/developer";
 import { registerDisplayIpc } from "./ipc/display";
@@ -161,6 +162,7 @@ if (!app.requestSingleInstanceLock()) {
     };
     registerIpc();
     registerOverlayIpc(ctx, overlaySettings);
+    registerAppStateIpc(ctx);
     registerThemeIpc(ctx, themes);
     registerAppSettingsIpc(ctx, appSettings);
     registerDisplayIpc(ctx, {

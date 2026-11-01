@@ -58,6 +58,13 @@ const api: OverlayApi = {
     update: (id, patch) => ipcRenderer.invoke(IPC.overlaysUpdate, id, patch),
     reset: (id) => ipcRenderer.invoke(IPC.overlaysReset, id),
     onChanged: (callback) => subscribe(IPC.overlaysChanged, callback),
+    getSizes: () => ipcRenderer.invoke(IPC.overlaysGetSizes),
+    onSizesChanged: (callback) => subscribe(IPC.overlaysSizesChanged, callback),
+  },
+  appState: {
+    get: () => ipcRenderer.invoke(IPC.appStateGet),
+    set: (patch) => ipcRenderer.invoke(IPC.appStateSet, patch),
+    onChanged: (callback) => subscribe(IPC.appStateChanged, callback),
   },
   theme: {
     getState: () => ipcRenderer.invoke(IPC.themeGetState),
@@ -85,6 +92,7 @@ const api: OverlayApi = {
     onSourceChanged: (callback) => subscribe(IPC.telemetrySourceChanged, callback),
   },
   restartApp: () => ipcRenderer.invoke(IPC.appRestart),
+  quit: () => ipcRenderer.invoke(IPC.appQuit),
 };
 
 contextBridge.exposeInMainWorld("overlayApi", api);

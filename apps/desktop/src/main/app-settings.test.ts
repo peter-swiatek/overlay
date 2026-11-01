@@ -44,6 +44,28 @@ describe("AppSettingsStore", () => {
     expect("other" in s).toBe(false);
   });
 
+  it("fills the main-window keys from defaults when an older file lacks them", () => {
+    const file = tmpFile();
+    writeFileSync(file, JSON.stringify({ general: { units: "imperial", startWithWindows: true } }));
+    const s = new AppSettingsStore(file).load();
+    expect(s.general.units).toBe("imperial");
+    expect(s.general.startHiddenAtLogin).toBe(true);
+    expect(s.general.closeAction).toBe("tray");
+    expect(s.general.minimiseOnConnect).toBe(false);
+    expect(s.general.welcomeDismissed).toBe(false);
+    expect(s.ui).toEqual({ trayNoticeShown: false });
+  });
+
+  it("validates the main-window keys", () => {
+    const m = (patch: unknown) => mergeAppSettings(DEFAULT_APP_SETTINGS, patch);
+    expect(m({ general: { closeAction: "quit" } }).general.closeAction).toBe("quit");
+    expect(m({ general: { closeAction: "minimise" } }).general.closeAction).toBe("tray");
+    expect(m({ general: { startHiddenAtLogin: "no" } }).general.startHiddenAtLogin).toBe(true);
+    expect(m({ general: { welcomeDismissed: true } }).general.welcomeDismissed).toBe(true);
+    expect(m({ ui: { trayNoticeShown: true } }).ui.trayNoticeShown).toBe(true);
+    expect(m({ ui: { trayNoticeShown: 1 } }).ui.trayNoticeShown).toBe(false);
+  });
+
   it("validates each key", () => {
     const m = (patch: unknown) => mergeAppSettings(DEFAULT_APP_SETTINGS, patch);
     expect(m({ general: { uiScalePct: 125 } }).general.uiScalePct).toBe(125);

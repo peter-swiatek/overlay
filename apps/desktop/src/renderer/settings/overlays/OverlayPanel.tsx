@@ -8,8 +8,10 @@ import {
   type SettingValue,
 } from "@overlay/overlays/contract";
 import type { SimName } from "@overlay/sim-core/types";
-import type { DisplayPrefs, FieldConfig } from "@overlay/ui/types";
+import type { DisplayPrefs } from "@overlay/ui/types";
 import { useState } from "react";
+import { ColumnEditor } from "./ColumnEditor";
+import { FieldPicker, optionList } from "./FieldPicker";
 import {
   Button,
   ColourInput,
@@ -21,20 +23,7 @@ import {
   Toggle,
 } from "../controls";
 import "./overlays.css";
-import {
-  FALLBACK_COLOUR,
-  addPick,
-  fieldDef,
-  fromDisplay,
-  movePick,
-  panelSections,
-  removePick,
-  setFieldPatch,
-  moveField,
-  shownWidthPct,
-  simState,
-  toDisplay,
-} from "./model";
+import { FALLBACK_COLOUR, fromDisplay, panelSections, simState, toDisplay } from "./model";
 import { displayDecimals, displayFactor, displayUnitLabel, roundTo } from "./units";
 
 /** Sends a patch; with a key the send is debounced (sliders). */
@@ -127,7 +116,7 @@ export function OverlayPanel({ manifest, settings, sim, prefs, send, onReset }: 
         </Row>
       </Section>
       {manifest.fields.length > 0 && (
-        <FieldList
+        <ColumnEditor
           manifest={manifest}
           fields={common.fields}
           sim={sim}
@@ -171,118 +160,6 @@ export function OverlayPanel({ manifest, settings, sim, prefs, send, onReset }: 
         )}
       </div>
     </div>
-  );
-}
-
-function FieldList({
-  manifest,
-  fields,
-  sim,
-  onFields,
-  onWidth,
-}: {
-  manifest: OverlayManifest;
-  fields: readonly FieldConfig[];
-  sim: SimName;
-  onFields(next: FieldConfig[]): void;
-  /** Width slider changes: debounced by the caller. */
-  onWidth(next: FieldConfig[]): void;
-}) {
-  const table = manifest.table;
-  const [dragFrom, setDragFrom] = useState<number | null>(null);
-  return (
-    <Section title={table ? "Columns" : "Fields"}>
-      {fields.map((config, index) => {
-        const def = fieldDef(manifest, config.id);
-        const label = def?.label ?? config.id;
-        const state = simState(def?.sims, sim);
-        if (!table) {
-          return (
-            <Row key={config.id} label={label} disabled={state.disabled} badge={state.badge}>
-              <Toggle
-                label={`Show ${label}`}
-                checked={config.visible}
-                disabled={state.disabled && !config.visible}
-                onChange={(visible) => onFields(setFieldPatch(fields, config.id, { visible }))}
-              />
-            </Row>
-          );
-        }
-        return (
-          <div
-            key={config.id}
-            className="ov-col"
-            aria-disabled={state.disabled || undefined}
-            onDragOver={(e) => {
-              if (dragFrom !== null) e.preventDefault();
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              if (dragFrom !== null) onFields(moveField(fields, dragFrom, index));
-              setDragFrom(null);
-            }}
-          >
-            <span
-              className="ov-handle"
-              draggable
-              title="Drag to reorder"
-              aria-hidden="true"
-              onDragStart={() => setDragFrom(index)}
-              onDragEnd={() => setDragFrom(null)}
-            >
-              ⠿
-            </span>
-            <span className="ov-col-label">
-              {label}
-              {state.badge && <em className="ctl-badge">{state.badge}</em>}
-            </span>
-            <Toggle
-              label={`Show ${label}`}
-              checked={config.visible}
-              disabled={state.disabled && !config.visible}
-              onChange={(visible) => onFields(setFieldPatch(fields, config.id, { visible }))}
-            />
-            <span className="ov-col-moves">
-              <button
-                type="button"
-                aria-label={`Move up ${label}`}
-                disabled={index === 0}
-                onClick={() => onFields(moveField(fields, index, index - 1))}
-              >
-                Move up
-              </button>
-              <button
-                type="button"
-                aria-label={`Move down ${label}`}
-                disabled={index === fields.length - 1}
-                onClick={() => onFields(moveField(fields, index, index + 1))}
-              >
-                Move down
-              </button>
-            </span>
-            <Slider
-              label={`Width of ${label}`}
-              value={shownWidthPct(config, def)}
-              min={1}
-              max={100}
-              step={1}
-              unit="%"
-              disabled={state.disabled}
-              onChange={(widthPct) => onWidth(setFieldPatch(fields, config.id, { widthPct }))}
-            />
-            <button
-              type="button"
-              aria-label={`Default width of ${label}`}
-              disabled={config.widthPct === null}
-              onClick={() => onFields(setFieldPatch(fields, config.id, { widthPct: null }))}
-            >
-              Default
-            </button>
-          </div>
-        );
-      })}
-      {table && <p className="muted ov-note">Widths apply when Column width is Custom.</p>}
-    </Section>
   );
 }
 
@@ -358,7 +235,7 @@ function SettingControl({
     }
     case "multi":
       return (
-        <MultiSetting
+        <FieldPicker
           field={field}
           values={Array.isArray(value) ? (value as readonly string[]) : field.default}
           sim={sim}
@@ -382,22 +259,6 @@ function SettingControl({
       );
     }
   }
-}
-
-/** Options for a Select; sim-limited ones are disabled unless they are already picked. */
-function optionList(
-  options: readonly { value: string; label: string; sims?: readonly SimName[] }[],
-  sim: SimName,
-  keep: readonly string[],
-): { value: string; label: string; disabled?: boolean }[] {
-  return options.map((o) => {
-    const state = simState(o.sims, sim);
-    return {
-      value: o.value,
-      label: state.badge ? `${o.label} (${state.badge})` : o.label,
-      disabled: state.disabled && !keep.includes(o.value),
-    };
-  });
 }
 
 function NumberSetting({
@@ -430,73 +291,5 @@ function NumberSetting({
       disabled={disabled}
       onChange={(shown) => onChange(fromDisplay(unit, shown, prefs, field, value))}
     />
-  );
-}
-
-function MultiSetting({
-  field,
-  values,
-  sim,
-  disabled,
-  onChange,
-}: {
-  field: Field<"multi">;
-  values: readonly string[];
-  sim: SimName;
-  disabled: boolean;
-  onChange(next: readonly string[]): void;
-}) {
-  const full = field.max !== undefined && values.length >= field.max;
-  const remaining = optionList(
-    field.options.filter((o) => !values.includes(o.value)),
-    sim,
-    [],
-  );
-  return (
-    <div className="ov-multi">
-      <ul className="ov-chips">
-        {values.map((v, i) => {
-          const label = field.options.find((o) => o.value === v)?.label ?? v;
-          return (
-            <li key={v} className="ov-chip">
-              <span>{label}</span>
-              <button
-                type="button"
-                aria-label={`Move left ${label}`}
-                disabled={disabled || i === 0}
-                onClick={() => onChange(movePick(values, i, -1, field.max))}
-              >
-                ◀
-              </button>
-              <button
-                type="button"
-                aria-label={`Move right ${label}`}
-                disabled={disabled || i === values.length - 1}
-                onClick={() => onChange(movePick(values, i, 1, field.max))}
-              >
-                ▶
-              </button>
-              <button
-                type="button"
-                aria-label={`Remove ${label}`}
-                disabled={disabled}
-                onClick={() => onChange(removePick(values, v))}
-              >
-                ✕
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      <Select
-        label={`Add ${field.label}`}
-        value=""
-        disabled={disabled || full || remaining.length === 0}
-        options={[{ value: "", label: "Add…", disabled: true }, ...remaining]}
-        onChange={(next) => {
-          if (next !== "") onChange(addPick(values, next, field.max));
-        }}
-      />
-    </div>
   );
 }

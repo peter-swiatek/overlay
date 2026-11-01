@@ -54,6 +54,14 @@ export interface OverlayFieldDef {
   defaultVisible: boolean;
   /** Table overlays: default width (% of the table) in "custom" width mode. */
   defaultWidthPct?: number;
+  /**
+   * Table overlays: narrowest content width in characters at which the column stays readable.
+   * Manifest data only (not stored). The width floor is
+   * `max(minChars ?? chars, label chars)` (see `columnFloorChars` in shared/columns).
+   */
+  minChars?: number;
+  /** Table overlays: typical content width in characters. Manifest data only (not stored). */
+  chars?: number;
   sims?: readonly SimName[];
 }
 

@@ -25,7 +25,12 @@ const VALIDATORS: Validators = {
     startWithWindows: bool,
     autoHide: bool,
     uiScalePct: oneOf([100, 110, 125, 150] as const),
+    startHiddenAtLogin: bool,
+    closeAction: oneOf(["tray", "quit"] as const),
+    minimiseOnConnect: bool,
+    welcomeDismissed: bool,
   },
+  ui: { trayNoticeShown: bool },
   performance: {
     telemetryRateHz: oneOf([30, 60] as const),
     livePositions: bool,
