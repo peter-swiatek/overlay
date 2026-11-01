@@ -9,10 +9,12 @@ export function AlphaSlider({
   value,
   onCommit,
   label,
+  disabled,
 }: {
   value: string;
   onCommit(next: string): void;
   label: string;
+  disabled?: boolean;
 }) {
   const [local, setLocal] = useState<number | null>(null);
   const localRef = useRef<number | null>(null);
@@ -45,6 +47,7 @@ export function AlphaSlider({
         ref={inputRef}
         type="range"
         aria-label={label}
+        disabled={disabled}
         min={0}
         max={100}
         step={1}

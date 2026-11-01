@@ -1,4 +1,4 @@
-import { DEFAULT_THEME_ID, forkTheme } from "@overlay/theme";
+import { DEFAULT_THEME_ID, forkTheme, sanitizeThemeName } from "@overlay/theme";
 import type { Theme, ThemeState } from "@overlay/theme/types";
 import type { OverlayApi } from "../../../shared/types";
 
@@ -22,16 +22,22 @@ function applyEdit(base: Theme, edit: ThemeEdit): Theme {
   return { ...base, ...edit, tokens: { ...base.tokens, ...edit.tokens } };
 }
 
-/** Applies an edit to the active theme. A preset is forked first (presets never change). */
+export const PRESET_LOCKED_MESSAGE =
+  "Built-in themes can't be changed. Create your own theme to customise it.";
+
+/** Applies an edit to the active theme. Presets never change: an edit to one is refused. */
 export function planThemeEdit(
   state: ThemeState,
   edit: ThemeEdit,
-  random?: () => number,
-): { theme: Theme; activate: boolean } {
+): { theme: Theme } | { error: string } {
   const active = activeTheme(state);
-  if (!isPreset(state, active.id)) return { theme: applyEdit(active, edit), activate: false };
-  const fork = forkTheme(active, [...state.presets, ...state.custom], random);
-  return { theme: applyEdit(fork, edit), activate: true };
+  if (isPreset(state, active.id)) return { error: PRESET_LOCKED_MESSAGE };
+  return { theme: applyEdit(active, edit) };
+}
+
+/** Default name offered when a theme is created from `base`. */
+export function defaultNewThemeName(base: Theme): string {
+  return sanitizeThemeName(`${base.name} copy`);
 }
 
 /** Follows `theme:changed`, which carries only the active theme. */
@@ -54,21 +60,17 @@ export type ThemeWriterApi = Pick<OverlayApi["theme"], "save" | "setActive"> &
   Partial<Pick<OverlayApi["theme"], "getState">>;
 
 export interface WriteOptions {
-  /**
-   * The theme the edit was made on. Without it the theme that is active when the job runs.
-   * A preset target is forked once; later writes to the same preset id go to that fork.
-   */
+  /** The theme the edit was made on. Without it the theme that is active when the job runs. */
   target?: string;
-  /** Activate a fork the write creates (default true). A custom target is never activated. */
-  activate?: boolean;
 }
 
 export interface ThemeWriter {
+  /** Saves an edit to a custom theme. A preset target is refused. */
   write(state: ThemeState, edit: ThemeEdit, options?: WriteOptions): Promise<ThemeState>;
   /** Activates a theme through the same queue, so it lands after writes already issued. */
   select(id: string): Promise<ThemeState>;
-  /** The theme a target id currently maps to (a preset that was forked maps to its fork). */
-  resolve(target: string): string;
+  /** Creates a custom theme named `name` from the active theme and activates it. */
+  create(state: ThemeState, name: string): Promise<ThemeState>;
 }
 
 interface Waiter {
@@ -81,56 +83,45 @@ type Job =
       state: ThemeState;
       edit: ThemeEdit;
       target: string | undefined;
-      activate: boolean;
       waiters: Waiter[];
     }
-  | { kind: "select"; state: ThemeState; id: string; waiters: Waiter[] };
+  | { kind: "select"; state: ThemeState; id: string; waiters: Waiter[] }
+  | { kind: "create"; state: ThemeState; name: string; waiters: Waiter[] };
 
 /**
- * Saves (and activates when planned) and returns the new state. One call is in flight at a
- * time; edits for the same target that arrive meanwhile are merged into one follow-up job
- * (the latest value of each field wins) that runs against the state the previous call
- * returned. After any failure the state is refetched, so a half-done fork (saved, not
- * activated) is seen by the next job instead of being forked a second time.
+ * Saves and returns the new state. One call is in flight at a time; edits for the same target
+ * that arrive meanwhile are merged into one follow-up job (the latest value of each field
+ * wins) that runs against the state the previous call returned. After any failure the state
+ * is refetched, so the next job starts from what main really has.
  */
 export function createThemeWriter(api: ThemeWriterApi): ThemeWriter {
   const queue: Job[] = [];
   let busy = false;
-  /** Preset id -> the custom fork made from it; kept until that preset is selected again. */
-  const forks = new Map<string, string>();
-
-  function resolveIn(state: ThemeState, target: string): string {
-    const fork = forks.get(target);
-    const known = [...state.presets, ...state.custom];
-    return fork !== undefined && known.some((t) => t.id === fork) ? fork : target;
-  }
 
   async function applyWrite(
     state: ThemeState,
     job: Extract<Job, { kind: "write" }>,
   ): Promise<ThemeState> {
-    const all = [...state.presets, ...state.custom];
-    const wanted = job.target ?? activeTheme(state).id;
-    const id = resolveIn(state, wanted);
-    const base = all.find((t) => t.id === id);
+    const id = job.target ?? activeTheme(state).id;
+    if (isPreset(state, id)) throw new Error(PRESET_LOCKED_MESSAGE);
+    const base = state.custom.find((t) => t.id === id);
     if (!base) throw new Error("That theme no longer exists");
-    if (isPreset(state, base.id)) {
-      const theme = applyEdit(forkTheme(base, all), job.edit);
-      const saved = await api.save(theme);
-      forks.set(wanted, theme.id);
-      return job.activate ? api.setActive(theme.id) : saved;
-    }
-    const saved = await api.save(applyEdit(base, job.edit));
-    // Retry of a fork whose activation failed: the preset is still the active theme.
-    if (id !== wanted && job.activate && saved.activeId === wanted) return api.setActive(id);
-    return saved;
+    return api.save(applyEdit(base, job.edit));
+  }
+
+  async function applyCreate(
+    state: ThemeState,
+    job: Extract<Job, { kind: "create" }>,
+  ): Promise<ThemeState> {
+    const all = [...state.presets, ...state.custom];
+    const theme = { ...forkTheme(activeTheme(state), all), name: sanitizeThemeName(job.name) };
+    await api.save(theme);
+    return api.setActive(theme.id);
   }
 
   async function apply(state: ThemeState, job: Job): Promise<ThemeState> {
-    if (job.kind === "select") {
-      forks.delete(job.id);
-      return api.setActive(job.id);
-    }
+    if (job.kind === "select") return api.setActive(job.id);
+    if (job.kind === "create") return applyCreate(state, job);
     return applyWrite(state, job);
   }
 
@@ -161,14 +152,13 @@ export function createThemeWriter(api: ThemeWriterApi): ThemeWriter {
   return {
     write(state, edit, options = {}) {
       const target = options.target;
-      const activate = options.activate ?? true;
       return new Promise<ThemeState>((resolve, reject) => {
         const waiter = { resolve, reject };
         const last = queue[queue.length - 1];
-        if (last?.kind === "write" && last.target === target && last.activate === activate) {
+        if (last?.kind === "write" && last.target === target) {
           last.edit = mergeEdits(last.edit, edit);
           last.waiters.push(waiter);
-        } else enqueue({ kind: "write", state, edit, target, activate, waiters: [waiter] });
+        } else enqueue({ kind: "write", state, edit, target, waiters: [waiter] });
       });
     },
     select(id) {
@@ -182,8 +172,10 @@ export function createThemeWriter(api: ThemeWriterApi): ThemeWriter {
         });
       });
     },
-    resolve(target) {
-      return forks.get(target) ?? target;
+    create(state, name) {
+      return new Promise<ThemeState>((resolve, reject) => {
+        enqueue({ kind: "create", state, name, waiters: [{ resolve, reject }] });
+      });
     },
   };
 }

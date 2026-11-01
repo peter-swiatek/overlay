@@ -19,6 +19,7 @@ import {
   activeTheme,
   createThemeWriter,
   isPreset,
+  PRESET_LOCKED_MESSAGE,
   type ThemeEdit,
   type ThemeWriter,
 } from "../model";
@@ -112,24 +113,21 @@ export function ThemeEditorPanel(props: ThemeEditorPanelProps) {
     onStateRef.current(next);
   };
 
-  const runSave = (activate = true): void => {
+  const runSave = (): void => {
     const edit = draftRef.current;
     if (!edit) return;
     const target = draftTarget.current ?? activeTheme(stateRef.current).id;
     draftTarget.current = target;
     inFlight.current += 1;
     // The whole draft is sent each time (merging is idempotent), so a failed save is retried
-    // with the next commit and a preset is forked exactly once by the writer.
-    lastWrite.current = writer.write(stateRef.current, edit, { target, activate }).then(
+    // with the next commit.
+    lastWrite.current = writer.write(stateRef.current, edit, { target }).then(
       (next) => {
         inFlight.current -= 1;
         if (draftRef.current === edit) {
           draftRef.current = null;
           draftTarget.current = null;
           setDraftEdit(null);
-        } else if (draftTarget.current === target) {
-          // Newer edits are waiting: they belong to the fork a preset target became.
-          draftTarget.current = writer.resolve(target);
         }
         setError(null);
         accept(next);
@@ -152,6 +150,7 @@ export function ThemeEditorPanel(props: ThemeEditorPanelProps) {
   useEffect(() => () => deb.flush(), [deb]);
 
   const commit = (edit: ThemeEdit, now = false): void => {
+    if (isPreset(stateRef.current, activeTheme(stateRef.current).id)) return;
     if (draftRef.current === null) draftTarget.current = activeTheme(stateRef.current).id;
     draftRef.current = mergeEdit(draftRef.current ?? {}, edit);
     setDraftEdit(draftRef.current);
@@ -180,10 +179,10 @@ export function ThemeEditorPanel(props: ThemeEditorPanelProps) {
   useIsoLayoutEffect(() => {
     const target = draftTarget.current;
     if (!draftRef.current || target === null || inFlight.current > 0) return;
-    if (target === active.id || writer.resolve(target) === active.id) return;
+    if (target === active.id) return;
     deb.cancel();
-    runSaveRef.current(false);
-  }, [active.id, writer, deb]);
+    runSaveRef.current();
+  }, [active.id, deb]);
 
   const guard = (fn: () => Promise<void>) => (): void => {
     setError(null);
@@ -197,8 +196,7 @@ export function ThemeEditorPanel(props: ThemeEditorPanelProps) {
   };
 
   const target = draftTarget.current;
-  const draftHere =
-    target !== null && (target === active.id || writer.resolve(target) === active.id);
+  const draftHere = target !== null && target === active.id;
   const theme = applyEdit(active, draftHere ? draftEdit : null);
   const warnings = contrastWarnings(theme.tokens);
 
@@ -294,7 +292,7 @@ export function ThemeEditorPanel(props: ThemeEditorPanelProps) {
         <strong>Edit colours</strong>
         <Button onClick={close}>Close</Button>
       </div>
-      {preset && <p className="note">Presets never change; your first edit makes a custom copy.</p>}
+      {preset && <p className="note">{PRESET_LOCKED_MESSAGE}</p>}
       {error && (
         <p className="ed-error" role="alert">
           {error}
@@ -308,6 +306,7 @@ export function ThemeEditorPanel(props: ThemeEditorPanelProps) {
               <ColourInput
                 allowAlpha
                 label={TOKEN_LABELS[key]}
+                disabled={preset}
                 value={theme.tokens[key]}
                 onChange={(next) =>
                   commit({ tokens: { [key]: next.toLowerCase() } as Theme["tokens"] })
@@ -315,6 +314,7 @@ export function ThemeEditorPanel(props: ThemeEditorPanelProps) {
               />
               <AlphaSlider
                 label={`${TOKEN_LABELS[key]} alpha`}
+                disabled={preset}
                 value={theme.tokens[key]}
                 onCommit={(next) => commit({ tokens: { [key]: next } as Theme["tokens"] })}
               />
@@ -350,7 +350,9 @@ export function ThemeEditorPanel(props: ThemeEditorPanelProps) {
           />
         </label>
         <div className="ed-buttons">
-          <Button onClick={saveAsNew}>Save as new</Button>
+          <Button disabled={preset} onClick={saveAsNew}>
+            Save as new
+          </Button>
           <Button onClick={duplicate}>Duplicate</Button>
           <Button variant="danger" disabled={preset} onClick={() => setConfirmDelete(true)}>
             Delete

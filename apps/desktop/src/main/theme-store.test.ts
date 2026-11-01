@@ -82,6 +82,15 @@ describe("ThemeStore changes", () => {
     expect(store.getState().custom).toEqual([]);
   });
 
+  it("refuses every preset id, even with a valid custom body", () => {
+    const store = new ThemeStore(file);
+    for (const preset of THEME_PRESETS) {
+      expect(() => store.save({ ...custom(1), id: preset.id })).toThrow();
+      expect(() => store.save(preset)).toThrow();
+    }
+    expect(store.getState().custom).toEqual([]);
+  });
+
   it("caps custom themes at 50 but still lets one be replaced", () => {
     const store = new ThemeStore(file);
     for (let i = 0; i < MAX_CUSTOM_THEMES; i++) store.save(custom(i));

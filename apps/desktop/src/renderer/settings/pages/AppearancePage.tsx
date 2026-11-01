@@ -2,6 +2,7 @@ import { GRAPHITE, THEME_FONTS, THEME_WEIGHTS, themeToCssVars } from "@overlay/t
 import type { Theme, ThemeFont, ThemeState, ThemeWeight } from "@overlay/theme/types";
 import { IRatingPill, LicencePill } from "@overlay/ui";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { NewTheme } from "../appearance/NewTheme";
 import { LockedColours } from "../appearance/LockedColours";
 import { ThemeEditorEntry } from "../appearance/editor";
 import { ThemeGallery } from "../appearance/ThemeGallery";
@@ -11,6 +12,7 @@ import {
   applyActiveChanged,
   createThemeWriter,
   isPreset,
+  PRESET_LOCKED_MESSAGE,
   type ThemeEdit,
   type ThemeWriter,
 } from "../appearance/model";
@@ -44,6 +46,7 @@ export interface AppearanceFormProps {
   error: string | null;
   onSelect(id: string): void;
   onEdit(edit: ThemeEdit): void;
+  onCreate(name: string): void;
   onCombinePills(next: boolean): void;
   onState(next: ThemeState): void;
   /** Shared with the colour editor; omitted in tests. */
@@ -67,6 +70,7 @@ export function AppearanceForm(props: AppearanceFormProps) {
             void settled.then(() => props.onSelect(id));
           }}
         />
+        <NewTheme base={theme} preset={preset} onCreate={props.onCreate} />
         <ThemeEditorEntry
           state={state}
           onState={props.onState}
@@ -81,6 +85,7 @@ export function AppearanceForm(props: AppearanceFormProps) {
               <button
                 key={font}
                 type="button"
+                disabled={preset}
                 aria-pressed={theme.font === font}
                 style={{ fontFamily: fontFamily(font) }}
                 onClick={() => props.onEdit({ font })}
@@ -96,6 +101,7 @@ export function AppearanceForm(props: AppearanceFormProps) {
         >
           <Segmented<WeightKey>
             label="Weight"
+            disabled={preset}
             value={String(theme.weight) as WeightKey}
             options={THEME_WEIGHTS.map((w) => ({
               value: String(w) as WeightKey,
@@ -107,11 +113,12 @@ export function AppearanceForm(props: AppearanceFormProps) {
         <Row label="Compact mode" help="Smaller text and rows in every overlay.">
           <Toggle
             label="Compact mode"
+            disabled={preset}
             checked={theme.compact}
             onChange={(compact) => props.onEdit({ compact })}
           />
         </Row>
-        {preset && <p className="note">Presets never change; your edits make a custom copy.</p>}
+        {preset && <p className="note">{PRESET_LOCKED_MESSAGE}</p>}
         {error && <p className="note ap-error">{error}</p>}
       </Section>
       <Section title="Pills">
@@ -176,6 +183,10 @@ export function AppearancePage() {
       onSelect={(id) => {
         setError(null);
         writer.select(id).then(accept, fail);
+      }}
+      onCreate={(name) => {
+        setError(null);
+        writer.create(latest.current ?? state, name).then(accept, fail);
       }}
       onEdit={(edit) => {
         setError(null);

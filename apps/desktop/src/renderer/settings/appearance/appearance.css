@@ -93,6 +93,21 @@
   background: #15171b;
   font-family: var(--ov-font-family);
 }
+.ap-new {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.ap-new .note {
+  margin: 0;
+}
+.ap-new-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
 .ap-error {
   color: var(--err);
 }

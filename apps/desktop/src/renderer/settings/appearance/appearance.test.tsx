@@ -4,7 +4,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { AppearanceForm } from "../pages/AppearancePage";
 import { ThemeScope } from "./ThemeScope";
-import { activeTheme, applyActiveChanged, createThemeWriter, planThemeEdit } from "./model";
+import {
+  activeTheme,
+  applyActiveChanged,
+  createThemeWriter,
+  PRESET_LOCKED_MESSAGE,
+  planThemeEdit,
+} from "./model";
 
 const custom: Theme = { ...GRAPHITE, id: "custom-aaaaaaaa", name: "Night Stint" };
 const stateOf = (activeId: string, extra: Theme[] = []): ThemeState => ({
@@ -12,22 +18,14 @@ const stateOf = (activeId: string, extra: Theme[] = []): ThemeState => ({
   presets: THEME_PRESETS,
   custom: extra,
 });
-const seq = () => {
-  let n = 0;
-  return () => (n += 0.137) % 1;
-};
 
 describe("planThemeEdit", () => {
-  it("forks a preset and leaves the preset untouched", () => {
+  it("refuses an edit to a preset and leaves it untouched", () => {
     const state = stateOf("graphite");
-    const before = JSON.stringify(state.presets);
-    const plan = planThemeEdit(state, { font: "oswald" }, seq());
-    expect(plan.activate).toBe(true);
-    expect(plan.theme.id).toMatch(/^custom-/);
-    expect(plan.theme.name).toContain("(custom)");
-    expect(plan.theme.font).toBe("oswald");
-    expect(plan.theme.tokens).toEqual(GRAPHITE.tokens);
-    expect(JSON.stringify(state.presets)).toBe(before);
+    const before = JSON.stringify(state);
+    const plan = planThemeEdit(state, { font: "oswald" });
+    expect(plan).toEqual({ error: PRESET_LOCKED_MESSAGE });
+    expect(JSON.stringify(state)).toBe(before);
   });
 
   it("edits a custom theme in place and merges tokens", () => {
@@ -35,20 +33,11 @@ describe("planThemeEdit", () => {
       compact: true,
       tokens: { accent: "#112233" } as Theme["tokens"],
     });
-    expect(plan.activate).toBe(false);
+    if (!("theme" in plan)) throw new Error("expected a theme");
     expect(plan.theme.id).toBe(custom.id);
     expect(plan.theme.compact).toBe(true);
     expect(plan.theme.tokens.accent).toBe("#112233");
     expect(plan.theme.tokens.row).toBe(custom.tokens.row);
-  });
-
-  it("edits the fork, not a second fork, after activation", () => {
-    const first = planThemeEdit(stateOf("graphite"), { weight: 700 }, seq());
-    const next = stateOf(first.theme.id, [first.theme]);
-    const second = planThemeEdit(next, { compact: true });
-    expect(second.activate).toBe(false);
-    expect(second.theme.id).toBe(first.theme.id);
-    expect(second.theme.weight).toBe(700);
   });
 });
 
@@ -67,71 +56,18 @@ describe("activeTheme and applyActiveChanged", () => {
 });
 
 describe("createThemeWriter", () => {
-  function fakeApi() {
+  function setup(initial: Theme[] = [], active = "graphite") {
     const log: string[] = [];
-    let customThemes: Theme[] = [];
-    let activeId = "graphite";
-    const snapshot = (): ThemeState => ({
-      activeId,
-      presets: THEME_PRESETS,
-      custom: customThemes,
-    });
-    return {
-      log,
-      api: {
-        async save(theme: Theme) {
-          log.push(`save:${theme.id}:${theme.font}/${theme.weight}`);
-          await Promise.resolve();
-          customThemes = customThemes.some((t) => t.id === theme.id)
-            ? customThemes.map((t) => (t.id === theme.id ? theme : t))
-            : [...customThemes, theme];
-          return snapshot();
-        },
-        async setActive(id: string) {
-          log.push(`active:${id}`);
-          activeId = id;
-          return snapshot();
-        },
-      },
-      snapshot,
-    };
-  }
-
-  it("saves then activates a fork", async () => {
-    const { api, log, snapshot } = fakeApi();
-    const next = await createThemeWriter(api).write(snapshot(), { font: "manrope" });
-    expect(log).toHaveLength(2);
-    expect(log[0]).toMatch(/^save:custom-/);
-    expect(log[1]).toMatch(/^active:custom-/);
-    expect(next.activeId).toMatch(/^custom-/);
-  });
-
-  it("serialises calls and merges edits that arrive in flight, one fork only", async () => {
-    const { api, log, snapshot } = fakeApi();
-    const writer = createThemeWriter(api);
-    const stale = snapshot();
-    const a = writer.write(stale, { font: "oswald" });
-    const b = writer.write(stale, { weight: 600 });
-    const c = writer.write(stale, { weight: 700 });
-    const [, , last] = await Promise.all([a, b, c]);
-    expect(log.filter((l) => l.startsWith("active:"))).toHaveLength(1);
-    expect(log.filter((l) => l.startsWith("save:"))).toHaveLength(2);
-    expect(last.custom).toHaveLength(1);
-    expect(last.custom[0]).toMatchObject({ font: "oswald", weight: 700 });
-  });
-});
-
-describe("createThemeWriter targets and select", () => {
-  function setup(failActivate = false) {
-    const log: string[] = [];
-    let customThemes: Theme[] = [];
-    let activeId = "graphite";
-    let failNext = failActivate;
+    let customThemes = initial;
+    let activeId = active;
     const snapshot = (): ThemeState => ({ activeId, presets: THEME_PRESETS, custom: customThemes });
     const api = {
       async save(theme: Theme) {
-        log.push(`save:${theme.id}:${theme.font}`);
+        log.push(`save:${theme.id}:${theme.name}:${theme.font}/${theme.weight}`);
         await Promise.resolve();
+        if (!customThemes.some((t) => t.id === theme.id) && customThemes.length >= 50) {
+          throw new Error("You can keep up to 50 custom themes");
+        }
         customThemes = customThemes.some((t) => t.id === theme.id)
           ? customThemes.map((t) => (t.id === theme.id ? theme : t))
           : [...customThemes, theme];
@@ -139,10 +75,6 @@ describe("createThemeWriter targets and select", () => {
       },
       async setActive(id: string) {
         log.push(`active:${id}`);
-        if (failNext) {
-          failNext = false;
-          throw new Error("disk full");
-        }
         activeId = id;
         return snapshot();
       },
@@ -153,43 +85,60 @@ describe("createThemeWriter targets and select", () => {
     return { api, log, snapshot };
   }
 
-  it("writes an edit to the theme it was made on, even after another theme is selected", async () => {
+  it("refuses to write to a preset and saves nothing", async () => {
     const { api, log, snapshot } = setup();
     const writer = createThemeWriter(api);
-    const first = await writer.write(snapshot(), { font: "oswald" }, { target: "graphite" });
-    const forkId = first.activeId;
-    expect(forkId).toMatch(/^custom-/);
-    // A draft made on the fork is pending while the user picks Graphite from the gallery.
-    const pending = writer.write(first, { font: "manrope" }, { target: forkId });
+    await expect(writer.write(snapshot(), { font: "oswald" })).rejects.toThrow(
+      PRESET_LOCKED_MESSAGE,
+    );
+    await expect(writer.write(snapshot(), { weight: 700 }, { target: "graphite" })).rejects.toThrow(
+      PRESET_LOCKED_MESSAGE,
+    );
+    expect(log).toEqual([]);
+  });
+
+  it("serialises and merges edits to a custom theme", async () => {
+    const { api, log, snapshot } = setup([custom], custom.id);
+    const writer = createThemeWriter(api);
+    const stale = snapshot();
+    const a = writer.write(stale, { font: "oswald" });
+    const b = writer.write(stale, { weight: 600 });
+    const c = writer.write(stale, { weight: 700 });
+    const [, , last] = await Promise.all([a, b, c]);
+    expect(log.filter((l) => l.startsWith("save:"))).toHaveLength(2);
+    expect(last.custom).toHaveLength(1);
+    expect(last.custom[0]).toMatchObject({ font: "oswald", weight: 700 });
+  });
+
+  it("writes to the theme the edit was made on, even after another is selected", async () => {
+    const { api, log, snapshot } = setup([custom], custom.id);
+    const writer = createThemeWriter(api);
+    const pending = writer.write(snapshot(), { font: "manrope" }, { target: custom.id });
     const picked = writer.select("graphite");
     const [afterEdit, afterSelect] = await Promise.all([pending, picked]);
-    expect(afterEdit.custom.find((t) => t.id === forkId)?.font).toBe("manrope");
+    expect(afterEdit.custom[0]?.font).toBe("manrope");
     expect(afterSelect.activeId).toBe("graphite");
-    expect(afterSelect.custom).toHaveLength(1);
     expect(log.at(-1)).toBe("active:graphite");
   });
 
-  it("does not fork a second time after a failed activation", async () => {
-    const { api, snapshot } = setup(true);
-    const writer = createThemeWriter(api);
-    await expect(
-      writer.write(snapshot(), { font: "oswald" }, { target: "graphite" }),
-    ).rejects.toThrow("disk full");
-    const retry = await writer.write(snapshot(), { weight: 700 }, { target: "graphite" });
-    expect(retry.custom).toHaveLength(1);
-    expect(retry.activeId).toBe(retry.custom[0]!.id);
-    expect(retry.custom[0]).toMatchObject({ font: "oswald" });
+  it("creates a named copy of the active preset and activates it", async () => {
+    const { api, log, snapshot } = setup();
+    const next = await createThemeWriter(api).create(snapshot(), "  My Stint  ");
+    expect(log[0]).toMatch(/^save:custom-[^:]+:My Stint:/);
+    expect(log[1]).toMatch(/^active:custom-/);
+    expect(next.activeId).toMatch(/^custom-/);
+    expect(next.custom[0]).toMatchObject({ name: "My Stint", tokens: GRAPHITE.tokens });
+    expect(next.presets).toEqual(THEME_PRESETS);
   });
 
-  it("can save a fork without activating it", async () => {
-    const { api, snapshot } = setup();
-    const next = await createThemeWriter(api).write(
-      snapshot(),
-      { font: "oswald" },
-      { target: "graphite", activate: false },
-    );
-    expect(next.activeId).toBe("graphite");
-    expect(next.custom).toHaveLength(1);
+  it("surfaces the cap error from main when creating the 51st theme", async () => {
+    const many = Array.from({ length: 50 }, (_, i) => ({
+      ...GRAPHITE,
+      id: `custom-${String(i).padStart(8, "0")}`,
+      name: `T${i}`,
+    }));
+    const { api, snapshot } = setup(many);
+    await expect(createThemeWriter(api).create(snapshot(), "One more")).rejects.toThrow("up to 50");
   });
 });
 
@@ -202,6 +151,7 @@ function render(state: ThemeState, combinePills = false): string {
       error={null}
       onSelect={noop}
       onEdit={noop}
+      onCreate={noop}
       onCombinePills={noop}
       onState={noop}
     />,
@@ -243,9 +193,25 @@ describe("AppearanceForm", () => {
     expect(render(stateOf(custom.id, [custom]))).not.toContain("Oswald has no ExtraBold");
   });
 
-  it("shows the preset note only while a preset is active", () => {
-    expect(render(stateOf("graphite"))).toContain("Presets never change");
-    expect(render(stateOf(custom.id, [custom]))).not.toContain("Presets never change");
+  it("locks the typography controls and offers New theme from this while a preset is active", () => {
+    const html = render(stateOf("graphite"));
+    expect(html).toContain("Built-in themes can&#x27;t be changed.");
+    expect(html).toMatch(/data-variant="primary"[^>]*>New theme from this…</);
+    const typo = html.slice(html.indexOf("Overlay font"), html.indexOf("Pills"));
+    expect(typo).not.toMatch(/<button(?![^>]*disabled)[^>]*aria-pressed/);
+    expect(typo.match(/disabled=""/g)!.length).toBeGreaterThanOrEqual(10);
+    // The pill switch is not a theme colour and stays editable.
+    const pills = html.slice(html.indexOf("Combine safety"));
+    expect(pills.slice(0, pills.indexOf("<input") + 200)).not.toContain("disabled");
+  });
+
+  it("keeps a custom theme editable and offers a plain New theme button", () => {
+    const html = render(stateOf(custom.id, [custom]));
+    expect(html).not.toContain("Built-in themes");
+    expect(html).toContain(">New theme<");
+    expect(html).not.toContain("New theme from this");
+    const typo = html.slice(html.indexOf("Overlay font"), html.indexOf("Pills"));
+    expect(typo).not.toContain("disabled");
   });
 
   it("lists all locked colours with their hex values and no input", () => {
