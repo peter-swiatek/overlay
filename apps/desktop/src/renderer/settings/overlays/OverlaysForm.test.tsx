@@ -184,6 +184,15 @@ describe("fields and columns", () => {
     expect(html).toMatch(/aria-label="Width of Alpha"[^>]*value="10"/);
   });
 
+  it("shows the total note instead of the legacy note once the width mode is known", () => {
+    const html = render({
+      manifests: [testTableManifest],
+      patch: { options: { "column-width": "auto" } },
+    });
+    expect(html).not.toContain("Widths apply");
+    expect(html).toContain("Narrowest readable width is marked on each slider.");
+  });
+
   it("omits the Fields section when the manifest has none", () => {
     const html = render({ manifests: [{ ...testManifest, fields: [] }] });
     expect(html).not.toContain(">Fields<");

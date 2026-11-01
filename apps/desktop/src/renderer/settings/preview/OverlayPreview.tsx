@@ -82,9 +82,13 @@ function useActiveTheme(): Theme {
 
 function usePaused(): boolean {
   const read = (): boolean =>
-    previewPaused({ visibility: document.visibilityState, minimised: false });
+    previewPaused({
+      visibility: typeof document === "undefined" ? "visible" : document.visibilityState,
+      minimised: false,
+    });
   const [paused, setPaused] = useState(read);
   useEffect(() => {
+    if (typeof document === "undefined") return;
     const onChange = (): void => setPaused(read());
     document.addEventListener("visibilitychange", onChange);
     return () => document.removeEventListener("visibilitychange", onChange);

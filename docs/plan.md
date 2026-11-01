@@ -9,6 +9,7 @@ Release 1 is the overlay desktop app. The architecture was approved by Peter on 
 | M0 | Foundation and spikes | In progress |
 | M1 | Data core | Done (Peter accepted the M1 build) |
 | M2 | Core five overlays, theme, settings, display fallbacks | Built on `claude/m2-integration`, awaiting Peter's acceptance (`docs/m2-acceptance.md`) |
+| M2.5 | Main window: one window for all settings, close to tray, start hidden at login, top bar (game, Visible, Locked), live preview, column width floors | Built on `claude/mw-integration`, awaiting Peter's acceptance (`docs/mainwin-acceptance.md`) |
 | M3 | Layouts, auto-switching, multi-monitor | Not started |
 | M4 | Remaining 26 overlays | Not started |
 | M5 | Extras (audio, hotkeys, OBS, engineer, MQTT, SimHub, Twitch, league builder, race history, auto-fuel) | Not started |

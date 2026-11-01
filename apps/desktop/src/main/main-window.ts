@@ -1,4 +1,5 @@
 import type { AppSettings } from "../shared/app-settings-types";
+import type { TelemetryEvent } from "../shared/telemetry-types";
 import type { Bounds, Size } from "../shared/types";
 import { readJsonFile, writeJsonFileAtomic } from "./json-file";
 import { clampToWorkArea, isReachable } from "./layout";
@@ -46,6 +47,18 @@ export function decideClose(input: CloseInput): CloseDecision {
   if (input.quitting) return { hide: false, quit: false, showNotice: false };
   if (input.closeAction === "quit") return { hide: false, quit: true, showNotice: false };
   return { hide: true, quit: false, showNotice: !input.trayNoticeShown };
+}
+
+/**
+ * Pure: should the main window minimise now? Only on the change into "live" (a sim has just
+ * connected), never while already live, and only when `general.minimiseOnConnect` is on.
+ */
+export function shouldMinimiseOnConnect(input: {
+  previous: TelemetryEvent["status"] | null;
+  next: TelemetryEvent["status"];
+  enabled: boolean;
+}): boolean {
+  return input.enabled && input.next === "live" && input.previous !== "live";
 }
 
 export const TRAY_NOTICE = {

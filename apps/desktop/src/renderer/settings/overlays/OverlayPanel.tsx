@@ -7,10 +7,11 @@ import {
   type SettingField,
   type SettingValue,
 } from "@overlay/overlays/contract";
-import type { SimName } from "@overlay/sim-core/types";
 import type { DisplayPrefs } from "@overlay/ui/types";
 import { useState, type ReactNode } from "react";
+import type { PreviewMeasure } from "../preview/OverlayPreview";
 import { ColumnEditor } from "./ColumnEditor";
+import { customWidthPatch, type WidthMode } from "./columns-model";
 import { FieldPicker, optionList } from "./FieldPicker";
 import {
   Button,
@@ -46,11 +47,25 @@ export interface OverlayPanelProps {
   prefs: DisplayPrefs;
   send: SendPatch;
   onReset(): void;
+  /** Latest preview measurement, for the column width floors. Null before the first one. */
+  measure?: PreviewMeasure | null;
+}
+
+function widthModeOf(value: SettingValue | undefined): WidthMode | undefined {
+  return value === "custom" || value === "auto" || value === "compact" ? value : undefined;
 }
 
 type Field<K extends SettingField["kind"]> = Extract<SettingField, { kind: K }>;
 
-export function OverlayPanel({ manifest, settings, sim, prefs, send, onReset }: OverlayPanelProps) {
+export function OverlayPanel({
+  manifest,
+  settings,
+  sim,
+  prefs,
+  send,
+  onReset,
+  measure,
+}: OverlayPanelProps) {
   const [confirming, setConfirming] = useState(false);
   const common = settings.common;
   const setCommon = (patch: Partial<CommonOverlaySettings>, key?: string): void =>
@@ -129,9 +144,18 @@ export function OverlayPanel({ manifest, settings, sim, prefs, send, onReset }: 
         <ColumnEditor
           manifest={manifest}
           fields={common.fields}
-          sim={sim as SimName}
+          sim={sim}
           onFields={(fields) => setCommon({ fields })}
           onWidth={(fields) => setCommon({ fields }, "fields-width")}
+          onWidthCustom={(fields) => send(customWidthPatch(fields), "fields-width")}
+          widthMode={widthModeOf(settings.options["column-width"])}
+          widthScalePct={
+            typeof settings.options["width-fine-tune"] === "number"
+              ? settings.options["width-fine-tune"]
+              : undefined
+          }
+          tableWidthPx={measure && measure.tableWidthPx > 0 ? measure.tableWidthPx : undefined}
+          chPx={measure && measure.chPx > 0 ? measure.chPx : undefined}
         />
       )}
       {multiFields(manifest).length > 0 && (

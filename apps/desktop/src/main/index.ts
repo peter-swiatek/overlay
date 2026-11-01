@@ -18,6 +18,7 @@ import { CaptureManager } from "./capture-manager";
 import { CaptureSettingsStore } from "./capture-settings";
 import { registerAppSettingsIpc } from "./ipc/app-settings";
 import { createAppStateNotifier, registerAppStateIpc } from "./ipc/app-state";
+import type { TelemetryEvent } from "../shared/telemetry-types";
 import type { IpcContext } from "./ipc/context";
 import { registerDeveloperIpc } from "./ipc/developer";
 import { registerDisplayIpc } from "./ipc/display";
@@ -32,6 +33,7 @@ import {
   launchPlan,
   loadMainWindowState,
   saveMainWindowState,
+  shouldMinimiseOnConnect,
 } from "./main-window";
 import { OverlayManager } from "./overlays";
 import { OverlaySettingsStore } from "./overlay-settings-store";
@@ -72,6 +74,7 @@ for (const { name, value } of buildCommandLineSwitches(effective)) {
 }
 
 let mainWindow: BrowserWindow | undefined;
+let lastTelemetryStatus: TelemetryEvent["status"] | null = null;
 let appSettings: AppSettingsStore | undefined;
 /** True once the app is quitting, so closing the main window really closes it. */
 let quitting = false;
@@ -339,7 +342,22 @@ if (!app.requestSingleInstanceLock()) {
         // Carries the replay path: main window only.
         sendToMain(IPC.telemetrySourceChanged, sourceViewOf(settings));
       },
-      onStatusChange: (status) => broadcast(IPC.telemetryStatusChanged, status),
+      onStatusChange: (status) => {
+        broadcast(IPC.telemetryStatusChanged, status);
+        if (
+          shouldMinimiseOnConnect({
+            previous: lastTelemetryStatus,
+            next: status.status,
+            enabled: appSettings?.load().general.minimiseOnConnect === true,
+          }) &&
+          mainWindow &&
+          !mainWindow.isDestroyed() &&
+          mainWindow.isVisible()
+        ) {
+          mainWindow.minimize();
+        }
+        lastTelemetryStatus = status.status;
+      },
     });
     registerTelemetryIpc(ctx, telemetry);
     // The Fuel overlay's "Keep fuel data" option reaches the telemetry process through the manager.

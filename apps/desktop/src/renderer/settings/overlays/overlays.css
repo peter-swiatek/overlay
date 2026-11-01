@@ -1,7 +1,10 @@
-.ov-page {
+/* A container query only sees ancestors, so the page sits inside its own container. */
+.ov-container {
   container-type: inline-size;
+}
+.ov-page {
   display: grid;
-  grid-template-columns: 260px minmax(380px, 1fr) minmax(360px, 1.1fr);
+  grid-template-columns: 260px minmax(340px, 1fr) minmax(320px, 1.1fr);
   grid-template-areas: "list settings preview";
   gap: 20px;
   align-items: start;
@@ -23,8 +26,8 @@
   position: sticky;
   top: 0;
 }
-/* Under about 1150px of usable width the preview moves above the settings and stays in view. */
-@container (max-width: 1150px) {
+/* Under about 980px of usable width the preview moves above the settings and stays in view. */
+@container (max-width: 980px) {
   .ov-page {
     grid-template-columns: 260px minmax(0, 1fr);
     grid-template-areas:

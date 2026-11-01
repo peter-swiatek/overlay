@@ -22,7 +22,7 @@ import "./columns.css";
 export interface ColumnEditorProps {
   manifest: OverlayManifest;
   fields: readonly FieldConfig[];
-  sim: SimName;
+  sim: SimName | null;
   onFields(next: FieldConfig[]): void;
   /** Width slider changes: debounced by the caller. */
   onWidth(next: FieldConfig[]): void;

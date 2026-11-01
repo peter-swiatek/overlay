@@ -123,6 +123,16 @@ export function GeneralForm({
           />
         </Row>
         <Row
+          label="Minimise when a game connects"
+          help="Keeps this window out of the way once a sim starts sending data."
+        >
+          <Toggle
+            label="Minimise when a game connects"
+            checked={g.minimiseOnConnect}
+            onChange={(minimiseOnConnect) => set({ minimiseOnConnect })}
+          />
+        </Row>
+        <Row
           label="Hide overlays when no sim is running"
           help={'An overlay\'s own "Always show" overrides this.'}
         >

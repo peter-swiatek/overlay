@@ -6,6 +6,7 @@ import {
   decideClose,
   launchPlan,
   parseMainWindowState,
+  shouldMinimiseOnConnect,
 } from "./main-window";
 
 function settings(startHiddenAtLogin: boolean): AppSettings {
@@ -139,5 +140,28 @@ describe("clampMainWindowState", () => {
   it("keeps the maximised flag", () => {
     const state = { width: 1100, height: 700, maximized: true };
     expect(clampMainWindowState(state, [primary], primary).maximized).toBe(true);
+  });
+});
+
+describe("shouldMinimiseOnConnect", () => {
+  it("minimises on the change into live when the setting is on", () => {
+    expect(shouldMinimiseOnConnect({ previous: null, next: "live", enabled: true })).toBe(true);
+    expect(shouldMinimiseOnConnect({ previous: "waiting", next: "live", enabled: true })).toBe(
+      true,
+    );
+  });
+
+  it("does nothing when the setting is off", () => {
+    expect(shouldMinimiseOnConnect({ previous: "waiting", next: "live", enabled: false })).toBe(
+      false,
+    );
+  });
+
+  it("does nothing while already live or when not live", () => {
+    expect(shouldMinimiseOnConnect({ previous: "live", next: "live", enabled: true })).toBe(false);
+    expect(shouldMinimiseOnConnect({ previous: "live", next: "waiting", enabled: true })).toBe(
+      false,
+    );
+    expect(shouldMinimiseOnConnect({ previous: null, next: "error", enabled: true })).toBe(false);
   });
 });

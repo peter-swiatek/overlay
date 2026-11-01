@@ -1,10 +1,7 @@
 import type { TelemetryFrame } from "@overlay/sim-core/types";
-// fixtureFrame is test-support code in the overlays package with no package export; it only
-// imports types, so pulling it in adds no Node code to the bundle.
-import {
-  FIXTURE_NAMES,
-  fixtureFrame,
-} from "../../../../../../packages/overlays/src/shared/fixtures";
+// Test-support code in the overlays package; it only has type imports, so no Node code reaches
+// the renderer bundle.
+import { FIXTURE_NAMES, fixtureFrame } from "@overlay/overlays/fixtures";
 
 const COUNT = 8;
 
