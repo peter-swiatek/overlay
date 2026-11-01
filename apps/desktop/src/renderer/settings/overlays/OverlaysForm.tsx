@@ -1,21 +1,23 @@
 import type { OverlayInstanceSettings, OverlayManifest } from "@overlay/overlays/contract";
-import type { SimName } from "@overlay/sim-core/types";
+import type { OverlaySize } from "../../../shared/types";
 import type { DisplayPrefs } from "@overlay/ui/types";
-import { Segmented, Toggle } from "../controls";
+import { Toggle } from "../controls";
+import { OverlayPreview, type PreviewMeasure } from "../preview/OverlayPreview";
 import "./overlays.css";
 import { OverlayPanel, type SendPatch } from "./OverlayPanel";
-import { listOverlays, settingsOf, simState } from "./model";
+import { listOverlays, settingsOf, simState, type SimContext } from "./model";
 
 export interface OverlaysFormProps {
   manifests: readonly OverlayManifest[];
   all: Readonly<Record<string, OverlayInstanceSettings>>;
   developerEnabled: boolean;
   selectedId: string | null;
-  sim: SimName;
+  sim: SimContext;
+  /** Real on-screen overlay sizes, by overlay id; empty until known. */
+  sizes: Readonly<Record<string, OverlaySize>>;
   prefs: DisplayPrefs;
   onSelect(id: string): void;
   onToggle(id: string, enabled: boolean): void;
-  onSim(sim: SimName): void;
   send(id: string, patch: Parameters<SendPatch>[0], debounceKey?: string): void;
   onReset(id: string): void;
 }
@@ -29,6 +31,9 @@ export function defaultSelection(
   const { active, available } = listOverlays(manifests, all, developerEnabled);
   return (active[0] ?? available[0])?.id ?? null;
 }
+
+/** The measurements only matter to the column width floor, which the column editor owns. */
+const ignoreMeasure = (measure: PreviewMeasure): void => void measure;
 
 export function OverlaysForm(props: OverlaysFormProps) {
   const { manifests, all, developerEnabled, sim, prefs } = props;
@@ -77,18 +82,20 @@ export function OverlaysForm(props: OverlaysFormProps) {
   return (
     <div className="ov-page">
       <div className="ov-left">
-        <Segmented<SimName>
-          label="Sim filter"
-          value={sim}
-          options={[
-            { value: "iracing", label: "iRacing" },
-            { value: "lmu", label: "LMU" },
-          ]}
-          onChange={props.onSim}
-        />
         {group("Active overlays", active)}
         {group("Available overlays", available)}
       </div>
+      <aside className="ov-preview" aria-label="Preview">
+        {selected && (
+          <OverlayPreview
+            key={selected.id}
+            manifest={selected}
+            settings={settingsOf(selected, all)}
+            size={props.sizes[selected.id] ?? null}
+            onMeasure={ignoreMeasure}
+          />
+        )}
+      </aside>
       <div className="ov-right">
         {selected ? (
           <OverlayPanel

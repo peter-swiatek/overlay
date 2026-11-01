@@ -1,11 +1,12 @@
 import { OVERLAY_MANIFESTS } from "@overlay/overlays/manifests";
 import type { OverlayInstanceSettings, OverlaySettingsPatch } from "@overlay/overlays/contract";
-import type { SimName } from "@overlay/sim-core/types";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { OverlaySize } from "../../../shared/types";
+import type { TelemetryEvent, TelemetrySourceChoice } from "../../../shared/telemetry-types";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { displayPrefsOf } from "../../../shared/app-settings-types";
 import { useAppSettings } from "../controls/useAppSettings";
 import { browserTimer, createDebouncer } from "../overlays/debounce";
-import { simFromSource } from "../overlays/model";
+import { simForGame } from "../overlays/model";
 import { OverlaysForm, defaultSelection } from "../overlays/OverlaysForm";
 import { createOverlaySender } from "../overlays/sender";
 
@@ -13,8 +14,9 @@ export function OverlaysPage() {
   const { settings: app } = useAppSettings();
   const [all, setAll] = useState<Record<string, OverlayInstanceSettings> | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sim, setSim] = useState<SimName>("iracing");
-  const pickedByHand = useRef(false);
+  const [sizes, setSizes] = useState<Record<string, OverlaySize>>({});
+  const [choice, setChoice] = useState<TelemetrySourceChoice>("auto");
+  const [status, setStatus] = useState<TelemetryEvent | null>(null);
   const debouncer = useMemo(() => createDebouncer(browserTimer), []);
   const sender = useMemo(
     () =>
@@ -36,15 +38,23 @@ export function OverlaysPage() {
     const offChanged = api.overlays.onChanged((id, s) => {
       sender.incoming(id, s);
     });
+    void api.overlays.getSizes().then((s) => {
+      if (alive) setSizes(s);
+    });
+    const offSizes = api.overlays.onSizesChanged(setSizes);
+    void api.telemetry.getSource().then((view) => {
+      if (alive) setChoice(view.source);
+    });
+    const offSource = api.telemetry.onSourceChanged((view) => setChoice(view.source));
     void api.telemetry.getStatus().then((ev) => {
-      if (alive && ev && !pickedByHand.current) setSim(simFromSource(ev.source));
+      if (alive) setStatus(ev);
     });
-    const offStatus = api.telemetry.onStatus((ev) => {
-      if (!pickedByHand.current) setSim(simFromSource(ev.source));
-    });
+    const offStatus = api.telemetry.onStatus(setStatus);
     return () => {
       alive = false;
       offChanged();
+      offSizes();
+      offSource();
       offStatus();
       debouncer.flush();
     };
@@ -64,17 +74,14 @@ export function OverlaysPage() {
       all={all}
       developerEnabled={developerEnabled}
       selectedId={selectedId ?? defaultSelection(OVERLAY_MANIFESTS, all, developerEnabled)}
-      sim={sim}
+      sim={simForGame(choice, status)}
+      sizes={sizes}
       prefs={displayPrefsOf(app)}
       onSelect={(id) => {
         debouncer.flush();
         setSelectedId(id);
       }}
       onToggle={(id, enabled) => send(id, { enabled })}
-      onSim={(next) => {
-        pickedByHand.current = true;
-        setSim(next);
-      }}
       send={send}
       onReset={(id) => {
         debouncer.flush();
