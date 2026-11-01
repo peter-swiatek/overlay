@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { SETTINGS_PAGES } from "./pages";
-import { resolvePageId, statusLabel, statusTone, visiblePages, zoomOf } from "./shell-model";
+import {
+  gameOptions,
+  railGroups,
+  resolvePageId,
+  statusLabel,
+  statusTone,
+  visiblePages,
+  zoomOf,
+} from "./shell-model";
 
 describe("shell model", () => {
   it("hides developer-only pages unless developer tools are on", () => {
@@ -43,5 +51,30 @@ describe("shell model", () => {
   it("converts the UI scale to a zoom factor", () => {
     expect(zoomOf(100)).toBe(1);
     expect(zoomOf(125)).toBe(1.25);
+  });
+
+  it("groups the rail into main pages and a Settings group", () => {
+    const groups = railGroups(visiblePages(SETTINGS_PAGES, false));
+    expect(groups.map((g) => [g.title, g.pages.map((p) => p.id)])).toEqual([
+      [null, ["overlays", "appearance"]],
+      ["Settings", ["general", "performance", "display"]],
+    ]);
+    const dev = railGroups(visiblePages(SETTINGS_PAGES, true));
+    expect(dev[1]?.pages.map((p) => p.id)).toEqual([
+      "general",
+      "performance",
+      "display",
+      "developer",
+    ]);
+    expect(railGroups([])).toEqual([]);
+  });
+
+  it("lists Mock and Replay only with developer tools or while selected", () => {
+    const values = (current: Parameters<typeof gameOptions>[0], dev: boolean): string[] =>
+      gameOptions(current, dev).map((o) => o.value);
+    expect(values("auto", false)).toEqual(["auto", "iracing", "lmu"]);
+    expect(values("lmu", true)).toEqual(["auto", "iracing", "lmu", "mock", "replay"]);
+    expect(values("mock", false)).toEqual(["auto", "iracing", "lmu", "mock"]);
+    expect(values("replay", false)).toEqual(["auto", "iracing", "lmu", "replay"]);
   });
 });

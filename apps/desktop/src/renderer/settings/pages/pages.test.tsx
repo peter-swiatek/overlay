@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_APP_SETTINGS, type AppSettings } from "../../../shared/app-settings-types";
-import { GeneralForm, sourceOptions, startWithWindowsAvailable } from "./GeneralPage";
+import { GeneralForm, startWithWindowsAvailable } from "./GeneralPage";
 import { PerformanceForm } from "./PerformancePage";
 
 const noop = () => undefined;
@@ -9,22 +9,6 @@ const noop = () => undefined;
 function withGeneral(patch: Partial<AppSettings["general"]>): AppSettings {
   return { ...DEFAULT_APP_SETTINGS, general: { ...DEFAULT_APP_SETTINGS.general, ...patch } };
 }
-
-describe("sourceOptions", () => {
-  it("lists only Auto, iRacing and LMU for the normal sources", () => {
-    for (const source of ["auto", "iracing", "lmu"] as const) {
-      expect(sourceOptions(source).map((o) => o.value)).toEqual(["auto", "iracing", "lmu"]);
-    }
-  });
-
-  it("adds Replay and Mock as an extra entry so the control never lies", () => {
-    expect(sourceOptions("replay").at(-1)).toEqual({
-      value: "replay",
-      label: "Replay (developer)",
-    });
-    expect(sourceOptions("mock").at(-1)).toEqual({ value: "mock", label: "Mock (developer)" });
-  });
-});
 
 describe("startWithWindowsAvailable", () => {
   it("needs a non-local build on Windows", () => {
@@ -35,19 +19,13 @@ describe("startWithWindowsAvailable", () => {
 });
 
 describe("GeneralForm", () => {
-  const render = (settings: AppSettings, source: "auto" | "mock", canAutostart = true) =>
+  const render = (settings: AppSettings, canAutostart = true) =>
     renderToStaticMarkup(
-      <GeneralForm
-        settings={settings}
-        update={noop}
-        source={{ source, replayPath: null }}
-        canAutostart={canAutostart}
-        onSource={noop}
-      />,
+      <GeneralForm settings={settings} update={noop} canAutostart={canAutostart} />,
     );
 
   it("shows the labels and help text", () => {
-    const html = render(DEFAULT_APP_SETTINGS, "auto");
+    const html = render(DEFAULT_APP_SETTINGS);
     for (const text of [
       "Metric",
       "Imperial",
@@ -57,6 +35,10 @@ describe("GeneralForm", () => {
       "Hide overlays when no sim is running",
       "UI scale",
       "150 %",
+      "Scales this settings window only.",
+      "Start hidden when Windows starts",
+      "When I close the window",
+      "Keep running in the tray",
       "Shows the Developer page, test data sources (Replay file, Mock) and developer overlays.",
     ]) {
       expect(html).toContain(text);
@@ -64,23 +46,36 @@ describe("GeneralForm", () => {
   });
 
   it("disables the mph toggle with imperial units", () => {
-    expect(render(withGeneral({ units: "imperial" }), "auto")).toContain(
+    expect(render(withGeneral({ units: "imperial" }))).toContain(
       'aria-label="Keep car speed in mph" disabled=""',
     );
-    expect(render(withGeneral({ units: "metric" }), "auto")).not.toContain(
+    expect(render(withGeneral({ units: "metric" }))).not.toContain(
       'aria-label="Keep car speed in mph" disabled=""',
     );
   });
 
   it("disables Start with Windows when unavailable", () => {
-    expect(render(DEFAULT_APP_SETTINGS, "auto", false)).toContain(
+    expect(render(DEFAULT_APP_SETTINGS, false)).toContain(
       "Only available in the installed Windows app.",
     );
   });
 
-  it("selects the Mock entry when the source is mock", () => {
-    expect(render(DEFAULT_APP_SETTINGS, "mock")).toContain(
-      '<option value="mock" selected="">Mock (developer)</option>',
+  it("has no Data source row (the game choice lives in the top bar)", () => {
+    const html = render(DEFAULT_APP_SETTINGS);
+    expect(html).not.toContain("Data source");
+    expect(html).not.toContain("<select");
+  });
+
+  it("marks the current close action", () => {
+    expect(render(withGeneral({ closeAction: "quit" }))).toMatch(/aria-pressed="true"[^>]*>Quit</);
+    expect(render(DEFAULT_APP_SETTINGS)).toMatch(
+      /aria-pressed="true"[^>]*>Keep running in the tray</,
+    );
+  });
+
+  it("disables start hidden when Start with Windows is off", () => {
+    expect(render(withGeneral({ startWithWindows: false }))).toContain(
+      'aria-label="Start hidden when Windows starts" disabled=""',
     );
   });
 });

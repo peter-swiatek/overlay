@@ -1,32 +1,9 @@
 import { useEffect, useState } from "react";
 import type { AppSettings, AppSettingsPatch } from "../../../shared/app-settings-types";
-import type { TelemetrySourceChoice, TelemetrySourceView } from "../../../shared/telemetry-types";
-import { Row, Section, Segmented, Select, Toggle } from "../controls";
+import { Row, Section, Segmented, Toggle } from "../controls";
 import { useAppSettings } from "../controls/useAppSettings";
 
-type SettableSource = Exclude<TelemetrySourceChoice, "replay">;
-type SourceValue = TelemetrySourceChoice;
-
-const BASE_SOURCES: { value: SourceValue; label: string }[] = [
-  { value: "auto", label: "Auto" },
-  { value: "iracing", label: "iRacing" },
-  { value: "lmu", label: "LMU" },
-];
-
 const SCALES = [100, 110, 125, 150] as const;
-
-/**
- * Data source entries. A Replay or Mock source (set from the tray or the Developer page) is
- * shown as an extra selected entry so the control never lies about what is running.
- */
-export function sourceOptions(
-  current: TelemetrySourceChoice,
-): { value: SourceValue; label: string }[] {
-  if (current === "replay")
-    return [...BASE_SOURCES, { value: "replay", label: "Replay (developer)" }];
-  if (current === "mock") return [...BASE_SOURCES, { value: "mock", label: "Mock (developer)" }];
-  return BASE_SOURCES;
-}
 
 /** "Start with Windows" only does something in an installed Windows build. */
 export function startWithWindowsAvailable(isPackaged: boolean, platform: string): boolean {
@@ -35,18 +12,13 @@ export function startWithWindowsAvailable(isPackaged: boolean, platform: string)
 
 export function GeneralPage() {
   const { settings, update } = useAppSettings();
-  const [source, setSource] = useState<TelemetrySourceView>();
   const [isPackaged, setIsPackaged] = useState(false);
 
   useEffect(() => {
-    const api = window.overlayApi;
     let alive = true;
-    void api.telemetry.getSource().then((v) => alive && setSource(v));
-    void api.getAppInfo().then((i) => alive && setIsPackaged(i.isPackaged));
-    const off = api.telemetry.onSourceChanged(setSource);
+    void window.overlayApi.getAppInfo().then((i) => alive && setIsPackaged(i.isPackaged));
     return () => {
       alive = false;
-      off();
     };
   }, []);
 
@@ -55,9 +27,7 @@ export function GeneralPage() {
     <GeneralForm
       settings={settings}
       update={update}
-      source={source}
       canAutostart={startWithWindowsAvailable(isPackaged, navigator.platform)}
-      onSource={(choice) => void window.overlayApi.telemetry.setSource(choice).then(setSource)}
     />
   );
 }
@@ -66,15 +36,11 @@ export function GeneralPage() {
 export function GeneralForm({
   settings,
   update,
-  source,
   canAutostart,
-  onSource,
 }: {
   settings: AppSettings;
   update(patch: AppSettingsPatch): void;
-  source: TelemetrySourceView | undefined;
   canAutostart: boolean;
-  onSource(choice: SettableSource): void;
 }) {
   const g = settings.general;
   const set = (patch: AppSettingsPatch["general"]): void => update({ general: patch });
@@ -117,20 +83,6 @@ export function GeneralForm({
           />
         </Row>
       </Section>
-      <Section title="Data">
-        <Row label="Data source">
-          <Select
-            label="Data source"
-            value={source?.source ?? "auto"}
-            disabled={!source}
-            options={sourceOptions(source?.source ?? "auto")}
-            onChange={(next) => {
-              if (next === "replay" || next === "mock") return;
-              onSource(next);
-            }}
-          />
-        </Row>
-      </Section>
       <Section title="Startup">
         <Row
           label="Start with Windows"
@@ -142,6 +94,32 @@ export function GeneralForm({
             checked={g.startWithWindows}
             disabled={!canAutostart}
             onChange={(startWithWindows) => set({ startWithWindows })}
+          />
+        </Row>
+        <Row
+          label="Start hidden when Windows starts"
+          help="Start in the tray without opening this window. Starting the app by hand always opens it."
+          disabled={!canAutostart || !g.startWithWindows}
+        >
+          <Toggle
+            label="Start hidden when Windows starts"
+            checked={g.startHiddenAtLogin}
+            disabled={!canAutostart || !g.startWithWindows}
+            onChange={(startHiddenAtLogin) => set({ startHiddenAtLogin })}
+          />
+        </Row>
+        <Row
+          label="When I close the window"
+          help="Overlays only keep running in the tray. Quit stops them too."
+        >
+          <Segmented
+            label="When I close the window"
+            value={g.closeAction}
+            options={[
+              { value: "tray", label: "Keep running in the tray" },
+              { value: "quit", label: "Quit" },
+            ]}
+            onChange={(closeAction) => set({ closeAction })}
           />
         </Row>
         <Row
