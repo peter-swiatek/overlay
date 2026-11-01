@@ -1,16 +1,28 @@
 import { ipcMain } from "electron";
 import type { OverlayInstanceSettings } from "@overlay/overlays/contract";
-import { IPC } from "../../shared/types";
+import { IPC, type OverlaySize } from "../../shared/types";
+import type { Layout } from "../layout";
 import type { OverlaySettingsStore } from "../overlay-settings-store";
 import type { IpcContext } from "./context";
 
 type Sender = Electron.WebContents;
 type Handler = (event: { sender: Sender }, ...args: unknown[]) => unknown;
 
+/** Pure: each placed overlay's on-screen size (the window's DIP size, already scaled) and scale. */
+export function overlaySizes(layout: Layout): Record<string, OverlaySize> {
+  return Object.fromEntries(
+    Object.entries(layout).map(([id, b]) => [
+      id,
+      { width: b.width, height: b.height, scalePct: b.scalePct },
+    ]),
+  );
+}
+
 /** The `overlays:*` handlers as plain functions, so tests need no Electron. */
 export function createOverlayIpcHandlers(
   ctx: IpcContext,
   store: OverlaySettingsStore,
+  getLayout: () => Layout = () => ({}),
 ): Record<string, Handler> {
   const fromSettingsOrOverlay = (sender: Sender): boolean =>
     ctx.isSettingsSender(sender) || ctx.isOverlaySender(sender);
@@ -30,6 +42,10 @@ export function createOverlayIpcHandlers(
       if (!ctx.isSettingsSender(event.sender)) ctx.deny(IPC.overlaysUpdate);
       return typeof id === "string" ? orNull(store.update(id, patch)) : null;
     },
+    [IPC.overlaysGetSizes]: (event) => {
+      if (!ctx.isSettingsSender(event.sender)) ctx.deny(IPC.overlaysGetSizes);
+      return overlaySizes(getLayout());
+    },
     [IPC.overlaysReset]: (event, id) => {
       if (!ctx.isSettingsSender(event.sender)) ctx.deny(IPC.overlaysReset);
       return typeof id === "string" ? orNull(store.reset(id)) : null;
@@ -37,8 +53,12 @@ export function createOverlayIpcHandlers(
   };
 }
 
-export function registerOverlayIpc(ctx: IpcContext, store: OverlaySettingsStore): void {
-  const handlers = createOverlayIpcHandlers(ctx, store);
+export function registerOverlayIpc(
+  ctx: IpcContext,
+  store: OverlaySettingsStore,
+  getLayout: () => Layout,
+): void {
+  const handlers = createOverlayIpcHandlers(ctx, store, getLayout);
   for (const [channel, handler] of Object.entries(handlers)) {
     ipcMain.handle(channel, (event, ...args: unknown[]) => handler(event, ...args));
   }

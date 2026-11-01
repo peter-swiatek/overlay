@@ -55,9 +55,9 @@ describe("applyLoginItem", () => {
   it("sets the login item only when packaged on Windows", () => {
     const win = mk(true, "win32");
     expect(applyLoginItem(win, true)).toBe(true);
-    expect(win.setLoginItem).toHaveBeenCalledWith(true);
+    expect(win.setLoginItem).toHaveBeenCalledWith(true, ["--hidden"]);
     applyLoginItem(win, false);
-    expect(win.setLoginItem).toHaveBeenLastCalledWith(false);
+    expect(win.setLoginItem).toHaveBeenLastCalledWith(false, []);
 
     for (const deps of [mk(false, "win32"), mk(true, "linux")]) {
       expect(applyLoginItem(deps, true)).toBe(false);
