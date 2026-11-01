@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { FieldConfig } from "../types";
-import { DataTable, gridTemplate, orderedColumns, type TableColumn } from "./index";
+import { DataTable, columnFloorPct, gridTemplate, orderedColumns, type TableColumn } from "./index";
 
 interface Car {
   id: number;
@@ -169,5 +169,44 @@ describe("DataTable markup", () => {
     expect(html).not.toContain("ov-section");
     expect(html).toContain("ov-table--auto");
     expect(html).toContain("Max Example");
+  });
+});
+
+describe("columnFloorPct", () => {
+  /** Evaluates the first (floor) argument of a `minmax(calc(Nch + 2 * var(...)), ...)` track. */
+  function drawnFloorPx(track: string, chPx: number, padPx: number): number {
+    const m = /^minmax\(calc\(([\d.]+)ch \+ 2 \* var\(--ov-cell-pad-x, 8px\)\)/.exec(track);
+    if (!m) throw new Error(`unexpected track ${track}`);
+    return Number(m[1]) * chPx + 2 * padPx;
+  }
+
+  it("matches the floor gridTemplate draws, for several widths and scales", () => {
+    const config: FieldConfig[] = [
+      { id: "pos", visible: true, widthPct: 5 },
+      { id: "gap", visible: true, widthPct: 5 },
+    ];
+    for (const [tableWidth, ch, scale] of [
+      [400, 7, 100],
+      [650, 8.4, 100],
+      [900, 7, 130],
+    ] as const) {
+      const tracks = gridTemplate(COLUMNS, config, "custom", scale).split(/ (?=minmax)/);
+      const cols = orderedColumns(COLUMNS, config);
+      cols.forEach((col, i) => {
+        const px = drawnFloorPx(tracks[i] ?? "", ch, 8);
+        const pct = columnFloorPct(col.minChars ?? col.chars, tableWidth, ch, 8, scale);
+        expect(pct).toBe(Math.min(100, Math.max(1, Math.ceil((px / tableWidth) * 100 - 1e-9))));
+        expect(pct).toBeGreaterThanOrEqual((px / tableWidth) * 100);
+      });
+    }
+  });
+
+  it("rounds up, clamps to 1..100 and never shrinks below scale 100", () => {
+    expect(columnFloorPct(6, 400, 7, 8, 100)).toBe(15); // 58 px / 400 = 14.5
+    expect(columnFloorPct(6, 400, 7, 8, 50)).toBe(15);
+    expect(columnFloorPct(6, 400, 7, 8, 200)).toBe(25); // 100 px / 400
+    expect(columnFloorPct(1, 100000, 7, 8, 100)).toBe(1);
+    expect(columnFloorPct(50, 100, 7, 8, 100)).toBe(100);
+    expect(columnFloorPct(5, 0, 7, 8, 100)).toBe(100);
   });
 });

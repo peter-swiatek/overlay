@@ -1,0 +1,115 @@
+import type { OverlayManifest, OverlaySettingsPatch } from "@overlay/overlays/contract";
+import { columnFloorChars } from "@overlay/overlays/fields";
+import { columnFloorPct } from "@overlay/ui";
+import type { FieldConfig } from "@overlay/ui/types";
+import { fieldDef, setFieldPatch, shownWidthPct } from "./model";
+
+/** What the preview measures; both optional until its first measurement. */
+export interface FloorInputs {
+  tableWidthPx?: number;
+  chPx?: number;
+  cellPadPx?: number;
+  /** The Fine-tune option (width scale), percent. Default 100. */
+  widthScalePct?: number;
+}
+
+/** Used until the preview has measured the real ch width. */
+export const FALLBACK_CH_PX = 7;
+export const FALLBACK_CELL_PAD_PX = 8;
+/** The column that takes the spare width when the total is under 100 % (see `gridTemplate`). */
+export const GROW_FIELD_ID = "driver";
+
+/**
+ * Narrowest width (whole %) the slider allows for a column. Table width falls back to the overlay's
+ * window width and ch to 7 px. Columns without a known floor (not a driver column) get 1.
+ */
+export function floorPctFor(
+  manifest: OverlayManifest,
+  fieldId: string,
+  inputs: FloorInputs = {},
+): number {
+  const def = fieldDef(manifest, fieldId);
+  const driverFloor = columnFloorChars(fieldId);
+  const chars = driverFloor ?? def?.minChars ?? def?.chars;
+  if (chars === undefined) return 1;
+  const width = inputs.tableWidthPx ?? manifest.defaultSize.width;
+  return columnFloorPct(
+    chars,
+    width,
+    inputs.chPx ?? FALLBACK_CH_PX,
+    inputs.cellPadPx ?? FALLBACK_CELL_PAD_PX,
+    inputs.widthScalePct ?? 100,
+  );
+}
+
+/** The width a slider shows: the stored or default width, never below the floor. */
+export function sliderValue(
+  config: FieldConfig,
+  manifest: OverlayManifest,
+  floorPct: number,
+): number {
+  return Math.max(floorPct, shownWidthPct(config, fieldDef(manifest, config.id)));
+}
+
+export interface WidthTotal {
+  /** Sum of the visible columns' widths (with the Fine-tune scale), whole %. */
+  totalPct: number;
+  over: boolean;
+  /** Label of the column that takes the rest, when the total is under 100 % and it is visible. */
+  growLabel: string | null;
+}
+
+export function widthTotal(
+  manifest: OverlayManifest,
+  fields: readonly FieldConfig[],
+  widthScalePct = 100,
+): WidthTotal {
+  const visible = fields.filter((f) => f.visible);
+  const sum = visible.reduce((a, f) => a + shownWidthPct(f, fieldDef(manifest, f.id)), 0);
+  const totalPct = Math.round((sum * widthScalePct) / 100);
+  const grow = visible.find((f) => f.id === GROW_FIELD_ID);
+  return {
+    totalPct,
+    over: totalPct > 100,
+    growLabel: grow ? (fieldDef(manifest, grow.id)?.label ?? grow.id) : null,
+  };
+}
+
+export function totalMessage(total: WidthTotal): string {
+  if (total.over) return "Columns are wider than the table; the overlay will widen to fit.";
+  const head = `Total ${total.totalPct} %.`;
+  return total.growLabel === null ? head : `${head} The ${total.growLabel} column takes the rest.`;
+}
+
+export type WidthMode = "custom" | "auto" | "compact";
+
+export interface WidthChange {
+  fields: FieldConfig[];
+  /** True when the caller must also set Column width to Custom in the same patch. */
+  setCustom: boolean;
+}
+
+/**
+ * A slider move on one column. Widths only apply in Custom mode, so from Auto or Compact the change
+ * switches the mode too. `mode` undefined (not known by the caller) never switches.
+ */
+export function planWidthChange(
+  fields: readonly FieldConfig[],
+  id: string,
+  widthPct: number,
+  mode: WidthMode | undefined,
+): WidthChange {
+  return {
+    fields: setFieldPatch(fields, id, { widthPct }),
+    setCustom: mode === "auto" || mode === "compact",
+  };
+}
+
+/**
+ * The single patch for a width change from Auto or Compact: the new column list and Column width
+ * set to Custom together, so the sliders are never left looking broken. Send it debounced under
+ * the "fields-width" key like any other width change.
+ */
+export function customWidthPatch(fields: FieldConfig[]): OverlaySettingsPatch {
+  return { common: { fields }, options: { "column-width": "custom" } };
+}
