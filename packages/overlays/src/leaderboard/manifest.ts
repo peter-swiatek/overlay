@@ -11,7 +11,7 @@ export const leaderboardManifest: OverlayManifest = {
   title: "Leaderboard",
   description: "Standings for the whole field.",
   sims: ["iracing", "lmu"],
-  defaultSize: { width: 560, height: 440 },
+  defaultSize: { width: 740, height: 440 },
   minSize: { width: 300, height: 160 },
   defaultPosition: { x: 40, y: 40 },
   table: true,

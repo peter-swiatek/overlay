@@ -136,10 +136,10 @@ describe("defaultBounds / initialBounds", () => {
     expect(defaultBounds(relative, 100, area)).toEqual({
       x: 140,
       y: 650,
-      width: 420,
+      width: 520,
       height: 300,
     });
-    expect(defaultBounds(relative, 150, area)).toMatchObject({ width: 630, height: 450 });
+    expect(defaultBounds(relative, 150, area)).toMatchObject({ width: 780, height: 450 });
   });
 
   it("keeps reachable stored bounds and raises them to the scaled minimum", () => {
@@ -165,7 +165,7 @@ describe("defaultBounds / initialBounds", () => {
   it("shrinks to the work area but never below the minimum size", () => {
     const small = { x: 0, y: 0, width: 800, height: 700 };
     const b = initialBounds(relative, undefined, 100, [small], small);
-    expect(b).toEqual({ x: 40, y: 600, width: 420, height: 140 });
+    expect(b).toEqual({ x: 40, y: 600, width: 520, height: 140 });
   });
 });
 
