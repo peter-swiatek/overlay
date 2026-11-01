@@ -77,6 +77,37 @@ interface Layout {
   grow?: boolean;
 }
 
+/** Short header labels, so a column's header fits at its floor width (the settings UI keeps the long names). */
+const SHORT_LABEL: Record<DriverFieldId, string> = {
+  position: "Pos",
+  "overall-position": "Ovr",
+  "car-number": "Car",
+  "car-class": "Class",
+  driver: "Driver",
+  licence: "SR",
+  irating: "iR",
+  gap: "Gap",
+  interval: "Int",
+  "last-lap": "Last",
+  "best-lap": "Best",
+  "avg-lap": "Avg",
+  "last-lap-delta": "ΔLast",
+  "best-lap-delta": "ΔBest",
+  lap: "Lap",
+  "pit-lane": "Pit",
+  "pit-stall": "Stall",
+  "last-pitted": "LPit",
+  "stint-lap": "Stint",
+  "prev-stint": "Prev",
+  "pos-change": "+/-",
+  energy: "Fuel",
+};
+
+/** Characters a header needs; capitals are wider than the digit the `ch` unit measures. */
+function labelChars(label: string): number {
+  return Math.ceil(label.length * 1.2);
+}
+
 const LAYOUT: Record<DriverFieldId, Layout> = {
   position: { chars: 3, align: "center" },
   "overall-position": { chars: 3, align: "center" },
@@ -150,11 +181,11 @@ export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[
     const layout = LAYOUT[id];
     return {
       id,
-      label: field?.label ?? id,
+      label: SHORT_LABEL[id],
       align: layout.align,
       grow: layout.grow,
       chars: layout.chars,
-      minChars: layout.minChars,
+      minChars: Math.max(layout.minChars ?? layout.chars, labelChars(SHORT_LABEL[id])),
       defaultWidthPct: field?.defaultWidthPct ?? 8,
       render: renderers[id],
     };

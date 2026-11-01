@@ -47,6 +47,24 @@ const LABELS: Record<HeaderFieldId, string> = {
   "brake-bias": "Brake bias",
 };
 
+/** Short labels for the strip itself; the long ones above are for the settings lists. */
+const SHORT_LABELS: Record<HeaderFieldId, string> = {
+  sof: "SoF",
+  incidents: "Inc",
+  "session-remaining": "Time left",
+  "sim-time": "Sim",
+  "real-time": "Time",
+  "air-temp": "Air",
+  "track-temp": "Track",
+  wetness: "Wet",
+  precipitation: "Rain",
+  humidity: "Hum",
+  fog: "Fog",
+  "wind-direction": "Wind",
+  "current-lap": "Lap",
+  "brake-bias": "BB",
+};
+
 /** Items only iRacing reports; the option list greys them out elsewhere. */
 const IRACING_ONLY: readonly HeaderFieldId[] = [
   "sof",
@@ -187,7 +205,7 @@ export function infoItems(
     const value = frame === null ? null : itemValue(id, frame, ctx);
     items.push({
       id,
-      label: LABELS[id],
+      label: SHORT_LABELS[id],
       value: value ?? "--",
       unavailable: value === null,
     });

@@ -18,7 +18,7 @@ export function InfoStrip({
           className={`ov-info-item${item.unavailable ? " ov-info-item--unavailable" : ""}`}
         >
           <span className="ov-info-label">{item.label}</span>
-          {item.value}
+          <span className="ov-info-value">{item.value}</span>
         </span>
       ))}
     </div>

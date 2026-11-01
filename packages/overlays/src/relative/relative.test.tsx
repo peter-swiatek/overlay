@@ -111,11 +111,11 @@ describe("RelativeOverlay", () => {
 
   it("toggles the header and footer strips", () => {
     const on = render(frame());
-    expect(on).toContain("Air temp");
-    expect(on).toContain("Laps/time remaining");
+    expect(on).toContain(">Air<");
+    expect(on).toContain("Time left");
     const off = render(frame(), { "weather-header": false, "session-footer": false });
-    expect(off).not.toContain("Air temp");
-    expect(off).not.toContain("Laps/time remaining");
+    expect(off).not.toContain(">Air<");
+    expect(off).not.toContain("Time left");
   });
 
   it("toggles row labels", () => {

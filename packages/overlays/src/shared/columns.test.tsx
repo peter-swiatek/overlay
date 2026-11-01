@@ -33,10 +33,15 @@ function cell(id: string, r: DriverRow, ctx: Partial<DriverColumnContext> = {}):
 }
 
 describe("driverColumns", () => {
-  it("has one column per field id, in order, with the reference labels", () => {
+  it("has one column per field id, in order, with short header labels", () => {
     const cols = driverColumns(CTX);
     expect(cols.map((c) => c.id)).toEqual([...DRIVER_FIELD_IDS]);
-    expect(cols.map((c) => c.label)).toEqual(DRIVER_FIELDS.map((f) => f.label));
+    expect(cols.map((c) => c.label)).toHaveLength(DRIVER_FIELDS.length);
+    // A header must fit at the column floor: floor chars cover the label length.
+    for (const c of cols) {
+      expect(c.label.length).toBeGreaterThan(0);
+      expect(c.minChars ?? c.chars).toBeGreaterThanOrEqual(c.label.length);
+    }
     expect(cols.find((c) => c.id === "driver")?.grow).toBe(true);
   });
 

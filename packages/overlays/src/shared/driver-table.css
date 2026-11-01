@@ -14,7 +14,7 @@
 .ov-info-strip {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 14px;
+  gap: 2px 16px;
   padding: 3px var(--ov-cell-pad-x, 8px);
   font-family: var(--ov-font-family, inherit);
   font-weight: var(--ov-font-weight, 500);
@@ -28,8 +28,12 @@
 }
 
 .ov-info-label {
-  margin-right: 4px;
+  margin-right: 6px;
   color: var(--ov-text-muted);
+}
+
+.ov-info-value {
+  font-weight: 700;
 }
 
 .ov-info-item--unavailable {
