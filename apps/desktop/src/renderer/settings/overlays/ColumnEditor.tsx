@@ -3,7 +3,17 @@ import type { SimName } from "@overlay/sim-core/types";
 import type { FieldConfig } from "@overlay/ui/types";
 import { useState } from "react";
 import { Row, Section, Slider, Toggle } from "../controls";
-import { fieldDef, moveField, setFieldPatch, shownWidthPct, simState } from "./model";
+import {
+  floorPctFor,
+  planWidthChange,
+  sliderValue,
+  totalMessage,
+  widthTotal,
+  type FloorInputs,
+  type WidthMode,
+} from "./columns-model";
+import { fieldDef, moveField, setFieldPatch, simState } from "./model";
+import "./columns.css";
 
 /**
  * The Columns (table overlays) or Fields (other overlays) section of the overlay panel.
@@ -16,17 +26,55 @@ export interface ColumnEditorProps {
   onFields(next: FieldConfig[]): void;
   /** Width slider changes: debounced by the caller. */
   onWidth(next: FieldConfig[]): void;
+  /**
+   * Width slider change while Column width is Auto or Compact. The caller must send ONE patch with
+   * both `common.fields = next` and `options["column-width"] = "custom"` (`customWidthPatch`). When omitted, `onWidth`
+   * is used and the mode is left alone.
+   */
+  onWidthCustom?(next: FieldConfig[]): void;
+  /** Current Column width option. Unknown (omitted): the old "Widths apply when..." note is shown. */
+  widthMode?: WidthMode;
+  /** From the preview's measurement. Without them the overlay's window width and 7 px per ch are used. */
+  tableWidthPx?: number;
+  chPx?: number;
+  cellPadPx?: number;
+  /** The Fine-tune option (width scale), percent. Default 100. */
+  widthScalePct?: number;
 }
 
-export function ColumnEditor({ manifest, fields, sim, onFields, onWidth }: ColumnEditorProps) {
+export function ColumnEditor({
+  manifest,
+  fields,
+  sim,
+  onFields,
+  onWidth,
+  onWidthCustom,
+  widthMode,
+  tableWidthPx,
+  chPx,
+  cellPadPx,
+  widthScalePct,
+}: ColumnEditorProps) {
   const table = manifest.table;
   const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [switched, setSwitched] = useState(false);
+  const floorInputs: FloorInputs = { tableWidthPx, chPx, cellPadPx, widthScalePct };
+  const changeWidth = (id: string, widthPct: number): void => {
+    const plan = planWidthChange(fields, id, widthPct, widthMode);
+    if (plan.setCustom && onWidthCustom) {
+      setSwitched(true);
+      onWidthCustom(plan.fields);
+    } else {
+      onWidth(plan.fields);
+    }
+  };
   return (
     <Section title={table ? "Columns" : "Fields"}>
       {fields.map((config, index) => {
         const def = fieldDef(manifest, config.id);
         const label = def?.label ?? config.id;
         const state = simState(def?.sims, sim);
+        const floor = floorPctFor(manifest, config.id, floorInputs);
         if (!table) {
           return (
             <Row key={config.id} label={label} disabled={state.disabled} badge={state.badge}>
@@ -93,14 +141,19 @@ export function ColumnEditor({ manifest, fields, sim, onFields, onWidth }: Colum
             </span>
             <Slider
               label={`Width of ${label}`}
-              value={shownWidthPct(config, def)}
-              min={1}
+              value={sliderValue(config, manifest, floor)}
+              min={floor}
               max={100}
               step={1}
               unit="%"
               disabled={state.disabled}
-              onChange={(widthPct) => onWidth(setFieldPatch(fields, config.id, { widthPct }))}
+              onChange={(widthPct) => changeWidth(config.id, widthPct)}
             />
+            {floor > 1 && (
+              <span className="ov-col-floor muted" title="Narrowest readable width">
+                min {floor}%
+              </span>
+            )}
             <button
               type="button"
               aria-label={`Default width of ${label}`}
@@ -112,7 +165,21 @@ export function ColumnEditor({ manifest, fields, sim, onFields, onWidth }: Colum
           </div>
         );
       })}
-      {table && <p className="muted ov-note">Widths apply when Column width is Custom.</p>}
+      {table && (
+        <p className="muted ov-note">
+          {widthMode === undefined
+            ? "Widths apply when Column width is Custom."
+            : totalMessage(widthTotal(manifest, fields, widthScalePct))}
+        </p>
+      )}
+      {table && widthMode !== undefined && (
+        <p className="muted ov-note">Narrowest readable width is marked on each slider.</p>
+      )}
+      {table && switched && widthMode === "custom" && (
+        <p className="muted ov-note" role="status">
+          Column width set to Custom
+        </p>
+      )}
     </Section>
   );
 }

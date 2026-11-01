@@ -1,7 +1,12 @@
 import { DEFAULT_DISPLAY_PREFS, type NameDisplay, type NameFormat } from "@overlay/ui/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { driverColumns, driverRowStyle, type DriverColumnContext } from "./columns";
+import {
+  columnFloorChars,
+  driverColumns,
+  driverRowStyle,
+  type DriverColumnContext,
+} from "./columns";
 import { DRIVER_FIELD_IDS, DRIVER_FIELDS, driverFields } from "./fields";
 import { FIXTURE_NAMES, fixtureFrame } from "./fixtures";
 import { driverRows, type DriverRow } from "./rows";
@@ -164,5 +169,23 @@ describe("driverFields", () => {
   it("marks sim-specific columns", () => {
     expect(DRIVER_FIELDS.find((f) => f.id === "energy")?.sims).toEqual(["lmu"]);
     expect(DRIVER_FIELDS.find((f) => f.id === "irating")?.sims).toEqual(["iracing"]);
+  });
+});
+
+describe("column floors", () => {
+  it("columnFloorChars is the column's minChars, never below its header label", () => {
+    for (const col of driverColumns(CTX)) {
+      expect(col.minChars).toBe(columnFloorChars(col.id));
+    }
+    expect(columnFloorChars("driver")).toBe(10);
+    expect(columnFloorChars("last-lap")).toBe(8);
+    expect(columnFloorChars("pos-change")).toBe(4);
+    expect(columnFloorChars("nope")).toBeUndefined();
+  });
+
+  it("the manifest fields carry chars and minChars", () => {
+    const driver = DRIVER_FIELDS.find((f) => f.id === "driver");
+    expect(driver).toMatchObject({ chars: 18, minChars: 10 });
+    expect(DRIVER_FIELDS.every((f) => f.chars !== undefined)).toBe(true);
   });
 });
