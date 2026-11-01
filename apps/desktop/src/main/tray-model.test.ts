@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_TELEMETRY_SETTINGS } from "./telemetry-settings";
-import { buildAboutItem, buildDataSourceMenu, buildUpdateItems, trayTooltip } from "./tray-model";
+import {
+  buildAboutItem,
+  buildDataSourceMenu,
+  buildOverlayStateItems,
+  buildUpdateItems,
+  trayTooltip,
+} from "./tray-model";
 import type { UpdateState } from "./updater";
 
 const actions = () => ({ select: vi.fn(), pickReplayFile: vi.fn() });
@@ -137,5 +143,46 @@ describe("update items", () => {
     expect(list[0]?.enabled).toBe(false);
     list[2]?.click?.();
     expect(a.restartToUpdate).toHaveBeenCalledOnce();
+  });
+});
+
+describe("overlay state items", () => {
+  const actions = () => ({
+    showMainWindow: vi.fn(),
+    toggleVisible: vi.fn(),
+    toggleLocked: vi.fn(),
+  });
+
+  it("opens the window and shows the Visible and Locked checkboxes from the state", () => {
+    const items = buildOverlayStateItems(
+      { overlaysVisible: true, overlaysLocked: false },
+      actions(),
+    );
+    expect(items.map((i) => i.label)).toEqual([
+      "Open Overlay",
+      "Overlays visible",
+      "Overlays locked (Ctrl+Shift+F10)",
+    ]);
+    expect(items[0]?.type).toBeUndefined();
+    expect(items[1]).toMatchObject({ type: "checkbox", checked: true });
+    expect(items[2]).toMatchObject({ type: "checkbox", checked: false });
+  });
+
+  it("reflects the opposite state", () => {
+    const items = buildOverlayStateItems(
+      { overlaysVisible: false, overlaysLocked: true },
+      actions(),
+    );
+    expect(items[1]?.checked).toBe(false);
+    expect(items[2]?.checked).toBe(true);
+  });
+
+  it("wires each item to its action", () => {
+    const a = actions();
+    const items = buildOverlayStateItems({ overlaysVisible: true, overlaysLocked: true }, a);
+    items.forEach((i) => i.click());
+    expect(a.showMainWindow).toHaveBeenCalledOnce();
+    expect(a.toggleVisible).toHaveBeenCalledOnce();
+    expect(a.toggleLocked).toHaveBeenCalledOnce();
   });
 });

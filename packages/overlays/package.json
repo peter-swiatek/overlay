@@ -11,6 +11,8 @@
     ".": "./src/index.ts",
     "./contract": "./src/contract.ts",
     "./manifests": "./src/manifests.ts",
+    "./fixtures": "./src/shared/fixtures.ts",
+    "./fields": "./src/shared/fields.ts",
     "./settings": "./src/settings/index.ts",
     "./views": "./src/views.ts"
   },

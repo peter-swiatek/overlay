@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -48,6 +48,35 @@ describe("@overlay/sim-core/pure", () => {
   it("the specifier scan sees multi-line and side-effect imports", () => {
     const text = 'import {\n  a,\n} from "node:fs";\nimport "node:os";\nexport * from "./x";';
     expect(specifiers(text)).toEqual(["node:fs", "node:os", "./x"]);
+  });
+});
+
+describe("@overlay/sim-core/demo", () => {
+  it("reaches no node: module, package or adapter", () => {
+    const problems: string[] = [];
+    const seen = new Set<string>();
+    const resolveModule = (base: string): string => {
+      for (const candidate of [`${base}.ts`, resolve(base, "index.ts")]) {
+        if (existsSync(candidate)) return candidate;
+      }
+      throw new Error(`cannot resolve ${base}`);
+    };
+    const walkDemo = (file: string): void => {
+      if (seen.has(file)) return;
+      seen.add(file);
+      const rel = file.slice(SRC.length + 1).replaceAll("\\", "/");
+      if (rel.startsWith("adapters/")) problems.push(`${rel} is an adapter`);
+      for (const spec of specifiers(readFileSync(file, "utf8"))) {
+        if (spec.startsWith("node:")) problems.push(`${rel} imports ${spec}`);
+        else if (spec.startsWith(".") && spec.endsWith(".json"))
+          continue; // bundled data
+        else if (spec.startsWith(".")) walkDemo(resolveModule(resolve(dirname(file), spec)));
+        else problems.push(`${rel} imports package ${spec}`);
+      }
+    };
+    walkDemo(resolve(SRC, "demo.ts"));
+    expect(problems).toEqual([]);
+    expect(seen.size).toBeGreaterThan(5);
   });
 });
 

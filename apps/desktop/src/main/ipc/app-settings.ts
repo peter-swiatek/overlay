@@ -2,6 +2,7 @@ import { app, ipcMain, type WebContents } from "electron";
 import type { AppSettings } from "../../shared/app-settings-types";
 import { IPC } from "../../shared/types";
 import type { AppSettingsStore } from "../app-settings";
+import { HIDDEN_ARG } from "../main-window";
 import type { IpcContext } from "./context";
 
 type Senders = Pick<IpcContext, "isSettingsSender" | "isOverlaySender" | "deny">;
@@ -28,7 +29,7 @@ export function appSettingsHandlers(
 export interface LoginItemDeps {
   isPackaged: boolean;
   platform: NodeJS.Platform;
-  setLoginItem(openAtLogin: boolean): void;
+  setLoginItem(openAtLogin: boolean, args: string[]): void;
   log(message: string): void;
 }
 
@@ -38,7 +39,8 @@ export function applyLoginItem(deps: LoginItemDeps, startWithWindows: boolean): 
     deps.log("Start with Windows ignored (needs a packaged Windows build)");
     return false;
   }
-  deps.setLoginItem(startWithWindows);
+  // The flag lets the app tell a login start from a start by hand (Windows reports no such thing).
+  deps.setLoginItem(startWithWindows, startWithWindows ? [HIDDEN_ARG] : []);
   return true;
 }
 
@@ -46,7 +48,7 @@ function electronLoginItem(): LoginItemDeps {
   return {
     isPackaged: app.isPackaged,
     platform: process.platform,
-    setLoginItem: (openAtLogin) => app.setLoginItemSettings({ openAtLogin }),
+    setLoginItem: (openAtLogin, args) => app.setLoginItemSettings({ openAtLogin, args }),
     log: (message) => console.log(message),
   };
 }

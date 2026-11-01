@@ -93,3 +93,21 @@ export function gridTemplate<Row>(
     )
     .join(" ");
 }
+
+/**
+ * The narrowest a column may be, as a whole % of the table, for the settings width slider. Mirrors
+ * `minTrack()`: `(floorChars * chPx * max(1, scale) + 2 * pad) / tableWidthPx * 100`, rounded up and
+ * clamped to 1..100. `scalePct` is the width fine-tune (the floor grows with it, never shrinks).
+ */
+export function columnFloorPct(
+  floorChars: number,
+  tableWidthPx: number,
+  chPx: number,
+  cellPadPx: number,
+  scalePct: number,
+): number {
+  if (!(tableWidthPx > 0)) return 100;
+  const scale = Math.max(1, scalePct / 100);
+  const pct = ((floorChars * chPx * scale + 2 * cellPadPx) / tableWidthPx) * 100;
+  return Math.min(100, Math.max(1, Math.ceil(pct - 1e-9)));
+}

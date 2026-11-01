@@ -28,6 +28,8 @@ export interface OverlayManagerDeps {
   onStateChange: () => void;
   /** Whether developer tools are on; developer-only overlays stay closed while they are off. */
   isDeveloperEnabled?: () => boolean;
+  /** Called after each (debounced) layout save, so sizes can be pushed to the main window. */
+  onLayoutSaved?: () => void;
 }
 
 interface OpenOverlay {
@@ -65,6 +67,11 @@ export class OverlayManager {
 
   get isVisible(): boolean {
     return this.visible;
+  }
+
+  /** A copy of the current layout (bounds and scale of every overlay placed so far). */
+  getLayout(): Layout {
+    return structuredClone(this.layout);
   }
 
   start(): void {
@@ -311,5 +318,6 @@ export class OverlayManager {
     } catch (error) {
       console.error("Could not save overlay layout", error);
     }
+    this.deps.onLayoutSaved?.();
   }
 }

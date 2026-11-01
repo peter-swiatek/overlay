@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import {
   BrowserWindow,
+  screen,
   MessageChannelMain,
   app,
   globalShortcut,
@@ -16,14 +17,25 @@ import { AppSettingsStore } from "./app-settings";
 import { CaptureManager } from "./capture-manager";
 import { CaptureSettingsStore } from "./capture-settings";
 import { registerAppSettingsIpc } from "./ipc/app-settings";
-import { registerAppStateIpc } from "./ipc/app-state";
+import { createAppStateNotifier, registerAppStateIpc } from "./ipc/app-state";
+import type { TelemetryEvent } from "../shared/telemetry-types";
 import type { IpcContext } from "./ipc/context";
 import { registerDeveloperIpc } from "./ipc/developer";
 import { registerDisplayIpc } from "./ipc/display";
-import { registerOverlayIpc } from "./ipc/overlays";
+import { overlaySizes, registerOverlayIpc } from "./ipc/overlays";
 import { registerTelemetryIpc, sourceViewOf } from "./ipc/telemetry";
 import { registerThemeIpc } from "./ipc/theme";
 import { LayoutStore } from "./layout-store";
+import {
+  TRAY_NOTICE,
+  clampMainWindowState,
+  decideClose,
+  launchPlan,
+  loadMainWindowState,
+  revealMainWindow,
+  saveMainWindowState,
+  shouldMinimiseOnConnect,
+} from "./main-window";
 import { OverlayManager } from "./overlays";
 import { OverlaySettingsStore } from "./overlay-settings-store";
 import { loadPage, preloadPath } from "./pages";
@@ -40,7 +52,7 @@ import { ThemeStore } from "./theme-store";
 import { AppTray } from "./tray";
 import { UpdateSettingsStore } from "./update-settings";
 import { Updater } from "./updater";
-import { buildSettingsWindowOptions } from "./window-options";
+import { buildMainWindowOptions } from "./window-options";
 import { ZOrderKeeper, hwndOf } from "./zorder";
 
 const EDIT_SHORTCUT = "Control+Shift+F10";
@@ -62,7 +74,11 @@ for (const { name, value } of buildCommandLineSwitches(effective)) {
   else app.commandLine.appendSwitch(name, value);
 }
 
-let settingsWindow: BrowserWindow | undefined;
+let mainWindow: BrowserWindow | undefined;
+let lastTelemetryStatus: TelemetryEvent["status"] | null = null;
+let appSettings: AppSettingsStore | undefined;
+/** True once the app is quitting, so closing the main window really closes it. */
+let quitting = false;
 let overlays: OverlayManager | undefined;
 let tray: AppTray | undefined;
 let capture: CaptureManager | undefined;
@@ -70,27 +86,83 @@ let telemetry: TelemetryManager | undefined;
 let updater: Updater | undefined;
 let overlaySettings: OverlaySettingsStore | undefined;
 let shuttingDown = false;
+/** Set once the overlay manager exists; refreshes the tray and tells the windows. */
+let notifyAppState: () => void = () => {};
 let lastRecording = false;
 let lastCaptureError: string | null = null;
 let zorder: ZOrderKeeper | undefined;
 
-function showSettings(): void {
-  if (settingsWindow && !settingsWindow.isDestroyed()) {
-    settingsWindow.show();
-    settingsWindow.focus();
+const MAIN_WINDOW_FILE = join(userData, "main-window.json");
+
+function saveMainWindowBounds(win: BrowserWindow): void {
+  if (win.isDestroyed() || win.isMinimized()) return;
+  const maximized = win.isMaximized();
+  const { x, y, width, height } = win.getNormalBounds();
+  saveMainWindowState(MAIN_WINDOW_FILE, { x, y, width, height, maximized });
+}
+
+/** Creates the main window if needed, then restores, shows and focuses it. */
+function showMainWindow(): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
     return;
   }
-  const win = new BrowserWindow(buildSettingsWindowOptions(preloadPath));
-  settingsWindow = win;
-  win.once("ready-to-show", () => win.show());
+  const areas = screen.getAllDisplays().map((d) => d.workArea);
+  const state = clampMainWindowState(
+    loadMainWindowState(MAIN_WINDOW_FILE),
+    areas,
+    screen.getPrimaryDisplay().workArea,
+  );
+  const win = new BrowserWindow(buildMainWindowOptions(preloadPath, state));
+  mainWindow = win;
+  win.once("ready-to-show", () => revealMainWindow(win, state.maximized));
+  let saveTimer: NodeJS.Timeout | undefined;
+  const scheduleSave = (): void => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => saveMainWindowBounds(win), 500);
+  };
+  win.on("resize", scheduleSave);
+  win.on("move", scheduleSave);
+  win.on("close", (event) => {
+    clearTimeout(saveTimer);
+    saveMainWindowBounds(win);
+    const settings = appSettings?.load();
+    const decision = decideClose({
+      closeAction: settings?.general.closeAction ?? "tray",
+      quitting: quitting || shuttingDown,
+      trayNoticeShown: settings?.ui.trayNoticeShown ?? true,
+    });
+    if (decision.hide) {
+      event.preventDefault();
+      win.hide();
+      if (decision.showNotice) {
+        tray?.showNotice(TRAY_NOTICE.title, TRAY_NOTICE.content);
+        appSettings?.update({ ui: { trayNoticeShown: true } });
+      }
+    } else if (decision.quit) {
+      app.quit();
+    }
+  });
+  // Windows log-off or shutdown: let the window close instead of hiding it to the tray.
+  win.on("session-end", () => {
+    quitting = true;
+  });
   win.on("closed", () => {
-    settingsWindow = undefined;
+    clearTimeout(saveTimer);
+    mainWindow = undefined;
   });
   void loadPage(win, "settings");
 }
 
-function fromSettings(sender: WebContents): boolean {
-  return !!settingsWindow && !settingsWindow.isDestroyed() && settingsWindow.webContents === sender;
+function fromMain(sender: WebContents): boolean {
+  return !!mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents === sender;
+}
+
+/** Sends to the main window only (when it exists). */
+function sendToMain(channel: string, ...args: unknown[]): void {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, ...args);
 }
 
 function fromOverlay(sender: WebContents): boolean {
@@ -101,10 +173,10 @@ function deny(channel: string): never {
   throw new Error(`Rejected IPC from unexpected sender: ${channel}`);
 }
 
-/** Sends to every open overlay window and the settings window. */
+/** Sends to every open overlay window and the main window. */
 function broadcast(channel: string, ...args: unknown[]): void {
   const targets = [...(overlays?.getWindows() ?? [])];
-  if (settingsWindow) targets.push(settingsWindow);
+  if (mainWindow) targets.push(mainWindow);
   for (const win of targets) {
     if (!win.isDestroyed()) win.webContents.send(channel, ...args);
   }
@@ -144,27 +216,33 @@ app.on("web-contents-created", (_event, contents) => {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on("second-instance", () => showSettings());
+  app.on("second-instance", () => {
+    if (app.isReady()) showMainWindow();
+  });
 
   void app.whenReady().then(() => {
     overlaySettings = new OverlaySettingsStore(
       join(userData, "overlay-settings.json"),
       OVERLAY_MANIFESTS,
     );
-    const appSettings = new AppSettingsStore(join(userData, "app-settings.json"));
+    const appSettingsStore = new AppSettingsStore(join(userData, "app-settings.json"));
+    appSettings = appSettingsStore;
     const themes = new ThemeStore(join(userData, "themes.json"));
     const ctx: IpcContext = {
       userData,
-      isSettingsSender: fromSettings,
+      isSettingsSender: fromMain,
       isOverlaySender: fromOverlay,
       broadcast,
       deny,
     };
     registerIpc();
-    registerOverlayIpc(ctx, overlaySettings);
-    registerAppStateIpc(ctx);
+    registerOverlayIpc(ctx, overlaySettings, () => overlays?.getLayout() ?? {});
+    registerAppStateIpc(ctx, {
+      source: () => overlays,
+      quit: () => app.quit(),
+    });
     registerThemeIpc(ctx, themes);
-    registerAppSettingsIpc(ctx, appSettings);
+    registerAppSettingsIpc(ctx, appSettingsStore);
     registerDisplayIpc(ctx, {
       settingsStore,
       effective,
@@ -180,8 +258,8 @@ if (!app.requestSingleInstanceLock()) {
       setOverlayOverride: (override) => overlays?.setEnabledOverride(override),
       getSourceLabel: () => telemetry?.getSettings().source ?? "unknown",
     });
-    let developerWas = appSettings.load().developer.enabled;
-    appSettings.onChange((next) => {
+    let developerWas = appSettingsStore.load().developer.enabled;
+    appSettingsStore.onChange((next) => {
       tray?.refresh();
       if (next.developer.enabled !== developerWas) {
         developerWas = next.developer.enabled;
@@ -194,10 +272,18 @@ if (!app.requestSingleInstanceLock()) {
       overlaySettings,
       manifests: OVERLAY_MANIFESTS,
       opacityWorkaround: effective.opacityWorkaround,
-      onStateChange: () => tray?.refresh(),
-      isDeveloperEnabled: () => appSettings.load().developer.enabled,
+      onStateChange: () => notifyAppState(),
+      onLayoutSaved: () => {
+        if (overlays) sendToMain(IPC.overlaysSizesChanged, overlaySizes(overlays.getLayout()));
+      },
+      isDeveloperEnabled: () => appSettingsStore.load().developer.enabled,
     });
     overlays = manager;
+    notifyAppState = createAppStateNotifier(
+      manager,
+      (channel, state) => broadcast(channel, state),
+      () => tray?.refresh(),
+    );
     manager.start();
 
     capture = new CaptureManager(
@@ -209,9 +295,7 @@ if (!app.requestSingleInstanceLock()) {
           lastCaptureError = status.error;
           tray?.refresh();
         }
-        if (settingsWindow && !settingsWindow.isDestroyed()) {
-          settingsWindow.webContents.send(IPC.captureStatusChanged, status);
-        }
+        sendToMain(IPC.captureStatusChanged, status);
       },
     );
 
@@ -256,12 +340,25 @@ if (!app.requestSingleInstanceLock()) {
       },
       onSettingsChange: (settings) => {
         tray?.refresh();
-        // Carries the replay path: settings window only.
-        if (settingsWindow && !settingsWindow.isDestroyed()) {
-          settingsWindow.webContents.send(IPC.telemetrySourceChanged, sourceViewOf(settings));
-        }
+        // Carries the replay path: main window only.
+        sendToMain(IPC.telemetrySourceChanged, sourceViewOf(settings));
       },
-      onStatusChange: (status) => broadcast(IPC.telemetryStatusChanged, status),
+      onStatusChange: (status) => {
+        broadcast(IPC.telemetryStatusChanged, status);
+        if (
+          shouldMinimiseOnConnect({
+            previous: lastTelemetryStatus,
+            next: status.status,
+            enabled: appSettings?.load().general.minimiseOnConnect === true,
+          }) &&
+          mainWindow &&
+          !mainWindow.isDestroyed() &&
+          mainWindow.isVisible()
+        ) {
+          mainWindow.minimize();
+        }
+        lastTelemetryStatus = status.status;
+      },
     });
     registerTelemetryIpc(ctx, telemetry);
     // The Fuel overlay's "Keep fuel data" option reaches the telemetry process through the manager.
@@ -277,6 +374,7 @@ if (!app.requestSingleInstanceLock()) {
       getAutoUpdater: () => pkg.autoUpdater,
       prepareToQuit: async () => {
         shuttingDown = true;
+        quitting = true;
         // The installer stops our processes shortly after it starts: finish the recordings first.
         await Promise.allSettled([telemetry?.shutdown(), capture?.shutdown()]);
         overlays?.flushSave();
@@ -302,21 +400,25 @@ if (!app.requestSingleInstanceLock()) {
       telemetry,
       updater,
       {
-        showSettings,
+        showMainWindow,
         quit: () => app.quit(),
       },
-      appSettings,
+      appSettingsStore,
     );
     updater.start();
 
     if (!globalShortcut.register(EDIT_SHORTCUT, () => manager.toggleEditMode())) {
       console.warn(`Could not register ${EDIT_SHORTCUT}`);
     }
+
+    // A start by hand shows the window; a login start (--hidden) stays in the tray.
+    if (launchPlan(process.argv, appSettingsStore.load()).showWindow) showMainWindow();
   });
 
-  // Tray app: closing the settings window must not quit.
+  // Tray app: closing the main window hides it (see its close handler); it must not quit.
   app.on("window-all-closed", () => {});
   app.on("before-quit", (event) => {
+    quitting = true;
     if (shuttingDown) return;
     // Both child processes finish their files (the telemetry recorder's last rows and footer, the
     // capture file's gzip trailer and summary) before the app exits.

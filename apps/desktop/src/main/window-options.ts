@@ -1,5 +1,6 @@
 import type { BrowserWindowConstructorOptions } from "electron";
 import type { Bounds } from "../shared/types";
+import { DEFAULT_MAIN_SIZE, MIN_MAIN_SIZE, type MainWindowState } from "./main-window";
 
 export const OPACITY_WORKAROUND_VALUE = 0.99;
 
@@ -36,15 +37,21 @@ export function buildOverlayWindowOptions(
   };
 }
 
-export function buildSettingsWindowOptions(preloadPath: string): BrowserWindowConstructorOptions {
+/** Pure builder for the main window ("Overlay"). `state` comes from `clampMainWindowState`. */
+export function buildMainWindowOptions(
+  preloadPath: string,
+  state?: Pick<MainWindowState, "x" | "y" | "width" | "height">,
+): BrowserWindowConstructorOptions {
+  const size = state ?? DEFAULT_MAIN_SIZE;
   return {
-    width: 920,
-    height: 680,
-    minWidth: 760,
-    minHeight: 560,
+    ...(state?.x !== undefined && state.y !== undefined ? { x: state.x, y: state.y } : {}),
+    width: size.width,
+    height: size.height,
+    minWidth: MIN_MAIN_SIZE.width,
+    minHeight: MIN_MAIN_SIZE.height,
     resizable: true,
     show: false,
-    title: "Overlay settings",
+    title: "Overlay",
     autoHideMenuBar: true,
     webPreferences: {
       preload: preloadPath,

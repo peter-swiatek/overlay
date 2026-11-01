@@ -7,23 +7,34 @@ import {
   type SettingField,
   type SettingValue,
 } from "@overlay/overlays/contract";
-import type { SimName } from "@overlay/sim-core/types";
 import type { DisplayPrefs } from "@overlay/ui/types";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import type { PreviewMeasure } from "../preview/OverlayPreview";
 import { ColumnEditor } from "./ColumnEditor";
+import { customWidthPatch, type WidthMode } from "./columns-model";
 import { FieldPicker, optionList } from "./FieldPicker";
 import {
   Button,
   ColourInput,
   NumberStepper,
   Row,
-  Section,
+  Segmented,
   Select,
   Slider,
   Toggle,
 } from "../controls";
 import "./overlays.css";
-import { FALLBACK_COLOUR, fromDisplay, panelSections, simState, toDisplay } from "./model";
+import {
+  FALLBACK_COLOUR,
+  HEADER_FOOTER_SECTION,
+  fromDisplay,
+  isSegmentedSelect,
+  multiFields,
+  panelSections,
+  simState,
+  toDisplay,
+  type SimContext,
+} from "./model";
 import { displayDecimals, displayFactor, displayUnitLabel, roundTo } from "./units";
 
 /** Sends a patch; with a key the send is debounced (sliders). */
@@ -32,15 +43,29 @@ export type SendPatch = (patch: OverlaySettingsPatch, debounceKey?: string) => v
 export interface OverlayPanelProps {
   manifest: OverlayManifest;
   settings: OverlayInstanceSettings;
-  sim: SimName;
+  sim: SimContext;
   prefs: DisplayPrefs;
   send: SendPatch;
   onReset(): void;
+  /** Latest preview measurement, for the column width floors. Null before the first one. */
+  measure?: PreviewMeasure | null;
+}
+
+function widthModeOf(value: SettingValue | undefined): WidthMode | undefined {
+  return value === "custom" || value === "auto" || value === "compact" ? value : undefined;
 }
 
 type Field<K extends SettingField["kind"]> = Extract<SettingField, { kind: K }>;
 
-export function OverlayPanel({ manifest, settings, sim, prefs, send, onReset }: OverlayPanelProps) {
+export function OverlayPanel({
+  manifest,
+  settings,
+  sim,
+  prefs,
+  send,
+  onReset,
+  measure,
+}: OverlayPanelProps) {
   const [confirming, setConfirming] = useState(false);
   const common = settings.common;
   const setCommon = (patch: Partial<CommonOverlaySettings>, key?: string): void =>
@@ -49,7 +74,7 @@ export function OverlayPanel({ manifest, settings, sim, prefs, send, onReset }: 
   return (
     <div className="ov-panel">
       <h3 className="ov-panel-title">{manifest.title}</h3>
-      <Section title="Appearance">
+      <Collapsible title="Appearance">
         <Row label="Opacity">
           <Slider
             label="Opacity"
@@ -63,7 +88,7 @@ export function OverlayPanel({ manifest, settings, sim, prefs, send, onReset }: 
         </Row>
         <Row
           label="Scale"
-          help="Unlock overlays (Ctrl+Shift+F10), then drag the bottom-right corner to resize."
+          help="Unlock in the top bar, then drag the bottom-right corner of an overlay to resize it."
         >
           <Slider
             label="Scale"
@@ -88,16 +113,16 @@ export function OverlayPanel({ manifest, settings, sim, prefs, send, onReset }: 
             />
           </Row>
         )}
-      </Section>
-      <Section title="Hidden">
-        <Row label="In garage">
+      </Collapsible>
+      <Collapsible title="Visibility">
+        <Row label="In garage" help="Hide this overlay while you are in the garage.">
           <Toggle
             label="Hide in garage"
             checked={common.hideInGarage}
             onChange={(hideInGarage) => setCommon({ hideInGarage })}
           />
         </Row>
-        <Row label="On track">
+        <Row label="On track" help="Hide this overlay while you are driving.">
           <Toggle
             label="Hide on track"
             checked={common.hideOnTrack}
@@ -114,7 +139,7 @@ export function OverlayPanel({ manifest, settings, sim, prefs, send, onReset }: 
             onChange={(alwaysShow) => setCommon({ alwaysShow })}
           />
         </Row>
-      </Section>
+      </Collapsible>
       {manifest.fields.length > 0 && (
         <ColumnEditor
           manifest={manifest}
@@ -122,10 +147,34 @@ export function OverlayPanel({ manifest, settings, sim, prefs, send, onReset }: 
           sim={sim}
           onFields={(fields) => setCommon({ fields })}
           onWidth={(fields) => setCommon({ fields }, "fields-width")}
+          onWidthCustom={(fields) => send(customWidthPatch(fields), "fields-width")}
+          widthMode={widthModeOf(settings.options["column-width"])}
+          widthScalePct={
+            typeof settings.options["width-fine-tune"] === "number"
+              ? settings.options["width-fine-tune"]
+              : undefined
+          }
+          tableWidthPx={measure && measure.tableWidthPx > 0 ? measure.tableWidthPx : undefined}
+          chPx={measure && measure.chPx > 0 ? measure.chPx : undefined}
+          cellPadPx={measure?.cellPadPx}
         />
       )}
+      {multiFields(manifest).length > 0 && (
+        <Collapsible title={HEADER_FOOTER_SECTION}>
+          {multiFields(manifest).map((field) => (
+            <SettingRow
+              key={field.key}
+              field={field}
+              value={settings.options[field.key] ?? field.default}
+              sim={sim}
+              prefs={prefs}
+              onChange={(value) => send({ options: { [field.key]: value } })}
+            />
+          ))}
+        </Collapsible>
+      )}
       {panelSections(manifest).map((section) => (
-        <Section key={section.title} title={section.title}>
+        <Collapsible key={section.title} title={section.title}>
           {section.fields.map((field) => (
             <SettingRow
               key={field.key}
@@ -136,7 +185,7 @@ export function OverlayPanel({ manifest, settings, sim, prefs, send, onReset }: 
               onChange={(value) => send({ options: { [field.key]: value } })}
             />
           ))}
-        </Section>
+        </Collapsible>
       ))}
       <div className="ov-reset">
         {confirming ? (
@@ -163,7 +212,19 @@ export function OverlayPanel({ manifest, settings, sim, prefs, send, onReset }: 
   );
 }
 
-function SettingRow({
+/** A panel section that can be folded away; open by default. */
+function Collapsible({ title, children }: { title: string; children?: ReactNode }) {
+  return (
+    <details className="ctl-section ovs-section" open>
+      <summary className="ovs-section-head">
+        <h2>{title}</h2>
+      </summary>
+      <div className="ctl-rows">{children}</div>
+    </details>
+  );
+}
+
+export function SettingRow({
   field,
   value,
   sim,
@@ -172,22 +233,19 @@ function SettingRow({
 }: {
   field: SettingField;
   value: SettingValue;
-  sim: SimName;
+  sim: SimContext;
   prefs: DisplayPrefs;
   onChange(next: SettingValue): void;
 }) {
   const state = simState(field.sims, sim);
-  const maxHelp =
-    field.kind === "multi" && field.max !== undefined ? `Pick up to ${field.max}` : "";
-  const help = [field.help, maxHelp].filter(Boolean).join(" ") || undefined;
   return (
-    <Row label={field.label} help={help} disabled={state.disabled} badge={state.badge}>
+    <Row label={field.label} help={field.help} disabled={state.disabled} badge={state.badge}>
       <SettingControl field={field} value={value} sim={sim} prefs={prefs} onChange={onChange} />
     </Row>
   );
 }
 
-function SettingControl({
+export function SettingControl({
   field,
   value,
   sim,
@@ -196,7 +254,7 @@ function SettingControl({
 }: {
   field: SettingField;
   value: SettingValue;
-  sim: SimName;
+  sim: SimContext;
   prefs: DisplayPrefs;
   onChange(next: SettingValue): void;
 }) {
@@ -223,6 +281,17 @@ function SettingControl({
       );
     case "select": {
       const current = typeof value === "string" ? value : field.default;
+      if (isSegmentedSelect(field)) {
+        return (
+          <Segmented
+            label={field.label}
+            value={current}
+            disabled={off}
+            options={field.options.map((o) => ({ value: o.value, label: o.label }))}
+            onChange={onChange}
+          />
+        );
+      }
       return (
         <Select
           label={field.label}

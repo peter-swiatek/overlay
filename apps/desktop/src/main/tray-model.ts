@@ -130,3 +130,43 @@ export function buildUpdateItems(
   }
   return items;
 }
+
+export interface OverlayStateView {
+  overlaysVisible: boolean;
+  overlaysLocked: boolean;
+}
+
+export interface OverlayStateActions {
+  showMainWindow(): void;
+  toggleVisible(): void;
+  toggleLocked(): void;
+}
+
+export interface OverlayStateItem {
+  label: string;
+  type?: "checkbox";
+  checked?: boolean;
+  click: () => void;
+}
+
+/** The top of the tray menu: open the window, and the Visible and Locked checkboxes. */
+export function buildOverlayStateItems(
+  state: OverlayStateView,
+  actions: OverlayStateActions,
+): OverlayStateItem[] {
+  return [
+    { label: "Open Overlay", click: () => actions.showMainWindow() },
+    {
+      label: "Overlays visible",
+      type: "checkbox",
+      checked: state.overlaysVisible,
+      click: () => actions.toggleVisible(),
+    },
+    {
+      label: "Overlays locked (Ctrl+Shift+F10)",
+      type: "checkbox",
+      checked: state.overlaysLocked,
+      click: () => actions.toggleLocked(),
+    },
+  ];
+}

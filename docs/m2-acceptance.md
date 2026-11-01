@@ -8,11 +8,11 @@ All checks run on the integration build `claude/m2-integration` (CI installer ar
 
 ## 0. Install and setup
 
-- [ ] Install, or update over the M1 build, from the test build. Start the app; the tray icon appears and the settings window opens from it.
+- [ ] Install, or update over the M1 build, from the test build. Start the app by hand. The main window "Overlay" opens and the tray icon appears. (The main window replaces the old settings window. Its own checklist is `docs/mainwin-acceptance.md`.)
 - [ ] iRacing and LMU both set to borderless windowed mode. The overlays sit above the game and do not steal focus or clicks.
-- [ ] Tray, "Data source" submenu: with Developer tools off it shows only Auto, iRacing and LMU. With Developer tools on (Settings, Developer) it also shows Replay file... and Mock. The checked item matches the choice.
+- [ ] Top bar, game selector: with Developer tools off it shows only Auto, iRacing and LMU. With Developer tools on (Settings, Developer) it also shows Replay and Mock. The selected item matches the choice. (The data source is no longer in the tray menu.)
 - [ ] Overlays page: the overlay list shows Leaderboard, Relative, Spotter, Pit Speed and Fuel Calculator, and no developer-only overlay while Developer tools are off.
-- [ ] The sim filter on the Overlays page defaults to the connected sim (iRacing or LMU). Overlays that do not apply to that sim are greyed, but one that is already on can always be switched off.
+- [ ] There is no sim filter on the Overlays page any more. Overlays and fields that do not apply are greyed to match the game selector. On Auto, they follow the connected sim. On Auto with no sim running, nothing is greyed. One that is already on can always be switched off.
 
 ## 1. Overlays page and settings that every overlay shares
 
@@ -127,8 +127,8 @@ The option list from the requirements catalogue. "Left out" means we decided not
 - [ ] Performance: Reduce visual effects; Live position tracking; Telemetry update rate (60 / 30 Hz) takes effect on the open overlays.
 - [ ] Display: the fallbacks (Disable hardware acceleration, Disable DirectComposition, Transparency fix, Disable native window occlusion) can be switched on; a "Restart now" button appears and restarts the app with them applied.
 - [ ] Display: start with `--safe-mode` (shortcut argument). A safe-mode note is shown with a "Restart normally" button, which restarts without safe mode. Safe mode alone does not ask for a restart.
-- [ ] Developer: Data source (Auto / iRacing / LMU / Replay file / Mock), fixture recording status, LMU frames per second, Resource usage table refreshes about every 2 s.
-- [ ] Developer tools off then on: the tray Data source submenu shows Replay file... and Mock only while on. Dev-only overlays (for example Demo Inputs) can only be opened while on, and are closed automatically when you turn Developer tools off.
+- [ ] Developer: the game selector in the top bar offers Auto / iRacing / LMU / Replay / Mock, fixture recording status, LMU frames per second, Resource usage table refreshes about every 2 s.
+- [ ] Developer tools off then on: the top bar game selector shows Replay and Mock only while on (or while one of them is selected). Dev-only overlays (for example Demo Inputs) can only be opened while on, and are closed automatically when you turn Developer tools off.
 
 ## 11. Fuel data kept across sessions
 

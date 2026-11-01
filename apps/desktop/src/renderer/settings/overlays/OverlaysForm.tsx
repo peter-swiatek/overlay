@@ -1,21 +1,24 @@
 import type { OverlayInstanceSettings, OverlayManifest } from "@overlay/overlays/contract";
-import type { SimName } from "@overlay/sim-core/types";
+import type { OverlaySize } from "../../../shared/types";
 import type { DisplayPrefs } from "@overlay/ui/types";
-import { Segmented, Toggle } from "../controls";
+import { Toggle } from "../controls";
+import { OverlayPreview, type PreviewMeasure } from "../preview/OverlayPreview";
+import { useState } from "react";
 import "./overlays.css";
 import { OverlayPanel, type SendPatch } from "./OverlayPanel";
-import { listOverlays, settingsOf, simState } from "./model";
+import { listOverlays, settingsOf, simState, type SimContext } from "./model";
 
 export interface OverlaysFormProps {
   manifests: readonly OverlayManifest[];
   all: Readonly<Record<string, OverlayInstanceSettings>>;
   developerEnabled: boolean;
   selectedId: string | null;
-  sim: SimName;
+  sim: SimContext;
+  /** Real on-screen overlay sizes, by overlay id; empty until known. */
+  sizes: Readonly<Record<string, OverlaySize>>;
   prefs: DisplayPrefs;
   onSelect(id: string): void;
   onToggle(id: string, enabled: boolean): void;
-  onSim(sim: SimName): void;
   send(id: string, patch: Parameters<SendPatch>[0], debounceKey?: string): void;
   onReset(id: string): void;
 }
@@ -32,6 +35,7 @@ export function defaultSelection(
 
 export function OverlaysForm(props: OverlaysFormProps) {
   const { manifests, all, developerEnabled, sim, prefs } = props;
+  const [measure, setMeasure] = useState<{ id: string; m: PreviewMeasure } | null>(null);
   const { active, available } = listOverlays(manifests, all, developerEnabled);
   const selected =
     [...active, ...available].find((m) => m.id === props.selectedId) ?? active[0] ?? available[0];
@@ -75,34 +79,48 @@ export function OverlaysForm(props: OverlaysFormProps) {
     </section>
   );
   return (
-    <div className="ov-page">
-      <div className="ov-left">
-        <Segmented<SimName>
-          label="Sim filter"
-          value={sim}
-          options={[
-            { value: "iracing", label: "iRacing" },
-            { value: "lmu", label: "LMU" },
-          ]}
-          onChange={props.onSim}
-        />
-        {group("Active overlays", active)}
-        {group("Available overlays", available)}
-      </div>
-      <div className="ov-right">
-        {selected ? (
-          <OverlayPanel
-            key={selected.id}
-            manifest={selected}
-            settings={settingsOf(selected, all)}
-            sim={sim}
-            prefs={prefs}
-            send={(patch, key) => props.send(selected.id, patch, key)}
-            onReset={() => props.onReset(selected.id)}
-          />
-        ) : (
-          <p className="muted">No overlays.</p>
-        )}
+    <div className="ov-container">
+      <div className="ov-page">
+        <div className="ov-left">
+          {group("Active overlays", active)}
+          {group("Available overlays", available)}
+        </div>
+        <aside className="ov-preview" aria-label="Preview">
+          {selected && (
+            <OverlayPreview
+              key={selected.id}
+              manifest={selected}
+              settings={settingsOf(selected, all)}
+              size={props.sizes[selected.id] ?? null}
+              onMeasure={(next) =>
+                setMeasure((prev) =>
+                  prev &&
+                  prev.id === selected.id &&
+                  prev.m.tableWidthPx === next.tableWidthPx &&
+                  prev.m.chPx === next.chPx
+                    ? prev
+                    : { id: selected.id, m: next },
+                )
+              }
+            />
+          )}
+        </aside>
+        <div className="ov-right">
+          {selected ? (
+            <OverlayPanel
+              key={selected.id}
+              manifest={selected}
+              settings={settingsOf(selected, all)}
+              sim={sim}
+              prefs={prefs}
+              measure={measure?.id === selected.id ? measure.m : null}
+              send={(patch, key) => props.send(selected.id, patch, key)}
+              onReset={() => props.onReset(selected.id)}
+            />
+          ) : (
+            <p className="muted">No overlays.</p>
+          )}
+        </div>
       </div>
     </div>
   );

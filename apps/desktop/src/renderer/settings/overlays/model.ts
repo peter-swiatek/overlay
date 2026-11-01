@@ -8,6 +8,7 @@ import type {
 import { defaultInstanceSettings, sanitizeOptionValue } from "@overlay/overlays/settings";
 import type { SimName } from "@overlay/sim-core/types";
 import type { DisplayPrefs, FieldConfig } from "@overlay/ui/types";
+import type { TelemetryEvent, TelemetrySourceChoice } from "../../../shared/telemetry-types";
 import { displayDecimals, displayFactor, roundTo } from "./units";
 
 export const FALLBACK_COLOUR = "#ffc400";
@@ -39,11 +40,24 @@ export interface PanelSection {
   fields: SettingField[];
 }
 
-/** Sections in order of first appearance; fields without a section go last under "Options". */
+export const HEADER_FOOTER_SECTION = "Header and footer";
+
+type MultiSettingField = Extract<SettingField, { kind: "multi" }>;
+
+/** The header and footer pickers (every `multi` setting), in manifest order. */
+export function multiFields(manifest: OverlayManifest): MultiSettingField[] {
+  return manifest.settings.filter((f): f is MultiSettingField => f.kind === "multi");
+}
+
+/**
+ * Manifest sections in order of first appearance; fields without a section go last under
+ * "Options". `multi` settings are left out: the panel shows them in "Header and footer".
+ */
 export function panelSections(manifest: OverlayManifest): PanelSection[] {
   const named = new Map<string, SettingField[]>();
   const loose: SettingField[] = [];
   for (const f of manifest.settings) {
+    if (f.kind === "multi") continue;
     if (f.section === undefined) {
       loose.push(f);
       continue;
@@ -59,9 +73,12 @@ export function panelSections(manifest: OverlayManifest): PanelSection[] {
 
 export const SIM_LABELS: Readonly<Record<SimName, string>> = { iracing: "iRacing", lmu: "LMU" };
 
-/** Undefined `sims` means every sim. */
-export function isAvailableIn(sims: readonly SimName[] | undefined, sim: SimName): boolean {
-  return sims === undefined || sims.includes(sim);
+/** The sim the page greys things for; null means nothing is greyed. */
+export type SimContext = SimName | null;
+
+/** Undefined `sims` means every sim; a null sim (Auto, nothing connected) allows everything. */
+export function isAvailableIn(sims: readonly SimName[] | undefined, sim: SimContext): boolean {
+  return sims === undefined || sim === null || sims.includes(sim);
 }
 
 export function simBadge(sims: readonly SimName[]): string {
@@ -71,15 +88,49 @@ export function simBadge(sims: readonly SimName[]): string {
 /** Disabled state and badge for anything that has a `sims` list. */
 export function simState(
   sims: readonly SimName[] | undefined,
-  sim: SimName,
+  sim: SimContext,
 ): { disabled: boolean; badge: string | undefined } {
   if (sims === undefined || isAvailableIn(sims, sim)) return { disabled: false, badge: undefined };
   return { disabled: true, badge: simBadge(sims) };
 }
 
-/** The sim filter's default: the connected sim, else iRacing. */
-export function simFromSource(source: string | null | undefined): SimName {
-  return source === "lmu" ? "lmu" : "iracing";
+/**
+ * The sim to grey for. A picked game wins; with Auto it is the connected sim, and with nothing
+ * connected (or Mock/Replay, which stand in for either sim) it is null, so nothing is greyed.
+ */
+export function simForGame(
+  choice: TelemetrySourceChoice,
+  event: Pick<TelemetryEvent, "status" | "source"> | null,
+): SimContext {
+  if (choice === "iracing" || choice === "lmu") return choice;
+  if (choice !== "auto" || event === null || event.status !== "live") return null;
+  return event.source === "iracing" || event.source === "lmu" ? event.source : null;
+}
+
+/** Selects with this few options render as a segmented control. */
+export const SEGMENTED_MAX_OPTIONS = 3;
+
+/** Segmented controls have no per-option state, so sim-limited options keep the dropdown. */
+export function isSegmentedSelect(field: Extract<SettingField, { kind: "select" }>): boolean {
+  return (
+    field.options.length <= SEGMENTED_MAX_OPTIONS &&
+    field.options.every((o) => o.sims === undefined)
+  );
+}
+
+/** "3 of 5" for a limited picker, "3 picked" otherwise. */
+export function pickCounter(count: number, max?: number): string {
+  return max === undefined ? `${count} picked` : `${count} of ${max}`;
+}
+
+/** Moves the pick at `from` to position `to` (drag and drop); keeps at most `max`. */
+export function reorderPick(
+  values: readonly string[],
+  from: number,
+  to: number,
+  max?: number,
+): string[] {
+  return movePick(values, from, to - from, max);
 }
 
 export function toDisplay(

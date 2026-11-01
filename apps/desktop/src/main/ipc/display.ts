@@ -1,6 +1,7 @@
 import { ipcMain } from "electron";
 import { BUILD_INFO } from "../../shared/build-info";
 import { IPC, type AppInfo, type DisplaySettings } from "../../shared/types";
+import { HIDDEN_ARG } from "../main-window";
 import { SAFE_MODE_FLAG, type SettingsStore } from "../settings";
 import type { IpcContext } from "./context";
 
@@ -14,9 +15,13 @@ export interface DisplayIpcDeps {
   quit(): void;
 }
 
-/** Arguments for the relaunched process: ours minus --safe-mode, which is a one-run choice. */
+/**
+ * Arguments for the relaunched process: ours minus --safe-mode, which is a one-run choice, and
+ * --hidden, which marks a login start. A relaunch is always the user's own action, so the window
+ * must open.
+ */
 export function relaunchArgs(argv: readonly string[]): string[] {
-  return argv.slice(1).filter((arg) => arg !== SAFE_MODE_FLAG);
+  return argv.slice(1).filter((arg) => arg !== SAFE_MODE_FLAG && arg !== HIDDEN_ARG);
 }
 
 export function registerDisplayIpc(ctx: IpcContext, deps: DisplayIpcDeps): void {

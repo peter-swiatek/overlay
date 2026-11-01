@@ -15,7 +15,13 @@ import {
 } from "@overlay/ui/format";
 import type { Decimals, DisplayPrefs, NameDisplay, NameFormat } from "@overlay/ui/types";
 import type { CSSProperties, ReactNode } from "react";
-import { DRIVER_FIELDS, DRIVER_FIELD_IDS, type DriverFieldId } from "./fields";
+import {
+  DRIVER_FIELDS,
+  DRIVER_FIELD_IDS,
+  SHORT_LABEL,
+  columnFloorChars,
+  type DriverFieldId,
+} from "./fields";
 import type { DriverRow } from "./rows";
 import "./driver-table.css";
 
@@ -67,70 +73,39 @@ function carNumberCell(row: DriverRow): ReactNode {
   );
 }
 
+export { columnFloorChars };
+
 type Align = "left" | "center" | "right";
 
 interface Layout {
-  chars: number;
-  /** Narrowest the column may get; defaults to `chars`. */
-  minChars?: number;
   align?: Align;
   grow?: boolean;
 }
 
-/** Short header labels, so a column's header fits at its floor width (the settings UI keeps the long names). */
-const SHORT_LABEL: Record<DriverFieldId, string> = {
-  position: "Pos",
-  "overall-position": "Ovr",
-  "car-number": "Car",
-  "car-class": "Class",
-  driver: "Driver",
-  licence: "SR",
-  irating: "iR",
-  gap: "Gap",
-  interval: "Int",
-  "last-lap": "Last",
-  "best-lap": "Best",
-  "avg-lap": "Avg",
-  "last-lap-delta": "ΔLast",
-  "best-lap-delta": "ΔBest",
-  lap: "Lap",
-  "pit-lane": "Pit",
-  "pit-stall": "Stall",
-  "last-pitted": "LPit",
-  "stint-lap": "Stint",
-  "prev-stint": "Prev",
-  "pos-change": "+/-",
-  energy: "Fuel",
-};
-
-/** Characters a header needs; capitals are wider than the digit the `ch` unit measures. */
-function labelChars(label: string): number {
-  return Math.ceil(label.length * 1.2);
-}
-
+/** Character counts and floors live on DRIVER_FIELDS (fields.ts); this is only the cell alignment. */
 const LAYOUT: Record<DriverFieldId, Layout> = {
-  position: { chars: 3, align: "center" },
-  "overall-position": { chars: 3, align: "center" },
-  "car-number": { chars: 4, align: "center" },
-  "car-class": { chars: 6, align: "center" },
-  driver: { chars: 18, minChars: 10, align: "left", grow: true },
-  licence: { chars: 6, align: "center" },
-  irating: { chars: 6, align: "center" },
-  gap: { chars: 6, align: "right" },
-  interval: { chars: 6, align: "right" },
-  "last-lap": { chars: 8, align: "right" },
-  "best-lap": { chars: 8, align: "right" },
-  "avg-lap": { chars: 8, align: "right" },
-  "last-lap-delta": { chars: 6, align: "right" },
-  "best-lap-delta": { chars: 6, align: "right" },
-  lap: { chars: 3, align: "center" },
-  "pit-lane": { chars: 3, align: "center" },
-  "pit-stall": { chars: 5, align: "center" },
-  "last-pitted": { chars: 4, align: "center" },
-  "stint-lap": { chars: 3, align: "center" },
-  "prev-stint": { chars: 3, align: "center" },
-  "pos-change": { chars: 4, align: "center" },
-  energy: { chars: 4, align: "right" },
+  position: { align: "center" },
+  "overall-position": { align: "center" },
+  "car-number": { align: "center" },
+  "car-class": { align: "center" },
+  driver: { align: "left", grow: true },
+  licence: { align: "center" },
+  irating: { align: "center" },
+  gap: { align: "right" },
+  interval: { align: "right" },
+  "last-lap": { align: "right" },
+  "best-lap": { align: "right" },
+  "avg-lap": { align: "right" },
+  "last-lap-delta": { align: "right" },
+  "best-lap-delta": { align: "right" },
+  lap: { align: "center" },
+  "pit-lane": { align: "center" },
+  "pit-stall": { align: "center" },
+  "last-pitted": { align: "center" },
+  "stint-lap": { align: "center" },
+  "prev-stint": { align: "center" },
+  "pos-change": { align: "center" },
+  energy: { align: "right" },
 };
 
 /** One TableColumn per DriverFieldId, in DRIVER_FIELD_IDS order. Callers pass them all to DataTable; FieldConfig picks and orders. */
@@ -184,8 +159,8 @@ export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[
       label: SHORT_LABEL[id],
       align: layout.align,
       grow: layout.grow,
-      chars: layout.chars,
-      minChars: Math.max(layout.minChars ?? layout.chars, labelChars(SHORT_LABEL[id])),
+      chars: field?.chars ?? 6,
+      minChars: columnFloorChars(id),
       defaultWidthPct: field?.defaultWidthPct ?? 8,
       render: renderers[id],
     };

@@ -83,6 +83,10 @@ export function createOverlaySender(deps: SenderDeps): OverlaySender {
       if (!manifest) return;
       if (debounceKey === undefined) deps.debouncer.flush();
       applyLocal(id, patch);
+      // Read before a whole-list patch below drops the replaced one.
+      const key = `${id}:${debounceKey}`;
+      const old = unsentByKey.get(key);
+      const oldOptions = old === undefined ? undefined : pending.get(old)?.patch.options;
       // A whole-list patch supersedes older ones: it is built from the optimistic state.
       if (patch.common?.fields !== undefined) dropFieldPatches(id);
       const token = ++seq;
@@ -90,18 +94,23 @@ export function createOverlaySender(deps: SenderDeps): OverlaySender {
         transmit(token, id, patch);
         return;
       }
-      const key = `${id}:${debounceKey}`;
-      const old = unsentByKey.get(key);
+      // The replaced patch may carry options the newer one lacks (Auto to Custom, then more drag
+      // ticks): keep them, or main would never hear about the mode switch.
       if (old !== undefined) pending.delete(old);
+      const outgoing: OverlaySettingsPatch = oldOptions
+        ? { ...patch, options: { ...oldOptions, ...patch.options } }
+        : patch;
       unsentByKey.set(key, token);
-      pending.set(token, { id, patch });
+      pending.set(token, { id, patch: outgoing });
       deps.debouncer.schedule(key, () => {
         if (unsentByKey.get(key) !== token) return;
         unsentByKey.delete(key);
-        const fields = patch.common?.fields;
+        const fields = outgoing.common?.fields;
         const latest = settingsOf(manifest, all).common.fields;
         const sendNow =
-          fields === undefined ? patch : { ...patch, common: { ...patch.common, fields: latest } };
+          fields === undefined
+            ? outgoing
+            : { ...outgoing, common: { ...outgoing.common, fields: latest } };
         transmit(token, id, sendNow);
       });
     },

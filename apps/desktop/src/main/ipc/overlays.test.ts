@@ -90,6 +90,18 @@ describe("overlay IPC handlers", () => {
     expect(out).toMatchObject({ enabled: true, options: { flag: false } });
   });
 
+  it("get-sizes returns each overlay's window size and scale, to the main window only", () => {
+    const layout = {
+      test: { x: 10, y: 20, width: 412, height: 236, scalePct: 125 },
+    };
+    const h = createOverlayIpcHandlers(ctx, store, () => layout)[IPC.overlaysGetSizes];
+    expect(h?.(sender("settings"))).toEqual({
+      test: { width: 412, height: 236, scalePct: 125 },
+    });
+    expect(() => h?.(sender("overlay"))).toThrow(/Rejected/);
+    expect(() => h?.(sender("other"))).toThrow(/Rejected/);
+  });
+
   it("broadcasts overlays:changed on a real change only", () => {
     broadcastOverlayChanges(ctx, store);
     const h = handlers();
