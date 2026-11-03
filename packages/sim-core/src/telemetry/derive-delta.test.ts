@@ -61,6 +61,28 @@ describe("Deriver delta", () => {
   });
 });
 
+describe("Deriver delta on the demo feed", () => {
+  it("computes a believable session-best-clean delta and speed delta once warmed up", () => {
+    const mock = new MockSource();
+    const deriver = new Deriver();
+    const deltas: number[] = [];
+    const speedDeltas: number[] = [];
+    // The clean reference exists once lap 4 has ended (376 s); sample laps 5 to 9.
+    for (let i = 0; i < 9000; i++) {
+      const state = mock.step(0.1);
+      const live = deriver.next(state).delta?.live.sessionBestClean;
+      if (state.tickTimeS! < 400 || live === undefined) continue;
+      if (live.deltaS !== null && live.source === "computed") deltas.push(live.deltaS);
+      if (live.speedDeltaMps !== null) speedDeltas.push(live.speedDeltaMps);
+    }
+    expect(deltas.length).toBeGreaterThan(3000);
+    expect(Math.max(...deltas) - Math.min(...deltas)).toBeGreaterThan(0.05);
+    for (const d of deltas) expect(Math.abs(d)).toBeLessThanOrEqual(3);
+    const small = speedDeltas.filter((v) => Math.abs(v) < 5).length;
+    expect(small / speedDeltas.length).toBeGreaterThan(0.9);
+  });
+});
+
 describe("Deriver delta with scripted laps", () => {
   it("writes clean laps from a live source and forgets the session on reset()", () => {
     const records: BestLapRecord[] = [];
