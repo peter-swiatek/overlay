@@ -25,6 +25,7 @@ export {
   FUEL_HISTORY_LAPS,
   FUEL_HISTORY_MAX_KEYS,
   addHistoryLap,
+  carTrackKey,
   fuelHistoryKey,
   historyLaps,
   parseFuelHistory,

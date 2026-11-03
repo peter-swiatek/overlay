@@ -52,9 +52,8 @@ function lmuCarPart(carName: string, className: string | null): string {
   return carName.replace(/\s+#\w+:.*$/, "").replace(/\s+\d{4}$/, "");
 }
 
-/** `${kind}|${sim}|${carSlug}|${trackKey}`; null when the sim, car or track is unknown. `className` is used for LMU only. */
-export function fuelHistoryKey(
-  kind: FuelHistoryKind,
+/** `${sim}|${carSlug}|${trackKey}`: the car and track part of the history keys; null when unknown. `className` is used for LMU only. */
+export function carTrackKey(
   sim: SimName | null,
   carName: string | null,
   trackKey: string | null,
@@ -63,7 +62,19 @@ export function fuelHistoryKey(
   if (sim === null || carName === null || trackKey === null || trackKey === "") return null;
   const car = slug(sim === "lmu" ? lmuCarPart(carName, className) : carName);
   if (car === "") return null;
-  return `${kind}|${sim}|${car}|${trackKey}`;
+  return `${sim}|${car}|${trackKey}`;
+}
+
+/** `${kind}|${sim}|${carSlug}|${trackKey}`; null when the sim, car or track is unknown. `className` is used for LMU only. */
+export function fuelHistoryKey(
+  kind: FuelHistoryKind,
+  sim: SimName | null,
+  carName: string | null,
+  trackKey: string | null,
+  className: string | null = null,
+): string | null {
+  const base = carTrackKey(sim, carName, trackKey, className);
+  return base === null ? null : `${kind}|${base}`;
 }
 
 /** The reference validity limits, also the energy tracker's (in percent). */
