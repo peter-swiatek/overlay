@@ -1,4 +1,4 @@
-import { emptyCar, emptySimState, type Car, type SimState } from "../model";
+import { emptyCar, emptyFlags, emptySimState, type Car, type SimState } from "../model";
 
 export interface MockSourceOptions {
   /** Cars on track, player included. Default 20. */
@@ -12,6 +12,17 @@ const FUEL_CAPACITY_L = 60;
 const FUEL_PER_LAP_L = 2.4;
 const REFUEL_BELOW_L = 4;
 const RACE_LAPS = 40;
+/** Delta channels report `ok: false` for this long at the start of each lap, seconds. */
+const DELTA_SETTLE_S = 2;
+/** Brake pedal level above which the demo ABS cuts in. */
+const ABS_BRAKE_LEVEL = 0.8;
+/** Car that is periodically under a local yellow, and the car that needs repair. */
+const YELLOW_CAR = 3;
+const REPAIR_CAR = 7;
+/** Car that runs wide once per lap, and the lap fraction range it is off track. */
+const OFF_TRACK_CAR = 5;
+const OFF_TRACK_FROM = 0.3;
+const OFF_TRACK_TO = 0.34;
 
 /**
  * A deterministic synthetic race for UI work without a sim: about 20 cars in two classes, the
@@ -65,7 +76,18 @@ export class MockSource {
     s.trackName = "Mock Raceway";
     s.trackLengthM = TRACK_LENGTH_M;
     s.pitSpeedLimitMps = 22.2;
-    state.conditions = { ...state.conditions, airTempC: 22, trackTempC: 31, wetness: 0 };
+    s.typeName = "Race";
+    s.trackUsage = "moderate usage";
+    state.conditions = {
+      ...state.conditions,
+      airTempC: 22,
+      trackTempC: 31,
+      wetness: 0,
+      humidity: 0.55,
+      windSpeedMps: 4.5,
+      windDirRad: 1.2,
+      declaredWet: false,
+    };
 
     const p = state.player;
     p.gear = 4;
@@ -80,7 +102,44 @@ export class MockSource {
     p.fuelCapacityL = FUEL_CAPACITY_L;
     p.fuelL = fuelAt(playerDistance);
     p.incidentCount = 0;
+    p.lap = this.playerLap(playerDistance);
+    p.absActive = (p.inputs.brake ?? 0) > ABS_BRAKE_LEVEL;
+    p.trackSurface = "onTrack";
+    p.isOnTrack = true;
+    p.shiftLights = { firstRpm: 5200, shiftRpm: 7600, lastRpm: 7400, blinkRpm: 7800 };
+    p.redlineRpm = 8000;
+    p.steerMaxRad = 7.85;
     return state;
+  }
+
+  /** The player's lap timing; the three delta channels are smooth sinusoids of time into the lap. */
+  private playerLap(distance: number): NonNullable<SimState["player"]["lap"]> {
+    const lapS = lapTimeOf(0);
+    const lapsCompleted = Math.floor(distance);
+    const intoS = (distance - lapsCompleted) * lapS;
+    const ok = intoS >= DELTA_SETTLE_S;
+    const channel = (amp: number, freq: number, phase: number) => ({
+      s: amp * Math.sin(freq * intoS + phase),
+      ok,
+      rate: amp * freq * Math.cos(freq * intoS + phase),
+    });
+    return {
+      currentLapS: intoS,
+      lastLapS: lapsCompleted >= 1 ? lapS : null,
+      bestLapS: lapsCompleted >= 1 ? lapS - 0.4 : null,
+      delta: {
+        best: channel(0.35, 0.21, 0),
+        sessionBest: channel(0.6, 0.17, 1),
+        sessionLast: channel(0.25, 0.26, 2),
+      },
+    };
+  }
+
+  private carFlags(index: number): ReturnType<typeof emptyFlags> {
+    const flags = emptyFlags();
+    if (index === YELLOW_CAR) flags.yellow = this.timeS % 30 < 10;
+    if (index === REPAIR_CAR) flags.repair = true;
+    return flags;
   }
 
   private distance(index: number): number {
@@ -115,8 +174,20 @@ export class MockSource {
     car.iRating = 2000 + index * 50;
     car.license = "A 3.00";
     car.connected = true;
+    car.flags = this.carFlags(index);
+    car.trackSurface = carSurface(index, distance - lapsCompleted);
+    if (cls === HYPER) {
+      car.p2pCount = 10 - ((Math.floor(this.timeS / 15) + index) % 11);
+      car.p2pActive = this.timeS % 15 < 3;
+    }
     return car;
   }
+}
+
+function carSurface(index: number, lapFraction: number): NonNullable<Car["trackSurface"]> {
+  const wide =
+    index === OFF_TRACK_CAR && lapFraction >= OFF_TRACK_FROM && lapFraction < OFF_TRACK_TO;
+  return wide ? "offTrack" : "onTrack";
 }
 
 function classOf(index: number): typeof GT3 {

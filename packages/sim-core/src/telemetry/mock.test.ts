@@ -54,4 +54,68 @@ describe("MockSource", () => {
     );
     expect(derived.gaps).toHaveLength(19);
   });
+
+  it("fills the design-system fields every frame", () => {
+    const mock = new MockSource();
+    let sawAbs = false;
+    let sawOffTrack = false;
+    let sawYellow = false;
+    let sawNotOk = false;
+    let sawP2pActive = false;
+    for (let i = 0; i < 1500; i++) {
+      const st = mock.step(0.1);
+      const p = st.player;
+      expect(p.lap?.currentLapS).not.toBeNull();
+      expect(p.lap?.delta?.best?.rate).not.toBeNull();
+      expect(p.shiftLights).toEqual({
+        firstRpm: 5200,
+        shiftRpm: 7600,
+        lastRpm: 7400,
+        blinkRpm: 7800,
+      });
+      expect(p.redlineRpm).toBe(8000);
+      expect(p.steerMaxRad).toBe(7.85);
+      expect(p.isOnTrack).toBe(true);
+      expect(p.trackSurface).toBe("onTrack");
+      expect(p.absActive === (p.inputs.brake ?? 0) > 0.8).toBe(true);
+      expect(st.session.typeName).toBe("Race");
+      expect(st.session.trackUsage).toBe("moderate usage");
+      expect(st.conditions.declaredWet).toBe(false);
+      expect(st.conditions.humidity).not.toBeNull();
+      expect(st.conditions.windSpeedMps).not.toBeNull();
+      expect(st.cars[7]?.flags?.repair).toBe(true);
+      sawAbs ||= p.absActive === true;
+      sawNotOk ||= p.lap?.delta?.sessionBest?.ok === false;
+      sawOffTrack ||= st.cars.some((c) => c.trackSurface === "offTrack");
+      sawYellow ||= st.cars[3]?.flags?.yellow === true;
+      for (const car of st.cars) {
+        expect(car.flags).not.toBeNull();
+        expect(car.trackSurface).not.toBeNull();
+        if (car.classId === "2") {
+          expect(car.p2pCount).toBeGreaterThanOrEqual(0);
+          expect(car.p2pCount).toBeLessThanOrEqual(10);
+          sawP2pActive ||= car.p2pActive === true;
+        } else {
+          expect(car.p2pCount).toBeNull();
+          expect(car.p2pActive).toBeNull();
+        }
+      }
+    }
+    expect([sawAbs, sawNotOk, sawOffTrack, sawYellow, sawP2pActive]).toEqual([
+      true,
+      true,
+      true,
+      true,
+      true,
+    ]);
+  }, 20_000);
+
+  it("derives delta rate from the delta value", () => {
+    const mock = new MockSource();
+    mock.step(30);
+    const a = mock.state().player.lap?.delta?.best;
+    const dt = 0.001;
+    const b = mock.step(dt).player.lap?.delta?.best;
+    expect(((b?.s ?? 0) - (a?.s ?? 0)) / dt).toBeCloseTo(a?.rate ?? 0, 1);
+  });
 });
