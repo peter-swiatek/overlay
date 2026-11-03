@@ -441,3 +441,44 @@ describe("Show title bar", () => {
     expect(sent).toEqual([{ common: { showTitleBar: true } }]);
   });
 });
+
+describe("columns hidden by width", () => {
+  const settings = defaultInstanceSettings(testTableManifest);
+  function panel(measure: { hiddenColumnIds: string[] } | null, mode?: "auto" | "custom"): string {
+    const s = mode
+      ? { ...settings, options: { ...settings.options, "column-width": mode } }
+      : settings;
+    return renderToStaticMarkup(
+      <OverlayPanel
+        manifest={testTableManifest}
+        settings={s}
+        sim={"lmu"}
+        prefs={DEFAULT_DISPLAY_PREFS}
+        send={noop}
+        onReset={noop}
+        measure={measure && { tableWidthPx: 0, chPx: 0, ...measure }}
+      />,
+    );
+  }
+
+  it("badges a visible column the overlay hides and names it under the list", () => {
+    const html = panel({ hiddenColumnIds: ["b"] }, "auto");
+    expect(html).toContain("Hidden: too narrow");
+    expect(html).toContain("The overlay is narrower than its columns need");
+    expect(html).toContain("Widen the overlay to show Bravo.");
+    expect(html).toContain("Turning a column on or off resizes the overlay to fit.");
+  });
+
+  it("shows no badge or hint without hidden columns, and the Custom note in Custom", () => {
+    const html = panel({ hiddenColumnIds: [] }, "custom");
+    expect(html).not.toContain("Hidden: too narrow");
+    expect(html).not.toContain("Widen the overlay");
+    expect(html).toContain("it does not resize when you turn columns on or off.");
+    expect(panel(null)).not.toContain("Hidden: too narrow");
+  });
+
+  it("ignores hidden ids of columns that are switched off", () => {
+    // Charlie is off by default.
+    expect(panel({ hiddenColumnIds: ["c"] }, "auto")).not.toContain("Hidden: too narrow");
+  });
+});

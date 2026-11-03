@@ -92,6 +92,11 @@ export function computeMeasure(input: MeasureInput): {
   };
 }
 
+/** Ids in an overlay root's `data-hidden-columns` attribute (space separated); empty when absent. */
+export function parseHiddenColumns(attr: string | null | undefined): string[] {
+  return (attr ?? "").split(/\s+/).filter((id) => id.length > 0);
+}
+
 /** A frame the overlays can draw: the feed's when it is live, else the first-paint fallback. */
 export function usableFrame(
   frame: TelemetryFrame | null,

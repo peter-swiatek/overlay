@@ -6,8 +6,10 @@ import { Row, Section, Slider, Toggle } from "../controls";
 import {
   floorPctFor,
   planWidthChange,
+  resizeNote,
   sliderValue,
   totalMessage,
+  widthHiddenLabels,
   widthTotal,
   type FloorInputs,
   type WidthMode,
@@ -40,6 +42,8 @@ export interface ColumnEditorProps {
   cellPadPx?: number;
   /** The Fine-tune option (width scale), percent. Default 100. */
   widthScalePct?: number;
+  /** Ids of the columns the overlay hides because its window is too narrow (from the preview). */
+  hiddenByWidth?: readonly string[];
 }
 
 export function ColumnEditor({
@@ -54,10 +58,14 @@ export function ColumnEditor({
   chPx,
   cellPadPx,
   widthScalePct,
+  hiddenByWidth,
 }: ColumnEditorProps) {
   const table = manifest.table;
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [switched, setSwitched] = useState(false);
+  const tooNarrow = hiddenByWidth ?? [];
+  const tooNarrowLabels = table ? widthHiddenLabels(manifest, fields, tooNarrow) : [];
+  const note = table ? resizeNote(widthMode) : null;
   const floorInputs: FloorInputs = { tableWidthPx, chPx, cellPadPx, widthScalePct };
   const changeWidth = (id: string, widthPct: number): void => {
     const plan = planWidthChange(fields, id, widthPct, widthMode);
@@ -114,6 +122,14 @@ export function ColumnEditor({
             <span className="ov-col-label">
               {label}
               {state.badge && <em className="ctl-badge">{state.badge}</em>}
+              {config.visible && tooNarrow.includes(config.id) && (
+                <em
+                  className="ctl-badge"
+                  title="The overlay is narrower than its columns need; this column comes back when you widen it."
+                >
+                  Hidden: too narrow
+                </em>
+              )}
             </span>
             <Toggle
               label={`Show ${label}`}
@@ -172,6 +188,10 @@ export function ColumnEditor({
             : totalMessage(widthTotal(manifest, fields, widthScalePct))}
         </p>
       )}
+      {tooNarrowLabels.length > 0 && (
+        <p className="muted ov-note">Widen the overlay to show {tooNarrowLabels.join(", ")}.</p>
+      )}
+      {note !== null && <p className="muted ov-note">{note}</p>}
       {table && widthMode !== undefined && (
         <p className="muted ov-note">Narrowest readable width is marked on each slider.</p>
       )}
