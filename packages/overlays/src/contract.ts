@@ -96,6 +96,8 @@ export interface OverlayManifest {
   /** Highest telemetry rate the overlay needs; the host caps it at Settings > Performance. */
   rateHz: number;
   defaultEnabled: boolean;
+  /** Framework defaults this overlay changes, e.g. hidden in the garage. New settings only. */
+  commonDefaults?: Partial<Pick<CommonOverlaySettings, "hideInGarage" | "hideOnTrack">>;
   /** Listed in the Overlays page only while developer tools are on. */
   dev?: boolean;
   /**

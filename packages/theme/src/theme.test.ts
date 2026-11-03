@@ -16,6 +16,7 @@ import {
   parseThemeFile,
   resolveFunctionalColour,
   sanitizeTheme,
+  themeTone,
   serializeThemeFile,
   themeToCssVars,
   type Theme,
@@ -79,6 +80,14 @@ describe("presets", () => {
 
   it.each(THEME_PRESETS.map((t) => [t.name, t] as const))("%s sanitises to itself", (_n, t) => {
     expect(sanitizeTheme(t)).toEqual({ ok: true, theme: t });
+  });
+
+  it("themeTone is light only for Glacier", () => {
+    for (const t of THEME_PRESETS) {
+      expect(themeTone(t.tokens.text)).toBe(t.id === "glacier" ? "light" : "dark");
+    }
+    expect(themeTone("#0f172acc")).toBe("light");
+    expect(themeTone("nonsense")).toBe("dark");
   });
 
   it.each(THEME_PRESETS.map((t) => [t.name, t] as const))("%s has readable text", (_n, t) => {

@@ -1,0 +1,78 @@
+import type { OverlayManifest } from "../contract";
+
+export const deltaBarManifest: OverlayManifest = {
+  id: "delta-bar",
+  title: "Delta Bar",
+  description:
+    "Live delta to your reference lap with best times, delta speed and the cars around you in your class.",
+  sims: ["iracing", "lmu"],
+  defaultSize: { width: 560, height: 131 },
+  minSize: { width: 360, height: 101 },
+  defaultPosition: { x: 680, y: 190 },
+  table: false,
+  fields: [],
+  settings: [
+    {
+      key: "show-delta-speed",
+      kind: "toggle",
+      label: "Delta speed",
+      section: "Layout",
+      default: true,
+    },
+    {
+      key: "show-best-times",
+      kind: "toggle",
+      label: "Best times",
+      section: "Layout",
+      default: true,
+    },
+    {
+      key: "show-head-to-head",
+      kind: "toggle",
+      label: "Head-to-head",
+      section: "Layout",
+      help: "Races only, from lap 2",
+      default: true,
+    },
+    {
+      key: "reference",
+      kind: "select",
+      label: "Reference",
+      section: "Options",
+      default: "auto",
+      options: [
+        { value: "auto", label: "Automatic (by session)" },
+        { value: "sessionBest", label: "Session best" },
+        { value: "allTimeBest", label: "All-time best" },
+        { value: "lastLap", label: "Last lap" },
+      ],
+    },
+    {
+      key: "bar-range",
+      kind: "select",
+      label: "Bar range",
+      section: "Options",
+      default: "2",
+      options: [
+        { value: "1", label: "\u00b11 s" },
+        { value: "2", label: "\u00b12 s" },
+        { value: "5", label: "\u00b15 s" },
+      ],
+    },
+    {
+      key: "hide-below",
+      kind: "number",
+      label: "Hide below",
+      section: "Options",
+      help: "Hidden below this speed and while off track",
+      default: 35,
+      min: 0,
+      max: 100,
+      step: 5,
+      unit: "km/h",
+    },
+  ],
+  rateHz: 20,
+  defaultEnabled: false,
+  commonDefaults: { hideInGarage: true },
+};

@@ -210,6 +210,17 @@ describe("sanitizeInstanceSettings", () => {
   });
 });
 
+describe("commonDefaults", () => {
+  it("applies to new settings only", () => {
+    const hidden = { ...manifest, commonDefaults: { hideInGarage: true } };
+    expect(defaultInstanceSettings(hidden).common.hideInGarage).toBe(true);
+    expect(defaultInstanceSettings(hidden).common.hideOnTrack).toBe(false);
+    expect(defaultInstanceSettings(manifest).common.hideInGarage).toBe(false);
+    const stored = sanitizeInstanceSettings(hidden, { common: { hideInGarage: false } });
+    expect(stored.common.hideInGarage).toBe(false);
+  });
+});
+
 describe("showTitleBar", () => {
   const base = defaultInstanceSettings(manifest);
 
