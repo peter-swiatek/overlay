@@ -3,6 +3,7 @@ import {
   FUEL_HISTORY_LAPS,
   FUEL_HISTORY_MAX_KEYS,
   addHistoryLap,
+  carTrackKey,
   fuelHistoryKey,
   historyLaps,
   parseFuelHistory,
@@ -10,6 +11,22 @@ import {
 } from "./history";
 
 const empty: FuelHistoryFile = { version: 1, entries: {} };
+
+describe("carTrackKey", () => {
+  it("is the fuel key without its kind", () => {
+    const args = ["iracing", "Mazda MX-5 Cup", "iracing_lime-rock_full"] as const;
+    expect(carTrackKey(...args)).toBe("iracing|mazda-mx-5-cup|iracing_lime-rock_full");
+    expect(`fuel|${carTrackKey(...args)}`).toBe(fuelHistoryKey("fuel", ...args));
+  });
+
+  it("keys LMU entries on the class and is null when anything is unknown", () => {
+    expect(carTrackKey("lmu", "Team Alpha 2024 #12:Blue", "t", "Hypercar")).toBe("lmu|hypercar|t");
+    expect(carTrackKey("lmu", "Team Beta 2025 #7:Red", "t", "Hypercar")).toBe("lmu|hypercar|t");
+    expect(carTrackKey(null, "Car", "t")).toBeNull();
+    expect(carTrackKey("iracing", null, "t")).toBeNull();
+    expect(carTrackKey("iracing", "Car", "")).toBeNull();
+  });
+});
 
 describe("fuelHistoryKey", () => {
   it("joins kind, sim, car slug and track key", () => {

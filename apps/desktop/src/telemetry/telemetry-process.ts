@@ -21,6 +21,7 @@ import type { PortLike } from "./publisher";
 import { ReplayTelemetrySource } from "./replay";
 import { TelemetryService } from "./service";
 import { WorkerSessionParser, type WorkerLike } from "./session-parser";
+import { FileBestLapStore, bestLapFile } from "./best-lap-store";
 import { FileFuelHistoryStore, fuelHistoryFile } from "./fuel-history-store";
 import { FileTrackOutlineStore, parseUserDataArg, trackOutlineDir } from "./track-store";
 
@@ -73,6 +74,9 @@ async function main(): Promise<void> {
             console.error(message),
           ),
           fuelHistory: new FileFuelHistoryStore(fuelHistoryFile(userData), (message) =>
+            console.error(message),
+          ),
+          bestLaps: new FileBestLapStore(bestLapFile(userData), (message) =>
             console.error(message),
           ),
         },
