@@ -4,3 +4,4 @@ export * from "./trace";
 export * from "./rate";
 export * from "./clean";
 export * from "./optimal";
+export * from "./tracker";

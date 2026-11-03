@@ -50,6 +50,9 @@ describe("createDemoFeed", () => {
     const p = state.player;
     // The player has a start position, so the Telemetry Strip can show places gained in previews.
     expect(derived.standings?.entries.find((e) => e.carIdx === 0)?.startPosition).not.toBeNull();
+    // The Delta Bar preview gets live values through the real Deriver.
+    expect(derived.delta).not.toBeNull();
+    expect(derived.delta?.references.lastLap).toBeDefined();
     expect(p.lap?.currentLapS).not.toBeNull();
     expect(p.lap?.lastLapS).not.toBeNull();
     expect(p.lap?.bestLapS).not.toBeNull();

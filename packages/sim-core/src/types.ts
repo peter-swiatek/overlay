@@ -6,10 +6,12 @@ export type {
   Conditions,
   Flags,
   Player,
+  PlayerLapDeltas,
   SessionInfo,
   ShiftLightRpm,
   SimName,
   SimState,
+  TrackSurface,
   Vec3,
 } from "./model/sim-state";
 export type { FuelLapUse, FuelOutputs, FuelPitWindow } from "./calc/fuel/types";
