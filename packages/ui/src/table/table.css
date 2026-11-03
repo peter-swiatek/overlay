@@ -6,6 +6,10 @@
   font-size: var(--ov-font-size, 14px);
   color: var(--ov-text);
   grid-auto-rows: var(--ov-row-height, 24px);
+  /* Derived here, not on :root, so a scoped preview theme resolves them from its own tokens. */
+  --ov-own-row-line: rgb(from var(--ov-own-row) r g b / 0.45);
+  --ov-yellow-row: color-mix(in srgb, var(--ov-locked-flag-yellow) 30%, transparent);
+  --ov-yellow-row-line: color-mix(in srgb, var(--ov-locked-flag-yellow) 52%, transparent);
 }
 
 .ov-row,
@@ -14,14 +18,20 @@
 }
 
 .ov-cell {
+  --row-base-bg: color-mix(
+    in srgb,
+    var(--ov-row) calc(var(--ov-row-opacity, 1) * 100%),
+    transparent
+  );
   display: flex;
   align-items: center;
   min-width: 0;
-  padding: 0 var(--ov-cell-pad-x, 8px);
+  padding: 0 var(--ov-cell-pad-x, 7px);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  background: color-mix(in srgb, var(--ov-row) calc(var(--ov-row-opacity, 1) * 100%), transparent);
+  background: var(--row-base-bg);
+  box-sizing: border-box;
 }
 
 .ov-cell-text {
@@ -32,7 +42,7 @@
 }
 
 .ov-table--compact .ov-cell {
-  padding: 0 calc(var(--ov-cell-pad-x, 8px) / 2);
+  padding: 0 calc(var(--ov-cell-pad-x, 7px) / 2);
 }
 
 .ov-cell--right {
@@ -46,36 +56,114 @@
 }
 
 .ov-row--alt > .ov-cell {
-  background: color-mix(
+  --row-base-bg: color-mix(
     in srgb,
     var(--ov-row-alt) calc(var(--ov-row-opacity, 1) * 100%),
     transparent
   );
+  background: var(--row-base-bg);
 }
 
 .ov-row--own > .ov-cell {
-  background: color-mix(
+  --row-base-bg: color-mix(
     in srgb,
     var(--ov-own-row) calc(var(--ov-row-opacity, 1) * 100%),
     transparent
   );
+  background: var(--row-base-bg);
+  box-shadow:
+    inset 0 1px 0 var(--ov-own-row-line),
+    inset 0 -1px 0 var(--ov-own-row-line);
+  font-weight: 700;
+}
+
+/* Declared after the own row: a row that is both keeps the yellow background and lines (and bold). */
+.ov-row--yellow > .ov-cell {
+  --row-base-bg: var(--ov-yellow-row);
+  background: var(--row-base-bg);
+  box-shadow:
+    inset 0 1px 0 var(--ov-yellow-row-line),
+    inset 0 -1px 0 var(--ov-yellow-row-line);
 }
 
 .ov-row--header > .ov-cell {
+  --row-base-bg: var(--ov-header);
   background: var(--ov-header);
   color: var(--ov-text-muted);
+  font-size: 0.82em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--ov-border);
 }
 
-.ov-section-bar {
+/* Position cell: class-colour gradient over the row background. */
+.ov-cell--pos {
+  padding-left: calc(var(--ov-cell-pad-x, 7px) - 2px);
+  justify-content: center;
+  font-weight: 700;
+  border-left: 3px solid var(--class-color, var(--ov-accent));
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--class-color, var(--ov-accent)) 36%, transparent) 0%,
+      color-mix(in srgb, var(--class-color, var(--ov-accent)) 12%, transparent) 100%
+    ),
+    var(--row-base-bg) !important;
+}
+
+.ov-cell--pos-fade {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--class-color, var(--ov-accent)) 12%, transparent) 0%,
+      transparent 95%
+    ),
+    var(--row-base-bg) !important;
+}
+
+/* Class band: replaces the old section bar. */
+.ov-class-band {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
   min-width: 0;
-  padding: 0 var(--ov-cell-pad-x, 8px);
+  height: var(--ov-row-height, 24px);
+  padding-right: var(--ov-cell-pad-x, 7px);
   overflow: hidden;
   white-space: nowrap;
-  text-overflow: ellipsis;
-  border-left: 4px solid var(--ov-section-colour, var(--ov-accent));
-  background: color-mix(in srgb, var(--ov-section-colour, var(--ov-accent)) 22%, var(--ov-header));
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--class-color, var(--ov-accent)) 28%, var(--ov-header)) 0%,
+    color-mix(in srgb, var(--class-color, var(--ov-accent)) 8%, var(--ov-header)) 65%,
+    var(--ov-header) 100%
+  );
+  border-top: 1px solid var(--ov-border);
+  border-bottom: 1px solid var(--ov-border);
   color: var(--ov-text);
+}
+
+.ov-class-tab {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 1em 0 0.57em;
+  background: var(--class-color, var(--ov-accent));
+  color: #0b0d12;
+  font-size: 0.82em;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 0.5em) 100%, 0 100%);
+}
+
+.ov-class-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7em;
+  font-size: 0.8em;
+  color: var(--ov-text-muted);
+  font-weight: 600;
 }

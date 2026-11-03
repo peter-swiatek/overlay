@@ -43,7 +43,7 @@ describe("orderedColumns", () => {
 });
 
 /** The floor of a column: its characters plus the cell padding on both sides. */
-const floor = (chars: number): string => `calc(${chars}ch + 2 * var(--ov-cell-pad-x, 8px))`;
+const floor = (chars: number): string => `calc(${chars}ch + 2 * var(--ov-cell-pad-x, 7px))`;
 
 describe("gridTemplate", () => {
   it("custom: widths times scale; grow column takes the rest when the sum is under 100", () => {
@@ -142,7 +142,7 @@ describe("DataTable markup", () => {
     expect(html).toContain(
       `grid-template-columns:minmax(${floor(20)}, 1fr) minmax(${floor(3)}, 20%)`,
     );
-    expect(html).toContain("--ov-section-colour:#ff0000");
+    expect(html).toContain("--class-color:#ff0000");
     expect(html).toContain("GTP");
     expect(html).toContain("GT3");
     expect(html.match(/ov-row--own/g)).toHaveLength(1);
@@ -152,6 +152,62 @@ describe("DataTable markup", () => {
     expect(html).toContain("Driver");
     expect(html).not.toContain("Gap");
     expect(html).not.toContain("+1.0");
+  });
+
+  it("renders the class band with tab, meta and class colour", () => {
+    const html = renderToStaticMarkup(
+      <DataTable
+        columns={COLUMNS}
+        config={CONFIG}
+        sections={[
+          { key: "a", label: "GTP", colour: "#ff0000", rows, meta: <b>12 cars</b> },
+          { key: "b", label: "GT3", colour: null, rows: [] },
+        ]}
+        rowKey={(r) => r.id}
+        widthMode="auto"
+        showHeader={false}
+      />,
+    );
+    expect(html).toContain('class="ov-class-band ov-section-bar" style="--class-color:#ff0000"');
+    expect(html).toContain('<span class="ov-class-tab">GTP</span>');
+    expect(html).toContain('<span class="ov-class-meta"><b>12 cars</b></span>');
+    expect(html.match(/ov-class-meta/g)).toHaveLength(1);
+    expect(html.match(/ov-class-band/g)).toHaveLength(2);
+  });
+
+  it("puts cellClassName on body cells only", () => {
+    const cols = COLUMNS.map((c) => (c.id === "pos" ? { ...c, cellClassName: "ov-cell--pos" } : c));
+    const html = renderToStaticMarkup(
+      <DataTable
+        columns={cols}
+        config={CONFIG}
+        rows={rows}
+        rowKey={(r) => r.id}
+        widthMode="auto"
+        showHeader
+      />,
+    );
+    expect(html.match(/ov-cell--pos/g)).toHaveLength(rows.length);
+    expect(html).toMatch(/ov-cell ov-cell--right ov-cell--pos" role="cell"/);
+    expect(html).toMatch(/ov-cell ov-cell--right" role="columnheader"/);
+  });
+
+  it("marks yellow rows, alone or together with the own row", () => {
+    const html = renderToStaticMarkup(
+      <DataTable
+        columns={COLUMNS}
+        config={CONFIG}
+        rows={rows}
+        rowKey={(r) => r.id}
+        widthMode="auto"
+        showHeader={false}
+        isOwnRow={(r) => r.own === true}
+        isYellowRow={(r) => r.pos === 1 || r.pos === 2}
+      />,
+    );
+    expect(html.match(/ov-row--yellow/g)).toHaveLength(2);
+    expect(html.match(/ov-row--own/g)).toHaveLength(1);
+    expect(html).toMatch(/class="ov-row ov-row--alt ov-row--own ov-row--yellow"/);
   });
 
   it("omits the header when hidden and renders flat rows", () => {
@@ -175,7 +231,7 @@ describe("DataTable markup", () => {
 describe("columnFloorPct", () => {
   /** Evaluates the first (floor) argument of a `minmax(calc(Nch + 2 * var(...)), ...)` track. */
   function drawnFloorPx(track: string, chPx: number, padPx: number): number {
-    const m = /^minmax\(calc\(([\d.]+)ch \+ 2 \* var\(--ov-cell-pad-x, 8px\)\)/.exec(track);
+    const m = /^minmax\(calc\(([\d.]+)ch \+ 2 \* var\(--ov-cell-pad-x, 7px\)\)/.exec(track);
     if (!m) throw new Error(`unexpected track ${track}`);
     return Number(m[1]) * chPx + 2 * padPx;
   }
