@@ -1,4 +1,5 @@
 .ov-rel {
+  position: relative;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -12,6 +13,16 @@
   font-size: var(--ov-font-size, 14px);
 }
 
+/* 1 px inset border drawn above the strips and rows, like the kit panel. */
+.ov-rel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  pointer-events: none;
+}
+
 .ov-rel-empty {
   padding: 8px var(--ov-cell-pad-x, 8px);
   color: var(--ov-text-muted);
@@ -19,8 +30,10 @@
 
 .ov-rel-threat--red {
   color: var(--ov-locked-loss);
+  font-weight: 700;
 }
 
 .ov-rel-threat--yellow {
   color: var(--ov-locked-rejoin-yellow);
+  font-weight: 700;
 }

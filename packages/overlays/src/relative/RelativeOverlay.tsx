@@ -15,6 +15,7 @@ import {
   type DriverRow,
   type InfoItem,
 } from "../shared";
+import { ChProbe, useFittedFields } from "../shared/useFittedFields";
 import "./relative.css";
 import { relativeView, type RelativeRow, type RelativeView } from "./view";
 
@@ -75,6 +76,9 @@ export function RelativeOverlay({ settings }: OverlayProps) {
     [settings.common.fields, sim],
   );
 
+  const inlineFlagBadge = !fields.some((f) => f.id === "flag" && f.visible);
+  const inlinePitBadge = !fields.some((f) => f.id === "pit-lane" && f.visible);
+
   const columns = useMemo(() => {
     const base = driverColumns({
       prefs,
@@ -84,18 +88,34 @@ export function RelativeOverlay({ settings }: OverlayProps) {
       lapDecimals,
       combinedLicencePill,
       gapMode: "relative",
+      showIRatingChange: false,
+      inlineFlagBadge,
+      inlinePitBadge,
+      pitInLastLap: false,
     });
     return base.map((column) =>
       column.id === "gap"
         ? {
             ...column,
+            label: "Rel",
             render: (row: DriverRow) => (
               <span className={threatClass((row as RelativeRow).threat)}>{column.render(row)}</span>
             ),
           }
         : column,
     );
-  }, [prefs, table.nameDisplay, table.nameFormat, gapDecimals, lapDecimals, combinedLicencePill]);
+  }, [
+    prefs,
+    table.nameDisplay,
+    table.nameFormat,
+    gapDecimals,
+    lapDecimals,
+    combinedLicencePill,
+    inlineFlagBadge,
+    inlinePitBadge,
+  ]);
+
+  const fit = useFittedFields(fields, columns, table.widthMode, table.widthScalePct);
 
   const style: CSSProperties | undefined =
     flagBorder && view.flagColour !== null
@@ -103,14 +123,20 @@ export function RelativeOverlay({ settings }: OverlayProps) {
       : undefined;
 
   return (
-    <div className="ov-rel" style={style}>
+    <div
+      className="ov-rel"
+      style={style}
+      ref={fit.ref}
+      data-hidden-columns={fit.hiddenIds.join(" ")}
+    >
+      <ChProbe />
       {showHeader ? <InfoStrip items={selected.header} /> : null}
       {view.rows.length === 0 ? (
         <div className="ov-rel-empty">No cars nearby</div>
       ) : (
         <DataTable
           columns={columns}
-          config={fields}
+          config={fit.fields}
           rows={view.rows}
           rowKey={(r) => r.carIdx}
           widthMode={table.widthMode}
@@ -121,7 +147,7 @@ export function RelativeOverlay({ settings }: OverlayProps) {
           isYellowRow={(r) => r.yellow}
         />
       )}
-      {showFooter ? <InfoStrip items={selected.footer} /> : null}
+      {showFooter ? <InfoStrip variant="footer" items={selected.footer} /> : null}
     </div>
   );
 }

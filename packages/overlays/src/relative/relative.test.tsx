@@ -1,9 +1,13 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { NOMINAL_TABLE_METRICS } from "@overlay/ui/fit";
 import type { TelemetryFrame } from "@overlay/sim-core/types";
 import { applySettingsPatch, defaultInstanceSettings, sanitizeOptionValue } from "../settings";
 import { OverlayRuntimeContext, staticRuntime } from "../runtime";
 import { fixtureFrame } from "../shared";
+import { tableWidthsFor } from "../shared/table-fit";
 import { relativeModule } from "./index";
 import { relativeManifest } from "./manifest";
 import { RelativeOverlay } from "./RelativeOverlay";
@@ -59,8 +63,25 @@ describe("relative manifest", () => {
       "licence",
       "irating",
       "gap",
-      "last-lap",
     ]);
+  });
+
+  it("defaults the window width to the computed fit", () => {
+    const widths = tableWidthsFor(
+      relativeManifest,
+      defaultInstanceSettings(relativeManifest),
+      NOMINAL_TABLE_METRICS,
+    );
+    if (widths === null || widths.fitPx === null) throw new Error("table manifest");
+    expect(relativeManifest.defaultSize).toEqual({ width: Math.ceil(widths.fitPx), height: 300 });
+    expect(relativeManifest.defaultSize.width).toBeGreaterThan(440);
+    expect(relativeManifest.defaultSize.width).toBeLessThan(470);
+  });
+
+  it("shows air, track, wetness and wind in the header by default", () => {
+    const field = relativeManifest.settings.find((f) => f.key === "header-fields");
+    expect(field?.default).toEqual(["air-temp", "track-temp", "wetness", "wind"]);
+    expect(render(frame())).toContain(">Wind<");
   });
 
   it("is a table overlay at 10 Hz and the module uses it", () => {
@@ -116,6 +137,55 @@ describe("RelativeOverlay", () => {
     expect(html).toContain('<span class="ov-rel-threat--yellow">+1.6</span>');
     expect(html).not.toContain('ov-rel-threat--red">-1.2');
     expect(render(frame(), { "gap-threat": false })).not.toContain("ov-rel-threat");
+  });
+
+  it("makes the threat colours bold", () => {
+    const css = readFileSync(join(__dirname, "relative.css"), "utf8");
+    for (const level of ["red", "yellow"]) {
+      const block = css.match(new RegExp(`\\.ov-rel-threat--${level} \\{[^}]*\\}`));
+      expect(block?.[0]).toContain("font-weight: 700");
+    }
+  });
+
+  it("labels the gap column Rel", () => {
+    const html = render(frame(), { "row-labels": true });
+    expect(html).toContain(">Rel<");
+    expect(html).not.toContain(">Gap<");
+  });
+
+  it("never shows the iRating change, even when the entry has one", () => {
+    const f = fixtureFrame({
+      playerCarIdx: 0,
+      cars: [
+        { carIdx: 0, driverName: NAMES[0], carNumber: "11", position: 4, iRating: 2400 },
+        { carIdx: 1, driverName: NAMES[1], carNumber: "22", position: 3, iRating: 2000 },
+      ],
+      gaps: [{ carIdx: 1, gapS: -1.2, tier: "position" }],
+      standings: [
+        { carIdx: 0, iRatingChange: 11 },
+        { carIdx: 1, iRatingChange: 25 },
+      ],
+    });
+    const html = render(f);
+    expect(html).toContain(">2.0k<");
+    expect(html).not.toContain("+25");
+    expect(html).not.toContain("+11");
+  });
+
+  it("draws an OFF badge after the name of an off-track car, a PIT badge for pit road", () => {
+    const f = frame();
+    const off = f.state.cars.find((c) => c.carIdx === 3);
+    const pit = f.state.cars.find((c) => c.carIdx === 2);
+    if (off === undefined || pit === undefined) throw new Error("fixture");
+    off.trackSurface = "offTrack";
+    pit.onPitRoad = true;
+    const html = render(f);
+    expect(html).toContain("ov-badge-flag--off");
+    expect(html).toContain(">PIT<");
+  });
+
+  it("writes the data-hidden-columns attribute (empty without a measurement)", () => {
+    expect(render(frame())).toContain('data-hidden-columns=""');
   });
 
   it("toggles the header and footer strips", () => {
