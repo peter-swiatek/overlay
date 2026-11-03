@@ -10,20 +10,28 @@ export const fuelManifest: OverlayManifest = {
   title: "Fuel Calculator",
   description: "Fuel use, laps remaining and what to add.",
   sims: ["iracing", "lmu"],
-  defaultSize: { width: 380, height: 420 },
-  minSize: { width: 280, height: 120 },
+  // The vertical layout of the design hand-off; sizeByOption switches it with the layout option.
+  defaultSize: { width: 250, height: 360 },
+  minSize: { width: 220, height: 120 },
+  sizeByOption: {
+    key: "layout",
+    sizes: {
+      vertical: { width: 250, height: 360 },
+      horizontal: { width: 480, height: 196 },
+    },
+  },
   defaultPosition: { x: 1360, y: 560 },
   table: false,
   fields: [
-    { id: "consumption", label: "Consumption", defaultVisible: true },
-    { id: "fuel-history", label: "Fuel history", defaultVisible: false },
     { id: "fuel-level", label: "Fuel level", defaultVisible: true },
+    { id: "laps-remaining", label: "Laps remaining", defaultVisible: true },
+    { id: "consumption", label: "Consumption", defaultVisible: true },
+    { id: "refuel", label: "Refuel amount", defaultVisible: true },
     { id: "targets", label: "Fuel-to-finish targets", defaultVisible: true },
     { id: "laps-left", label: "Laps left avg / last / worst", defaultVisible: true },
-    { id: "laps-remaining", label: "Laps remaining", defaultVisible: true },
     { id: "pit-window", label: "Pit window", defaultVisible: true },
-    { id: "refuel", label: "Refuel amount", defaultVisible: true },
-    { id: "usage", label: "Usage avg 10 / avg 5 / last", defaultVisible: true },
+    { id: "usage", label: "Usage avg 10 / avg 5 / last", defaultVisible: false },
+    { id: "fuel-history", label: "Fuel history", defaultVisible: false },
   ],
   settings: [
     {
