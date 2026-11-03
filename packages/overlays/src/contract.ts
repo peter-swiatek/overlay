@@ -65,7 +65,7 @@ export interface OverlayFieldDef {
   /**
    * Table overlays: lower numbers are hidden first when the user drags the window narrower than
    * the visible columns need. Never set on position, car number, driver and gap. Manifest data
-   * only; unused until the column auto-width phase.
+   * only. Read by the table fit (packages/ui/src/table/fit.ts).
    */
   dropPriority?: number;
   sims?: readonly SimName[];
@@ -98,6 +98,12 @@ export interface OverlayManifest {
   defaultEnabled: boolean;
   /** Listed in the Overlays page only while developer tools are on. */
   dev?: boolean;
+  /**
+   * Non-table overlays whose layout option changes the natural window size (Fuel Calculator).
+   * When the option's value changes, main sets the window to sizes[value] at the overlay's scale,
+   * keeping x/y and clamping to the work area. `defaultSize` equals sizes[the option's default].
+   */
+  sizeByOption?: { key: string; sizes: Readonly<Record<string, Size>> };
 }
 
 /** Framework settings every overlay has; they behave the same everywhere. */

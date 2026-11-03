@@ -10,7 +10,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./types": "./src/types.ts",
-    "./format": "./src/format/index.ts"
+    "./format": "./src/format/index.ts",
+    "./fit": "./src/table/fit.ts"
   },
   "dependencies": {
     "@overlay/theme": "workspace:*"

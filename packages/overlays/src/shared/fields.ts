@@ -30,6 +30,28 @@ export type DriverFieldId = (typeof DRIVER_FIELD_IDS)[number];
 
 type FieldSpec = Omit<OverlayFieldDef, "id">;
 
+/** Hide order of the optional columns when the table is narrow (fit.ts). 22 and 38 are reserved for push-to-pass and flag. */
+const DROP_PRIORITY: Partial<Record<DriverFieldId, number>> = {
+  energy: 10,
+  "prev-stint": 12,
+  "stint-lap": 14,
+  "last-pitted": 16,
+  "pit-stall": 18,
+  lap: 20,
+  "avg-lap": 24,
+  "best-lap-delta": 26,
+  "last-lap-delta": 28,
+  "overall-position": 30,
+  "car-class": 32,
+  "pos-change": 34,
+  "pit-lane": 36,
+  "best-lap": 40,
+  licence: 50,
+  irating: 55,
+  interval: 60,
+  "last-lap": 70,
+};
+
 const SPECS: Record<DriverFieldId, FieldSpec> = {
   position: { label: "Position", defaultVisible: true, defaultWidthPct: 6, chars: 3 },
   "overall-position": {
@@ -44,7 +66,7 @@ const SPECS: Record<DriverFieldId, FieldSpec> = {
     label: "Driver name",
     defaultVisible: true,
     defaultWidthPct: 30,
-    chars: 18,
+    chars: 14,
     minChars: 10,
   },
   licence: {
@@ -52,14 +74,14 @@ const SPECS: Record<DriverFieldId, FieldSpec> = {
     defaultVisible: true,
     defaultWidthPct: 9,
     sims: ["iracing"],
-    chars: 6,
+    chars: 7,
   },
   irating: {
     label: "iRating",
     defaultVisible: true,
     defaultWidthPct: 8,
     sims: ["iracing"],
-    chars: 6,
+    chars: 8,
   },
   gap: { label: "Gap", defaultVisible: true, defaultWidthPct: 9, chars: 6 },
   interval: { label: "Interval", defaultVisible: true, defaultWidthPct: 9, chars: 6 },
@@ -141,6 +163,7 @@ export function columnFloorChars(fieldId: string): number | undefined {
 export const DRIVER_FIELDS: readonly OverlayFieldDef[] = DRIVER_FIELD_IDS.map((id) => ({
   id,
   ...SPECS[id],
+  dropPriority: DROP_PRIORITY[id],
 }));
 
 /** A subset in the given order with defaultVisible taken from `visible`. Throws on an unknown id (a bug). */
@@ -151,7 +174,7 @@ export function driverFields(
   return ids.map((id) => {
     const spec = (SPECS as Partial<Record<string, FieldSpec>>)[id];
     if (spec === undefined) throw new Error(`Unknown driver field id: ${String(id)}`);
-    return { id, ...spec, defaultVisible: visible.includes(id) };
+    return { id, ...spec, dropPriority: DROP_PRIORITY[id], defaultVisible: visible.includes(id) };
   });
 }
 
