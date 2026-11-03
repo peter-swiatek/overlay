@@ -23,6 +23,20 @@ const REPAIR_CAR = 7;
 const OFF_TRACK_CAR = 5;
 const OFF_TRACK_FROM = 0.3;
 const OFF_TRACK_TO = 0.34;
+/** Gear bands over the player's speed (25..55 m/s): [from, to, gear]. The last band includes 55. */
+const GEAR_BANDS: readonly (readonly [number, number, number])[] = [
+  [25, 30, 3],
+  [30, 38, 4],
+  [38, 46, 5],
+  [46, 55, 6],
+];
+/** Lap fraction at which the player starts approaching the pit lane (limiter on), and the stall. */
+const PIT_APPROACH_FROM = 0.9;
+const PIT_STALL_LAP_DIST_PCT = 0.95;
+/** Player lap-time offsets against the nominal lap, cycling every five completed laps, seconds. */
+const LAP_VARIATION_S = [0.3, -0.2, -0.5, -0.4, 0.2];
+/** The demo's single unclean lap (lap 3) records this many incidents from half way through. */
+const UNCLEAN_LAP_INCIDENTS = 2;
 
 /**
  * A deterministic synthetic race for UI work without a sim: about 20 cars in two classes, the
@@ -87,24 +101,38 @@ export class MockSource {
       windSpeedMps: 4.5,
       windDirRad: 1.2,
       declaredWet: false,
+      precipitation: 0,
+      fogLevel: 0,
     };
 
     const p = state.player;
-    p.gear = 4;
     p.speedMps = 40 + 15 * Math.sin(this.timeS / 3);
-    p.rpm = 6500 + 1500 * Math.sin(this.timeS);
+    // Gear and rpm follow speed: rpm climbs 5000..8000 through each band, so the shift lights
+    // and the blink are reached near the top of every gear; the clutch is pressed at a change.
+    const { gear, fraction } = gearAt(p.speedMps);
+    p.gear = gear;
+    p.rpm = 5000 + 3000 * fraction;
     p.inputs = {
       throttle: 0.5 + 0.5 * Math.sin(this.timeS * 1.3),
       brake: Math.max(0, -Math.sin(this.timeS * 1.3)),
-      clutch: 0,
+      clutch: fraction < 0.05 ? 1 : 0,
       steer: 0.4 * Math.sin(this.timeS / 2),
     };
     p.fuelCapacityL = FUEL_CAPACITY_L;
     p.fuelL = fuelAt(playerDistance);
-    p.incidentCount = 0;
+    const playerLaps = Math.floor(playerDistance);
+    const playerFraction = playerDistance - playerLaps;
+    p.incidentCount =
+      playerLaps > 2 || (playerLaps === 2 && playerFraction >= 0.5) ? UNCLEAN_LAP_INCIDENTS : 0;
+    p.yawRad = 2 * Math.PI * playerFraction;
+    p.pitStallLapDistPct = PIT_STALL_LAP_DIST_PCT;
+    const approachingPits =
+      playerFraction >= PIT_APPROACH_FROM && playerFraction < PIT_STALL_LAP_DIST_PCT;
+    p.pitLimiter = approachingPits;
     p.lap = this.playerLap(playerDistance);
     p.absActive = (p.inputs.brake ?? 0) > ABS_BRAKE_LEVEL;
-    p.trackSurface = "onTrack";
+    // cars[0] itself stays on track and off pit road, so fuel and standings see no stop.
+    p.trackSurface = approachingPits ? "approachingPits" : "onTrack";
     p.isOnTrack = true;
     p.shiftLights = { firstRpm: 5200, shiftRpm: 7600, lastRpm: 7400, blinkRpm: 7800 };
     p.redlineRpm = 8000;
@@ -123,10 +151,19 @@ export class MockSource {
       ok,
       rate: amp * freq * Math.cos(freq * intoS + phase),
     });
+    // Unlike cars[0] (whose lap times stay constant), the player's own lap timing varies per lap.
+    let best: number | null = null;
+    for (let lap = 1; lap <= Math.min(lapsCompleted, LAP_VARIATION_S.length); lap++) {
+      const time = lapS + (LAP_VARIATION_S[lap - 1] ?? 0);
+      best = best === null ? time : Math.min(best, time);
+    }
     return {
       currentLapS: intoS,
-      lastLapS: lapsCompleted >= 1 ? lapS : null,
-      bestLapS: lapsCompleted >= 1 ? lapS - 0.4 : null,
+      lastLapS:
+        lapsCompleted >= 1
+          ? lapS + (LAP_VARIATION_S[(lapsCompleted - 1) % LAP_VARIATION_S.length] ?? 0)
+          : null,
+      bestLapS: best,
       delta: {
         best: channel(0.35, 0.21, 0),
         sessionBest: channel(0.6, 0.17, 1),
@@ -182,6 +219,13 @@ export class MockSource {
     }
     return car;
   }
+}
+
+function gearAt(speedMps: number): { gear: number; fraction: number } {
+  const last = GEAR_BANDS[GEAR_BANDS.length - 1] ?? [46, 55, 6];
+  const [from, to, gear] = GEAR_BANDS.find(([lo, hi]) => speedMps >= lo && speedMps < hi) ?? last;
+  const fraction = Math.min(1, Math.max(0, (speedMps - from) / (to - from)));
+  return { gear, fraction };
 }
 
 function carSurface(index: number, lapFraction: number): NonNullable<Car["trackSurface"]> {
