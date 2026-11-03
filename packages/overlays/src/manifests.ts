@@ -4,6 +4,10 @@ import { leaderboardManifest } from "./leaderboard/manifest";
 import { spotterManifest } from "./spotter/manifest";
 import { pitSpeedManifest } from "./pit-speed/manifest";
 import { fuelManifest } from "./fuel/manifest";
+import { compactHudManifest } from "./compact-hud/manifest";
+import { deltaBarManifest } from "./delta-bar/manifest";
+import { telemetryStripManifest } from "./telemetry-strip/manifest";
+import { weatherManifest } from "./weather/manifest";
 import { demoInputsManifest } from "./demo-inputs/manifest";
 
 export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
@@ -12,6 +16,10 @@ export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   spotterManifest,
   pitSpeedManifest,
   fuelManifest,
+  compactHudManifest,
+  deltaBarManifest,
+  telemetryStripManifest,
+  weatherManifest,
   demoInputsManifest,
 ];
 

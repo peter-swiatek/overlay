@@ -4,6 +4,10 @@ import { leaderboardModule } from "./leaderboard";
 import { spotterModule } from "./spotter";
 import { pitSpeedModule } from "./pit-speed";
 import { fuelModule } from "./fuel";
+import { compactHudModule } from "./compact-hud";
+import { deltaBarModule } from "./delta-bar";
+import { telemetryStripModule } from "./telemetry-strip";
+import { weatherModule } from "./weather";
 import { demoInputsModule } from "./demo-inputs";
 
 export const OVERLAY_MODULES: readonly OverlayModule[] = [
@@ -12,6 +16,10 @@ export const OVERLAY_MODULES: readonly OverlayModule[] = [
   spotterModule,
   pitSpeedModule,
   fuelModule,
+  compactHudModule,
+  deltaBarModule,
+  telemetryStripModule,
+  weatherModule,
   demoInputsModule,
 ];
 

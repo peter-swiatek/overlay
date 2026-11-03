@@ -75,6 +75,7 @@ export function defaultCommonSettings(manifest: OverlayManifest): CommonOverlayS
     rowOpacityPct: COMMON_LIMITS.rowOpacityPct.default,
     hideInGarage: false,
     hideOnTrack: false,
+    ...manifest.commonDefaults,
     alwaysShow: false,
     showTitleBar: false,
     fields: manifest.fields.map((f) => ({ id: f.id, visible: f.defaultVisible, widthPct: null })),

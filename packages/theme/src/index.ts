@@ -1,7 +1,7 @@
 export * from "./types";
 export * from "./presets";
 export { LOCKED_COLOURS } from "./locked";
-export { contrastRatio, compositeOver, overBlack, contrastOfRgb } from "./colour";
+export { contrastRatio, compositeOver, overBlack, contrastOfRgb, themeTone } from "./colour";
 export { sanitizeTheme, forkTheme, newCustomId, sanitizeThemeName } from "./sanitize";
 export type { ThemeResult } from "./sanitize";
 export {

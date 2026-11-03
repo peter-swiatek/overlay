@@ -43,6 +43,13 @@ export function luminance(c: Rgb): number {
   return 0.2126 * channel(c.r) + 0.7152 * channel(c.g) + 0.0722 * channel(c.b);
 }
 
+/** "light" when the text colour is dark (a light theme); unparsable colours give "dark". */
+export function themeTone(text: string): "light" | "dark" {
+  const c = parseHex(text);
+  if (!c) return "dark";
+  return luminance(c) < 0.4 ? "light" : "dark";
+}
+
 export function contrastOfRgb(a: Rgb, b: Rgb): number {
   const la = luminance(a);
   const lb = luminance(b);

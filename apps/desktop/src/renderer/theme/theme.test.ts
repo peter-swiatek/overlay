@@ -28,6 +28,14 @@ describe("applyThemeToRoot", () => {
     expect(root.dataset.compact).toBe("false");
   });
 
+  it("writes data-tone: light only for Glacier", () => {
+    for (const t of THEME_PRESETS) {
+      const root = fakeRoot();
+      applyThemeToRoot(root, t);
+      expect(root.dataset.tone).toBe(t.id === "glacier" ? "light" : "dark");
+    }
+  });
+
   it("never touches locked variables", () => {
     const root = fakeRoot();
     applyThemeToRoot(root, GRAPHITE);

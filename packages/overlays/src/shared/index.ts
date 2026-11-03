@@ -6,3 +6,4 @@ export * from "./info";
 export * from "./InfoStrip";
 export * from "./flags";
 export * from "./fixtures";
+export * from "./driving";
