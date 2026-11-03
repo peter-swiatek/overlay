@@ -3,7 +3,7 @@ import { emptyCar, emptySimState, type SimState } from "../model";
 import { Deriver } from "./derive";
 import { MockSource } from "./mock";
 
-/** The player drives at 50 m/s towards a stopped car 700 m ahead of the start. */
+/** The player drives at 50 m/s towards a car that runs at 40 m/s for 0.5 s, then stops. */
 function frame(tick: number, type: "race" | "practice" = "race"): SimState {
   const s = emptySimState("iracing");
   s.connected = true;
@@ -15,7 +15,7 @@ function frame(tick: number, type: "race" | "practice" = "race"): SimState {
   const base = { connected: true, isOnTrack: true, onPitRoad: false, inPitStall: false };
   s.cars = [
     { ...emptyCar(0), ...base, lapDistPct: 0.2 + tick * 0.00125 },
-    { ...emptyCar(1), ...base, lapDistPct: 0.27 },
+    { ...emptyCar(1), ...base, lapDistPct: 0.27 + Math.min(tick, 5) * 0.001 },
   ];
   return s;
 }
@@ -25,23 +25,23 @@ describe("Deriver slow car", () => {
     const d = new Deriver();
     let out = d.next(frame(0));
     expect(out.slowCar).toBeNull();
-    for (let i = 1; i <= 8; i++) out = d.next(frame(i));
+    for (let i = 1; i <= 20; i++) out = d.next(frame(i));
     expect(out.slowCar).toMatchObject({ carIdx: 1, stopped: true });
     expect(out.slowCar!.distanceM).toBeGreaterThan(0);
   });
 
   it("resets on a session change", () => {
     const d = new Deriver();
-    for (let i = 0; i <= 8; i++) d.next(frame(i));
-    const out = d.next(frame(9, "practice"));
+    for (let i = 0; i <= 20; i++) d.next(frame(i));
+    const out = d.next(frame(21, "practice"));
     expect(out.slowCar).toBeNull();
   });
 
   it("resets with the Deriver", () => {
     const d = new Deriver();
-    for (let i = 0; i <= 8; i++) d.next(frame(i));
+    for (let i = 0; i <= 20; i++) d.next(frame(i));
     d.reset();
-    expect(d.next(frame(9)).slowCar).toBeNull();
+    expect(d.next(frame(21)).slowCar).toBeNull();
   });
 
   it("gives slowCar null on the demo feed", () => {
