@@ -7,7 +7,14 @@ import { defaultInstanceSettings } from "../settings";
 import { OverlayRuntimeContext, staticRuntime } from "../runtime";
 import { spotterManifest } from "./manifest";
 import { SpotterOverlay } from "./SpotterOverlay";
-import { barColourCss, newSpotterMemory, offsetToPosition, spotterView } from "./view";
+import {
+  barBottomCss,
+  barColourCss,
+  newSpotterMemory,
+  offsetToPosition,
+  spotterBlock,
+  spotterView,
+} from "./view";
 
 type Prox = NonNullable<TelemetryFrame["derived"]["proximity"]>;
 
@@ -114,6 +121,26 @@ describe("barColourCss", () => {
   });
 });
 
+describe("spotterBlock", () => {
+  const at = (position: number | null) => spotterBlock({ position, double: false });
+  it("anchors a car ahead at the top and a car behind at the bottom", () => {
+    expect(at(0)).toEqual({ anchor: "top", height: 0 });
+    expect(at(0.25)).toEqual({ anchor: "top", height: 0.5 });
+    expect(at(0.5)).toEqual({ anchor: "top", height: 1 });
+    expect(at(0.75)).toEqual({ anchor: "bottom", height: 0.5 });
+    expect(at(1)).toEqual({ anchor: "bottom", height: 0 });
+    expect(at(null)).toBeNull();
+  });
+});
+
+describe("barBottomCss", () => {
+  it("uses the board's deep orange for the default colour, a darkened mix otherwise", () => {
+    expect(barBottomCss("#ff9f0a")).toBe("#e04f00");
+    expect(barBottomCss("#00ff88")).toBe("color-mix(in srgb, #00ff88 78%, #000)");
+    expect(barBottomCss("var(--ov-accent)")).toContain("var(--ov-accent) 78%");
+  });
+});
+
 function render(f: TelemetryFrame | null, editing = false, options: Record<string, number> = {}) {
   const settings = defaultInstanceSettings(spotterManifest);
   Object.assign(settings.options, options);
@@ -127,12 +154,33 @@ function render(f: TelemetryFrame | null, editing = false, options: Record<strin
 const count = (html: string, s: string) => html.split(s).length - 1;
 
 describe("SpotterOverlay", () => {
-  it("renders one block on the left with the expected translateY", () => {
-    const html = render(frame({ left: 0 }));
-    expect(count(html, "spotter-block")).toBe(1);
-    // block 70 px on a 140 px bar, position 0.5 → 35 px
-    expect(html).toContain("translateY(35px)");
-    expect(html.indexOf("spotter-block")).toBeLessThan(html.indexOf("spotter-gap"));
+  it("defaults to the board's orange, 26 px bars and a 246 px centre gap", () => {
+    const o = defaultInstanceSettings(spotterManifest).options;
+    expect(o["bar-colour"]).toBe("#ff9f0a");
+    expect(o["bar-width"]).toBe(26);
+    expect(o["bar-gap"]).toBe(246);
+    expect(spotterManifest.defaultSize).toEqual({ width: 360, height: 160 });
+  });
+
+  it("draws one housing with a top-anchored block for a car ahead", () => {
+    const html = render(frame({ left: 0.5 }));
+    expect(count(html, "spotter-block ")).toBe(1);
+    expect(html).toContain("spotter-block--from-top");
+    expect(html).toContain("height:50%");
+    expect(count(html, 'class="spotter-bar"')).toBe(1);
+    expect(html.indexOf("spotter-bar")).toBeLessThan(html.indexOf("spotter-gap"));
+  });
+
+  it("anchors a car behind at the bottom", () => {
+    const html = render(frame({ right: -0.5 }));
+    expect(html).toContain("spotter-block--from-bottom");
+    expect(html).toContain("height:50%");
+    expect(html.indexOf("spotter-gap")).toBeLessThan(html.indexOf("spotter-bar"));
+  });
+
+  it("shows the midpoint line inside every shown housing", () => {
+    const html = render(frame({ left: 0, right: 0, carLeftRight: "both" }));
+    expect(count(html, 'class="spotter-midpoint"')).toBe(2);
   });
 
   it("applies option values to the inline sizes", () => {
@@ -143,15 +191,21 @@ describe("SpotterOverlay", () => {
     });
     expect(html).toContain("width:20px;height:200px");
     expect(html).toContain("width:280px");
-    expect(html).toContain("translateY(100px)");
   });
 
-  it("shows nothing but empty bars when clear, and the sample in edit mode", () => {
-    expect(count(render(frame({})), "spotter-block")).toBe(0);
-    expect(count(render(frame({})), "spotter-bar--track")).toBe(0);
+  it("sets the gradient pair from the colour", () => {
+    expect(render(frame({}))).toContain("--spotter-top:#ff9f0a;--spotter-bottom:#e04f00");
+  });
+
+  it("hides the housings when clear and not editing, shows both and the guide when editing", () => {
+    const clear = render(frame({}));
+    expect(count(clear, 'class="spotter-bar"')).toBe(0);
+    expect(count(clear, "spotter-block")).toBe(0);
+    expect(count(clear, "spotter-guide")).toBe(0);
     const edit = render(null, true);
-    expect(count(edit, "spotter-block")).toBe(2);
-    expect(count(edit, "spotter-bar--track")).toBe(2);
+    expect(count(edit, 'class="spotter-bar"')).toBe(2);
+    expect(count(edit, "spotter-block ")).toBe(2);
+    expect(count(edit, 'class="spotter-guide"')).toBe(1);
   });
 
   it("scopes transitions to full-effects mode", () => {

@@ -70,10 +70,36 @@ export function spotterView(
   return { left: l.shown, right: r.shown };
 }
 
+/**
+ * The overlap block: a car ahead (position < 0.5) is anchored at the top, behind at the bottom;
+ * height = overlap 0..1. Null when hidden.
+ */
+export function spotterBlock(
+  side: SpotterSide,
+): { anchor: "top" | "bottom"; height: number } | null {
+  const p = side.position;
+  if (p === null) return null;
+  const round = (n: number) => Math.round(n * 100) / 100;
+  return p <= 0.5
+    ? { anchor: "top", height: round(2 * p) }
+    : { anchor: "bottom", height: round(2 * (1 - p)) };
+}
+
 export const EDIT_SAMPLE: SpotterView = {
-  left: { position: 0.5, double: false },
-  right: { position: 0.25, double: false },
+  left: { position: 0.25, double: false },
+  right: { position: 0.75, double: false },
 };
+
+/** Default bar colour; its gradient ends in SPOTTER_DEFAULT_BOTTOM. */
+export const SPOTTER_DEFAULT_COLOUR = "#ff9f0a";
+export const SPOTTER_DEFAULT_BOTTOM = "#e04f00";
+
+/** Lower gradient stop: the board's deep orange for the default colour, else the colour darkened. */
+export function barBottomCss(colourCss: string): string {
+  return colourCss.toLowerCase() === SPOTTER_DEFAULT_COLOUR
+    ? SPOTTER_DEFAULT_BOTTOM
+    : `color-mix(in srgb, ${colourCss} 78%, #000)`;
+}
 
 /** "accent" → the theme accent variable; "#rrggbb" → itself; anything else → the accent. */
 export function barColourCss(value: string): string {
