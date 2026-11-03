@@ -222,7 +222,7 @@ describe("yellow rows and flag badges", () => {
     expect(rows.map((r) => r.iRatingChange)).toEqual([14, null]);
   });
 
-  it("picks the flag badge by priority DSQ > BLK > DMG > YEL", () => {
+  it("picks the flag badge by priority DSQ > BLK > DMG > OFF > YEL", () => {
     const car = (flags: Partial<Flags> | null, surface: Car["trackSurface"] = null): Car => ({
       ...fixtureFrame({ cars: [{ carIdx: 0 }] }).state.cars[0]!,
       flags: flags === null ? null : { ...noFlags(), ...flags },
@@ -235,6 +235,24 @@ describe("yellow rows and flag badges", () => {
     expect(flagBadgeKind(car({ yellow: true, repair: true, black: true }))).toBe("blk");
     expect(flagBadgeKind(car({ furled: true }))).toBe("blk");
     expect(flagBadgeKind(car({ black: true, disqualified: true }))).toBe("dsq");
-    expect(flagBadgeKind(car(null, "offTrack"))).toBe("yel");
+    expect(flagBadgeKind(car(null, "offTrack"))).toBe("off");
+    expect(flagBadgeKind(car({ yellow: true }, "offTrack"))).toBe("off");
+    expect(flagBadgeKind(car({ yellow: true, repair: true }, "offTrack"))).toBe("dmg");
+  });
+
+  it("carries push to pass and the badge on the row", () => {
+    const rows = driverRows(
+      fixtureFrame({
+        cars: [
+          { carIdx: 0, p2pCount: 4, p2pActive: true },
+          { carIdx: 1, trackSurface: "offTrack" },
+          { carIdx: 2 },
+        ],
+      }),
+      OPTS,
+    );
+    expect(rows.map((r) => r.p2pCount)).toEqual([4, null, null]);
+    expect(rows.map((r) => r.p2pActive)).toEqual([true, false, false]);
+    expect(rows.map((r) => r.badge)).toEqual([null, "off", null]);
   });
 });

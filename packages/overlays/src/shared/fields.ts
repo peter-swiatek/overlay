@@ -25,12 +25,14 @@ export const DRIVER_FIELD_IDS = [
   "prev-stint",
   "pos-change",
   "energy",
+  "p2p",
+  "flag",
 ] as const;
 export type DriverFieldId = (typeof DRIVER_FIELD_IDS)[number];
 
 type FieldSpec = Omit<OverlayFieldDef, "id">;
 
-/** Hide order of the optional columns when the table is narrow (fit.ts). 22 and 38 are reserved for push-to-pass and flag. */
+/** Hide order of the optional columns when the table is narrow (fit.ts). */
 const DROP_PRIORITY: Partial<Record<DriverFieldId, number>> = {
   energy: 10,
   "prev-stint": 12,
@@ -38,12 +40,14 @@ const DROP_PRIORITY: Partial<Record<DriverFieldId, number>> = {
   "last-pitted": 16,
   "pit-stall": 18,
   lap: 20,
+  p2p: 22,
   "avg-lap": 24,
   "best-lap-delta": 26,
   "last-lap-delta": 28,
   "overall-position": 30,
   "car-class": 32,
   "pos-change": 34,
+  flag: 38,
   "pit-lane": 36,
   "best-lap": 40,
   licence: 50,
@@ -114,6 +118,14 @@ const SPECS: Record<DriverFieldId, FieldSpec> = {
     sims: ["lmu"],
     chars: 4,
   },
+  p2p: {
+    label: "Push to pass",
+    defaultVisible: false,
+    defaultWidthPct: 5,
+    sims: ["iracing"],
+    chars: 3,
+  },
+  flag: { label: "Flag / penalty", defaultVisible: false, defaultWidthPct: 6, chars: 5 },
 };
 
 /** Short header labels, so a column's header fits at its floor width (the settings UI keeps the long names). */
@@ -140,6 +152,8 @@ export const SHORT_LABEL: Record<DriverFieldId, string> = {
   "prev-stint": "Prev",
   "pos-change": "+/-",
   energy: "Fuel",
+  p2p: "P2P",
+  flag: "Flag",
 };
 
 /** Characters a header needs; capitals are wider than the digit the `ch` unit measures. */
