@@ -183,7 +183,7 @@
   color: #0b0d12;
 }
 
-/* Car number: dark chip with a class-coloured left edge. */
+/* Car number: dark chip with a class-coloured left border. */
 .ov-car-num {
   display: inline-flex;
   align-items: center;

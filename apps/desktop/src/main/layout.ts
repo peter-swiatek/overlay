@@ -115,6 +115,36 @@ export function scaleBounds(bounds: Bounds, fromPct: number, toPct: number, minS
   return { x: bounds.x, y: bounds.y, ...size };
 }
 
+/** Height of the in-flow title bar (fixed px, not scaled); matches the renderer's TITLE_BAR_HEIGHT_PX. */
+export const TITLE_BAR_PX = 20;
+
+/**
+ * Like {@link scaleBounds}, but keeps `chromePx` of fixed-height chrome (the title bar) out of the
+ * scaling: only the content below it grows or shrinks.
+ */
+export function scaleBoundsWithChrome(
+  bounds: Bounds,
+  fromPct: number,
+  toPct: number,
+  minSize: Size,
+  chromePx: number,
+): Bounds {
+  if (chromePx <= 0) return scaleBounds(bounds, fromPct, toPct, minSize);
+  const content = { ...bounds, height: Math.max(0, bounds.height - chromePx) };
+  const scaled = scaleBounds(content, fromPct, toPct, minSize);
+  return { ...scaled, height: scaled.height + chromePx };
+}
+
+/** Scales a reported content minimum whose height includes `chromePx` of fixed chrome. */
+export function scaleContentMin(size: Size, ratioPct: number, chromePx: number): Size {
+  if (chromePx <= 0 || size.height <= 0) return scaleSize(size, ratioPct);
+  const scaled = scaleSize(
+    { width: size.width, height: Math.max(0, size.height - chromePx) },
+    ratioPct,
+  );
+  return { width: scaled.width, height: scaled.height + chromePx };
+}
+
 export interface WindowPlan {
   open: string[];
   close: string[];

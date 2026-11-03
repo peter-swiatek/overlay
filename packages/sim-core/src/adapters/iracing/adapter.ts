@@ -38,7 +38,7 @@ const FLAG_BLACK = 0x10000 | FLAG_DISQUALIFY;
 const FLAG_FURLED = 0x80000;
 /** Meatball: repair required. */
 const FLAG_REPAIR = 0x100000;
-// Not mapped, SimState has no slot: debris (0x80).
+// Not mapped, SimState has no slot: debris (0x40), crossed (0x80).
 
 /** irsdk_EngineWarnings: pit speed limiter. */
 const ENGINE_PIT_LIMITER = 0x10;

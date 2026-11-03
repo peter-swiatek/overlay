@@ -16,6 +16,8 @@ import {
   planWindowChanges,
   resizeBounds,
   scaleBounds,
+  scaleBoundsWithChrome,
+  scaleContentMin,
 } from "./layout";
 import { LayoutStore } from "./layout-store";
 
@@ -319,5 +321,32 @@ describe("content minimum size", () => {
     expect(
       growToMin({ x: 2000, y: 10, width: 200, height: 70 }, { width: 2500, height: 200 }, area),
     ).toEqual({ x: 1920, y: 10, width: 2500, height: 200 });
+  });
+});
+
+describe("title bar chrome when rescaling", () => {
+  const min = { width: 10, height: 10 };
+  it("scales only the content under a fixed title bar", () => {
+    const b = { x: 5, y: 5, width: 400, height: 220 };
+    expect(scaleBoundsWithChrome(b, 100, 50, min, 20)).toEqual({
+      x: 5,
+      y: 5,
+      width: 200,
+      height: 120,
+    });
+    expect(scaleBoundsWithChrome(b, 100, 200, min, 20)).toEqual({
+      x: 5,
+      y: 5,
+      width: 800,
+      height: 420,
+    });
+    expect(scaleBoundsWithChrome(b, 100, 50, min, 0)).toEqual(scaleBounds(b, 100, 50, min));
+  });
+  it("keeps the title bar out of a scaled content minimum", () => {
+    expect(scaleContentMin({ width: 300, height: 120 }, 50, 20)).toEqual({
+      width: 150,
+      height: 70,
+    });
+    expect(scaleContentMin({ width: 300, height: 0 }, 50, 20)).toEqual({ width: 150, height: 0 });
   });
 });

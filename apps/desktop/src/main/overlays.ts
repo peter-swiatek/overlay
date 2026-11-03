@@ -10,7 +10,10 @@ import {
   planWindowChanges,
   resizeBounds,
   scaleBounds,
+  scaleBoundsWithChrome,
+  scaleContentMin,
   scaleSize,
+  TITLE_BAR_PX,
   type Layout,
 } from "./layout";
 import type { LayoutStore } from "./layout-store";
@@ -219,11 +222,19 @@ export class OverlayManager {
     if (win.isDestroyed()) return;
     const current = win.getBounds();
     const area = screen.getDisplayMatching(current).workArea;
+    // The title bar, when shown in flow, is fixed px: only the content under it scales.
+    const chrome = this.deps.overlaySettings.getAll()[manifest.id]?.common.showTitleBar
+      ? TITLE_BAR_PX
+      : 0;
     // The reported content minimum was measured at the old scale; it is re-measured shortly.
-    entry.contentMin = scaleSize(entry.contentMin, (toPct / entry.scalePct) * 100);
+    entry.contentMin = scaleContentMin(entry.contentMin, (toPct / entry.scalePct) * 100, chrome);
     const min = effectiveMinSize(manifest.minSize, toPct, entry.contentMin);
     const next = clampToWorkArea(
-      growToMin(scaleBounds(current, entry.scalePct, toPct, manifest.minSize), min, area),
+      growToMin(
+        scaleBoundsWithChrome(current, entry.scalePct, toPct, manifest.minSize, chrome),
+        min,
+        area,
+      ),
       area,
       min,
     );
