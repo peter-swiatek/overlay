@@ -1,5 +1,5 @@
 // Tests may use the sim-core entry for fixtures; overlay code itself must not.
-import { emptySimState, type FuelOutputs, type TelemetryFrame } from "@overlay/sim-core";
+import { emptyCar, emptySimState, type FuelOutputs, type TelemetryFrame } from "@overlay/sim-core";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { OverlayInstanceSettings } from "../contract";
@@ -106,7 +106,10 @@ describe("fuelView", () => {
     expect(noMargin.lapsLeftState.worst).toBe("loss");
     const tight = view(outputs({ lapsRemainingAvg: 15.5 }), {}, { ...OPTS, safetyMarginLaps: 0 });
     expect(tight.lapsLeftState.avg).toBe("gain");
-    expect(view(outputs({ lapsRemainingAvg: 15.5 })).lapsLeftState.avg).toBe("loss");
+    // Covers lapsToGo (15) but not lapsToGo + margin (16): warn.
+    expect(view(outputs({ lapsRemainingAvg: 15.5 })).lapsLeftState.avg).toBe("warn");
+    expect(view(outputs({ lapsRemainingAvg: 16 })).lapsLeftState.avg).toBe("gain");
+    expect(view(outputs({ lapsRemainingAvg: 14.9 })).lapsLeftState.avg).toBe("loss");
     expect(view(outputs({ lapsToGo: null })).lapsLeftState).toEqual({
       avg: null,
       last: null,
@@ -124,13 +127,26 @@ describe("fuelView", () => {
     expect(none.history.every((h) => h.fraction === 0)).toBe(true);
   });
 
-  it("adds the +1 and +2 lap targets", () => {
-    // 40 L over floor(16) + 1 and + 2 laps
+  it("adds the +0, +1 and +2 lap targets", () => {
+    // 40 L over floor(16) + 0, 1 and 2 laps
     expect(view().targets).toEqual([
+      { extraLaps: 0, laps: 16, perLap: 2.5 },
       { extraLaps: 1, laps: 17, perLap: 2.35 },
       { extraLaps: 2, laps: 18, perLap: 2.22 },
     ]);
     expect(view(outputs({ lapsRemainingAvg: null })).targets).toEqual([]);
+  });
+
+  it("reports the session time left and the player's lap", () => {
+    const f = frame(outputs());
+    f.state.session.timeRemainingS = 1474.6;
+    f.state.playerCarIdx = 3;
+    f.state.cars = [{ ...emptyCar(3), lapInProgress: 15 }];
+    const v = fuelView(f, OPTS);
+    expect(v?.timeRemainingS).toBe(1475);
+    expect(v?.currentLap).toBe(15);
+    expect(view().timeRemainingS).toBeNull();
+    expect(view().currentLap).toBeNull();
   });
 
   it("caps the refuel at the tank and honours the margin", () => {
@@ -227,7 +243,7 @@ describe("FuelOverlay", () => {
     const vertical = render(frame(outputs(), { fuelL: 30 }));
     expect(vertical).toContain("fuel--vertical");
     expect(vertical).toContain("AVG 5L");
-    expect(vertical).toContain("Laps 14–19");
+    expect(vertical).toContain("Lap 14–19");
     expect(vertical).not.toContain('data-field="fuel-history"');
     expect(render(frame(outputs()), settingsWith({ layout: "horizontal" }))).toContain(
       "fuel--horizontal",
@@ -256,7 +272,7 @@ describe("FuelOverlay", () => {
     // Default 40 L covers the 15 laps to go: refuel 0.
     const html = render(frame(outputs()), settingsWith({}, ["pit-window"]));
     expect(html).toContain("No stop needed");
-    expect(html).not.toContain("Laps 14");
+    expect(html).not.toContain("Lap 14");
   });
 
   it("scales history bars against the largest lap shown", () => {
@@ -289,6 +305,131 @@ describe("FuelOverlay", () => {
     const sample = render(null, settingsWith(), { editing: true });
     expect(sample).not.toContain("Waiting for a lap");
     expect(sample).toContain("AVG 10L");
+  });
+});
+
+describe("manifest", () => {
+  it("sizes the window per layout option, starting at the default", () => {
+    const by = fuelManifest.sizeByOption;
+    expect(by?.key).toBe("layout");
+    const layout = fuelManifest.settings.find((x) => x.key === "layout");
+    expect(layout?.default).toBe("vertical");
+    expect(by?.sizes[String(layout?.default)]).toEqual(fuelManifest.defaultSize);
+    expect(by?.sizes.horizontal).toEqual({ width: 480, height: 196 });
+    expect(fuelManifest.defaultSize).toEqual({ width: 250, height: 360 });
+  });
+
+  it("orders the fields as the board and keeps usage and history off", () => {
+    expect(fuelManifest.fields.map((f) => f.id)).toEqual([
+      "fuel-level",
+      "laps-remaining",
+      "consumption",
+      "refuel",
+      "targets",
+      "laps-left",
+      "pit-window",
+      "usage",
+      "fuel-history",
+    ]);
+    const defaults = defaultInstanceSettings(fuelManifest).common.fields;
+    expect(defaults.filter((f) => !f.visible).map((f) => f.id)).toEqual(["usage", "fuel-history"]);
+  });
+});
+
+describe("FuelOverlay layouts", () => {
+  const BLOCKS: [string, string][] = [
+    ["fuel-level", 'data-field="fuel-level"'],
+    ["laps-remaining", 'data-field="laps-remaining"'],
+    ["consumption", 'data-field="consumption"'],
+    ["targets", 'data-field="targets"'],
+    ["laps-left", 'data-field="laps-left"'],
+    ["pit-window", 'data-field="pit-window"'],
+    ["usage", 'data-field="usage"'],
+    ["fuel-history", 'data-field="fuel-history"'],
+  ];
+
+  for (const layout of ["vertical", "horizontal"]) {
+    for (const [field, marker] of BLOCKS) {
+      it(`${layout}: ${field} toggles its block`, () => {
+        const f = frame(outputs(), { fuelL: 30 });
+        expect(render(f, settingsWith({ layout }, [field]))).toContain(marker);
+        const others = BLOCKS.map(([id]) => id).filter((id) => id !== field);
+        expect(render(f, settingsWith({ layout }, others))).not.toContain(marker);
+      });
+    }
+  }
+
+  it("keeps the vertical blocks in the user's order", () => {
+    const html = render(frame(outputs()), settingsWith({}, ["targets", "consumption"]));
+    expect(html.indexOf('data-field="targets"')).toBeLessThan(
+      html.indexOf('data-field="consumption"'),
+    );
+  });
+
+  it("uses the fixed horizontal grid whatever the order", () => {
+    const html = render(
+      frame(outputs()),
+      settingsWith({ layout: "horizontal" }, ["targets", "pit-window", "laps-left", "consumption"]),
+    );
+    const at = (id: string): number => html.indexOf(`data-field="${id}"`);
+    expect(html).toContain("fuel-split");
+    expect(at("consumption")).toBeLessThan(at("laps-left"));
+    expect(at("laps-left")).toBeLessThan(at("pit-window"));
+    expect(at("pit-window")).toBeLessThan(at("targets"));
+    expect(html).toContain(">PIT<");
+    expect(html).not.toContain("fuel-split--single");
+    const single = render(frame(outputs()), settingsWith({ layout: "horizontal" }, ["laps-left"]));
+    expect(single).toContain("fuel-split--single");
+  });
+
+  it("shows three targets", () => {
+    const html = render(frame(outputs(), { fuelL: 30 }), settingsWith({}, ["targets"]));
+    expect(html.match(/fuel-target-cell/g)).toHaveLength(3);
+    expect(html).toContain("16 laps");
+    expect(html).toContain("18 laps");
+  });
+
+  it("shows the session time left and the lap", () => {
+    const f = frame(outputs());
+    f.state.session.timeRemainingS = 1475;
+    f.state.playerCarIdx = 0;
+    f.state.cars = [{ ...emptyCar(0), lapInProgress: 15 }];
+    expect(render(f, settingsWith({}, ["laps-left"]))).toContain("<b>24:35</b>");
+    expect(render(f, settingsWith({}, ["fuel-level"]))).toContain("Lap 15");
+    expect(render(f, settingsWith({ layout: "horizontal" }, ["fuel-level"]))).toContain("Lap 15");
+  });
+
+  it("tints the laps left cards by tone", () => {
+    // avg 16 and last 16 cover 15 + 1; worst 13.33 is short.
+    const html = render(frame(outputs()), settingsWith({}, ["laps-left"]));
+    expect(html).toContain("fuel-rem-cell--gain");
+    expect(html).toContain("fuel-rem-cell--loss");
+    const warn = render(
+      frame(outputs({ lapsRemainingAvg: 15.5 })),
+      settingsWith({}, ["laps-left"]),
+    );
+    expect(warn).toContain("fuel-rem-cell--warn");
+  });
+
+  it("shows a refuel banner without the consumption table, and a pill column with it", () => {
+    const banner = render(frame(outputs()), settingsWith({}, ["refuel"]));
+    expect(banner).toContain("fuel-banner");
+    expect(banner).not.toContain("fuel-refuel-pill");
+    const pills = render(frame(outputs()), settingsWith({}, ["consumption", "refuel"]));
+    expect(pills).toContain("fuel-refuel-pill");
+    expect(pills).toContain("REFUEL");
+    expect(pills).not.toContain("fuel-banner");
+    const noColumn = render(frame(outputs()), settingsWith({}, ["consumption"]));
+    expect(noColumn).not.toContain("REFUEL");
+    expect(noColumn).toContain("fuel-cons--no-refuel");
+    const horizontal = render(frame(outputs()), settingsWith({ layout: "horizontal" }, ["refuel"]));
+    expect(horizontal).toContain("fuel-banner");
+  });
+
+  it("folds laps remaining into the tank card in the vertical layout", () => {
+    const html = render(frame(outputs()), settingsWith({}, ["fuel-level", "laps-remaining"]));
+    expect(html).toContain("Laps in race");
+    expect(html.match(/fuel-tank-card/g)).toHaveLength(1);
   });
 });
 

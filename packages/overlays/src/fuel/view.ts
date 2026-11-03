@@ -18,7 +18,7 @@ import {
  */
 
 export type FuelUnit = "fuel" | "energy";
-export type Tone = "gain" | "loss" | null;
+export type Tone = "gain" | "warn" | "loss" | null;
 
 export interface FuelViewOptions {
   safetyMarginLaps: number;
@@ -43,13 +43,20 @@ export interface FuelView {
   lapsToGo: number | null;
   stintLaps: number;
   stintTimeS: number | null;
+  /** Session time remaining, whole seconds; null when unknown or the session is lap-limited. */
+  timeRemainingS: number | null;
+  /** The player's lap in progress; null when unknown. */
+  currentLap: number | null;
   consumption: ConsumptionRow[];
   /** Oldest first; fraction = used / maxBasis clamped 0..1. */
   history: { lapNumber: number; used: number; fraction: number }[];
   maxBasis: number | null;
   targets: { extraLaps: number; laps: number; perLap: number }[];
   lapsLeft: { avg: number | null; last: number | null; worst: number | null };
-  /** Per value: "gain" when it covers lapsToGo + safety margin, "loss" when not, null when unknown. */
+  /**
+   * Per value: "gain" when it covers lapsToGo + safety margin, "warn" when it covers lapsToGo but
+   * not the margin, "loss" when it is short, null when unknown.
+   */
   lapsLeftState: { avg: Tone; last: Tone; worst: Tone };
   /** Null until 2 valid laps. */
   pitWindow: FuelPitWindow | null;
@@ -71,7 +78,8 @@ const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
 
 function tone(value: number | null, lapsToGo: number | null, margin: number): Tone {
   if (value === null || lapsToGo === null) return null;
-  return value >= lapsToGo + margin ? "gain" : "loss";
+  if (value >= lapsToGo + margin) return "gain";
+  return value >= lapsToGo ? "warn" : "loss";
 }
 
 /** Share of the max basis a usage figure takes, for bars; 0 when the basis is unknown. */
@@ -140,6 +148,11 @@ export function fuelView(frame: TelemetryFrame | null, options: FuelViewOptions)
     lapsToGo: laps(o.lapsToGo),
     stintLaps: o.stintLaps,
     stintTimeS: o.stintTimeS === null ? null : Math.round(o.stintTimeS),
+    timeRemainingS:
+      frame.state.session.timeRemainingS === null
+        ? null
+        : Math.round(frame.state.session.timeRemainingS),
+    currentLap: playerCar(frame)?.lapInProgress ?? null,
     consumption: [
       row("LAST", o.fuelLastLap),
       row("AVG 5L", o.fuelAvg5Lap),
@@ -150,7 +163,7 @@ export function fuelView(frame: TelemetryFrame | null, options: FuelViewOptions)
     targets:
       current === null || o.lapsRemainingAvg === null
         ? []
-        : computeLapTargets(current, o.lapsRemainingAvg, [1, 2]).map((t) => ({
+        : computeLapTargets(current, o.lapsRemainingAvg, [0, 1, 2]).map((t) => ({
             extraLaps: t.extraLaps,
             laps: t.laps,
             perLap: round(t.perLap, 0.01),
@@ -188,12 +201,15 @@ function percentOf(fraction: number | null): number | null {
   return fraction === null ? null : fraction * 100;
 }
 
+function playerCar(frame: TelemetryFrame): TelemetryFrame["state"]["cars"][number] | undefined {
+  const idx = frame.state.playerCarIdx;
+  return idx === null ? undefined : frame.state.cars.find((c) => c.carIdx === idx);
+}
+
 /** Lap counter of the player's car, for `freezeAtLine`. */
 export function playerLapsCompleted(frame: TelemetryFrame | null): number | null {
   if (frame === null) return null;
-  const idx = frame.state.playerCarIdx;
-  if (idx === null) return null;
-  return frame.state.cars.find((c) => c.carIdx === idx)?.lapsCompleted ?? null;
+  return playerCar(frame)?.lapsCompleted ?? null;
 }
 
 /** Selector for useTelemetry: view and lap counter together. */
@@ -244,16 +260,18 @@ export function freezeAtLine(
 /** Shown in edit mode while there is no data, so the layout can be placed. */
 export const SAMPLE_FUEL_VIEW: FuelView = {
   unit: "fuel",
-  current: 38.4,
-  capacity: 60,
-  levelFraction: 0.64,
-  lapsToGo: 22,
-  stintLaps: 6,
-  stintTimeS: 612,
+  current: 32.5,
+  capacity: 50,
+  levelFraction: 0.65,
+  lapsToGo: 30,
+  stintLaps: 30,
+  stintTimeS: 1200,
+  timeRemainingS: 1475,
+  currentLap: 15,
   consumption: [
-    { label: "LAST", perLap: 2.48, laps: 15.5, stintLaps: 24.2, refuel: 20.2 },
-    { label: "AVG 5L", perLap: 2.5, laps: 15.4, stintLaps: 24, refuel: 20.6 },
-    { label: "AVG 10L", perLap: 2.52, laps: 15.2, stintLaps: 23.8, refuel: 21 },
+    { label: "LAST", perLap: 2.8, laps: 11.6, stintLaps: 39.2, refuel: 12.5 },
+    { label: "AVG 5L", perLap: 2.78, laps: 11.6, stintLaps: 39.5, refuel: 12 },
+    { label: "AVG 10L", perLap: 2.76, laps: 11.7, stintLaps: 39.8, refuel: 11.8 },
   ],
   history: [
     { lapNumber: 2, used: 2.45, fraction: 0.93 },
@@ -264,13 +282,14 @@ export const SAMPLE_FUEL_VIEW: FuelView = {
   ],
   maxBasis: 2.63,
   targets: [
-    { extraLaps: 1, laps: 16, perLap: 2.4 },
-    { extraLaps: 2, laps: 17, perLap: 2.26 },
+    { extraLaps: 0, laps: 39, perLap: 1.12 },
+    { extraLaps: 1, laps: 40, perLap: 1.09 },
+    { extraLaps: 2, laps: 41, perLap: 1.05 },
   ],
-  lapsLeft: { avg: 15.4, last: 15.5, worst: 14.6 },
-  lapsLeftState: { avg: "loss", last: "loss", worst: "loss" },
-  pitWindow: { start: 14, end: 19, feasible: true },
-  refuel: 20.6,
-  usage: { avg10: 2.52, avg5: 2.5, last: 2.48 },
+  lapsLeft: { avg: 11.8, last: 11.6, worst: 10.4 },
+  lapsLeftState: { avg: "warn", last: "gain", worst: "loss" },
+  pitWindow: { start: 15, end: 25, feasible: true },
+  refuel: 12,
+  usage: { avg10: 2.76, avg5: 2.78, last: 2.8 },
   validLapCount: 5,
 };

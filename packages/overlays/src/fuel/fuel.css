@@ -1,28 +1,23 @@
 .fuel {
   box-sizing: border-box;
-  padding: 8px 10px;
+  padding: 0.36em 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 0.36em;
   overflow: hidden;
   font-family: var(--ov-font-family);
   font-size: var(--ov-font-size);
   color: var(--ov-text);
+  /* Faint surface used by cards: the text colour at low strength, so it follows the theme. */
+  --fuel-surface: color-mix(in srgb, var(--ov-text) 4%, transparent);
+  --fuel-hairline: color-mix(in srgb, var(--ov-text) 8%, transparent);
 }
 
-.fuel--horizontal {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  align-items: start;
-}
-
-.fuel-title {
-  margin: 0 0 2px;
-  font-size: 0.8em;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--ov-text-muted);
+.fuel-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.36em;
 }
 
 .fuel-muted {
@@ -39,42 +34,361 @@
   font-variant-numeric: tabular-nums;
 }
 
-.fuel-table {
-  width: 100%;
-  border-collapse: collapse;
+.fuel b {
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
 
-.fuel-table th,
-.fuel-table td {
-  text-align: right;
-  padding: 1px 4px;
-  font-weight: 400;
-}
-
-.fuel-table thead th {
-  font-size: 0.8em;
+/* Section label: the style shared by the blocks that have no card of their own. */
+.fuel-sec-label {
+  margin: 0 0 0.14em;
+  font-size: 0.72em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--ov-text-muted);
 }
 
-.fuel-table tbody th {
-  text-align: left;
-  font-weight: 600;
+.fuel-section {
+  padding: 0 0.43em;
 }
 
-.fuel-line,
-.fuel-level-row {
+/* Head row */
+.fuel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.36em 0.71em 0.29em;
+  font-size: 0.92em;
+  font-weight: 700;
+}
+
+/* Tank card */
+.fuel-tank-card {
+  margin: 0 0.43em;
+  padding: 0.43em 0.57em;
+  background: var(--fuel-surface);
+  border: 1px solid var(--ov-border);
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.29em;
+}
+
+.fuel-tank-card--row {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.71em;
+  padding: 0.29em 0.57em;
+}
+
+.fuel-tank-figures {
+  display: flex;
+  align-items: baseline;
+  gap: 1em;
+  font-size: 0.88em;
+  white-space: nowrap;
+}
+
+.fuel-gauge-well {
+  box-sizing: border-box;
+  flex: 1;
+  height: 1.71em;
+  padding: 0.21em;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ov-bg) 40%, #000);
+  border: 1px solid color-mix(in srgb, var(--ov-text) 14%, transparent);
+  display: flex;
+  align-items: stretch;
+}
+
+.fuel-tank-card--row .fuel-gauge-well {
+  height: 1.57em;
+}
+
+.fuel-gauge-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(
+    180deg,
+    var(--ov-locked-gain),
+    color-mix(in srgb, var(--ov-locked-gain) 78%, #000)
+  );
+  transition: width 120ms linear;
+}
+
+.fuel-gauge-meta {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 8px;
+  gap: 0.5em;
+  font-size: 0.86em;
+  padding-top: 1px;
   font-variant-numeric: tabular-nums;
 }
 
+.fuel-gauge-meta > .fuel-muted {
+  font-weight: 600;
+}
+
+.fuel-gauge-meta--small {
+  font-size: 0.82em;
+}
+
+.fuel-meta-pair {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.86em;
+  flex: 1;
+  font-size: 0.86em;
+  white-space: nowrap;
+}
+
+.fuel-gauge-meta--small .fuel-meta-pair {
+  font-size: 1em;
+}
+
+.fuel-head .fuel-meta-pair {
+  flex: none;
+}
+
+/* Consumption table: red left bar, refuel pills */
+.fuel-cons {
+  padding: 0.14em 0.43em 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.fuel-cons-header,
+.fuel-cons-row {
+  display: grid;
+  grid-template-columns: 1.15fr 0.9fr 0.9fr 0.95fr 1.15fr;
+  text-align: center;
+}
+
+.fuel-cons--no-refuel .fuel-cons-header,
+.fuel-cons--no-refuel .fuel-cons-row {
+  grid-template-columns: 1.15fr 0.9fr 0.9fr 0.95fr;
+}
+
+.fuel-cons-header {
+  padding: 0 0.43em 0.14em 0.64em;
+  font-size: 0.68em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ov-text-muted);
+}
+
+.fuel-cons-header > span:first-child,
+.fuel-cons-row > span:first-child {
+  text-align: left;
+}
+
+.fuel-cons-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  border-left: 3px solid var(--ov-locked-loss);
+  background: var(--fuel-surface);
+  border-top: 1px solid var(--ov-border);
+  border-bottom: 1px solid var(--ov-border);
+}
+
+.fuel-cons-row {
+  align-items: center;
+  padding: 0.21em 0.43em;
+  font-size: 0.86em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  border-top: 1px solid var(--fuel-hairline);
+}
+
+.fuel-cons-row:first-child {
+  border-top: 0;
+}
+
+.fuel-cons-row > span:first-child {
+  font-size: 0.88em;
+  letter-spacing: 0.02em;
+}
+
+.fuel-refuel-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 3.1em;
+  padding: 1px 0.57em;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ov-locked-loss) 20%, transparent);
+  color: color-mix(in srgb, var(--ov-locked-loss) 80%, var(--ov-text));
+  font-size: 0.9em;
+  font-weight: 700;
+}
+
+/* Targets */
+.fuel-targets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0 0.43em;
+  border: 1px solid var(--ov-border);
+  border-radius: 3px;
+  background: var(--fuel-surface);
+}
+
+.fuel-target-cell {
+  padding: 0.21em 0.29em;
+  text-align: center;
+  border-left: 1px solid var(--ov-border);
+}
+
+.fuel-target-cell:first-child {
+  border-left: 0;
+}
+
+.fuel-targets > .fuel-target-cell:only-child {
+  grid-column: 1 / -1;
+}
+
+.fuel-target-lbl {
+  font-size: 0.7em;
+  font-weight: 600;
+  color: var(--ov-text-muted);
+}
+
+.fuel-target-val {
+  margin-top: 1px;
+  font-size: 0.92em;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Laps remaining: header and three toned cards */
+.fuel-rem-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0 0.57em;
+  font-size: 0.72em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ov-text-muted);
+}
+
+.fuel-rem-header b {
+  color: var(--ov-text);
+}
+
+.fuel-rem-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0 0.43em;
+  border: 1px solid var(--ov-border);
+  border-radius: 3px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--ov-bg) 45%, transparent);
+}
+
+.fuel-rem-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0.29em 0.29em 0.36em;
+  text-align: center;
+  border-left: 1px solid var(--ov-border);
+}
+
+.fuel-rem-cell:first-child {
+  border-left: 0;
+}
+
+.fuel-rem-lbl {
+  font-size: 0.68em;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--ov-text-muted);
+}
+
+.fuel-rem-val {
+  margin-top: 1px;
+  font-size: 1.35em;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.fuel-rem-cell--gain {
+  --fuel-tone: var(--ov-locked-gain);
+}
+
+.fuel-rem-cell--warn {
+  --fuel-tone: var(--ov-locked-rejoin-yellow);
+}
+
+.fuel-rem-cell--loss {
+  --fuel-tone: var(--ov-locked-loss);
+}
+
+.fuel-rem-cell--gain,
+.fuel-rem-cell--warn,
+.fuel-rem-cell--loss {
+  border-bottom: 3px solid var(--fuel-tone);
+  background: linear-gradient(
+    0deg,
+    color-mix(in srgb, var(--fuel-tone) 14%, transparent),
+    transparent 75%
+  );
+}
+
+.fuel-rem-cell--gain .fuel-rem-val,
+.fuel-rem-cell--warn .fuel-rem-val,
+.fuel-rem-cell--loss .fuel-rem-val {
+  color: var(--fuel-tone);
+}
+
+/* Pit window and refuel banners */
+.fuel-banner {
+  margin: 0 0.43em 0.43em;
+  padding: 0.36em 0.71em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5em;
+  font-size: 0.84em;
+  font-weight: 800;
+  background: color-mix(in srgb, var(--fuel-tone) 8%, transparent);
+  border: 1px solid var(--ov-border);
+  border-left: 3px solid var(--fuel-tone);
+  border-radius: 3px;
+}
+
+.fuel-banner > span:first-child {
+  letter-spacing: 0.04em;
+}
+
+.fuel-banner--gain {
+  --fuel-tone: var(--ov-locked-gain);
+}
+
+.fuel-banner--loss {
+  --fuel-tone: var(--ov-locked-loss);
+}
+
+.fuel-banner--gain > b {
+  color: var(--ov-locked-gain);
+}
+
+/* Usage and history (extra blocks, section label style) */
 .fuel-triple {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 0.57em;
 }
 
 .fuel-cell {
@@ -83,16 +397,8 @@
   gap: 2px;
 }
 
-.fuel-gain {
-  color: var(--ov-locked-gain);
-}
-
-.fuel-loss {
-  color: var(--ov-locked-loss);
-}
-
 .fuel-bar {
-  height: 8px;
+  height: 0.57em;
   border-radius: 4px;
   background: var(--ov-border);
   overflow: hidden;
@@ -124,7 +430,7 @@
 
 .fuel-history-track {
   width: 100%;
-  height: 40px;
+  height: 2.86em;
   display: flex;
   align-items: flex-end;
   background: var(--ov-border);
@@ -134,4 +440,69 @@
 
 .fuel-history-fill {
   width: 100%;
+}
+
+/* Horizontal layout (480 x 196): head, tank row, two columns, targets */
+.fuel--horizontal .fuel-head {
+  padding: 0.36em 0.71em 0.14em;
+}
+
+.fuel--horizontal .fuel-banner {
+  margin: 0;
+  padding: 0.21em 0.57em;
+  font-size: 0.8em;
+}
+
+.fuel-split {
+  display: grid;
+  grid-template-columns: 1.24fr 1fr;
+  gap: 0.43em;
+  padding: 0 0.43em;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+
+.fuel-split--single {
+  grid-template-columns: 1fr;
+}
+
+.fuel-split-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.21em;
+  min-width: 0;
+}
+
+.fuel--horizontal .fuel-cons {
+  padding: 0;
+}
+
+.fuel--horizontal .fuel-cons-header {
+  padding: 0 0.29em 0.14em 0.5em;
+}
+
+.fuel--horizontal .fuel-rem-grid {
+  margin: 0;
+}
+
+.fuel--horizontal .fuel-rem-cell {
+  padding: 0.14em 0.14em 0.21em;
+}
+
+.fuel--horizontal .fuel-rem-val {
+  font-size: 1.05em;
+}
+
+.fuel--horizontal .fuel-rem-header {
+  padding: 0 0.14em;
+}
+
+.fuel--horizontal .fuel-targets {
+  margin: 0 0.43em 0.43em;
+}
+
+.fuel--horizontal .fuel-section {
+  padding: 0 0.43em;
 }
