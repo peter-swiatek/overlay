@@ -65,6 +65,13 @@ describe("LMU field data on the full recording", () => {
       let playerFuelPairs = 0;
       let playerTracksFuel = 0;
       let playerTracksEnergy = 0;
+      let lapFrames = 0;
+      const lapCurrent = range();
+      const lapLast = range();
+      const lapBest = range();
+      const redline = range();
+      const surfaces = new Map<string, number>();
+      let flaggedCars = 0;
 
       for await (const rec of reader.records()) {
         if (rec.kind === RecordKind.RestResponse) {
@@ -110,6 +117,17 @@ describe("LMU field data on the full recording", () => {
           biasFrames++;
           widen(bias, state.player.brakeBias);
         }
+        const lap = state.player.lap;
+        if (lap !== null) {
+          lapFrames++;
+          if (lap.currentLapS !== null) widen(lapCurrent, lap.currentLapS);
+          if (lap.lastLapS !== null) widen(lapLast, lap.lastLapS);
+          if (lap.bestLapS !== null) widen(lapBest, lap.bestLapS);
+        }
+        if (state.player.redlineRpm !== null) widen(redline, state.player.redlineRpm);
+        const surface = state.player.trackSurface ?? "null";
+        surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+        flaggedCars += state.cars.filter((c) => c.flags?.blue || c.flags?.yellow).length;
         if (standingsPending !== null) {
           let compared = 0;
           let agreeing = 0;
@@ -152,6 +170,8 @@ describe("LMU field data on the full recording", () => {
           `timeOfDayS in ${todFrames} frames (${fmt(tod)}); brakeBias in ${biasFrames} frames (${fmt(bias)})`,
           `fuelFraction vs REST: ${fuelFrames} paired frames, ${pct(fuelCarsAgreeing, fuelCarsCompared)} of ${fuelCarsCompared} cars exact, ${pct(framesAllAgree, fuelFrames)} of frames fully agree`,
           `timeOfDayS within 3 s of REST: ${todWithin3s} of ${todPairs}`,
+          `player.lap in ${lapFrames} frames: current ${fmt(lapCurrent)}, last ${fmt(lapLast)}, best ${fmt(lapBest)}`,
+          `redlineRpm ${fmt(redline)}; player surface counts ${JSON.stringify(Object.fromEntries(surfaces))}; car-frames with a blue or yellow flag ${flaggedCars}`,
           `player fuelFraction within 0.02 of fuelL/capacity: ${playerTracksFuel} of ${playerFuelPairs}; closer to energy than to fuel: ${playerTracksEnergy}`,
         ].join("\n"),
       );
