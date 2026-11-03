@@ -1,7 +1,18 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { hexLuminance, licenceTextColour, readableTextColour } from "./colour";
-import { ClassBadge, IRatingPill, LicencePill, PositionDelta } from "./index";
+import { HELMET_PATH } from "./helmet";
+import {
+  CarCount,
+  CarNumberBadge,
+  ClassBadge,
+  FlagBadge,
+  IRatingPill,
+  LicencePill,
+  PositionDelta,
+} from "./index";
 
 describe("text colour", () => {
   it("computes luminance", () => {
@@ -27,25 +38,103 @@ describe("text colour", () => {
   });
 });
 
+const css = readFileSync(join(__dirname, "pills.css"), "utf8");
+
 describe("pills", () => {
-  it("renders a licence pill", () => {
-    const html = renderToStaticMarkup(<LicencePill licence="Class A 3.4" />);
-    expect(html).toContain("A 3.40");
-    expect(html).toContain("var(--ov-locked-licence-a)");
-    expect(renderToStaticMarkup(<LicencePill licence={null} />)).toContain("--");
+  it("renders a split licence pill for every class", () => {
+    for (const [lic, cls] of [
+      ["A 3.41", "a"],
+      ["B 2.1", "b"],
+      ["C 1.5", "c"],
+      ["D 2.0", "d"],
+      ["R 2.5", "r"],
+      ["P 4.5", "pro"],
+    ] as const) {
+      const html = renderToStaticMarkup(<LicencePill licence={lic} />);
+      expect(html).toContain(`ov-pill ov-pill--lic-${cls}`);
+      expect(html).toContain('<span class="ov-lic-ltr">');
+      expect(html).toContain('<span class="ov-lic-num">');
+    }
+    expect(renderToStaticMarkup(<LicencePill licence="Class A 3.4" />)).toBe(
+      '<span class="ov-pill ov-pill--lic-a" aria-label="Licence A 3.40"><span class="ov-lic-ltr">A</span><span class="ov-lic-num">3.40</span></span>',
+    );
+    expect(renderToStaticMarkup(<LicencePill licence="P 4.5" />)).toContain(">P</span>");
+  });
+  it("shows only the letter without a safety rating, and plain dashes when unknown", () => {
+    const html = renderToStaticMarkup(<LicencePill licence="B" />);
+    expect(html).toContain("ov-lic-ltr");
+    expect(html).not.toContain("ov-lic-num");
+    expect(html).toContain('aria-label="Licence B"');
+    const unknown = renderToStaticMarkup(<LicencePill licence={null} />);
+    expect(unknown).toBe('<span class="ov-pill ov-pill--plain">--</span>');
+  });
+  it("takes every licence colour, Pro included, from its locked variable", () => {
+    expect(css).toContain("--lic-color: var(--ov-locked-licence-pro)");
+    expect(css).not.toContain("#475569");
+    expect(css).toMatch(
+      /\.ov-pill--lic-c \.ov-lic-ltr,\s*\.ov-pill--lic-d \.ov-lic-ltr\s*\{\s*color: #0b0d12;/,
+    );
+    expect(css).toContain("padding: 0 0.3em 0 0.62em");
+    expect(css).toContain("padding: 0 0.52em 0 0.36em");
   });
   it("tints the iRating pill only when asked and a licence is known", () => {
     const tinted = renderToStaticMarkup(<IRatingPill iRating={1550} licence="C 2.00" tinted />);
     expect(tinted).toContain("1.6k");
+    expect(tinted).toContain("ov-pill--ir-tinted");
     expect(tinted).toContain("var(--ov-locked-licence-c)");
     expect(tinted).toContain("color:#000000");
     const plain = renderToStaticMarkup(
       <IRatingPill iRating={980} licence="C 2.00" tinted={false} />,
     );
-    expect(plain).toContain("980");
-    expect(plain).toContain("ov-pill--plain");
+    expect(plain).toContain('<span class="ov-ir-val">980</span>');
+    expect(plain).toContain("ov-pill ov-pill--ir");
     expect(plain).not.toContain("licence-c");
-    expect(renderToStaticMarkup(<IRatingPill iRating={980} tinted />)).toContain("ov-pill--plain");
+    expect(plain).not.toContain("ov-pill--ir-tinted");
+    expect(renderToStaticMarkup(<IRatingPill iRating={980} tinted />)).not.toContain("tinted");
+  });
+  it("shows the iRating change with its direction", () => {
+    const up = renderToStaticMarkup(<IRatingPill iRating={2400} tinted={false} change={11} />);
+    expect(up).toContain("ov-ir-delta ov-ir-delta--up");
+    expect(up).toContain('<span class="ov-ir-tri">\u25B2</span>11');
+    const down = renderToStaticMarkup(<IRatingPill iRating={2400} tinted={false} change={-7} />);
+    expect(down).toContain("ov-ir-delta--down");
+    expect(down).toContain("\u25BC</span>7");
+    for (const change of [0, null, undefined, Number.NaN, Infinity]) {
+      expect(
+        renderToStaticMarkup(<IRatingPill iRating={2400} tinted={false} change={change} />),
+      ).not.toContain("ov-ir-delta");
+    }
+    const tintedUp = renderToStaticMarkup(
+      <IRatingPill iRating={2400} licence="A 3.0" tinted change={4} />,
+    );
+    expect(tintedUp).toContain("ov-ir-delta--up");
+    expect(tintedUp).toContain("var(--ov-locked-licence-a)");
+  });
+  it("renders the car count with a decorative helmet", () => {
+    const html = renderToStaticMarkup(<CarCount count={12} />);
+    expect(html).toContain('aria-label="12 cars"');
+    expect(html).toContain('<svg class="ov-helmet" viewBox="0 0 362 376" aria-hidden="true"');
+    expect(html).toContain(HELMET_PATH.slice(0, 20));
+    expect(renderToStaticMarkup(<CarCount count={1} />)).toContain('aria-label="1 car"');
+  });
+  it("renders a flag badge for each kind", () => {
+    for (const [kind, label] of [
+      ["yel", "YEL"],
+      ["pit", "PIT"],
+      ["dsq", "DSQ"],
+      ["blk", "BLK"],
+      ["dmg", "DMG"],
+    ] as const) {
+      expect(renderToStaticMarkup(<FlagBadge kind={kind} />)).toBe(
+        `<span class="ov-badge-flag ov-badge-flag--${kind}">${label}</span>`,
+      );
+    }
+  });
+  it("renders the car number badge", () => {
+    expect(renderToStaticMarkup(<CarNumberBadge carNumber="5" />)).toBe(
+      '<span class="ov-car-num">#5</span>',
+    );
+    expect(renderToStaticMarkup(<CarNumberBadge carNumber={null} />)).toContain("--");
   });
   it("renders a class badge with readable text", () => {
     const html = renderToStaticMarkup(<ClassBadge name="GT3" colour="#ffd800" />);
