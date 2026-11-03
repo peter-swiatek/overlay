@@ -16,6 +16,44 @@ body,
   width: 100%;
   height: 100%;
 }
+/* Title bar on while driving: in flow, the content fills the rest. */
+.overlay[data-titlebar="true"] {
+  display: flex;
+  flex-direction: column;
+}
+.overlay[data-titlebar="true"] > .overlay-content {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Chrome in fixed px. Editing with the setting off: laid over the top, no reflow. */
+.ov-titlebar {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: 20px;
+  padding: 0 8px;
+  background: rgba(255, 196, 0, 0.16);
+  border-bottom: 1px dashed rgba(255, 196, 0, 0.55);
+  color: #ffc400;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.overlay:not([data-titlebar="true"]) > .ov-titlebar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+}
+.overlay[data-edit="true"] > .ov-titlebar {
+  -webkit-app-region: drag;
+}
 
 /* Opacity, zoom and --ov-row-opacity are set inline by the host; the edit frame sits outside. */
 .overlay-content {
@@ -70,17 +108,6 @@ body,
   border-radius: 6px;
   background: rgba(255, 196, 0, 0.1);
   -webkit-app-region: drag;
-}
-.edit-name {
-  position: absolute;
-  top: 4px;
-  left: 8px;
-  padding: 1px 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #111;
-  background: #ffc400;
-  border-radius: 3px;
 }
 .edit-grip {
   position: absolute;

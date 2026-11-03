@@ -45,7 +45,15 @@ export const PreviewStage = forwardRef<HTMLDivElement, PreviewStageProps>(functi
         className="pv-scale"
         style={{ width: size.width, height: size.height, transform: `scale(${fit})` }}
       >
-        <ThemeScope theme={theme} className="pv-window">
+        <ThemeScope
+          theme={theme}
+          className={settings.common.showTitleBar ? "pv-window pv-window--titlebar" : "pv-window"}
+        >
+          {settings.common.showTitleBar && (
+            <div className="pv-titlebar">
+              <span className="pv-titlebar-name">{manifest.title}</span>
+            </div>
+          )}
           <div className="pv-content" style={contentStyle(settings.common, manifest.table)}>
             <div className="pv-fit">
               <span className="pv-ch-probe" aria-hidden="true" />
