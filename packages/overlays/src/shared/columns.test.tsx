@@ -140,9 +140,9 @@ describe("driverColumns", () => {
 
   it("tints the iRating pill only with the combined licence pill", () => {
     const r = row({ iRating: 2400, licence: "A 3.41" });
-    expect(cell("irating", r)).toContain("ov-pill--plain");
+    expect(cell("irating", r)).not.toContain("ov-pill--ir-tinted");
     const tinted = cell("irating", r, { combinedLicencePill: true });
-    expect(tinted).not.toContain("ov-pill--plain");
+    expect(tinted).toContain("ov-pill--ir-tinted");
     expect(tinted).toContain("2.4k");
   });
 
