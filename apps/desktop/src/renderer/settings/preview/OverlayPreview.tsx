@@ -19,6 +19,7 @@ import {
   createLazy,
   createPreviewRuntime,
   fitScale,
+  parseHiddenColumns,
   previewPaused,
   previewSize,
   usableFrame,
@@ -38,6 +39,8 @@ export interface PreviewMeasure {
   chPx: number;
   /** The theme's horizontal cell padding in the same space; absent when it could not be read. */
   cellPadPx?: number;
+  /** Columns the overlay hides because its window is too narrow (its root's data-hidden-columns). */
+  hiddenColumnIds: string[];
 }
 
 /**
@@ -225,21 +228,28 @@ export function OverlayPreview({ manifest, settings, size, onMeasure }: OverlayP
     const measure = (): void => {
       const table = stage.querySelector(".ov-table");
       const probe = stage.querySelector(".pv-ch-probe");
-      const next: PreviewMeasure = computeMeasure({
-        drawnTableWidth: table ? table.getBoundingClientRect().width : 0,
-        drawnProbeWidth: probe ? probe.getBoundingClientRect().width : 0,
-        fit: layout.fit,
-        scalePct,
-        cellPadValue: probe
-          ? getComputedStyle(probe).getPropertyValue("--ov-cell-pad-x")
-          : undefined,
-      });
+      const hiddenColumnIds = parseHiddenColumns(
+        stage.querySelector("[data-hidden-columns]")?.getAttribute("data-hidden-columns"),
+      );
+      const next: PreviewMeasure = {
+        ...computeMeasure({
+          drawnTableWidth: table ? table.getBoundingClientRect().width : 0,
+          drawnProbeWidth: probe ? probe.getBoundingClientRect().width : 0,
+          fit: layout.fit,
+          scalePct,
+          cellPadValue: probe
+            ? getComputedStyle(probe).getPropertyValue("--ov-cell-pad-x")
+            : undefined,
+        }),
+        hiddenColumnIds,
+      };
       const prev = lastMeasure.current;
       if (
         prev &&
         prev.tableWidthPx === next.tableWidthPx &&
         prev.chPx === next.chPx &&
-        prev.cellPadPx === next.cellPadPx
+        prev.cellPadPx === next.cellPadPx &&
+        prev.hiddenColumnIds.join(" ") === next.hiddenColumnIds.join(" ")
       ) {
         return;
       }

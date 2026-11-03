@@ -20,6 +20,7 @@ import {
   createLazy,
   createPreviewRuntime,
   fitScale,
+  parseHiddenColumns,
   previewPaused,
   previewSize,
   toOverlayPx,
@@ -157,6 +158,19 @@ describe("onMeasure numbers", () => {
     expect(
       computeMeasure({ drawnTableWidth: 0, drawnProbeWidth: 0, fit: 1, scalePct: 100 }),
     ).toEqual({ tableWidthPx: 0, chPx: FALLBACK_CH_PX });
+  });
+});
+
+describe("hidden columns attribute", () => {
+  it("splits on whitespace and is empty when absent", () => {
+    expect(parseHiddenColumns("irating  last-lap\nlicence")).toEqual([
+      "irating",
+      "last-lap",
+      "licence",
+    ]);
+    expect(parseHiddenColumns("")).toEqual([]);
+    expect(parseHiddenColumns(null)).toEqual([]);
+    expect(parseHiddenColumns(undefined)).toEqual([]);
   });
 });
 

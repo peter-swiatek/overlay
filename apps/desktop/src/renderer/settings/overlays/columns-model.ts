@@ -118,3 +118,25 @@ export function planWidthChange(
 export function customWidthPatch(fields: FieldConfig[]): OverlaySettingsPatch {
   return { common: { fields }, options: { "column-width": "custom" } };
 }
+
+/**
+ * Labels (manifest labels, config order) of the visible fields the overlay currently hides because
+ * its window is too narrow. `hiddenIds` is what the overlay reports in its `data-hidden-columns`.
+ */
+export function widthHiddenLabels(
+  manifest: OverlayManifest,
+  fields: readonly FieldConfig[],
+  hiddenIds: readonly string[],
+): string[] {
+  return fields
+    .filter((f) => f.visible && hiddenIds.includes(f.id))
+    .map((f) => fieldDef(manifest, f.id)?.label ?? f.id);
+}
+
+/** The note about what turning a column on or off does to the window; null when the mode is unknown. */
+export function resizeNote(mode: WidthMode | undefined): string | null {
+  if (mode === undefined) return null;
+  return mode === "custom"
+    ? "Column widths are shares of the overlay width; it does not resize when you turn columns on or off."
+    : "Turning a column on or off resizes the overlay to fit.";
+}

@@ -167,6 +167,7 @@ export function OverlayPanel({
           tableWidthPx={measure && measure.tableWidthPx > 0 ? measure.tableWidthPx : undefined}
           chPx={measure && measure.chPx > 0 ? measure.chPx : undefined}
           cellPadPx={measure?.cellPadPx}
+          hiddenByWidth={measure?.hiddenColumnIds}
         />
       )}
       {multiFields(manifest).length > 0 && (

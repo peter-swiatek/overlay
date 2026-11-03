@@ -10,8 +10,10 @@ import {
   customWidthPatch,
   floorPctFor,
   planWidthChange,
+  resizeNote,
   sliderValue,
   totalMessage,
+  widthHiddenLabels,
   widthTotal,
 } from "./columns-model";
 import { moveField } from "./model";
@@ -242,5 +244,37 @@ describe("keyboard moves", () => {
     const last = base.common.fields.at(-1)!;
     const lastLabel = leaderboard.fields.find((f) => f.id === last.id)!.label;
     expect(out).toContain(`aria-label="Move down ${lastLabel}" disabled=""`);
+  });
+});
+
+describe("widthHiddenLabels", () => {
+  it("lists visible hidden fields by manifest label in config order", () => {
+    const fields = base.common.fields.map((f) =>
+      f.id === "irating" || f.id === "last-lap" ? { ...f, visible: true } : f,
+    );
+    const labels = widthHiddenLabels(leaderboard, fields, ["last-lap", "irating"]);
+    expect(labels).toHaveLength(2);
+    expect(labels).toEqual(
+      fields
+        .filter((f) => f.id === "irating" || f.id === "last-lap")
+        .map((f) => leaderboard.fields.find((d) => d.id === f.id)?.label),
+    );
+  });
+
+  it("skips fields that are switched off and unknown ids", () => {
+    const fields = base.common.fields.map((f) =>
+      f.id === "irating" ? { ...f, visible: false } : f,
+    );
+    expect(widthHiddenLabels(leaderboard, fields, ["irating", "nope"])).toEqual([]);
+    expect(widthHiddenLabels(leaderboard, fields, [])).toEqual([]);
+  });
+});
+
+describe("resizeNote", () => {
+  it("differs for Custom and has none when the mode is unknown", () => {
+    expect(resizeNote("auto")).toBe("Turning a column on or off resizes the overlay to fit.");
+    expect(resizeNote("compact")).toBe(resizeNote("auto"));
+    expect(resizeNote("custom")).toContain("does not resize");
+    expect(resizeNote(undefined)).toBeNull();
   });
 });
