@@ -1,14 +1,203 @@
 .ov-pill {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   max-width: 100%;
-  padding: 0 0.45em;
-  overflow: hidden;
-  border-radius: 0.6em;
-  line-height: 1.4;
-  font-size: 0.85em;
+  height: 1.42em;
+  padding: 0 0.58em;
+  border-radius: 999px;
+  line-height: 1;
+  font-size: 0.82em;
   font-weight: 700;
   white-space: nowrap;
-  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Two-tone licence pill: solid letter cap, dark tinted safety-rating body. */
+.ov-pill--lic-a,
+.ov-pill--lic-b,
+.ov-pill--lic-c,
+.ov-pill--lic-d,
+.ov-pill--lic-r,
+.ov-pill--lic-pro {
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--lic-color) 82%, rgba(255, 255, 255, 0.25));
+  background: color-mix(in srgb, var(--lic-color) 38%, #070b14);
+  color: #ffffff;
+}
+
+.ov-pill--lic-a {
+  --lic-color: var(--ov-locked-licence-a);
+}
+.ov-pill--lic-b {
+  --lic-color: var(--ov-locked-licence-b);
+}
+.ov-pill--lic-c {
+  --lic-color: var(--ov-locked-licence-c);
+}
+.ov-pill--lic-d {
+  --lic-color: var(--ov-locked-licence-d);
+}
+.ov-pill--lic-r {
+  --lic-color: var(--ov-locked-licence-r);
+}
+.ov-pill--lic-pro {
+  --lic-color: var(--ov-locked-licence-pro);
+}
+
+.ov-lic-ltr,
+.ov-lic-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-weight: 800;
+}
+
+/* The letter sits in a round cap, so it gets more padding on the left than on the right. */
+.ov-lic-ltr {
+  padding: 0 0.3em 0 0.62em;
+  background: var(--lic-color);
+  color: #ffffff;
+}
+
+.ov-pill--lic-c .ov-lic-ltr,
+.ov-pill--lic-d .ov-lic-ltr {
+  color: #0b0d12;
+}
+
+.ov-lic-num {
+  padding: 0 0.52em 0 0.36em;
+  color: #ffffff;
+}
+
+/* iRating capsule: light body, optional projected change with a direction triangle. */
+.ov-pill--ir {
+  gap: 0.2em;
+  padding: 0 0.56em;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  background: #f4f6fa;
+  color: #11141c;
+  font-weight: 800;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+}
+
+.ov-ir-val {
+  color: #11141c;
+  font-weight: 800;
+}
+
+/* Combined licence pill: the inline licence colours replace the light body. */
+.ov-pill--ir-tinted {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.ov-pill--ir-tinted .ov-ir-val {
+  color: inherit;
+}
+
+.ov-ir-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1em;
+  font-size: 0.92em;
+  font-weight: 800;
+}
+
+.ov-ir-delta--up {
+  color: #237a30;
+}
+
+.ov-ir-delta--down {
+  color: #c92a2a;
+}
+
+.ov-ir-tri {
+  font-size: 0.72em;
+  line-height: 1;
+}
+
+/* Car count: the number followed by a small racing-helmet glyph. */
+.ov-car-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+}
+
+.ov-helmet {
+  flex: none;
+  width: 1.35em;
+  height: 1.35em;
+  fill: currentColor;
+}
+
+/* The traced line art is thin when small; a same-colour stroke thickens it a touch. */
+.ov-helmet path {
+  stroke: currentColor;
+  stroke-width: 10px;
+  stroke-linejoin: round;
+}
+
+.ov-badge-flag {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  height: 1.56em;
+  margin-left: 0.56em;
+  padding: 0 0.67em;
+  border-radius: 999px;
+  font-size: 0.64em;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ov-badge-flag--yel {
+  background: var(--ov-locked-flag-yellow);
+  color: #0b0d12;
+}
+
+.ov-badge-flag--pit {
+  border: 1px solid var(--ov-border);
+  background: color-mix(in srgb, var(--ov-text) 18%, transparent);
+  color: var(--ov-text-muted);
+}
+
+.ov-badge-flag--dsq {
+  background: var(--ov-locked-loss);
+  color: #ffffff;
+}
+
+.ov-badge-flag--blk {
+  border: 1px solid var(--ov-border);
+  background: var(--ov-locked-flag-black);
+  color: #ffffff;
+}
+
+.ov-badge-flag--dmg {
+  background: color-mix(in srgb, var(--ov-locked-loss) 50%, var(--ov-locked-flag-yellow));
+  color: #0b0d12;
+}
+
+/* Car number: dark chip with a class-coloured left edge. */
+.ov-car-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.15em;
+  height: 1.35em;
+  padding: 0 0.32em;
+  border: 1px solid color-mix(in srgb, var(--ov-text) 16%, transparent);
+  border-left: 2.5px solid var(--class-color, var(--ov-accent));
+  border-radius: 2px;
+  background: rgba(15, 18, 24, 0.55);
+  color: #ffffff;
+  font-size: 0.86em;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
