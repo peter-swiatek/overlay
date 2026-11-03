@@ -160,6 +160,7 @@ export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[
       cellClassName: CELL_CLASS[id],
       chars: field?.chars ?? 6,
       minChars: columnFloorChars(id),
+      dropPriority: field?.dropPriority,
       defaultWidthPct: field?.defaultWidthPct ?? 8,
       render: renderers[id],
     };

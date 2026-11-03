@@ -13,6 +13,7 @@
     "./manifests": "./src/manifests.ts",
     "./fixtures": "./src/shared/fixtures.ts",
     "./fields": "./src/shared/fields.ts",
+    "./table-fit": "./src/shared/table-fit.ts",
     "./settings": "./src/settings/index.ts",
     "./views": "./src/views.ts"
   },

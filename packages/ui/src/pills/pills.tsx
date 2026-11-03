@@ -63,10 +63,11 @@ export function CarCount({ count }: { count: number }): JSX.Element {
   );
 }
 
-export type FlagBadgeKind = "yel" | "pit" | "dsq" | "blk" | "dmg";
+export type FlagBadgeKind = "yel" | "off" | "pit" | "dsq" | "blk" | "dmg";
 
 const FLAG_LABELS: Record<FlagBadgeKind, string> = {
   yel: "YEL",
+  off: "OFF",
   pit: "PIT",
   dsq: "DSQ",
   blk: "BLK",

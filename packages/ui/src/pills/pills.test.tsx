@@ -120,6 +120,7 @@ describe("pills", () => {
   it("renders a flag badge for each kind", () => {
     for (const [kind, label] of [
       ["yel", "YEL"],
+      ["off", "OFF"],
       ["pit", "PIT"],
       ["dsq", "DSQ"],
       ["blk", "BLK"],

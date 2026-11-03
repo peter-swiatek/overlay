@@ -16,6 +16,8 @@ export interface TableColumn<Row> {
    * below this, whatever the width mode, so its text stays readable.
    */
   minChars?: number;
+  /** Lower numbers hide first when the table is too narrow (see fit.ts); undefined = never hidden. */
+  dropPriority?: number;
   /** Custom mode width (% of the table) when FieldConfig.widthPct is null. */
   defaultWidthPct: number;
   /** Extra class on body cells, e.g. "ov-cell--pos". */

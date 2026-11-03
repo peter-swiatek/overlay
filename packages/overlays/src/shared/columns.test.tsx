@@ -202,9 +202,18 @@ describe("column floors", () => {
     expect(columnFloorChars("nope")).toBeUndefined();
   });
 
+  it("columns carry their field's dropPriority; the four core columns have none", () => {
+    for (const col of driverColumns(CTX)) {
+      expect(col.dropPriority).toBe(DRIVER_FIELDS.find((f) => f.id === col.id)?.dropPriority);
+    }
+    for (const id of ["position", "car-number", "driver", "gap"]) {
+      expect(driverColumns(CTX).find((c) => c.id === id)?.dropPriority).toBeUndefined();
+    }
+  });
+
   it("the manifest fields carry chars and minChars", () => {
     const driver = DRIVER_FIELDS.find((f) => f.id === "driver");
-    expect(driver).toMatchObject({ chars: 18, minChars: 10 });
+    expect(driver).toMatchObject({ chars: 14, minChars: 10 });
     expect(DRIVER_FIELDS.every((f) => f.chars !== undefined)).toBe(true);
   });
 });

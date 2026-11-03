@@ -156,7 +156,8 @@
   text-transform: uppercase;
 }
 
-.ov-badge-flag--yel {
+.ov-badge-flag--yel,
+.ov-badge-flag--off {
   background: var(--ov-locked-flag-yellow);
   color: #0b0d12;
 }
