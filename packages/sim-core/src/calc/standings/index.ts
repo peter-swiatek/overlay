@@ -249,6 +249,7 @@ export class StandingsTracker {
         stintLaps: stintLaps(h, this.finishProgress.get(car.carIdx) ?? car.lapsCompleted),
         prevStintLaps: h.prevStintLaps,
         startPosition: this.startPositions.get(car.carIdx) ?? null,
+        iRatingChange: null,
       };
     }
 

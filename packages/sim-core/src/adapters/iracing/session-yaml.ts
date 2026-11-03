@@ -1,5 +1,5 @@
 import { parse } from "yaml";
-import type { SessionType } from "../../model/sim-state";
+import type { SessionType, ShiftLightRpm } from "../../model/sim-state";
 
 /**
  * iRacing's session info is a YAML-looking text (Windows-1252, see decodeSessionYaml) that is not always valid YAML:
@@ -21,6 +21,8 @@ export interface IracingSessionEntry {
   lapsLimit: number | null;
   /** Time limit in seconds, or null for "unlimited". */
   timeLimitS: number | null;
+  /** SessionInfo Sessions[].SessionTrackRubberState, e.g. "moderate usage"; null when missing. */
+  trackRubberState?: string | null;
 }
 
 export interface IracingDriver {
@@ -50,6 +52,10 @@ export interface IracingSessionInfo {
   incidentLimit?: number | null;
   /** DriverInfo DriverPitTrkPct: lap distance (0..1) of the player's pit stall. */
   pitStallLapDistPct?: number | null;
+  /** DriverInfo DriverCarRedLine, rpm; null when missing or 0. */
+  redlineRpm?: number | null;
+  /** DriverInfo DriverCarSLFirstRPM / SLShiftRPM / SLLastRPM / SLBlinkRPM; null when missing or all 0. */
+  shiftLightRpm?: ShiftLightRpm | null;
   currentSessionNum: number | null;
   sessions: IracingSessionEntry[];
   driverCarIdx: number | null;

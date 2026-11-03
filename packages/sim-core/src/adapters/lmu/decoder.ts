@@ -351,6 +351,8 @@ function readSession(
     pitSpeedLimitMps: null,
     incidentLimit: null,
     timeOfDayS: timeOfDay(f.f32(s + SESSION.timeOfDay)),
+    typeName: null,
+    trackUsage: null,
   };
 }
 
@@ -376,6 +378,9 @@ function readFlags(f: Frame, playerRow: number): Flags {
     white: false,
     checkered: false,
     black: false,
+    disqualified: false,
+    repair: false,
+    furled: false,
   };
 }
 

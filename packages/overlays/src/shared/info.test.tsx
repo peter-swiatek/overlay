@@ -129,6 +129,9 @@ describe("flagBorderColour", () => {
     white: false,
     checkered: false,
     black: false,
+    disqualified: false,
+    repair: false,
+    furled: false,
   };
   it("follows the precedence", () => {
     expect(flagBorderColour(null)).toBeNull();

@@ -76,6 +76,7 @@ export function defaultCommonSettings(manifest: OverlayManifest): CommonOverlayS
     hideInGarage: false,
     hideOnTrack: false,
     alwaysShow: false,
+    showTitleBar: false,
     fields: manifest.fields.map((f) => ({ id: f.id, visible: f.defaultVisible, widthPct: null })),
   };
 }
@@ -123,7 +124,7 @@ export function mergeFieldConfig(manifest: OverlayManifest, stored: unknown): Fi
 }
 
 const COMMON_NUMBER_KEYS = ["opacityPct", "scalePct", "rowOpacityPct"] as const;
-const COMMON_BOOLEAN_KEYS = ["hideInGarage", "hideOnTrack", "alwaysShow"] as const;
+const COMMON_BOOLEAN_KEYS = ["hideInGarage", "hideOnTrack", "alwaysShow", "showTitleBar"] as const;
 
 /** Validated common keys present in `raw`; invalid or absent ones are left out. */
 function parseCommonPartial(

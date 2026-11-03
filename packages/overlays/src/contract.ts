@@ -62,6 +62,12 @@ export interface OverlayFieldDef {
   minChars?: number;
   /** Table overlays: typical content width in characters. Manifest data only (not stored). */
   chars?: number;
+  /**
+   * Table overlays: lower numbers are hidden first when the user drags the window narrower than
+   * the visible columns need. Never set on position, car number, driver and gap. Manifest data
+   * only; unused until the column auto-width phase.
+   */
+  dropPriority?: number;
   sims?: readonly SimName[];
 }
 
@@ -108,6 +114,8 @@ export interface CommonOverlaySettings {
   hideOnTrack: boolean;
   /** Stay visible with no sim running, even when Settings > General > Auto-hide is on. Default false. */
   alwaysShow: boolean;
+  /** Show the title bar above the overlay while driving; it always shows while editing. Default false. */
+  showTitleBar: boolean;
   /** Every manifest field exactly once, in the user's order. */
   fields: FieldConfig[];
 }

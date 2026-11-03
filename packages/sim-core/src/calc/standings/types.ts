@@ -35,6 +35,12 @@ export interface StandingsEntry {
   prevStintLaps: number | null;
   /** Races only: live position when the race went green; null before that or in other sessions. */
   startPosition: number | null;
+  /**
+   * Projected iRating change if the race finished in the current live class order; an estimate
+   * (see calc/standings/irating.ts). Null outside races, for cars without an iRating, and for
+   * classes with fewer than 2 rated cars.
+   */
+  iRatingChange: number | null;
 }
 
 export interface Standings {

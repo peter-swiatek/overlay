@@ -210,6 +210,46 @@ describe("sanitizeInstanceSettings", () => {
   });
 });
 
+describe("showTitleBar", () => {
+  const base = defaultInstanceSettings(manifest);
+
+  it("defaults to false", () => {
+    expect(base.common.showTitleBar).toBe(false);
+  });
+
+  it("loads as false from a stored file without the key", () => {
+    const s = sanitizeInstanceSettings(manifest, { common: { opacityPct: 80 } });
+    expect(s.common.showTitleBar).toBe(false);
+    const file = parseOverlaySettingsFile(
+      { version: 1, overlays: { test: { enabled: true, common: { scalePct: 150 } } } },
+      [manifest],
+    );
+    expect(file.overlays.test?.common.showTitleBar).toBe(false);
+  });
+
+  it("round-trips true", () => {
+    const s = sanitizeInstanceSettings(manifest, { common: { showTitleBar: true } });
+    expect(s.common.showTitleBar).toBe(true);
+    const again = sanitizeInstanceSettings(manifest, JSON.parse(JSON.stringify(s)));
+    expect(again.common.showTitleBar).toBe(true);
+  });
+
+  it("ignores a non-boolean and keeps the default", () => {
+    expect(
+      sanitizeInstanceSettings(manifest, { common: { showTitleBar: 1 } }).common.showTitleBar,
+    ).toBe(false);
+    const on = applySettingsPatch(manifest, base, { common: { showTitleBar: true } });
+    const next = applySettingsPatch(manifest, on, { common: { showTitleBar: "yes" } });
+    expect(next.common.showTitleBar).toBe(true);
+  });
+
+  it("applies a patch", () => {
+    const next = applySettingsPatch(manifest, base, { common: { showTitleBar: true } });
+    expect(next.common.showTitleBar).toBe(true);
+    expect(next.common.opacityPct).toBe(100);
+  });
+});
+
 describe("applySettingsPatch", () => {
   const base = defaultInstanceSettings(manifest);
 

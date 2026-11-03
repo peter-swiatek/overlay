@@ -746,6 +746,7 @@ describe("IracingAdapter on synthetic buffers", () => {
       fogLevel: null,
       windSpeedMps: null,
       windDirRad: null,
+      declaredWet: null,
     });
     expect(s.player.energyFraction).toBeNull();
   });

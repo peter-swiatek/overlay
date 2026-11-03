@@ -53,6 +53,10 @@ function baseCar(carIdx: number): Car {
     teamName: null,
     worldPos: null,
     fuelFraction: null,
+    flags: null,
+    p2pCount: null,
+    p2pActive: null,
+    trackSurface: null,
     connected: true,
   };
 }
@@ -76,6 +80,7 @@ function baseEntry(carIdx: number): StandingsEntry {
     stintLaps: null,
     prevStintLaps: null,
     startPosition: null,
+    iRatingChange: null,
   };
 }
 
@@ -88,6 +93,9 @@ const NO_FLAGS: Flags = {
   white: false,
   checkered: false,
   black: false,
+  disqualified: false,
+  repair: false,
+  furled: false,
 };
 
 /** A live TelemetryFrame built from plain objects. */
@@ -125,6 +133,8 @@ export function fixtureFrame(input: {
       pitSpeedLimitMps: null,
       incidentLimit: null,
       timeOfDayS: null,
+      typeName: null,
+      trackUsage: null,
       ...input.session,
     },
     conditions: {
@@ -136,6 +146,7 @@ export function fixtureFrame(input: {
       fogLevel: null,
       windSpeedMps: null,
       windDirRad: null,
+      declaredWet: null,
       ...input.conditions,
     },
     flags: input.flags ? { ...NO_FLAGS, ...input.flags } : null,
@@ -159,6 +170,13 @@ export function fixtureFrame(input: {
       velocityMps: null,
       pitStallLapDistPct: null,
       brakeBias: null,
+      lap: null,
+      absActive: null,
+      trackSurface: null,
+      isOnTrack: null,
+      shiftLights: null,
+      redlineRpm: null,
+      steerMaxRad: null,
       ...input.player,
     },
   };
