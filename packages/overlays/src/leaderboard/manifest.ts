@@ -1,21 +1,34 @@
 import type { OverlayManifest } from "../contract";
 // Pure files only: the desktop main process type-checks manifests without JSX.
-import { DRIVER_FIELDS } from "../shared/fields";
+import { DRIVER_FIELD_IDS, driverFields, type DriverFieldId } from "../shared/fields";
 import { HEADER_FIELD_OPTIONS } from "../shared/info";
 import { TABLE_OPTION_FIELDS } from "../shared/options";
 
-// Left out of M2 (orchestrator decision; plan question 2 is unanswered): country flag,
-// manufacturer, iRating change, push to pass, tyre compound, per-car flags, highlight incidents.
+// Not yet (no data or asset in the app): driver tag (needs a tagged-drivers list), manufacturer
+// logo (needs a logo set and a car-to-make table), driver indicator (not defined by the design
+// hand-off), and the overall car count with the helmet in the header strip (strip values are text).
+// The projected iRating change already shows in the iRating pill.
+const LEADERBOARD_DEFAULT_VISIBLE: readonly DriverFieldId[] = [
+  "position",
+  "car-number",
+  "driver",
+  "licence",
+  "irating",
+  "gap",
+  "interval",
+  "last-lap",
+];
+
 export const leaderboardManifest: OverlayManifest = {
   id: "leaderboard",
   title: "Leaderboard",
   description: "Standings for the whole field.",
   sims: ["iracing", "lmu"],
-  defaultSize: { width: 740, height: 440 },
+  defaultSize: { width: 603, height: 440 },
   minSize: { width: 300, height: 160 },
   defaultPosition: { x: 40, y: 40 },
   table: true,
-  fields: DRIVER_FIELDS,
+  fields: driverFields(DRIVER_FIELD_IDS, LEADERBOARD_DEFAULT_VISIBLE),
   settings: [
     ...TABLE_OPTION_FIELDS,
     {
@@ -83,9 +96,25 @@ export const leaderboardManifest: OverlayManifest = {
       label: "Header fields",
       kind: "multi",
       section: "Layout",
-      default: ["session-remaining", "sof", "incidents", "track-temp"],
+      default: ["current-lap", "session-remaining", "sof", "incidents", "track-temp"],
       options: HEADER_FIELD_OPTIONS,
       max: 6,
+    },
+    {
+      key: "session-footer",
+      label: "Session footer",
+      kind: "toggle",
+      section: "Layout",
+      default: true,
+    },
+    {
+      key: "footer-fields",
+      label: "Footer fields",
+      kind: "multi",
+      section: "Layout",
+      default: ["session-best", "brake-bias", "air-temp"],
+      options: HEADER_FIELD_OPTIONS,
+      max: 3,
     },
   ],
   rateHz: 5,

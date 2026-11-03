@@ -4,8 +4,10 @@ import { describe, expect, it } from "vitest";
 import type { OverlayInstanceSettings } from "../contract";
 import { OverlayRuntimeContext, staticRuntime } from "../runtime";
 import { applySettingsPatch, defaultInstanceSettings, sanitizeOptionValue } from "../settings";
-import { DRIVER_FIELDS, FIXTURE_NAMES, driverRows, fixtureFrame, type DriverRow } from "../shared";
+import { FIXTURE_NAMES, driverRows, fixtureFrame, type DriverRow } from "../shared";
 import { LeaderboardOverlay } from "./LeaderboardOverlay";
+import { NOMINAL_TABLE_METRICS } from "@overlay/ui/fit";
+import { tableWidthsFor } from "../shared/table-fit";
 import { leaderboardManifest } from "./manifest";
 import {
   leaderboardView,
@@ -318,7 +320,6 @@ describe("afterGap", () => {
 
 describe("manifest", () => {
   it("declares every driver field with the kit defaults", () => {
-    expect(leaderboardManifest.fields).toBe(DRIVER_FIELDS);
     const visible = leaderboardManifest.fields.filter((f) => f.defaultVisible).map((f) => f.id);
     expect(visible).toEqual([
       "position",
@@ -329,9 +330,33 @@ describe("manifest", () => {
       "gap",
       "interval",
       "last-lap",
-      "best-lap",
-      "pit-lane",
     ]);
+    const ids = leaderboardManifest.fields.map((f) => f.id);
+    expect(ids).toContain("p2p");
+    expect(ids).toContain("flag");
+  });
+
+  it("opens at the width its default columns fit", () => {
+    const widths = tableWidthsFor(
+      leaderboardManifest,
+      defaultInstanceSettings(leaderboardManifest),
+      NOMINAL_TABLE_METRICS,
+    );
+    if (widths?.fitPx == null) throw new Error("table manifest has a fit");
+    expect(leaderboardManifest.defaultSize.width).toBe(Math.ceil(widths.fitPx));
+  });
+
+  it("has the board header and footer defaults", () => {
+    const settings = defaultInstanceSettings(leaderboardManifest);
+    expect(settings.options["header-fields"]).toEqual([
+      "current-lap",
+      "session-remaining",
+      "sof",
+      "incidents",
+      "track-temp",
+    ]);
+    expect(settings.options["session-footer"]).toBe(true);
+    expect(settings.options["footer-fields"]).toEqual(["session-best", "brake-bias", "air-temp"]);
   });
 
   it("sanitises its defaults and limits the header fields to six", () => {
@@ -435,9 +460,11 @@ describe("LeaderboardOverlay", () => {
     const frame = threeClasses(1);
     frame.state.conditions.trackTempC = 31;
     expect(render(frame, ALL)).toContain("ov-info-strip");
-    expect(render(frame, { options: { "show-all": true, "session-header": false } })).not.toContain(
-      "ov-info-strip",
-    );
+    expect(
+      render(frame, {
+        options: { "show-all": true, "session-header": false, "session-footer": false },
+      }),
+    ).not.toContain("ov-info-strip");
   });
 
   it("shows row labels only when switched on", () => {
@@ -488,5 +515,93 @@ describe("leaderboardView timing", () => {
     const median = samples[10] ?? 0;
     console.log(`leaderboardView 60 cars, 3 classes: median ${median.toFixed(3)} ms`);
     expect(median).toBeLessThan(10);
+  });
+});
+
+describe("LeaderboardOverlay restyle", () => {
+  function withColumns(ids: string[]) {
+    const fields = defaultInstanceSettings(leaderboardManifest).common.fields.map((f) => ({
+      ...f,
+      visible: ids.includes(f.id),
+    }));
+    return { common: { fields }, options: { "show-all": true } };
+  }
+  const BASE = ["position", "car-number", "driver", "gap", "last-lap"];
+
+  function setup() {
+    const frame = threeClasses(1);
+    frame.state.conditions.trackTempC = 31;
+    frame.state.conditions.airTempC = 20;
+    frame.state.player.brakeBias = 0.55;
+    frame.state.session.timeRemainingS = 1800;
+    const car = (i: number) => {
+      const c = frame.state.cars.find((x) => x.carIdx === i);
+      if (c === undefined) throw new Error("fixture");
+      return c;
+    };
+    return { frame, car };
+  }
+
+  it("shows the default columns", () => {
+    const html = render(threeClasses(1), ALL);
+    for (const label of ["Pos", "Driver", "Gap", "Int", "Last"]) expect(html).toContain(label);
+    expect(html).not.toContain(">Best<");
+  });
+
+  it("splits the header into two groups and adds a footer with the session best", () => {
+    const { frame } = setup();
+    const entry = frame.derived.standings?.entries.find((e) => e.carIdx === 2);
+    const best = frame.state.cars.find((c) => c.carIdx === 2);
+    if (entry === undefined || best === undefined) throw new Error("fixture");
+    entry.sessionBest = true;
+    best.bestLapS = 83.456;
+    const html = render(frame, ALL);
+    expect(html.match(/class="ov-info-group"/g)).toHaveLength(2);
+    expect(html).toContain("ov-info-strip--footer");
+    expect(html).toContain("ov-fastest");
+    expect(html).toContain("1:23.456");
+    const off = render(frame, { options: { "show-all": true, "session-footer": false } });
+    expect(off).not.toContain("ov-info-strip--footer");
+    expect(off).not.toContain("ov-fastest");
+  });
+
+  it("shows OFF and PIT after the name when the Flag and Pit lane columns are hidden", () => {
+    const { frame, car } = setup();
+    car(0).trackSurface = "offTrack";
+    car(2).onPitRoad = true;
+    const html = render(frame, withColumns(BASE));
+    expect(html).toContain("OFF");
+    expect(html).toContain("PIT");
+    expect(html).toContain("ov-cell-text");
+  });
+
+  it("puts the badge in the Flag column, not inline, when Flag is visible", () => {
+    const { frame, car } = setup();
+    car(0).trackSurface = "offTrack";
+    const html = render(frame, withColumns([...BASE, "flag"]));
+    expect(html.match(/>OFF</g)).toHaveLength(1);
+    expect(html).toMatch(/ov-cell[^"]*"[^>]*><span class="ov-badge[^"]*ov-badge-flag/);
+    expect(html).not.toMatch(/ov-cell-text[^>]*>[^<]*<\/span><span class="ov-badge/);
+  });
+
+  it("shows push to pass counts", () => {
+    const { frame, car } = setup();
+    car(0).p2pCount = 7;
+    car(2).p2pCount = 3;
+    car(2).p2pActive = true;
+    const html = render(frame, withColumns([...BASE, "p2p"]));
+    expect(html).toContain(">P2P<");
+    expect(html).toContain(">7<");
+    expect(html).toContain("font-weight:700");
+  });
+
+  it("reads IN PIT in the Last lap cell for a pit-road car", () => {
+    const { frame, car } = setup();
+    car(2).onPitRoad = true;
+    expect(render(frame, ALL)).toContain("IN PIT");
+  });
+
+  it("writes an empty data-hidden-columns on the root when nothing is measured", () => {
+    expect(render(threeClasses(1), ALL)).toContain('data-hidden-columns=""');
   });
 });
