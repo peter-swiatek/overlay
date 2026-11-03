@@ -44,13 +44,17 @@ export function withTitleBar(size: Size, inFlow: boolean, includeHeight: boolean
 /**
  * Reports the minimum size of `ref`'s content to main whenever it changes, checked every
  * 250 ms (cheap: a small DOM and two forced layouts). Window DIPs equal CSS px here (the page zoom stays at 1).
+ * With `enabled` false nothing is measured or reported (table overlays: main derives their width
+ * minimum from the column fit instead).
  */
 export function useReportContentMin(
   ref: RefObject<HTMLElement | null>,
   includeHeight: boolean,
   titleBarInFlow = false,
+  enabled = true,
 ): void {
   useEffect(() => {
+    if (!enabled) return;
     let last: Size | null = null;
     const check = (): void => {
       const el = ref.current;
@@ -67,5 +71,5 @@ export function useReportContentMin(
     check();
     const timer = window.setInterval(check, MEASURE_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [ref, includeHeight, titleBarInFlow]);
+  }, [ref, includeHeight, titleBarInFlow, enabled]);
 }

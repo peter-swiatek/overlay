@@ -1,10 +1,13 @@
 import type { BuildInfo } from "./build-info";
 import type { OverlayInstanceSettings, OverlaySettingsPatch } from "@overlay/overlays/contract";
 import type { Theme, ThemeImportResult, ThemeState } from "@overlay/theme/types";
+import type { TableMetrics } from "@overlay/ui/fit";
 import type { AppSettings, AppSettingsPatch } from "./app-settings-types";
 import type { CaptureSettings, CaptureStatus } from "./capture-types";
 import type { PerfCheckOutcome, PerfProgress } from "./perf-types";
 import type { TelemetryEvent, TelemetrySourceChoice, TelemetrySourceView } from "./telemetry-types";
+
+export type { TableMetrics };
 
 export type OverlayId = "relative" | "inputs";
 
@@ -77,6 +80,8 @@ export const IPC = {
   resizeBy: "overlay:resize-by",
   /** Overlay renderer to main: the smallest size its content needs, in CSS px (= window DIPs). */
   contentMinSize: "overlays:content-min-size",
+  /** Overlay renderer to main: the table font measured at zoom 1, for the window fit. */
+  tableMetrics: "overlays:table-metrics",
   getCaptureStatus: "capture:get-status",
   captureStatusChanged: "capture:status-changed",
   getCaptureSettings: "capture:get-settings",
@@ -138,6 +143,8 @@ export interface OverlayApi {
   resizeBy(dx: number, dy: number): void;
   /** Overlay windows only: reports the smallest window size the content needs (CSS px). */
   reportContentMinSize(size: Size): void;
+  /** Overlay windows only: the table font measured at zoom 1, for the window fit. */
+  reportTableMetrics(metrics: TableMetrics): void;
   getCaptureStatus(): Promise<CaptureStatus>;
   onCaptureStatus(callback: (status: CaptureStatus) => void): () => void;
   getCaptureSettings(): Promise<CaptureSettings>;

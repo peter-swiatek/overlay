@@ -57,6 +57,13 @@ describe("preload API", () => {
     expect(channels).toContain(IPC.overlaysSizesChanged);
   });
 
+  it("sends the table font report on its channel", async () => {
+    const api = await loadApi();
+    api.reportTableMetrics({ chPx: 8.6, cellPadPx: 7 });
+    expect(ipc.send).toHaveBeenCalledWith(IPC.tableMetrics, { chPx: 8.6, cellPadPx: 7 });
+    expect(IPC.tableMetrics).toBe("overlays:table-metrics");
+  });
+
   it("uses the agreed channel names", () => {
     expect(IPC.appStateGet).toBe("app-state:get");
     expect(IPC.appStateSet).toBe("app-state:set");

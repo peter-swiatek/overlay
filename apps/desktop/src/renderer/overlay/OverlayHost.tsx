@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { OverlayRuntimeContext, type OverlayModule, type OverlayRuntime } from "@overlay/overlays";
 import type { TelemetrySelector } from "@overlay/overlays";
 import { displayPrefsOf, type AppSettings } from "../../shared/app-settings-types";
@@ -6,6 +6,7 @@ import { useTelemetry } from "../telemetry/useTelemetry";
 import { useApplyTheme } from "../theme/useApplyTheme";
 import { OverlayContent } from "./OverlayContent";
 import { cappedRateHz, hostView } from "./visibility";
+import { useReportTableMetrics } from "./tableMetrics";
 import { useAppSettings, useEditMode, useOverlaySettings } from "./useSettings";
 
 const HOST_VIEW_HZ = 5;
@@ -26,6 +27,20 @@ function runtimeOf(app: AppSettings, module: OverlayModule, editing: boolean): O
     combinedLicencePill: app.appearance.combinedLicencePill,
     editing,
   };
+}
+
+/**
+ * Hidden probe that carries the table font (and --ov-cell-pad-x) so the window can report one `ch`
+ * of it to main. Outside the zoom wrapper and always rendered, even while the overlay is hidden.
+ */
+function TableMetricsProbe() {
+  const ref = useRef<HTMLDivElement>(null);
+  useReportTableMetrics(ref);
+  return (
+    <div className="ov-table ov-metrics-probe" aria-hidden="true" ref={ref}>
+      <span className="ov-metrics-ch" />
+    </div>
+  );
 }
 
 /** Loads settings, applies the theme, provides the runtime and renders one overlay module. */
@@ -51,6 +66,7 @@ export function OverlayHost({ module }: { module: OverlayModule }) {
   if (settings === null || app === null || runtime === null) return null;
   return (
     <OverlayRuntimeContext.Provider value={runtime}>
+      {module.manifest.table && <TableMetricsProbe />}
       <OverlayContent
         module={module}
         settings={settings}

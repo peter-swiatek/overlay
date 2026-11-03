@@ -45,3 +45,18 @@ describe("OverlayFrame title bar", () => {
     expect(html.indexOf("ov-titlebar")).toBeLessThan(html.indexOf("overlay-content"));
   });
 });
+
+describe("OverlayFrame for table overlays", () => {
+  it("renders the frame like any other (a table just reports no content minimum)", () => {
+    const table = OVERLAY_MANIFESTS.find((m) => m.table);
+    if (!table) throw new Error("no table manifest");
+    const common = defaultInstanceSettings(table).common;
+    const html = renderToStaticMarkup(
+      <OverlayFrame manifest={table} common={common} editing={false}>
+        <i>rows</i>
+      </OverlayFrame>,
+    );
+    expect(html).toContain("overlay-fit");
+    expect(html).toContain("<i>rows</i>");
+  });
+});
