@@ -9,8 +9,8 @@ export interface PitSpeedView {
   overMps: number | null;
   /** "over" above the limit (+0.3 m/s tolerance), "under" otherwise; null without a limit. */
   state: "over" | "under" | null;
-  /** -1..1: bar fill, 0 = exactly the limit, +-1 = +-20 % of the limit; null without a limit. */
-  barPosition: number | null;
+  /** speed / limit clamped 0..1 for the bar; null without a limit or speed. */
+  fillFraction: number | null;
   limiterOn: boolean | null;
   /** Metres to the pit box along the lap, only while on pit road; null otherwise. */
   distanceToBoxM: number | null;
@@ -20,8 +20,6 @@ export interface PitSpeedView {
 // The reference gives no numbers for either of these; they are our choices.
 /** Speed above the limit (m/s) that still counts as "under", so a held limit does not flicker. */
 export const OVER_TOLERANCE_MPS = 0.3;
-/** Share of the limit at which the bar is full on either side. */
-export const BAR_SCALE = 0.2;
 
 const round = (v: number, step: number): number => Math.round(v / step) * step;
 const finite = (v: number | null | undefined): number | null =>
@@ -33,20 +31,20 @@ const INACTIVE: PitSpeedView = {
   limitMps: null,
   overMps: null,
   state: null,
-  barPosition: null,
+  fillFraction: null,
   limiterOn: null,
   distanceToBoxM: null,
   inPitStall: false,
 };
 
-/** On pit road at 78 km/h against 80; shown in edit mode when the overlay is not active. */
+/** On pit road at 59 of 60 km/h; shown in edit mode when the overlay is not active. */
 export const EDIT_SAMPLE: PitSpeedView = {
   active: true,
-  speedMps: 21.7,
-  limitMps: 22.2,
-  overMps: -0.5,
+  speedMps: 16.4,
+  limitMps: 16.7,
+  overMps: -0.3,
   state: "under",
-  barPosition: -0.11,
+  fillFraction: 0.98,
   limiterOn: true,
   distanceToBoxM: 120,
   inPitStall: false,
@@ -89,10 +87,10 @@ export function pitSpeedView(frame: TelemetryFrame | null): PitSpeedView {
     limitMps,
     overMps: diff === null ? null : round(diff, 0.1),
     state: diff === null ? null : diff > OVER_TOLERANCE_MPS ? "over" : "under",
-    barPosition:
-      diff === null || limitMps === null
+    fillFraction:
+      rawSpeed === null || limitMps === null
         ? null
-        : round(Math.max(-1, Math.min(1, diff / (limitMps * BAR_SCALE))), 0.01),
+        : round(Math.max(0, Math.min(1, rawSpeed / limitMps)), 0.01),
     limiterOn: player.pitLimiter,
     distanceToBoxM: distanceToBox(
       onPitRoad,

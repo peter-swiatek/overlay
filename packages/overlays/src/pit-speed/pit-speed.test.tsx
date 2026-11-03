@@ -67,12 +67,14 @@ describe("pitSpeedView", () => {
     expect(v.overMps).toBe(0.5);
   });
 
-  it("clamps the bar position at +-1 and rounds speed", () => {
+  it("gives the bar fill as speed over limit, clamped 0..1, and rounds speed", () => {
     const f = frame();
+    f.state.player.speedMps = 11.11;
+    expect(pitSpeedView(f).fillFraction).toBe(0.5);
     f.state.player.speedMps = 40;
-    expect(pitSpeedView(f).barPosition).toBe(1);
+    expect(pitSpeedView(f).fillFraction).toBe(1);
     f.state.player.speedMps = 0;
-    expect(pitSpeedView(f).barPosition).toBe(-1);
+    expect(pitSpeedView(f).fillFraction).toBe(0);
     f.state.player.speedMps = 21.0449;
     expect(pitSpeedView(f).speedMps).toBe(21);
   });
@@ -81,7 +83,7 @@ describe("pitSpeedView", () => {
     const v = pitSpeedView(frame({ limit: null }));
     expect(v.limitMps).toBeNull();
     expect(v.state).toBeNull();
-    expect(v.barPosition).toBeNull();
+    expect(v.fillFraction).toBeNull();
     expect(v.speedMps).toBe(20);
   });
 
@@ -128,14 +130,37 @@ describe("PitSpeedOverlay", () => {
   });
 
   it("shows the limiter state", () => {
-    expect(render(frame({ limiter: true }))).toContain("ON");
-    expect(render(frame({ limiter: false }))).toContain("OFF");
+    expect(render(frame({ limiter: true }))).toContain("LIM ON");
+    expect(render(frame({ limiter: true }))).toContain("ps-pill-on");
+    const off = render(frame({ limiter: false }));
+    expect(off).toContain("LIM OFF");
+    expect(off).not.toContain("ps-pill-on");
   });
 
-  it("says the limit is not reported and draws no bar for LMU", () => {
+  it("shows -- in the limit sign and draws no bar for LMU", () => {
     const html = render(frame({ limit: null }));
-    expect(html).toContain("Limit not reported");
+    expect(html).toMatch(/ps-sign-text">--</);
     expect(html).not.toContain("ps-bar");
+  });
+
+  it("shows the limit in the sign in the user's unit", () => {
+    expect(render(frame())).toMatch(/ps-sign-text">80</);
+    expect(render(frame(), { prefs: imperial })).toMatch(/ps-sign-text">50</);
+  });
+
+  it("draws the bar only while the limit field is visible", () => {
+    expect(render(frame())).toContain("ps-bar");
+    const s = settings();
+    s.common.fields = s.common.fields.map((f) => (f.id === "limit" ? { ...f, visible: false } : f));
+    const html = render(frame(), {}, s);
+    expect(html).not.toContain("ps-bar");
+    expect(html).not.toContain("ps-sign");
+  });
+
+  it("sizes the bar fill from speed over limit", () => {
+    const f = frame();
+    f.state.player.speedMps = 11.11;
+    expect(render(f)).toContain("width:50%");
   });
 
   it("uses the loss colour class over the limit", () => {
@@ -145,15 +170,19 @@ describe("PitSpeedOverlay", () => {
     expect(html).toContain("ps-over");
     expect(html).toContain("ps-fill-over");
     expect(render(frame())).toContain("ps-fill-under");
+    expect(render(frame())).toContain("ps-under");
+    const none = render(frame({ limit: null }));
+    expect(none).not.toContain("ps-under");
+    expect(none).not.toContain("ps-over");
   });
 
   it("shows the box distance and the in-stall state", () => {
     const f = frame();
     f.state.player.pitStallLapDistPct = 0.03;
-    expect(render(f)).toContain("Box in 200 m");
+    expect(render(f)).toContain("Box 200 m");
     expect(render(f, { prefs: imperial })).toContain("ft");
     f.state.cars[0]!.inPitStall = true;
-    expect(render(f)).toContain("In pit stall");
+    expect(render(f)).toContain("Stall");
   });
 
   it("leaves out hidden fields and follows the configured order", () => {
@@ -165,8 +194,13 @@ describe("PitSpeedOverlay", () => {
       { id: "pit-stop-info", visible: false, widthPct: null },
     ];
     const html = render(frame(), {}, s);
-    expect(html).not.toContain("Limit ");
+    expect(html).not.toContain("ps-sign");
     expect(html.indexOf("ps-pill")).toBeLessThan(html.indexOf("ps-speed"));
+  });
+
+  it("has the pill size in the manifest", () => {
+    expect(pitSpeedManifest.defaultSize).toEqual({ width: 240, height: 48 });
+    expect(pitSpeedManifest.minSize).toEqual({ width: 160, height: 36 });
   });
 
   it("renders nothing when not active, the sample when editing", () => {
@@ -174,7 +208,8 @@ describe("PitSpeedOverlay", () => {
     expect(render(idle)).toBe("");
     const html = render(idle, { editing: true });
     expect(html).toContain("ps-panel");
-    expect(html).toContain("Limit");
+    expect(html).toContain("ps-sign");
     expect(EDIT_SAMPLE.active).toBe(true);
+    expect(EDIT_SAMPLE.fillFraction).toBeCloseTo(0.98, 2);
   });
 });
