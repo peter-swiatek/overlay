@@ -4,9 +4,11 @@ import { optionNumber, optionString } from "../settings";
 import { useOverlayRuntime } from "../runtime";
 import "./spotter.css";
 import {
+  barBottomCss,
   barColourCss,
   EDIT_SAMPLE,
   newSpotterMemory,
+  spotterBlock,
   spotterView,
   type SpotterMemory,
   type SpotterSide,
@@ -19,23 +21,24 @@ interface BarProps {
   width: number;
 }
 
+/** A capsule housing, drawn only while a car is on this side (or while editing). */
 function Bar({ side, editing, length, width }: BarProps) {
-  const blockLength = length / 2;
-  const showTrack = editing || side.position !== null;
+  const block = spotterBlock(side);
+  if (block === null && !editing) {
+    // Keep the slot so the other bar does not move.
+    return <div className="spotter-slot" style={{ width, height: length }} />;
+  }
   return (
-    <div
-      className={`spotter-bar${showTrack ? " spotter-bar--track" : ""}`}
-      style={{ width, height: length }}
-    >
-      {side.position !== null && (
-        <div
-          className={`spotter-block${side.double ? " spotter-block--double" : ""}`}
-          style={{
-            height: blockLength,
-            transform: `translateY(${side.position * (length - blockLength)}px)`,
-          }}
-        />
-      )}
+    <div className="spotter-bar" style={{ width, height: length }}>
+      <div className="spotter-track">
+        {block !== null && (
+          <div
+            className={`spotter-block spotter-block--from-${block.anchor}${side.double ? " spotter-block--double" : ""}`}
+            style={{ height: `${Math.round(block.height * 100)}%` }}
+          />
+        )}
+        <div className="spotter-midpoint" />
+      </div>
     </div>
   );
 }
@@ -58,12 +61,22 @@ export function SpotterOverlay({ settings }: OverlayProps) {
   return (
     <div
       className={`spotter${editing ? " spotter--editing" : ""}`}
-      style={{ "--spotter-colour": colour } as CSSProperties}
+      style={
+        {
+          "--spotter-top": colour,
+          "--spotter-bottom": barBottomCss(colour),
+        } as CSSProperties
+      }
     >
       <Bar side={view.left} editing={editing} length={length} width={width} />
       {/* bar-gap is centre to centre */}
       <div className="spotter-gap" style={{ width: Math.max(0, gap - width) }} />
       <Bar side={view.right} editing={editing} length={length} width={width} />
+      {editing && (
+        <div className="spotter-guide">
+          Left bar: car ahead (top) · Right bar: car behind (bottom)
+        </div>
+      )}
     </div>
   );
 }
