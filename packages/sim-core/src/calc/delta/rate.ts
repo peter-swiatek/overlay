@@ -8,28 +8,33 @@ function clamp(v: number): number {
 /** Smoothed rate of change of a delta: exponential average, time constant 0.5 s, clamped -1..1. */
 export class DeltaRate {
   private prev: number | null = null;
+  private prevTickS: number | null = null;
   private avg: number | null = null;
 
-  /** Null on the first sample, after reset, after a gap of more than 1 s, or for a null delta. */
+  /**
+   * `tickS` is the absolute clock (state.tickTimeS). Null on the first sample, after reset, after
+   * a gap of more than 1 s, when the clock does not advance, or for a null delta.
+   */
   next(tickS: number, deltaS: number | null): number | null {
-    if (deltaS === null || !Number.isFinite(deltaS)) {
+    if (deltaS === null || !Number.isFinite(deltaS) || !Number.isFinite(tickS)) {
       this.reset();
       return null;
     }
-    if (!Number.isFinite(tickS) || tickS > MAX_GAP_S) {
-      this.reset();
-      this.prev = deltaS;
-      return null;
-    }
+    const prevTickS = this.prevTickS;
     const prev = this.prev;
     this.prev = deltaS;
-    if (prev === null) return null;
-    if (tickS <= 0) return this.avg === null ? null : clamp(this.avg);
-    const raw = (deltaS - prev) / tickS;
+    this.prevTickS = tickS;
+    if (prev === null || prevTickS === null) return null;
+    const dt = tickS - prevTickS;
+    if (dt <= 0 || dt > MAX_GAP_S) {
+      this.avg = null;
+      return null;
+    }
+    const raw = (deltaS - prev) / dt;
     if (this.avg === null) {
       this.avg = raw;
     } else {
-      const alpha = 1 - Math.exp(-tickS / TIME_CONSTANT_S);
+      const alpha = 1 - Math.exp(-dt / TIME_CONSTANT_S);
       this.avg += alpha * (raw - this.avg);
     }
     return clamp(this.avg);
@@ -37,6 +42,7 @@ export class DeltaRate {
 
   reset(): void {
     this.prev = null;
+    this.prevTickS = null;
     this.avg = null;
   }
 }

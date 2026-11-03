@@ -9,7 +9,7 @@ import {
   type FuelSample,
   type FuelTrackerOptions,
 } from "../calc/fuel";
-import type { BestLapStore } from "../calc/delta";
+import { DeltaTracker, deltaInput, type BestLapStore } from "../calc/delta";
 import { MiniSectorRecorder, RollingLapTimes, relativeGap, type GapCarTick } from "../calc/gaps";
 import { ProximityTracker } from "../calc/proximity";
 import { SlowCarDetector } from "../calc/slow-car";
@@ -48,11 +48,13 @@ export class Deriver {
   private readonly standings = new StandingsTracker();
   private readonly proximity = new ProximityTracker();
   private readonly slowCars = new SlowCarDetector();
+  private readonly delta: DeltaTracker;
 
   private readonly classIndices = new Map<string, number>();
 
   constructor(options: DeriverOptions = {}) {
     this.fuelHistory = options.fuelHistory ?? null;
+    this.delta = new DeltaTracker({ store: options.bestLaps ?? null });
     this.track = new TrackTracker({
       ...(options.trackOutlines ? { store: options.trackOutlines } : {}),
       ...(options.now ? { now: options.now } : {}),
@@ -73,6 +75,7 @@ export class Deriver {
     this.standings.reset();
     this.proximity.reset();
     this.slowCars.reset();
+    this.delta.reset();
     this.track.reset();
     this.classIndices.clear();
   }
@@ -125,7 +128,7 @@ export class Deriver {
       track: this.track.update(state, player),
       standings: this.standings.next(state, this.standingsInputs()),
       proximity: this.proximity.next(state),
-      delta: null,
+      delta: this.delta.next(deltaInput(state, player)),
       slowCar: this.slowCars.next(state),
       energy: this.updateEnergy(state, player, tickS),
     };
