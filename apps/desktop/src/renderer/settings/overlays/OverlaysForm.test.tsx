@@ -11,7 +11,7 @@ import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { FieldPicker, parsePickDrag, pickDragType } from "./FieldPicker";
-import { SettingRow } from "./OverlayPanel";
+import { OverlayPanel, SettingRow } from "./OverlayPanel";
 import { OverlaysForm } from "./OverlaysForm";
 import { testManifest, testTableManifest } from "./test-manifest";
 
@@ -407,5 +407,37 @@ describe("FieldPicker", () => {
       ["a", "b"],
       ["b", "a", "c"],
     ]);
+  });
+});
+
+describe("Show title bar", () => {
+  it("is a Visibility toggle that sends the common patch", () => {
+    const html = render({});
+    expect(html).toContain("Show title bar");
+    expect(html).toContain("It always shows while overlays are unlocked.");
+    const sent: unknown[] = [];
+    let panel: ReactElement | null = null;
+    // Render inside React so the panel's own state hook works, and keep the element tree.
+    function Probe() {
+      panel = OverlayPanel({
+        manifest: testManifest,
+        settings: defaultInstanceSettings(testManifest),
+        sim: "lmu",
+        prefs: DEFAULT_DISPLAY_PREFS,
+        send: (patch) => sent.push(patch),
+        onReset: noop,
+      });
+      return null;
+    }
+    renderToStaticMarkup(<Probe />);
+    if (!panel) throw new Error("panel not rendered");
+    const toggles = findAll(
+      panel,
+      (el) => el.props["label"] === "Show title bar" && "checked" in el.props,
+    );
+    expect(toggles).toHaveLength(1);
+    expect(toggles[0]?.props["checked"]).toBe(false);
+    (toggles[0]?.props as { onChange(v: boolean): void }).onChange(true);
+    expect(sent).toEqual([{ common: { showTitleBar: true } }]);
   });
 });

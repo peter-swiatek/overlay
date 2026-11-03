@@ -303,3 +303,12 @@ describe("css scoping", () => {
     }
   });
 });
+
+describe("preview title bar", () => {
+  it("draws the in-flow bar only when showTitleBar is on", () => {
+    expect(render("fuel")).not.toContain("pv-titlebar");
+    const html = render("fuel", { common: { showTitleBar: true } });
+    expect(html).toContain("pv-titlebar");
+    expect(html).toContain(`>${mod("fuel").manifest.title}<`);
+  });
+});

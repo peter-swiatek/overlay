@@ -24,19 +24,29 @@ interface Props {
   children: ReactNode;
 }
 
+/** The overlay's name above it. Chrome: fixed px, outside the zoom and opacity wrapper. */
+export function TitleBar({ name }: { name: string }) {
+  return (
+    <div className="ov-titlebar">
+      <span className="ov-titlebar-name">{name}</span>
+    </div>
+  );
+}
+
 /** Root of an overlay window: scaled, faded content with the edit frame on top, unscaled. */
 export function OverlayFrame({ manifest, common, editing, children }: Props) {
   const fitRef = useRef<HTMLDivElement>(null);
   // Tables may drop rows, so only their width is a hard minimum; other overlays need both.
-  useReportContentMin(fitRef, !manifest.table);
+  useReportContentMin(fitRef, !manifest.table, common.showTitleBar);
   return (
-    <div className="overlay">
+    <div className="overlay" data-edit={editing} data-titlebar={common.showTitleBar}>
+      {(editing || common.showTitleBar) && <TitleBar name={manifest.title} />}
       <div className="overlay-content" style={contentStyle(common, manifest.table)}>
         <div className="overlay-fit" ref={fitRef}>
           {children}
         </div>
       </div>
-      {editing && <EditFrame name={manifest.title} />}
+      {editing && <EditFrame />}
     </div>
   );
 }

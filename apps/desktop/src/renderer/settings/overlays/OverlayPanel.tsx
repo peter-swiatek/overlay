@@ -115,6 +115,16 @@ export function OverlayPanel({
         )}
       </Collapsible>
       <Collapsible title="Visibility">
+        <Row
+          label="Show title bar"
+          help="Show the overlay's name above it while driving. It always shows while overlays are unlocked."
+        >
+          <Toggle
+            label="Show title bar"
+            checked={common.showTitleBar}
+            onChange={(showTitleBar) => setCommon({ showTitleBar })}
+          />
+        </Row>
         <Row label="In garage" help="Hide this overlay while you are in the garage.">
           <Toggle
             label="Hide in garage"
