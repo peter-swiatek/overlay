@@ -1,0 +1,261 @@
+/* Compact HUD: fixed 340 x 172 px geometry (Scale % shrinks it), text in em of --ov-font-size. */
+.hud {
+  position: relative;
+  width: 340px;
+  height: 172px;
+  flex: none;
+  color: var(--ov-text);
+  font-family: var(--ov-font-family);
+  font-weight: var(--ov-font-weight);
+  font-size: var(--ov-font-size);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+.hud-status {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82em;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.hud-status--slow {
+  background: var(--ov-locked-flag-yellow);
+  color: #0b0d12;
+}
+.hud-status--pit {
+  background: var(--ov-bg);
+  color: var(--ov-text);
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+}
+.hud-pitbar {
+  display: block;
+  width: 54px;
+  height: 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--ov-text) 14%, transparent);
+  overflow: hidden;
+}
+.hud-pitbar > i {
+  display: block;
+  height: 100%;
+  background: var(--ov-locked-gain);
+  border-radius: 3px;
+}
+.hud-shape {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 340px;
+  height: 172px;
+  overflow: visible;
+}
+.hud-shape .body {
+  fill: var(--ov-bg);
+  stroke: var(--ov-border);
+  stroke-width: 1px;
+}
+.hud-shape .hud-body--lim {
+  fill: var(--ov-bg);
+  stroke: var(--ov-locked-gain);
+  stroke-width: 2px;
+}
+.hud-shape .lap {
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+}
+/* Content area: the capsule body between the two tabs (330 x 100, radius 50). */
+.hud-cap {
+  position: absolute;
+  left: 5px;
+  top: 48px;
+  width: 330px;
+  height: 100px;
+  border-radius: 50px;
+  overflow: hidden;
+}
+.hud-arcs {
+  position: absolute;
+  inset: 0;
+}
+.hud-arcs path {
+  fill: none;
+  stroke-width: 6px;
+}
+.hud-track {
+  stroke: color-mix(in srgb, var(--ov-text) 12%, transparent);
+}
+.hud-arc--brake {
+  stroke: var(--ov-locked-loss);
+}
+.hud-arc--throttle {
+  stroke: var(--ov-locked-gain);
+}
+.hud-lights {
+  position: absolute;
+  left: 57.5px;
+  top: 14px;
+  display: flex;
+  gap: 1px;
+}
+.hud-light {
+  width: 17px;
+  height: 6px;
+  border-radius: 1.5px;
+  opacity: 0.2;
+}
+.hud-light--on {
+  opacity: 1;
+}
+.hud-num {
+  position: absolute;
+  top: 28px;
+  width: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+.hud-num--speed {
+  left: 58px;
+}
+.hud-num--rpm {
+  left: 200px;
+}
+.hud-num b {
+  font-size: 1.72em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.hud-num span {
+  margin-top: 3px;
+  font-size: 0.79em;
+  font-weight: 600;
+  color: var(--ov-text-muted);
+}
+.hud-gear {
+  position: absolute;
+  left: 133px;
+  top: 22px;
+  width: 64px;
+  text-align: center;
+  font-size: 3.45em;
+  font-weight: 800;
+  line-height: 1;
+}
+.hud-gear--shift {
+  color: var(--ov-locked-shift);
+}
+/* 4 Hz, on and off only. */
+.hud-blink {
+  animation: hud-blink 0.25s steps(1, end) infinite;
+}
+@keyframes hud-blink {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+.hud-badge {
+  position: absolute;
+  top: 40px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  font-size: 0.72em;
+  font-weight: 800;
+}
+.hud-badge--abs {
+  left: 22px;
+  background: var(--ov-locked-flag-yellow);
+  color: #0b0d12;
+}
+.hud-badge--lim {
+  right: 22px;
+  background: var(--ov-locked-gain);
+  color: #04140a;
+}
+.hud-steer {
+  position: absolute;
+  left: 52px;
+  top: 82px;
+  width: 226px;
+  height: 10px;
+}
+.hud-steer::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 4.5px;
+  height: 1px;
+  background: var(--ov-border);
+}
+.hud-steer::after {
+  content: "";
+  position: absolute;
+  left: 112.5px;
+  top: 2px;
+  width: 1px;
+  height: 6px;
+  background: var(--ov-text-muted);
+}
+.hud-steer > i {
+  position: absolute;
+  top: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ov-text);
+  box-shadow: 0 0 0 2px var(--ov-bg);
+}
+/* Proximity lines run along the capsule edge on both sides of each tab, never across it. */
+.hud-prox {
+  position: absolute;
+  width: 38px;
+  height: 3px;
+  border-radius: 2px;
+}
+.hud-prox--l {
+  left: 50px;
+}
+.hud-prox--r {
+  right: 50px;
+}
+.hud-prox--ahead {
+  top: 2px;
+}
+.hud-prox--behind {
+  bottom: 2px;
+}
+/* Gap readouts sit inside tabs that grow out of the capsule outline. */
+.hud-tab {
+  position: absolute;
+  left: 118px;
+  width: 104px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.86em;
+  font-weight: 800;
+  line-height: 1;
+}
+.hud-tab--ahead {
+  top: 28px;
+}
+.hud-tab--behind {
+  top: 146px;
+}
