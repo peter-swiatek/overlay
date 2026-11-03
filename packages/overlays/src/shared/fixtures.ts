@@ -203,6 +203,8 @@ export function fixtureFrame(input: {
       track: { trackKey: null, outlineReady: false },
       standings,
       proximity: null,
+      delta: null,
+      slowCar: null,
     },
   };
 }

@@ -10,6 +10,9 @@ const ALLOWED = new Set([
   "pure.ts",
   "calc/fuel/formulas.ts",
   "calc/fuel/types.ts",
+  "calc/delta/select.ts",
+  "calc/delta/types.ts",
+  "model/sim-state.ts",
   "model/class-colours.ts",
 ]);
 

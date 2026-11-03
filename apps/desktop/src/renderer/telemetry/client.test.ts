@@ -38,6 +38,8 @@ function frame(seq: number, patch: Partial<TelemetryFrame> = {}): TelemetryFrame
       track: { trackKey: null, outlineReady: false },
       standings: null,
       proximity: null,
+      delta: null,
+      slowCar: null,
       energy: null,
     },
     ...patch,

@@ -7,6 +7,7 @@ export type {
   Flags,
   Player,
   SessionInfo,
+  ShiftLightRpm,
   SimName,
   SimState,
   Vec3,
@@ -14,3 +15,13 @@ export type {
 export type { FuelLapUse, FuelOutputs, FuelPitWindow } from "./calc/fuel/types";
 export type { Standings, StandingsEntry, StandingsGap } from "./calc/standings/types";
 export type { Proximity, ProximityCar } from "./calc/proximity/types";
+export type {
+  BestTime,
+  DeltaOutputs,
+  DeltaReferenceKind,
+  DeltaReferenceLap,
+  DeltaReferenceMode,
+  LapCompletion,
+  LiveDelta,
+} from "./calc/delta/types";
+export type { SlowCarAhead } from "./calc/slow-car/types";

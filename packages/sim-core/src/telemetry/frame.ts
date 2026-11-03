@@ -1,6 +1,8 @@
+import type { DeltaOutputs } from "../calc/delta";
 import type { FuelOutputs } from "../calc/fuel";
 import type { GapResult } from "../calc/gaps";
 import type { Proximity } from "../calc/proximity";
+import type { SlowCarAhead } from "../calc/slow-car";
 import type { Standings } from "../calc/standings";
 import type { SimSource, SimState } from "../model";
 import { emptyDerivedTrack, type DerivedTrack } from "../track/tracker";
@@ -30,6 +32,10 @@ export interface Derived {
   proximity: Proximity | null;
   /** LMU virtual energy run through the fuel calculator in percent units; null when the car has none. */
   energy: FuelOutputs | null;
+  /** Lap delta against every available reference; null until the player has lap data. */
+  delta: DeltaOutputs | null;
+  /** Nearest slow or stopped car ahead; null when there is none or it is unknown. */
+  slowCar: SlowCarAhead | null;
 }
 
 /** What the telemetry process publishes to overlay renderers. Plain structured-cloneable data. */
@@ -51,5 +57,7 @@ export function emptyDerived(): Derived {
     standings: null,
     proximity: null,
     energy: null,
+    delta: null,
+    slowCar: null,
   };
 }
