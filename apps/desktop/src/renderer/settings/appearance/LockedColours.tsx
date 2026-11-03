@@ -51,6 +51,10 @@ export const LOCKED_GROUPS: readonly {
       ["flagBlack", "Flag black"],
     ],
   },
+  {
+    title: "Driving aids",
+    items: [["shift", "Shift light"]],
+  },
 ];
 
 /** Read-only legend: there is deliberately no input for a locked colour. */

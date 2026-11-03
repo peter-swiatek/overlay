@@ -21,4 +21,5 @@ export const LOCKED_COLOURS: Readonly<Record<LockedColourKey, string>> = Object.
   flagWhite: "#f8fafc",
   flagRed: "#dc2626",
   flagBlack: "#111111",
+  shift: "#38bdf8",
 });

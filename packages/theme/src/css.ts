@@ -35,7 +35,7 @@ export function themeToCssVars(theme: Theme): Record<string, string> {
   vars["--ov-font-weight"] = String(theme.weight);
   vars["--ov-font-size"] = theme.compact ? "12px" : "14px";
   vars["--ov-row-height"] = theme.compact ? "20px" : "24px";
-  vars["--ov-cell-pad-x"] = theme.compact ? "5px" : "8px";
+  vars["--ov-cell-pad-x"] = theme.compact ? "5px" : "7px";
   return vars;
 }
 
