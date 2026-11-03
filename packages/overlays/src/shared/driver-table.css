@@ -1,16 +1,4 @@
 /* Rows are display: contents, so these style cell content, never the row. */
-.ov-driver-number {
-  display: inline-block;
-  min-width: 100%;
-  box-sizing: border-box;
-  padding: 0 4px;
-  border-radius: 3px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .ov-info-strip {
   display: flex;
   flex-wrap: wrap;
