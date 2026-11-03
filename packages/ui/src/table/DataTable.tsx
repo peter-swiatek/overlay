@@ -9,6 +9,8 @@ export interface TableSection<Row> {
   /** Class colour (locked data colour), used as given. */
   colour: string | null;
   rows: readonly Row[];
+  /** Right side of the class band, e.g. car count and SoF. */
+  meta?: ReactNode;
 }
 
 export interface DataTableProps<Row> {
@@ -21,7 +23,13 @@ export interface DataTableProps<Row> {
   /** "Width fine-tune %", 50..150. */
   widthScalePct?: number;
   showHeader: boolean;
+  /**
+   * Only the Leaderboard, Relative, Battle Box and Garage 61 overlays mark an own row (guarded by
+   * overlays/src/own-row-scope.test.ts).
+   */
   isOwnRow?(row: Row): boolean;
+  /** Car under a local yellow or off track. */
+  isYellowRow?(row: Row): boolean;
   rowClassName?(row: Row): string | undefined;
   /** Inline style for the row element, e.g. CSS custom properties such as a class colour. */
   rowStyle?(row: Row): CSSProperties | undefined;
@@ -36,6 +44,7 @@ interface RowViewProps<Row> {
   columns: readonly TableColumn<Row>[];
   alt: boolean;
   own: boolean;
+  yellow: boolean;
   className: string | undefined;
   style: CSSProperties | undefined;
 }
@@ -54,6 +63,7 @@ function sameRowView<Row>(a: RowViewProps<Row>, b: RowViewProps<Row>): boolean {
     a.columns === b.columns &&
     a.alt === b.alt &&
     a.own === b.own &&
+    a.yellow === b.yellow &&
     a.className === b.className &&
     sameStyle(a.style, b.style)
   );
@@ -72,12 +82,30 @@ function cellContent(node: ReactNode): ReactNode {
 }
 
 /** One body row. Skips rendering while the row object, columns and row decoration are unchanged. */
-function RowViewInner<Row>({ row, columns, alt, own, className, style }: RowViewProps<Row>) {
-  const classes = ["ov-row", alt ? "ov-row--alt" : "", own ? "ov-row--own" : "", className ?? ""];
+function RowViewInner<Row>({
+  row,
+  columns,
+  alt,
+  own,
+  yellow,
+  className,
+  style,
+}: RowViewProps<Row>) {
+  const classes = [
+    "ov-row",
+    alt ? "ov-row--alt" : "",
+    own ? "ov-row--own" : "",
+    yellow ? "ov-row--yellow" : "",
+    className ?? "",
+  ];
   return (
     <div className={classes.filter(Boolean).join(" ")} style={style} role="row">
       {columns.map((column) => (
-        <div key={column.id} className={`ov-cell${alignClass(column.align)}`} role="cell">
+        <div
+          key={column.id}
+          className={`ov-cell${alignClass(column.align)}${column.cellClassName ? ` ${column.cellClassName}` : ""}`}
+          role="cell"
+        >
           {cellContent(column.render(row))}
         </div>
       ))}
@@ -91,7 +119,8 @@ const RowView = memo(RowViewInner, sameRowView) as typeof RowViewInner;
  * across rows and the cells carry the row backgrounds.
  */
 export function DataTable<Row>(props: DataTableProps<Row>): JSX.Element {
-  const { config, widthMode, showHeader, rowKey, isOwnRow, rowClassName, rowStyle } = props;
+  const { config, widthMode, showHeader, rowKey, isOwnRow, isYellowRow, rowClassName, rowStyle } =
+    props;
   const columns = useMemo(() => orderedColumns(props.columns, config), [props.columns, config]);
   const style: CSSProperties = {
     gridTemplateColumns: gridTemplate(props.columns, config, widthMode, props.widthScalePct ?? 100),
@@ -105,6 +134,7 @@ export function DataTable<Row>(props: DataTableProps<Row>): JSX.Element {
         columns={columns}
         alt={index % 2 === 1}
         own={isOwnRow?.(row) ?? false}
+        yellow={isYellowRow?.(row) ?? false}
         className={rowClassName?.(row)}
         style={rowStyle?.(row)}
       />
@@ -129,14 +159,15 @@ export function DataTable<Row>(props: DataTableProps<Row>): JSX.Element {
         ? props.sections.map((section) => (
             <div key={section.key} className="ov-section" role="rowgroup">
               <div
-                className="ov-section-bar"
+                className="ov-class-band ov-section-bar"
                 style={
                   section.colour
-                    ? ({ "--ov-section-colour": section.colour } as CSSProperties)
+                    ? ({ "--class-color": section.colour } as CSSProperties)
                     : undefined
                 }
               >
-                {section.label}
+                <span className="ov-class-tab">{section.label}</span>
+                {section.meta ? <span className="ov-class-meta">{section.meta}</span> : null}
               </div>
               {renderRows(section.rows)}
             </div>

@@ -18,6 +18,8 @@ export interface TableColumn<Row> {
   minChars?: number;
   /** Custom mode width (% of the table) when FieldConfig.widthPct is null. */
   defaultWidthPct: number;
+  /** Extra class on body cells, e.g. "ov-cell--pos". */
+  cellClassName?: string;
   render(row: Row): ReactNode;
 }
 
@@ -42,7 +44,7 @@ function round(n: number): string {
 /** The smallest track size of a column: its minimum characters plus the cell padding both sides. */
 function minTrack<Row>(column: TableColumn<Row>, scale: number): string {
   const chars = (column.minChars ?? column.chars) * scale;
-  return `calc(${round(chars)}ch + 2 * var(--ov-cell-pad-x, 8px))`;
+  return `calc(${round(chars)}ch + 2 * var(--ov-cell-pad-x, 7px))`;
 }
 
 /**
