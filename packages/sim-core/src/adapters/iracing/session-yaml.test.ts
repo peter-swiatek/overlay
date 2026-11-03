@@ -188,6 +188,91 @@ describe("mapSessionType", () => {
   });
 });
 
+describe("parseSessionYaml redline, shift lights and track usage", () => {
+  const sli = (first: string, shift: string, last: string, blink: string) =>
+    [
+      ` DriverCarRedLine: 8000.000`,
+      ` DriverCarSLFirstRPM: ${first}`,
+      ` DriverCarSLShiftRPM: ${shift}`,
+      ` DriverCarSLLastRPM: ${last}`,
+      ` DriverCarSLBlinkRPM: ${blink}`,
+    ].join("\n");
+
+  it("reads the redline and the four shift-light points", () => {
+    const info = parseSessionYaml(
+      yamlWithDrivers([], sli("5200.000", "7600.000", "7400.000", "7800.000")),
+    );
+    expect(info.redlineRpm).toBe(8000);
+    expect(info.shiftLightRpm).toEqual({
+      firstRpm: 5200,
+      shiftRpm: 7600,
+      lastRpm: 7400,
+      blinkRpm: 7800,
+    });
+  });
+
+  it("gives a null blink point for 0 and null shift lights when all are 0 or missing", () => {
+    expect(
+      parseSessionYaml(yamlWithDrivers([], sli("5200", "7600", "7400", "0"))).shiftLightRpm,
+    ).toEqual({ firstRpm: 5200, shiftRpm: 7600, lastRpm: 7400, blinkRpm: null });
+    const zero = parseSessionYaml(yamlWithDrivers([], sli("0", "0", "0", "0")));
+    expect(zero.shiftLightRpm).toBeNull();
+    const missing = parseSessionYaml(
+      yamlWithDrivers([], " DriverCarSLFirstRPM: 5200\n DriverCarSLShiftRPM: 7600"),
+    );
+    expect(missing.shiftLightRpm).toBeNull();
+    expect(missing.redlineRpm).toBeNull();
+    expect(parseSessionYaml(yamlWithDrivers([], " DriverCarRedLine: 0")).redlineRpm).toBeNull();
+  });
+
+  it("reads SessionTrackRubberState per session, trimmed, null when missing or empty", () => {
+    const text = [
+      "SessionInfo:",
+      " CurrentSessionNum: 1",
+      " Sessions:",
+      " - SessionNum: 0",
+      "   SessionType: Practice",
+      "   SessionTrackRubberState: moderate usage  ",
+      " - SessionNum: 1",
+      "   SessionType: Race",
+      "   SessionTrackRubberState:",
+      " - SessionNum: 2",
+      "   SessionType: Race",
+      "",
+    ].join("\n");
+    expect(parseSessionYaml(text).sessions.map((s) => s.trackRubberState)).toEqual([
+      "moderate usage",
+      null,
+      null,
+    ]);
+  });
+
+  it("reads the same values from every committed slice", async () => {
+    const files = [
+      "iracing-ferrari-quali-to-race-10s.ovfx",
+      "iracing-ferrari-race-start-20s.ovfx",
+      "iracing-ferrari-sf-crossing-20s.ovfx",
+    ];
+    for (const f of files) {
+      const slice = await loadSlice(`${FIXTURE_DIR}${f}`);
+      const info = parseSessionYaml(slice.yamlTexts[0] ?? "");
+      expect(info.redlineRpm).toBe(8000);
+      // The real car lights its last LED (7600) below the shift point (7700).
+      expect(info.shiftLightRpm).toEqual({
+        firstRpm: 7000,
+        shiftRpm: 7700,
+        lastRpm: 7600,
+        blinkRpm: 7950,
+      });
+      expect(info.sessions.map((x) => x.trackRubberState)).toEqual([
+        "high usage",
+        "carry over",
+        "carry over",
+      ]);
+    }
+  });
+});
+
 describe("parseSessionYaml field data (synthetic)", () => {
   const withOptions = (options: string[], driverInfo = ""): string =>
     yamlWithDrivers(driver(1, { UserName: "A" }), driverInfo).replace(
