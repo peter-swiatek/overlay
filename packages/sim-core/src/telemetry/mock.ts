@@ -35,6 +35,18 @@ const PIT_APPROACH_FROM = 0.9;
 const PIT_STALL_LAP_DIST_PCT = 0.95;
 /** Player lap-time offsets against the nominal lap, cycling every five completed laps, seconds. */
 const LAP_VARIATION_S = [0.3, -0.2, -0.5, -0.4, 0.2];
+/** Nominal player lap time, seconds; the track speed profile is scaled to take exactly this. */
+const NOMINAL_LAP_S = 100;
+/** Corners of the demo track: [lap fraction, half width, depth as a fraction of top speed]. */
+const CORNERS: readonly (readonly [number, number, number])[] = [
+  [0.12, 0.04, 0.5],
+  [0.4, 0.035, 0.32],
+  [0.62, 0.045, 0.45],
+  [0.85, 0.03, 0.22],
+];
+const PROFILE_BINS = 2000;
+/** Longitudinal acceleration (m/s^2) at which the demo brake pedal is fully pressed. */
+const BRAKE_FULL_ACCEL = 4;
 /** The demo's single unclean lap (lap 3) records this many incidents from half way through. */
 const UNCLEAN_LAP_INCIDENTS = 2;
 
@@ -62,7 +74,10 @@ export class MockSource {
 
   state(): SimState {
     const state = emptySimState("mock");
-    const distances = Array.from({ length: this.carCount }, (_, i) => this.distance(i));
+    const pose = playerPose(this.timeS, this.carCount * 0.012 * NOMINAL_LAP_S);
+    const distances = Array.from({ length: this.carCount }, (_, i) =>
+      i === 0 ? pose.lapIndex + pose.fraction : this.distance(i),
+    );
     const order = distances.map((d, i) => ({ d, i })).sort((a, b) => b.d - a.d || a.i - b.i);
     const overall = new Map(order.map((o, rank) => [o.i, rank + 1]));
     const perClass = new Map<string, number>();
@@ -106,17 +121,20 @@ export class MockSource {
     };
 
     const p = state.player;
-    p.speedMps = 40 + 15 * Math.sin(this.timeS / 3);
+    // Speed is a fixed function of lap position (the corners) scaled by this lap's pace, and the
+    // lap fraction is its integral, so lap times, deltas and speed deltas agree lap to lap.
+    p.speedMps = pose.speedMps;
     // Gear and rpm follow speed: rpm climbs 5000..8000 through each band, so the shift lights
     // and the blink are reached near the top of every gear; the clutch is pressed at a change.
     const { gear, fraction } = gearAt(p.speedMps);
     p.gear = gear;
     p.rpm = 5000 + 3000 * fraction;
+    const brake = Math.min(1, Math.max(0, -pose.accelMps2 / BRAKE_FULL_ACCEL));
     p.inputs = {
-      throttle: 0.5 + 0.5 * Math.sin(this.timeS * 1.3),
-      brake: Math.max(0, -Math.sin(this.timeS * 1.3)),
+      throttle: brake > 0 ? 0 : Math.min(1, Math.max(0, 0.55 + pose.accelMps2 / 2.5)),
+      brake,
       clutch: fraction < 0.05 ? 1 : 0,
-      steer: 0.4 * Math.sin(this.timeS / 2),
+      steer: 0.4 * steerAt(pose.fraction),
     };
     p.fuelCapacityL = FUEL_CAPACITY_L;
     p.fuelL = fuelAt(playerDistance);
@@ -129,7 +147,7 @@ export class MockSource {
     const approachingPits =
       playerFraction >= PIT_APPROACH_FROM && playerFraction < PIT_STALL_LAP_DIST_PCT;
     p.pitLimiter = approachingPits;
-    p.lap = this.playerLap(playerDistance);
+    p.lap = playerLap(pose);
     p.absActive = (p.inputs.brake ?? 0) > ABS_BRAKE_LEVEL;
     // cars[0] itself stays on track and off pit road, so fuel and standings see no stop.
     p.trackSurface = approachingPits ? "approachingPits" : "onTrack";
@@ -138,38 +156,6 @@ export class MockSource {
     p.redlineRpm = 8000;
     p.steerMaxRad = 7.85;
     return state;
-  }
-
-  /** The player's lap timing; the three delta channels are smooth sinusoids of time into the lap. */
-  private playerLap(distance: number): NonNullable<SimState["player"]["lap"]> {
-    const lapS = lapTimeOf(0);
-    const lapsCompleted = Math.floor(distance);
-    const intoS = (distance - lapsCompleted) * lapS;
-    const ok = intoS >= DELTA_SETTLE_S;
-    const channel = (amp: number, freq: number, phase: number) => ({
-      s: amp * Math.sin(freq * intoS + phase),
-      ok,
-      rate: amp * freq * Math.cos(freq * intoS + phase),
-    });
-    // Unlike cars[0] (whose lap times stay constant), the player's own lap timing varies per lap.
-    let best: number | null = null;
-    for (let lap = 1; lap <= Math.min(lapsCompleted, LAP_VARIATION_S.length); lap++) {
-      const time = lapS + (LAP_VARIATION_S[lap - 1] ?? 0);
-      best = best === null ? time : Math.min(best, time);
-    }
-    return {
-      currentLapS: intoS,
-      lastLapS:
-        lapsCompleted >= 1
-          ? lapS + (LAP_VARIATION_S[(lapsCompleted - 1) % LAP_VARIATION_S.length] ?? 0)
-          : null,
-      bestLapS: best,
-      delta: {
-        best: channel(0.35, 0.21, 0),
-        sessionBest: channel(0.6, 0.17, 1),
-        sessionLast: channel(0.25, 0.26, 2),
-      },
-    };
   }
 
   private carFlags(index: number): ReturnType<typeof emptyFlags> {
@@ -221,9 +207,141 @@ export class MockSource {
   }
 }
 
+/** 1 on the straights, dipping through each corner (compact cosine dips). */
+function shapeAt(f: number): number {
+  let dip = 0;
+  for (const [centre, half, depth] of CORNERS) {
+    const x = Math.abs(f - centre);
+    if (x < half) dip += depth * 0.5 * (1 + Math.cos((Math.PI * x) / half));
+  }
+  return 1 - dip;
+}
+
+/** Steering demand: each corner turns the wheel, alternating left and right. */
+function steerAt(f: number): number {
+  let steer = 0;
+  CORNERS.forEach(([centre, half, depth], i) => {
+    const x = Math.abs(f - centre);
+    if (x < half)
+      steer += (i % 2 === 0 ? 1 : -1) * (depth / 0.5) * 0.5 * (1 + Math.cos((Math.PI * x) / half));
+  });
+  return Math.max(-1, Math.min(1, steer));
+}
+
+/** Cumulative time over the nominal lap (profile scale 1) at each bin edge, seconds. */
+const TIME_AT_BIN: readonly number[] = (() => {
+  const raw = [0];
+  for (let i = 0; i < PROFILE_BINS; i++) {
+    const a = 1 / shapeAt(i / PROFILE_BINS);
+    const b = 1 / shapeAt((i + 1) / PROFILE_BINS);
+    raw.push((raw[i] ?? 0) + (0.5 * (a + b)) / PROFILE_BINS);
+  }
+  const total = raw[PROFILE_BINS] ?? 1;
+  return raw.map((v) => (v * NOMINAL_LAP_S) / total);
+})();
+/** Top speed such that the nominal lap takes exactly NOMINAL_LAP_S. */
+const TOP_SPEED_MPS = (() => {
+  let integral = 0;
+  for (let i = 0; i < PROFILE_BINS; i++) {
+    integral +=
+      (0.5 * (1 / shapeAt(i / PROFILE_BINS) + 1 / shapeAt((i + 1) / PROFILE_BINS))) / PROFILE_BINS;
+  }
+  return (TRACK_LENGTH_M * integral) / NOMINAL_LAP_S;
+})();
+
+/** Lap time of the player's lap `index` (0-based), seconds. */
+function playerLapTime(index: number): number {
+  return NOMINAL_LAP_S + (LAP_VARIATION_S[index % LAP_VARIATION_S.length] ?? 0);
+}
+const VARIATION_CYCLE_S = LAP_VARIATION_S.reduce((sum, v) => sum + NOMINAL_LAP_S + v, 0);
+
+/** Lap fraction reached `nominalS` seconds into a lap driven at the profile's own pace. */
+function fractionAtNominalTime(nominalS: number): number {
+  let lo = 0;
+  let hi = PROFILE_BINS;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if ((TIME_AT_BIN[mid] ?? 0) <= nominalS) lo = mid;
+    else hi = mid;
+  }
+  const t0 = TIME_AT_BIN[lo] ?? 0;
+  const t1 = TIME_AT_BIN[hi] ?? t0 + 1;
+  return Math.min(1 - 1e-12, (lo + (nominalS - t0) / (t1 - t0)) / PROFILE_BINS);
+}
+
+/** Where the player is `timeS` into the demo: a pure function of time, so replays are exact. */
+interface PlayerPose {
+  /** Completed laps. */
+  lapIndex: number;
+  /** Seconds since the start of the current lap. */
+  intoS: number;
+  /** This lap's pace factor against the nominal lap (>1 is faster). */
+  pace: number;
+  fraction: number;
+  speedMps: number;
+  accelMps2: number;
+}
+
+function playerPose(timeS: number, startIntoS: number): PlayerPose {
+  let rest = timeS + startIntoS;
+  const cycles = Math.floor(rest / VARIATION_CYCLE_S);
+  rest -= cycles * VARIATION_CYCLE_S;
+  let k = 0;
+  while (k < LAP_VARIATION_S.length - 1 && rest >= playerLapTime(k)) {
+    rest -= playerLapTime(k);
+    k++;
+  }
+  const pace = NOMINAL_LAP_S / playerLapTime(k);
+  const fraction = fractionAtNominalTime(rest * pace);
+  const speedMps = TOP_SPEED_MPS * shapeAt(fraction) * pace;
+  const h = 1e-3;
+  const slope =
+    (shapeAt(Math.min(1, fraction + h)) - shapeAt(Math.max(0, fraction - h))) /
+    (Math.min(1, fraction + h) - Math.max(0, fraction - h));
+  const accelMps2 = (speedMps * TOP_SPEED_MPS * pace * slope) / TRACK_LENGTH_M;
+  return {
+    lapIndex: cycles * LAP_VARIATION_S.length + k,
+    intoS: rest,
+    pace,
+    fraction,
+    speedMps,
+    accelMps2,
+  };
+}
+
+/**
+ * The player's lap timing. The delta channels are exact: against a reference lap of time R, a
+ * lap of time T is (T - R) / T * (seconds into the lap) behind at every point of the track.
+ */
+function playerLap(pose: PlayerPose): NonNullable<SimState["player"]["lap"]> {
+  const lapsCompleted = pose.lapIndex;
+  const lapS = playerLapTime(lapsCompleted);
+  const ok = pose.intoS >= DELTA_SETTLE_S;
+  let best: number | null = null;
+  for (let lap = 0; lap < Math.min(lapsCompleted, LAP_VARIATION_S.length); lap++) {
+    const time = playerLapTime(lap);
+    best = best === null ? time : Math.min(best, time);
+  }
+  const last = lapsCompleted >= 1 ? playerLapTime(lapsCompleted - 1) : null;
+  const channel = (reference: number | null) => {
+    const rate = (lapS - (reference ?? NOMINAL_LAP_S)) / lapS;
+    return { s: rate * pose.intoS, ok, rate };
+  };
+  return {
+    currentLapS: pose.intoS,
+    lastLapS: last,
+    bestLapS: best,
+    delta: { best: channel(best), sessionBest: channel(best), sessionLast: channel(last) },
+  };
+}
+
 function gearAt(speedMps: number): { gear: number; fraction: number } {
+  const first = GEAR_BANDS[0] ?? [25, 30, 3];
   const last = GEAR_BANDS[GEAR_BANDS.length - 1] ?? [46, 55, 6];
-  const [from, to, gear] = GEAR_BANDS.find(([lo, hi]) => speedMps >= lo && speedMps < hi) ?? last;
+  const [from, to, gear] =
+    speedMps < first[0]
+      ? first
+      : (GEAR_BANDS.find(([lo, hi]) => speedMps >= lo && speedMps < hi) ?? last);
   const fraction = Math.min(1, Math.max(0, (speedMps - from) / (to - from)));
   return { gear, fraction };
 }
