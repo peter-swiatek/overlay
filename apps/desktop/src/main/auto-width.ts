@@ -1,8 +1,9 @@
 import type { OverlayInstanceSettings, OverlayManifest } from "@overlay/overlays/contract";
 import { tableWidthsFor } from "@overlay/overlays/table-fit";
+import type { SimName } from "@overlay/sim-core/types";
 import type { TableMetrics } from "@overlay/ui/fit";
 import type { Bounds } from "../shared/types";
-import { clampToWorkArea, scaleSize } from "./layout";
+import { placeInWorkArea, scaleSize } from "./layout";
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
@@ -31,13 +32,24 @@ export function fitTarget(
   manifest: OverlayManifest,
   settings: OverlayInstanceSettings,
   metrics: TableMetrics,
+  sim: SimName | null = null,
 ): FitTarget {
-  const widths = tableWidthsFor(manifest, settings, metrics);
+  const widths = tableWidthsFor(manifest, settings, metrics, sim);
   if (!widths) return { fitWidth: null, minWidth: 0 };
   const scale = settings.common.scalePct / 100;
   return {
     fitWidth: widths.fitPx === null ? null : Math.ceil(widths.fitPx * scale),
     minWidth: Math.ceil(widths.minPx * scale),
+  };
+}
+
+/** A fit target converted from one scale to another (for stored bounds kept at an older scale). */
+export function retargetScale(target: FitTarget, fromPct: number, toPct: number): FitTarget {
+  if (!(fromPct > 0) || !(toPct > 0) || fromPct === toPct) return target;
+  const ratio = toPct / fromPct;
+  return {
+    fitWidth: target.fitWidth === null ? null : Math.ceil(target.fitWidth * ratio),
+    minWidth: Math.ceil(target.minWidth * ratio),
   };
 }
 
@@ -88,7 +100,7 @@ export function planOptionSize(input: {
   const scalePct = settings.common.scalePct;
   const scaled = scaleSize(size, scalePct);
   const min = scaleSize(manifest.minSize, scalePct);
-  const next = clampToWorkArea(
+  const next = placeInWorkArea(
     { x: bounds.x, y: bounds.y, width: scaled.width, height: scaled.height + chromePx },
     area,
     min,

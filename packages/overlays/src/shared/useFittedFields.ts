@@ -11,6 +11,9 @@ export interface FittedFields {
   hiddenIds: string[];
 }
 
+/** The probe span is this many `ch` wide (matches main's metrics probe). */
+export const PROBE_CH_COUNT = 100;
+
 interface Measure {
   widthPx: number;
   chPx: number;
@@ -47,7 +50,7 @@ export function useFittedFields(
       const pad = parseFloat(getComputedStyle(probe).getPropertyValue("--ov-cell-pad-x"));
       const next: Measure = {
         widthPx: root.clientWidth,
-        chPx: probe.offsetWidth / 10,
+        chPx: probe.offsetWidth / PROBE_CH_COUNT,
         cellPadPx: Number.isFinite(pad) ? pad : 7,
       };
       if (!(next.widthPx > 0) || !(next.chPx > 0)) return;

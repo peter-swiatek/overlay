@@ -3,7 +3,13 @@ import type { OverlayInstanceSettings, OverlayManifest } from "@overlay/overlays
 import { OVERLAY_MANIFESTS } from "@overlay/overlays/manifests";
 import { defaultInstanceSettings } from "@overlay/overlays/settings";
 import { NOMINAL_TABLE_METRICS } from "@overlay/ui/fit";
-import { fitTarget, parseTableMetrics, planAutoWidth, planOptionSize } from "./auto-width";
+import {
+  fitTarget,
+  parseTableMetrics,
+  planAutoWidth,
+  planOptionSize,
+  retargetScale,
+} from "./auto-width";
 
 const relative = OVERLAY_MANIFESTS.find((m) => m.id === "relative") as OverlayManifest;
 const inputs = OVERLAY_MANIFESTS.find((m) => !m.table) as OverlayManifest;
@@ -54,6 +60,49 @@ describe("fitTarget", () => {
       fitWidth: null,
       minWidth: 0,
     });
+  });
+});
+
+describe("fitTarget with a sim", () => {
+  const leaderboard = OVERLAY_MANIFESTS.find((m) => m.id === "leaderboard") as OverlayManifest;
+  const settings = defaultInstanceSettings(leaderboard);
+  it("drops iRacing-only columns in LMU, as the overlay does", () => {
+    const unknown = fitTarget(leaderboard, settings, NOMINAL_TABLE_METRICS);
+    const iracing = fitTarget(leaderboard, settings, NOMINAL_TABLE_METRICS, "iracing");
+    const lmu = fitTarget(leaderboard, settings, NOMINAL_TABLE_METRICS, "lmu");
+    expect(iracing).toEqual(unknown);
+    expect(lmu.fitWidth ?? 0).toBeLessThan(unknown.fitWidth ?? 0);
+  });
+});
+
+describe("retargetScale", () => {
+  it("converts a target from the current scale to the stored scale", () => {
+    expect(retargetScale({ fitWidth: 942, minWidth: 300 }, 150, 100)).toEqual({
+      fitWidth: 628,
+      minWidth: 200,
+    });
+  });
+  it("keeps a null fit and ignores equal or invalid scales", () => {
+    expect(retargetScale({ fitWidth: null, minWidth: 90 }, 150, 100)).toEqual({
+      fitWidth: null,
+      minWidth: 60,
+    });
+    const t = { fitWidth: 500, minWidth: 100 };
+    expect(retargetScale(t, 100, 100)).toBe(t);
+    expect(retargetScale(t, 0, 100)).toBe(t);
+  });
+  it("leaves a closed overlay's stored width unchanged after a scale change", () => {
+    const settings = defaultInstanceSettings(relative);
+    const at100 = fitTarget(relative, settings, NOMINAL_TABLE_METRICS);
+    const at150 = fitTarget(relative, withScale(settings, 150), NOMINAL_TABLE_METRICS);
+    const stored = retargetScale(at150, 150, 100);
+    const plan = planAutoWidth({
+      bounds: { x: 0, y: 0, width: at100.fitWidth ?? 0, height: 300 },
+      storedFitWidth: at100.fitWidth ?? undefined,
+      target: stored,
+      area,
+    });
+    expect(plan.bounds).toBeNull();
   });
 });
 
@@ -183,9 +232,10 @@ describe("planOptionSize", () => {
     const next = plan("horizontal", "vertical", { chromePx: 20, scalePct: 150 });
     expect(next.bounds).toEqual({ x: 40, y: 30, width: 720, height: 294 + 20 });
   });
-  it("clamps to the work area", () => {
+  it("moves left to stay inside the work area, keeping the size", () => {
     const next = plan("horizontal", "vertical", { b: { ...bounds, x: 1600 } });
-    expect(next.bounds?.width).toBe(320);
+    expect(next.bounds?.width).toBe(480);
+    expect(next.bounds?.x).toBe(1920 - 480);
     expect(next.sizedFor).toBe("horizontal");
   });
   it("ignores manifests without sizeByOption and unknown values", () => {

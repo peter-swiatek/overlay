@@ -13,6 +13,7 @@ import {
   initialBounds,
   isReachable,
   parseLayout,
+  placeInWorkArea,
   planWindowChanges,
   resizeBounds,
   scaleBounds,
@@ -167,10 +168,10 @@ describe("defaultBounds / initialBounds", () => {
     });
   });
 
-  it("shrinks to the work area but never below the minimum size", () => {
+  it("moves up to fit the work area, keeping the default size", () => {
     const small = { x: 0, y: 0, width: 800, height: 700 };
     const b = initialBounds(relative, undefined, 100, [small], small);
-    expect(b).toEqual({ x: 40, y: 600, width: relative.defaultSize.width, height: 140 });
+    expect(b).toEqual({ x: 40, y: 400, width: relative.defaultSize.width, height: 300 });
   });
 });
 
@@ -399,5 +400,50 @@ describe("fit width and option size bookkeeping", () => {
     });
     expect(effectiveMinSize(manifestMin, 100, { width: 400, height: 0 }, 380).width).toBe(400);
     expect(effectiveMinSize(manifestMin, 100, { width: 0, height: 0 }, 100).width).toBe(300);
+  });
+});
+
+describe("placeInWorkArea", () => {
+  const min = { width: 220, height: 120 };
+  const screen = { x: 0, y: 0, width: 1280, height: 720 };
+
+  it("keeps the size and moves a window that overhangs the right and bottom edges", () => {
+    expect(placeInWorkArea({ x: 1360, y: 560, width: 250, height: 360 }, screen, min)).toEqual({
+      x: 1030,
+      y: 360,
+      width: 250,
+      height: 360,
+    });
+  });
+  it("leaves a window that fits alone", () => {
+    const b = { x: 100, y: 100, width: 300, height: 200 };
+    expect(placeInWorkArea(b, screen, min)).toEqual(b);
+  });
+  it("shrinks only when the size exceeds the area, never below the minimum", () => {
+    expect(placeInWorkArea({ x: 50, y: 50, width: 2000, height: 100 }, screen, min)).toEqual({
+      x: 0,
+      y: 50,
+      width: 1280,
+      height: 100,
+    });
+    const tiny = { x: 0, y: 0, width: 200, height: 100 };
+    expect(placeInWorkArea({ x: 150, y: 10, width: 300, height: 100 }, tiny, min).width).toBe(220);
+  });
+  it("respects a work area that does not start at the origin", () => {
+    const area = { x: 1920, y: 40, width: 1280, height: 720 };
+    expect(placeInWorkArea({ x: 3000, y: 700, width: 500, height: 300 }, area, min)).toEqual({
+      x: 2700,
+      y: 460,
+      width: 500,
+      height: 300,
+    });
+  });
+  it("keeps the Fuel default size on a 1280 wide screen", () => {
+    const fuel = manifest("fuel");
+    const b = defaultBounds(fuel, 100, screen);
+    expect(b.width).toBe(fuel.defaultSize.width);
+    expect(b.x + b.width).toBeLessThanOrEqual(screen.width);
+    expect(b.y + b.height).toBeLessThanOrEqual(screen.height);
+    expect(initialBounds(fuel, undefined, 100, [screen], screen)).toEqual(b);
   });
 });

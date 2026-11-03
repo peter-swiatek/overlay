@@ -79,6 +79,11 @@ describe("pitSpeedView", () => {
     expect(pitSpeedView(f).speedMps).toBe(21);
   });
 
+  it("has no bar for a zero limit", () => {
+    const v = pitSpeedView(frame({ limit: 0 }));
+    expect(v.fillFraction).toBeNull();
+  });
+
   it("has no limit, state or bar when the sim reports none", () => {
     const v = pitSpeedView(frame({ limit: null }));
     expect(v.limitMps).toBeNull();

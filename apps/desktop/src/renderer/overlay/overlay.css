@@ -75,7 +75,8 @@ body,
   visibility: hidden;
   pointer-events: none;
   display: block;
-  width: auto;
+  width: 0;
+  overflow: hidden;
 }
 .ov-metrics-ch {
   display: inline-block;

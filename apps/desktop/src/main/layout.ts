@@ -90,11 +90,15 @@ export function defaultBounds(
   scalePct: number,
   primaryWorkArea: Bounds,
 ): Bounds {
-  return {
-    x: primaryWorkArea.x + manifest.defaultPosition.x,
-    y: primaryWorkArea.y + manifest.defaultPosition.y,
-    ...scaleSize(manifest.defaultSize, scalePct),
-  };
+  return placeInWorkArea(
+    {
+      x: primaryWorkArea.x + manifest.defaultPosition.x,
+      y: primaryWorkArea.y + manifest.defaultPosition.y,
+      ...scaleSize(manifest.defaultSize, scalePct),
+    },
+    primaryWorkArea,
+    scaleSize(manifest.minSize, scalePct),
+  );
 }
 
 /** Stored bounds while still on a screen, otherwise the defaults; never below the scaled minimum. */
@@ -111,7 +115,7 @@ export function initialBounds(
       ? { ...stored, ...clampSize(stored, min) }
       : defaultBounds(manifest, scalePct, primaryWorkArea);
   const area = workAreas.find((a) => isReachable(bounds, [a])) ?? primaryWorkArea;
-  return clampToWorkArea(bounds, area, min);
+  return placeInWorkArea(bounds, area, min);
 }
 
 /**
@@ -187,6 +191,19 @@ export function clampToWorkArea(bounds: Bounds, area: Bounds, min: Size): Bounds
     width: Math.min(bounds.width, maxWidth),
     height: Math.min(bounds.height, maxHeight),
   };
+}
+
+/**
+ * Fits bounds inside the work area: keeps the size and moves the window left/up when it overhangs
+ * the right/bottom edge, and only shrinks (never below the minimum) when the size itself exceeds
+ * the area. Positions left of or above the area are moved in too.
+ */
+export function placeInWorkArea(bounds: Bounds, area: Bounds, min: Size): Bounds {
+  const width = Math.min(bounds.width, Math.max(min.width, area.width));
+  const height = Math.min(bounds.height, Math.max(min.height, area.height));
+  const x = Math.max(area.x, Math.min(bounds.x, area.x + area.width - width));
+  const y = Math.max(area.y, Math.min(bounds.y, area.y + area.height - height));
+  return { ...bounds, x, y, width, height };
 }
 
 /** True when at least a 40x40 corner of the window lies inside one of the work areas. */

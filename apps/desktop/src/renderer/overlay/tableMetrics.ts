@@ -32,9 +32,14 @@ export function metricsChanged(prev: TableMetrics | null, next: TableMetrics): b
   );
 }
 
+/** Calls `fn` once the document's fonts have loaded (or failed to), at once when there is no font API. */
+export function whenFontsReady(doc: { fonts?: { ready: Promise<unknown> } }, fn: () => void): void {
+  if (doc.fonts?.ready) void doc.fonts.ready.then(fn, fn);
+  else fn();
+}
+
 /**
- * Measures the table font from the hidden probe at `ref` (on mount, every 500 ms and when fonts
- * finish loading) and reports it to main whenever it changes. The probe sits outside the zoom
+ * Measures the table font from the hidden probe at `ref` (once fonts have loaded, then every 500 ms) and reports it to main whenever it changes. The probe sits outside the zoom
  * wrapper, so the values are at zoom 1.
  */
 export function useReportTableMetrics(ref: RefObject<HTMLElement | null>): void {
@@ -50,9 +55,18 @@ export function useReportTableMetrics(ref: RefObject<HTMLElement | null>): void 
       last = metrics;
       window.overlayApi.reportTableMetrics(metrics);
     };
-    check();
-    const timer = window.setInterval(check, METRICS_INTERVAL_MS);
-    void document.fonts?.ready.then(check);
-    return () => window.clearInterval(timer);
+    let timer: number | undefined;
+    let alive = true;
+    // Report only once the fonts are loaded, so the fallback font never causes a first resize.
+    const start = (): void => {
+      if (!alive) return;
+      check();
+      timer = window.setInterval(check, METRICS_INTERVAL_MS);
+    };
+    whenFontsReady(document, start);
+    return () => {
+      alive = false;
+      if (timer !== undefined) window.clearInterval(timer);
+    };
   }, [ref]);
 }

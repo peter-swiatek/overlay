@@ -88,7 +88,7 @@ export function pitSpeedView(frame: TelemetryFrame | null): PitSpeedView {
     overMps: diff === null ? null : round(diff, 0.1),
     state: diff === null ? null : diff > OVER_TOLERANCE_MPS ? "over" : "under",
     fillFraction:
-      rawSpeed === null || limitMps === null
+      rawSpeed === null || limitMps === null || limitMps <= 0
         ? null
         : round(Math.max(0, Math.min(1, rawSpeed / limitMps)), 0.01),
     limiterOn: player.pitLimiter,

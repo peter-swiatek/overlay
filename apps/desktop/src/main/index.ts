@@ -349,6 +349,9 @@ if (!app.requestSingleInstanceLock()) {
       },
       onStatusChange: (status) => {
         broadcast(IPC.telemetryStatusChanged, status);
+        overlays?.setActiveSim(
+          status.source === "iracing" || status.source === "lmu" ? status.source : null,
+        );
         if (
           shouldMinimiseOnConnect({
             previous: lastTelemetryStatus,
