@@ -87,6 +87,8 @@ export function parseSessionYaml(text: string): IracingSessionInfo {
     pitSpeedLimitMps: speedToMps(str(weekend["TrackPitSpeedLimit"])),
     incidentLimit: incidentLimit(asDict(weekend["WeekendOptions"])["IncidentLimit"]),
     pitStallLapDistPct: fraction(driver["DriverPitTrkPct"]),
+    redlineRpm: positive(driver["DriverCarRedLine"]),
+    shiftLightRpm: shiftLights(driver),
     currentSessionNum: int(session["CurrentSessionNum"]),
     sessions: asArray(session["Sessions"]).flatMap((s) => {
       const parsed = extractSession(asDict(s));
@@ -182,6 +184,7 @@ function extractSession(s: Dict): IracingSessionEntry | null {
     type: typeName === null ? null : mapSessionType(typeName),
     lapsLimit: int(s["SessionLaps"]),
     timeLimitS: quantity(str(s["SessionTime"]))?.value ?? null,
+    trackRubberState: str(trimmed(s["SessionTrackRubberState"])),
   };
 }
 
@@ -216,6 +219,27 @@ function extractDriver(d: Dict): IracingDriver | null {
 function incidentLimit(value: unknown): number | null {
   const n = int(value);
   return n === null || n <= 0 ? null : n;
+}
+
+/** A finite number above zero; missing, zero and negative are null. */
+function positive(value: unknown): number | null {
+  const n = num(value);
+  return n === null || n <= 0 ? null : n;
+}
+
+function trimmed(value: unknown): string | null {
+  return typeof value === "string" ? value.trim() : null;
+}
+
+/** The SLI points; null when first, shift or last is missing, or when all four are 0. */
+function shiftLights(driver: Dict): ShiftLightRpm | null {
+  const firstRpm = num(driver["DriverCarSLFirstRPM"]);
+  const shiftRpm = num(driver["DriverCarSLShiftRPM"]);
+  const lastRpm = num(driver["DriverCarSLLastRPM"]);
+  if (firstRpm === null || shiftRpm === null || lastRpm === null) return null;
+  const blink = positive(driver["DriverCarSLBlinkRPM"]);
+  if (firstRpm <= 0 && shiftRpm <= 0 && lastRpm <= 0 && blink === null) return null;
+  return { firstRpm, shiftRpm, lastRpm, blinkRpm: blink };
 }
 
 function fraction(value: unknown): number | null {
