@@ -14,7 +14,7 @@
   --ov-font-weight: 500;
   --ov-font-size: 14px;
   --ov-row-height: 24px;
-  --ov-cell-pad-x: 8px;
+  --ov-cell-pad-x: 7px;
   --ov-locked-gain: #22c55e;
   --ov-locked-loss: #ef4444;
   --ov-locked-fastest: #a855f7;
@@ -34,6 +34,7 @@
   --ov-locked-flag-white: #f8fafc;
   --ov-locked-flag-red: #dc2626;
   --ov-locked-flag-black: #111111;
+  --ov-locked-shift: #38bdf8;
 }
 
 :root[data-compact="true"] {

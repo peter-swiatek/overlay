@@ -221,6 +221,9 @@ describe("AppearanceForm", () => {
       expect(html).toContain(`data-key="${key}"`);
       expect(html).toContain(`<code>${LOCKED_COLOURS[key]}</code>`);
     }
+    expect(html).toContain("Driving aids");
+    expect(html).toContain("Shift light");
+    expect(html).toContain("<code>#38bdf8</code>");
     const locked = html.slice(html.indexOf("Locked colours"));
     expect(locked).not.toContain("<input");
     expect(locked).toContain("Class colours come from the sim and are locked too.");

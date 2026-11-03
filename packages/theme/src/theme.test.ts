@@ -124,8 +124,14 @@ describe("locked colours", () => {
         "loss": "#ef4444",
         "rejoinRed": "#ef4444",
         "rejoinYellow": "#facc15",
+        "shift": "#38bdf8",
       }
     `);
+  });
+
+  it("has 20 locked keys with shift last", () => {
+    expect(LOCKED_COLOUR_KEYS).toHaveLength(20);
+    expect(LOCKED_COLOUR_KEYS[LOCKED_COLOUR_KEYS.length - 1]).toBe("shift");
   });
 
   it("is frozen and has every key", () => {
@@ -139,6 +145,7 @@ describe("locked colours", () => {
     expect(vars["--ov-locked-licence-pro"]).toBe("#1a1a1a");
     expect(vars["--ov-locked-flag-blue"]).toBe("#2563eb");
     expect(vars["--ov-locked-gain"]).toBe("#22c55e");
+    expect(vars["--ov-locked-shift"]).toBe("#38bdf8");
   });
 });
 
@@ -194,8 +201,9 @@ describe("sanitizeTheme", () => {
     const r = sanitizeTheme({
       ...valid,
       gain: "#000000",
-      lockedColours: { gain: "#000000" },
-      tokens: { ...valid.tokens, gain: "#000000", nested: { loss: "#000000" } },
+      lockedColours: { gain: "#000000", shift: "#000000" },
+      shift: "#000000",
+      tokens: { ...valid.tokens, gain: "#000000", shift: "#000000", nested: { loss: "#000000" } },
     });
     expect(r).toEqual({ ok: true, theme: valid });
   });
@@ -269,8 +277,9 @@ describe("share code", () => {
     const json = JSON.stringify({
       ...graphite,
       gain: "#000000",
-      lockedColours: { gain: "#000000", loss: "#000000" },
-      tokens: { ...graphite.tokens, gain: "#000000" },
+      lockedColours: { gain: "#000000", loss: "#000000", shift: "#000000" },
+      shift: "#000000",
+      tokens: { ...graphite.tokens, gain: "#000000", shift: "#000000" },
     });
     const bytes = new TextEncoder().encode(json);
     const b64 = btoa(String.fromCharCode(...bytes))
@@ -341,7 +350,7 @@ describe("css variables", () => {
     expect([vars["--ov-font-size"], vars["--ov-row-height"], vars["--ov-cell-pad-x"]]).toEqual([
       "14px",
       "24px",
-      "8px",
+      "7px",
     ]);
     const compact = themeToCssVars({ ...graphite, compact: true, font: "barlow-condensed" });
     expect([
@@ -350,6 +359,11 @@ describe("css variables", () => {
       compact["--ov-cell-pad-x"],
     ]).toEqual(["12px", "20px", "5px"]);
     expect(compact["--ov-font-family"]).toContain('"Barlow Condensed"');
+  });
+
+  it("pins the default and compact cell padding", () => {
+    expect(themeToCssVars(graphite)["--ov-cell-pad-x"]).toBe("7px");
+    expect(themeToCssVars({ ...graphite, compact: true })["--ov-cell-pad-x"]).toBe("5px");
   });
 
   it("never carries a locked variable", () => {
@@ -377,5 +391,18 @@ describe("resolveFunctionalColour and contrastRatio", () => {
       contrastRatio("#808080", "#000000"),
       5,
     );
+  });
+});
+
+describe("preset own-row colours", () => {
+  it("keeps every preset's own-row value", () => {
+    expect(Object.fromEntries(THEME_PRESETS.map((t) => [t.id, t.tokens.ownRow]))).toEqual({
+      graphite: "#ffc40047",
+      midnight: "#5b8cff40",
+      carbon: "#ff7a1a40",
+      paddock: "#2dd4bf3d",
+      glacier: "#0369a133",
+      aurora: "#f472b640",
+    });
   });
 });

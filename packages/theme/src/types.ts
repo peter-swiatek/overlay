@@ -59,5 +59,6 @@ export const LOCKED_COLOUR_KEYS = [
   "flagWhite",
   "flagRed",
   "flagBlack",
+  "shift",
 ] as const;
 export type LockedColourKey = (typeof LOCKED_COLOUR_KEYS)[number];
