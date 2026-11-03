@@ -12,6 +12,7 @@ import {
 import type { BestLapStore } from "../calc/delta";
 import { MiniSectorRecorder, RollingLapTimes, relativeGap, type GapCarTick } from "../calc/gaps";
 import { ProximityTracker } from "../calc/proximity";
+import { SlowCarDetector } from "../calc/slow-car";
 import { StandingsTracker, type StandingsInputs } from "../calc/standings";
 import type { Car, SessionPhase, SessionType, SimState } from "../model";
 import { TrackTracker, trackKeyOf, type TrackOutline, type TrackOutlineStore } from "../track";
@@ -46,6 +47,7 @@ export class Deriver {
   private lastTickS: number | null = null;
   private readonly standings = new StandingsTracker();
   private readonly proximity = new ProximityTracker();
+  private readonly slowCars = new SlowCarDetector();
 
   private readonly classIndices = new Map<string, number>();
 
@@ -70,6 +72,7 @@ export class Deriver {
     this.lastTickS = null;
     this.standings.reset();
     this.proximity.reset();
+    this.slowCars.reset();
     this.track.reset();
     this.classIndices.clear();
   }
@@ -123,7 +126,7 @@ export class Deriver {
       standings: this.standings.next(state, this.standingsInputs()),
       proximity: this.proximity.next(state),
       delta: null,
-      slowCar: null,
+      slowCar: this.slowCars.next(state),
       energy: this.updateEnergy(state, player, tickS),
     };
   }
