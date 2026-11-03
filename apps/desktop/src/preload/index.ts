@@ -40,6 +40,7 @@ const api: OverlayApi = {
   },
   resizeBy: (dx, dy) => ipcRenderer.send(IPC.resizeBy, dx, dy),
   reportContentMinSize: (size) => ipcRenderer.send(IPC.contentMinSize, size),
+  reportTableMetrics: (metrics) => ipcRenderer.send(IPC.tableMetrics, metrics),
   getCaptureStatus: () => ipcRenderer.invoke(IPC.getCaptureStatus),
   onCaptureStatus: (callback) => {
     const listener = (_event: unknown, status: Parameters<typeof callback>[0]): void =>

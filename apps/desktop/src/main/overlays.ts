@@ -1,11 +1,14 @@
 import { BrowserWindow, screen } from "electron";
 import type { OverlayInstanceSettings, OverlayManifest } from "@overlay/overlays/contract";
-import { IPC, type Size } from "../shared/types";
+import type { TableMetrics } from "@overlay/ui/fit";
+import { IPC, type Bounds, type Size } from "../shared/types";
+import { fitTarget, parseTableMetrics, planAutoWidth, planOptionSize } from "./auto-width";
 import {
   clampToWorkArea,
   effectiveMinSize,
   growToMin,
   initialBounds,
+  isReachable,
   parseContentMin,
   planWindowChanges,
   resizeBounds,
@@ -15,6 +18,7 @@ import {
   scaleSize,
   TITLE_BAR_PX,
   type Layout,
+  type StoredBounds,
 } from "./layout";
 import type { LayoutStore } from "./layout-store";
 import type { OverlaySettingsStore } from "./overlay-settings-store";
@@ -42,6 +46,10 @@ interface OpenOverlay {
   scalePct: number;
   /** The smallest size the content reported it needs (window DIPs); zero until it reports. */
   contentMin: Size;
+  /** The table font this window last reported (table overlays only). */
+  metrics: TableMetrics | null;
+  /** Window minimum width (DIPs at scalePct) from the never-hidden columns; 0 until known. */
+  tableMinWidth: number;
 }
 
 function minArgs(size: Size): [number, number] {
@@ -57,6 +65,8 @@ export class OverlayManager {
   /** In-memory enabled states that win over the stored settings (never saved); null when off. */
   private enabledOverride: Record<string, boolean> | null = null;
   private saveTimer: NodeJS.Timeout | undefined;
+  /** The newest table font report from any window (all windows share the theme). */
+  private lastMetrics: TableMetrics | null = null;
   /** Asks the z-order keeper to re-raise the overlays (never activates them). */
   onShouldRaise: (() => void) | undefined;
 
@@ -151,7 +161,129 @@ export class OverlayManager {
     } else if (!enabled && current) {
       this.close(id);
     } else if (current && current.scalePct !== settings.common.scalePct) {
-      this.rescale(current, settings.common.scalePct);
+      this.rescale(current, settings);
+    }
+    if (this.open.has(id) || this.layout[id]) {
+      this.applyFit(id);
+      this.applyOptionSize(id);
+    }
+  }
+
+  /** Writes new bounds for an overlay, keeping its recorded fit width and option size. */
+  private store(id: string, bounds: Bounds, scalePct: number): void {
+    const prev = this.layout[id];
+    const next: StoredBounds = { ...bounds, scalePct };
+    if (prev?.fitWidth !== undefined) next.fitWidth = prev.fitWidth;
+    if (prev?.sizedFor !== undefined) next.sizedFor = prev.sizedFor;
+    this.layout[id] = next;
+  }
+
+  private metricsFor(id: string): TableMetrics | null {
+    return this.open.get(id)?.metrics ?? this.lastMetrics;
+  }
+
+  private chromeFor(id: string): number {
+    return this.effectiveSettings()[id]?.common.showTitleBar ? TITLE_BAR_PX : 0;
+  }
+
+  /**
+   * Follows the column fit: when the fit width changed since it was last applied, sets the window
+   * (or the stored bounds of a closed overlay) to it. Also raises the window minimum.
+   */
+  private applyFit(id: string): void {
+    const manifest = this.deps.manifests.find((m) => m.id === id);
+    const settings = this.effectiveSettings()[id];
+    const metrics = this.metricsFor(id);
+    if (!manifest?.table || !settings || !metrics) return;
+    const target = fitTarget(manifest, settings, metrics);
+    const entry = this.open.get(id);
+    const prevFit = this.layout[id]?.fitWidth;
+    if (entry && !entry.win.isDestroyed()) {
+      entry.tableMinWidth = target.minWidth;
+      const min = effectiveMinSize(
+        manifest.minSize,
+        entry.scalePct,
+        entry.contentMin,
+        target.minWidth,
+      );
+      entry.win.setMinimumSize(...minArgs(min));
+      const bounds = entry.win.getBounds();
+      const plan = planAutoWidth({
+        bounds,
+        storedFitWidth: prevFit,
+        target,
+        area: screen.getDisplayMatching(bounds).workArea,
+      });
+      if (plan.bounds) entry.win.setBounds(plan.bounds);
+      this.store(id, plan.bounds ?? bounds, entry.scalePct);
+      const stored = this.layout[id];
+      if (stored && plan.fitWidth !== undefined) stored.fitWidth = plan.fitWidth;
+      if (plan.bounds || plan.fitWidth !== prevFit) this.scheduleSave();
+      return;
+    }
+    const stored = this.layout[id];
+    if (!stored) return;
+    const plan = planAutoWidth({
+      bounds: stored,
+      storedFitWidth: prevFit,
+      target,
+      area: screen.getDisplayMatching(stored).workArea,
+    });
+    if (plan.bounds || plan.fitWidth !== prevFit) {
+      const next: StoredBounds = { ...stored, ...(plan.bounds ?? {}) };
+      if (plan.fitWidth !== undefined) next.fitWidth = plan.fitWidth;
+      this.layout[id] = next;
+      this.scheduleSave();
+    }
+  }
+
+  /** Resizes a sizeByOption overlay (Fuel Calculator) when its layout option changed. */
+  private applyOptionSize(id: string): void {
+    const manifest = this.deps.manifests.find((m) => m.id === id);
+    const settings = this.effectiveSettings()[id];
+    if (!manifest?.sizeByOption || !settings) return;
+    const entry = this.open.get(id);
+    const stored = this.layout[id];
+    const live = entry && !entry.win.isDestroyed() ? entry.win : undefined;
+    const bounds = live?.getBounds() ?? stored;
+    if (!bounds) return;
+    const plan = planOptionSize({
+      manifest,
+      settings,
+      sizedFor: stored?.sizedFor,
+      bounds,
+      area: screen.getDisplayMatching(bounds).workArea,
+      chromePx: this.chromeFor(id),
+    });
+    if (plan.bounds) {
+      live?.setBounds(plan.bounds);
+      this.store(id, plan.bounds, entry?.scalePct ?? settings.common.scalePct);
+    }
+    const now = this.layout[id];
+    if (now && now.sizedFor !== plan.sizedFor) {
+      if (plan.sizedFor === undefined) delete now.sizedFor;
+      else now.sizedFor = plan.sizedFor;
+      this.scheduleSave();
+    } else if (plan.bounds) {
+      this.scheduleSave();
+    }
+  }
+
+  /** Handles an overlay window's table font report: refits it and any closed table overlay. */
+  setTableMetricsFromSender(sender: Electron.WebContents, payload: unknown): void {
+    const metrics = parseTableMetrics(payload);
+    const id = this.idOfSender(sender);
+    const entry = id === undefined ? undefined : this.open.get(id);
+    if (!metrics || id === undefined || !entry) return;
+    const prev = this.lastMetrics;
+    entry.metrics = metrics;
+    this.lastMetrics = metrics;
+    this.applyFit(id);
+    if (prev?.chPx === metrics.chPx && prev.cellPadPx === metrics.cellPadPx) return;
+    for (const manifest of this.deps.manifests) {
+      if (manifest.table && manifest.id !== id && !this.open.has(manifest.id)) {
+        this.applyFit(manifest.id);
+      }
     }
   }
 
@@ -169,11 +301,43 @@ export class OverlayManager {
             ...scaleBounds(stored, stored.scalePct, scalePct, manifest.minSize),
           }
         : stored;
-    const bounds = initialBounds(manifest, sized, scalePct, workAreas, primary);
-    this.layout[id] = { ...bounds, scalePct };
+    let bounds = initialBounds(manifest, sized, scalePct, workAreas, primary);
+    const spec = manifest.sizeByOption;
+    const optionValue = spec ? settings.options[spec.key] : undefined;
+    const optionSize =
+      spec && typeof optionValue === "string" ? spec.sizes[optionValue] : undefined;
+    if (optionSize && !stored) {
+      // First use: open at the size of the layout option's current value.
+      const scaled = scaleSize(optionSize, scalePct);
+      const chrome = settings.common.showTitleBar ? TITLE_BAR_PX : 0;
+      bounds = clampToWorkArea(
+        { ...bounds, width: scaled.width, height: scaled.height + chrome },
+        workAreas.find((a) => isReachable(bounds, [a])) ?? primary,
+        scaleSize(manifest.minSize, scalePct),
+      );
+    }
+    const layoutEntry: StoredBounds = { ...bounds, scalePct };
+    if (sized?.fitWidth !== undefined) layoutEntry.fitWidth = sized.fitWidth;
+    if (sized?.sizedFor !== undefined) layoutEntry.sizedFor = sized.sizedFor;
+    else if (optionSize && !stored && typeof optionValue === "string") {
+      layoutEntry.sizedFor = optionValue;
+    }
+    if (stored && stored.scalePct !== scalePct && layoutEntry.fitWidth !== undefined) {
+      // The fit was recorded at the old scale; re-record it at this one (no resize).
+      const target = this.lastMetrics ? fitTarget(manifest, settings, this.lastMetrics) : null;
+      if (target?.fitWidth != null) layoutEntry.fitWidth = target.fitWidth;
+    }
+    this.layout[id] = layoutEntry;
 
     const win = new BrowserWindow(buildOverlayWindowOptions({ bounds, preloadPath }));
-    this.open.set(id, { win, manifest, scalePct, contentMin: { width: 0, height: 0 } });
+    this.open.set(id, {
+      win,
+      manifest,
+      scalePct,
+      contentMin: { width: 0, height: 0 },
+      metrics: null,
+      tableMinWidth: 0,
+    });
     win.setMinimumSize(...minArgs(scaleSize(manifest.minSize, scalePct)));
     win.setAlwaysOnTop(true, "screen-saver");
     win.setVisibleOnAllWorkspaces(true);
@@ -185,7 +349,7 @@ export class OverlayManager {
 
     const remember = (): void => {
       if (win.isDestroyed()) return;
-      this.layout[id] = { ...win.getBounds(), scalePct: this.open.get(id)?.scalePct ?? scalePct };
+      this.store(id, win.getBounds(), this.open.get(id)?.scalePct ?? scalePct);
       this.scheduleSave();
     };
     win.on("moved", remember);
@@ -195,6 +359,7 @@ export class OverlayManager {
       if (this.open.get(id)?.win === win) this.open.delete(id);
     });
 
+    this.applyFit(id);
     void loadPage(win, "overlay", { id });
     win.once("ready-to-show", () => {
       if (this.visible) {
@@ -210,14 +375,15 @@ export class OverlayManager {
     if (!entry) return;
     this.open.delete(id);
     if (!entry.win.isDestroyed()) {
-      this.layout[id] = { ...entry.win.getBounds(), scalePct: entry.scalePct };
+      this.store(id, entry.win.getBounds(), entry.scalePct);
       entry.win.close();
     }
     this.flushSave();
     this.deps.onStateChange();
   }
 
-  private rescale(entry: OpenOverlay, toPct: number): void {
+  private rescale(entry: OpenOverlay, settings: OverlayInstanceSettings): void {
+    const toPct = settings.common.scalePct;
     const { win, manifest } = entry;
     if (win.isDestroyed()) return;
     const current = win.getBounds();
@@ -228,7 +394,12 @@ export class OverlayManager {
       : 0;
     // The reported content minimum was measured at the old scale; it is re-measured shortly.
     entry.contentMin = scaleContentMin(entry.contentMin, (toPct / entry.scalePct) * 100, chrome);
-    const min = effectiveMinSize(manifest.minSize, toPct, entry.contentMin);
+    const metrics = this.metricsFor(manifest.id);
+    const target = metrics ? fitTarget(manifest, settings, metrics) : null;
+    entry.tableMinWidth = target
+      ? target.minWidth
+      : Math.round((entry.tableMinWidth * toPct) / entry.scalePct);
+    const min = effectiveMinSize(manifest.minSize, toPct, entry.contentMin, entry.tableMinWidth);
     const next = clampToWorkArea(
       growToMin(
         scaleBoundsWithChrome(current, entry.scalePct, toPct, manifest.minSize, chrome),
@@ -241,7 +412,10 @@ export class OverlayManager {
     entry.scalePct = toPct;
     win.setMinimumSize(...minArgs(min));
     win.setBounds(next);
-    this.layout[manifest.id] = { ...next, scalePct: toPct };
+    this.store(manifest.id, next, toPct);
+    // Record the fit at the new scale so a later unrelated change does not refit.
+    const stored = this.layout[manifest.id];
+    if (stored && target?.fitWidth != null) stored.fitWidth = target.fitWidth;
     this.scheduleSave();
   }
 
@@ -289,12 +463,17 @@ export class OverlayManager {
     const id = this.idOfSender(sender);
     const entry = id === undefined ? undefined : this.open.get(id);
     if (id === undefined || !entry || entry.win.isDestroyed()) return;
-    const min = effectiveMinSize(entry.manifest.minSize, entry.scalePct, entry.contentMin);
+    const min = effectiveMinSize(
+      entry.manifest.minSize,
+      entry.scalePct,
+      entry.contentMin,
+      entry.tableMinWidth,
+    );
     const current = entry.win.getBounds();
     const area = screen.getDisplayMatching(current).workArea;
     const next = clampToWorkArea(resizeBounds(current, dx, dy, min), area, min);
     entry.win.setBounds(next);
-    this.layout[id] = { ...next, scalePct: entry.scalePct };
+    this.store(id, next, entry.scalePct);
     this.scheduleSave();
   }
 
@@ -305,14 +484,19 @@ export class OverlayManager {
     const entry = id === undefined ? undefined : this.open.get(id);
     if (!reported || id === undefined || !entry || entry.win.isDestroyed()) return;
     entry.contentMin = reported;
-    const min = effectiveMinSize(entry.manifest.minSize, entry.scalePct, reported);
+    const min = effectiveMinSize(
+      entry.manifest.minSize,
+      entry.scalePct,
+      reported,
+      entry.tableMinWidth,
+    );
     entry.win.setMinimumSize(...minArgs(min));
     const current = entry.win.getBounds();
     if (current.width >= min.width && current.height >= min.height) return;
     const area = screen.getDisplayMatching(current).workArea;
     const next = growToMin(current, min, area);
     entry.win.setBounds(next);
-    this.layout[id] = { ...next, scalePct: entry.scalePct };
+    this.store(id, next, entry.scalePct);
     this.scheduleSave();
   }
 

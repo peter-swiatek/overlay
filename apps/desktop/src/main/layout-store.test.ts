@@ -350,3 +350,51 @@ describe("title bar chrome when rescaling", () => {
     expect(scaleContentMin({ width: 300, height: 0 }, 50, 20)).toEqual({ width: 150, height: 0 });
   });
 });
+
+describe("fit width and option size bookkeeping", () => {
+  it("keeps a finite positive fitWidth and a string sizedFor", () => {
+    const layout = parseLayout(
+      {
+        relative: { x: 1, y: 2, width: 300, height: 200, fitWidth: 455, sizedFor: "horizontal" },
+      },
+      OVERLAY_MANIFESTS,
+    );
+    expect(layout["relative"]).toEqual({
+      x: 1,
+      y: 2,
+      width: 300,
+      height: 200,
+      scalePct: 100,
+      fitWidth: 455,
+      sizedFor: "horizontal",
+    });
+  });
+
+  it("drops junk fitWidth and sizedFor", () => {
+    for (const junk of [0, -4, Number.NaN, null, {}]) {
+      const layout = parseLayout(
+        { relative: { x: 1, y: 2, width: 300, height: 200, fitWidth: junk, sizedFor: junk } },
+        OVERLAY_MANIFESTS,
+      );
+      expect(layout["relative"]).toEqual({ x: 1, y: 2, width: 300, height: 200, scalePct: 100 });
+    }
+  });
+
+  it("round-trips through the store", () => {
+    const store = new LayoutStore(join(dir, "layout.json"));
+    store.save({
+      relative: { x: 5, y: 6, width: 480, height: 300, scalePct: 100, fitWidth: 455.5 },
+    });
+    expect(store.load(OVERLAY_MANIFESTS)["relative"]?.fitWidth).toBe(455.5);
+  });
+
+  it("effectiveMinSize folds the table minimum into the width", () => {
+    const manifestMin = { width: 300, height: 160 };
+    expect(effectiveMinSize(manifestMin, 100, { width: 0, height: 0 }, 380)).toEqual({
+      width: 380,
+      height: 160,
+    });
+    expect(effectiveMinSize(manifestMin, 100, { width: 400, height: 0 }, 380).width).toBe(400);
+    expect(effectiveMinSize(manifestMin, 100, { width: 0, height: 0 }, 100).width).toBe(300);
+  });
+});

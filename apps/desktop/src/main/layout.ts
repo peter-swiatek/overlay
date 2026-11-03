@@ -4,6 +4,10 @@ import type { Bounds, Size } from "../shared/types";
 /** Bounds plus the scale (percent) they were sized for. M1 entries have no scale and mean 100. */
 export interface StoredBounds extends Bounds {
   scalePct: number;
+  /** Window width (DIPs, at scalePct) the column fit last set or recorded; absent before the first fit. */
+  fitWidth?: number;
+  /** Value of the manifest's sizeByOption option the size was last set for. */
+  sizedFor?: string;
 }
 
 /** Bounds of every overlay the user has placed, keyed by manifest id. */
@@ -44,7 +48,12 @@ function parseBounds(value: unknown): StoredBounds | undefined {
   );
   const pct = v["scalePct"];
   const scalePct = isFiniteNumber(pct) && pct > 0 ? pct : 100;
-  return { x: Math.round(v["x"]), y: Math.round(v["y"]), ...size, scalePct };
+  const stored: StoredBounds = { x: Math.round(v["x"]), y: Math.round(v["y"]), ...size, scalePct };
+  const fitWidth = v["fitWidth"];
+  if (isFiniteNumber(fitWidth) && fitWidth > 0) stored.fitWidth = fitWidth;
+  const sizedFor = v["sizedFor"];
+  if (typeof sizedFor === "string") stored.sizedFor = sizedFor;
+  return stored;
 }
 
 /** M1 stored the demo inputs window as "inputs"; it is "demo-inputs" now. */
@@ -206,9 +215,20 @@ export function parseContentMin(value: unknown): Size | undefined {
   return { width: edge(w), height: edge(h) };
 }
 
-/** The window minimum: the larger of the scaled manifest minimum and what the content reported. */
-export function effectiveMinSize(manifestMin: Size, scalePct: number, contentMin: Size): Size {
-  return clampSize(scaleSize(manifestMin, scalePct), contentMin);
+/**
+ * The window minimum: the larger of the scaled manifest minimum and what the content reported.
+ * `tableMinWidth` (scaled DIPs, from the column fit) is folded into the width.
+ */
+export function effectiveMinSize(
+  manifestMin: Size,
+  scalePct: number,
+  contentMin: Size,
+  tableMinWidth = 0,
+): Size {
+  return clampSize(scaleSize(manifestMin, scalePct), {
+    width: Math.max(contentMin.width, tableMinWidth),
+    height: contentMin.height,
+  });
 }
 
 /**
