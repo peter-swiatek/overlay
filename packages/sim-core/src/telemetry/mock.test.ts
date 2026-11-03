@@ -76,7 +76,7 @@ describe("MockSource", () => {
       expect(p.redlineRpm).toBe(8000);
       expect(p.steerMaxRad).toBe(7.85);
       expect(p.isOnTrack).toBe(true);
-      expect(p.trackSurface).toBe("onTrack");
+      expect(["onTrack", "approachingPits"]).toContain(p.trackSurface);
       expect(p.absActive === (p.inputs.brake ?? 0) > 0.8).toBe(true);
       expect(st.session.typeName).toBe("Race");
       expect(st.session.trackUsage).toBe("moderate usage");
@@ -117,5 +117,96 @@ describe("MockSource", () => {
     const dt = 0.001;
     const b = mock.step(dt).player.lap?.delta?.best;
     expect(((b?.s ?? 0) - (a?.s ?? 0)) / dt).toBeCloseTo(a?.rate ?? 0, 1);
+  });
+  it("derives gear and rpm from speed, reaching the shift and blink points", () => {
+    const mock = new MockSource();
+    const gears = new Set<number>();
+    let maxRpm = 0;
+    for (let i = 0; i < 600; i++) {
+      const p = mock.step(0.1).player;
+      const speed = p.speedMps ?? 0;
+      const gear = speed < 30 ? 3 : speed < 38 ? 4 : speed < 46 ? 5 : 6;
+      expect(p.gear).toBe(gear);
+      expect(p.rpm).toBeGreaterThanOrEqual(5000);
+      expect(p.rpm).toBeLessThanOrEqual(8000);
+      gears.add(p.gear ?? 0);
+      maxRpm = Math.max(maxRpm, p.rpm ?? 0);
+    }
+    expect([...gears].sort()).toEqual([3, 4, 5, 6]);
+    expect(maxRpm).toBeGreaterThan(7800);
+  });
+
+  it("presses the clutch only near the start of a gear band", () => {
+    const mock = new MockSource();
+    let pressed = 0;
+    for (let i = 0; i < 1200; i++) {
+      const p = mock.step(0.1).player;
+      if (p.inputs?.clutch === 1) {
+        pressed++;
+        expect(p.rpm).toBeLessThan(5000 + 3000 * 0.05 + 1e-9);
+      } else {
+        expect(p.inputs?.clutch).toBe(0);
+        expect(p.rpm).toBeGreaterThanOrEqual(5000 + 3000 * 0.05 - 1e-9);
+      }
+    }
+    expect(pressed).toBeGreaterThan(0);
+  });
+
+  it("turns the heading once per lap and has no rain or fog", () => {
+    const mock = new MockSource();
+    for (let i = 0; i < 300; i++) {
+      const st = mock.step(0.5);
+      const fraction = (st.cars[0]?.lapDistPct ?? 0) as number;
+      expect(st.player.yawRad).toBeCloseTo(2 * Math.PI * fraction, 9);
+      expect(st.conditions.precipitation).toBe(0);
+      expect(st.conditions.fogLevel).toBe(0);
+    }
+  });
+
+  it("opens a pit approach window every lap without putting the car on pit road", () => {
+    const mock = new MockSource();
+    let limiterSteps = 0;
+    for (let i = 0; i < 1000; i++) {
+      const st = mock.step(0.5);
+      const f = st.cars[0]?.lapDistPct ?? 0;
+      const inWindow = f >= 0.9 && f < 0.95;
+      expect(st.player.pitStallLapDistPct).toBe(0.95);
+      expect(st.player.pitLimiter).toBe(inWindow);
+      expect(st.player.trackSurface).toBe(inWindow ? "approachingPits" : "onTrack");
+      expect(st.cars[0]?.onPitRoad).toBe(false);
+      if (inWindow) limiterSteps++;
+    }
+    expect(limiterSteps).toBeGreaterThan(0);
+  });
+
+  it("varies the player's lap times and tracks the best", () => {
+    const mock = new MockSource();
+    const expected = [100.3, 99.8, 99.5, 99.6, 100.2, 100.3, 99.8];
+    const seen = new Map<number, number | null>();
+    const best = new Map<number, number | null>();
+    for (let i = 0; i < 7200; i++) {
+      const st = mock.step(0.1);
+      const laps = st.cars[0]?.lapsCompleted ?? 0;
+      seen.set(laps, st.player.lap?.lastLapS ?? null);
+      best.set(laps, st.player.lap?.bestLapS ?? null);
+    }
+    expect(seen.get(0)).toBeNull();
+    expect(best.get(0)).toBeNull();
+    expected.forEach((time, k) => expect(seen.get(k + 1)).toBeCloseTo(time, 9));
+    expect(best.get(1)).toBeCloseTo(100.3, 9);
+    expect(best.get(2)).toBeCloseTo(99.8, 9);
+    expect(best.get(3)).toBeCloseTo(99.5, 9);
+    expect(best.get(7)).toBeCloseTo(99.5, 9);
+    // The other cars' lap times are unchanged.
+    expect(mock.state().cars[0]?.lastLapS).toBe(100);
+  });
+
+  it("makes lap 3 the only unclean lap", () => {
+    const mock = new MockSource();
+    for (let i = 0; i < 1500; i++) {
+      const st = mock.step(0.2);
+      const d = (st.cars[0]?.lapsCompleted ?? 0) + (st.cars[0]?.lapDistPct ?? 0);
+      expect(st.player.incidentCount).toBe(d >= 2.5 ? 2 : 0);
+    }
   });
 });

@@ -46,8 +46,10 @@ describe("createDemoFeed", () => {
   });
 
   it("fills the design-system fields in a warmed-up frame, except documented nulls", () => {
-    const { state } = createDemoFeed().next(0.1);
+    const { state, derived } = createDemoFeed().next(0.1);
     const p = state.player;
+    // The player has a start position, so the Telemetry Strip can show places gained in previews.
+    expect(derived.standings?.entries.find((e) => e.carIdx === 0)?.startPosition).not.toBeNull();
     expect(p.lap?.currentLapS).not.toBeNull();
     expect(p.lap?.lastLapS).not.toBeNull();
     expect(p.lap?.bestLapS).not.toBeNull();
@@ -60,6 +62,11 @@ describe("createDemoFeed", () => {
     expect(p.shiftLights).not.toBeNull();
     expect(p.redlineRpm).not.toBeNull();
     expect(p.steerMaxRad).not.toBeNull();
+    expect(p.yawRad).not.toBeNull();
+    expect(p.pitLimiter).not.toBeNull();
+    expect(p.pitStallLapDistPct).not.toBeNull();
+    expect(p.incidentCount).not.toBeNull();
+    expect(state.conditions.precipitation).not.toBeNull();
     expect(state.session.typeName).not.toBeNull();
     expect(state.session.trackUsage).not.toBeNull();
     expect(state.conditions.declaredWet).not.toBeNull();
