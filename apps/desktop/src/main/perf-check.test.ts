@@ -128,7 +128,7 @@ describe("runPerfCheck", () => {
     const deps: PerfCheckDeps = {
       cores: 4,
       source: "mock",
-      allOverlayIds: ["leaderboard", "relative", "spotter", "pit-speed", "fuel", "demo-inputs"],
+      allOverlayIds: ["leaderboard", "relative", "spotter", "pit-speed", "fuel", "inputs"],
       getMetrics: () => [metric("Browser", open ? 40 : 4)],
       setOverride: (o) => {
         overrideCalls.push(o);
@@ -153,8 +153,8 @@ describe("runPerfCheck", () => {
     expect(out.result.phaseB.meanPct).toBe(10);
     expect(out.result.phaseA.samples).toBe(5);
     expect(out.result.budgetPct).toBe(9);
-    expect(overrideCalls[0]).toMatchObject({ fuel: false, "demo-inputs": false });
-    expect(overrideCalls[1]).toMatchObject({ fuel: true, "demo-inputs": false });
+    expect(overrideCalls[0]).toMatchObject({ fuel: false, inputs: false });
+    expect(overrideCalls[1]).toMatchObject({ fuel: true, inputs: false });
     expect(overrideCalls.at(-1)).toBeNull();
     expect(progress.at(-1)?.phase).toBe("restore");
   });

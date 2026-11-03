@@ -28,7 +28,7 @@ const manifest = (id: string): OverlayManifest => {
   return found;
 };
 const relative = manifest("relative");
-const demoInputs = manifest("demo-inputs");
+const inputs = manifest("inputs");
 const primary = { x: 0, y: 0, width: 1920, height: 1040 };
 
 let dir: string;
@@ -49,7 +49,7 @@ describe("LayoutStore", () => {
     const store = new LayoutStore(file);
     const layout = {
       relative: { x: 5, y: 6, width: 500, height: 400, scalePct: 125 },
-      "demo-inputs": { x: -1000, y: 20, width: 300, height: 150, scalePct: 100 },
+      inputs: { x: -1000, y: 20, width: 300, height: 150, scalePct: 100 },
     };
     store.save(layout);
     expect(store.load(OVERLAY_MANIFESTS)).toEqual(layout);
@@ -71,7 +71,7 @@ describe("LayoutStore", () => {
     writeFileSync(file, JSON.stringify(m1));
     expect(new LayoutStore(file).load(OVERLAY_MANIFESTS)).toEqual({
       relative: { ...m1.relative, scalePct: 100 },
-      "demo-inputs": { ...m1.inputs, scalePct: 100 },
+      inputs: { ...m1.inputs, scalePct: 100 },
     });
   });
 });
@@ -94,19 +94,19 @@ describe("parseLayout", () => {
     const layout = parseLayout(
       {
         relative: { x: 1, y: 2, width: 300, height: 200, scalePct: 150 },
-        "demo-inputs": { x: 1, y: 2, width: 300, height: 200 },
+        inputs: { x: 1, y: 2, width: 300, height: 200 },
       },
       OVERLAY_MANIFESTS,
     );
     expect(layout["relative"]?.scalePct).toBe(150);
-    expect(layout["demo-inputs"]?.scalePct).toBe(100);
+    expect(layout["inputs"]?.scalePct).toBe(100);
   });
 
   it("drops invalid entries and unknown ids", () => {
     const layout = parseLayout(
       {
         relative: { x: 1.6, y: 2, width: 300, height: 200 },
-        "demo-inputs": { x: "a", y: 2, width: 300, height: 300 },
+        inputs: { x: "a", y: 2, width: 300, height: 300 },
         ghost: { x: 1, y: 2, width: 300, height: 300 },
       },
       OVERLAY_MANIFESTS,
@@ -116,15 +116,24 @@ describe("parseLayout", () => {
     });
   });
 
-  it("prefers demo-inputs over the legacy inputs entry", () => {
+  it("prefers inputs over the legacy demo-inputs entry", () => {
     const layout = parseLayout(
       {
-        "demo-inputs": { x: 9, y: 9, width: 300, height: 200 },
-        inputs: { x: 1, y: 1, width: 300, height: 200 },
+        "demo-inputs": { x: 1, y: 1, width: 300, height: 200 },
+        inputs: { x: 9, y: 9, width: 300, height: 200 },
       },
       OVERLAY_MANIFESTS,
     );
-    expect(layout["demo-inputs"]?.x).toBe(9);
+    expect(layout["inputs"]?.x).toBe(9);
+  });
+
+  it("migrates a demo-inputs entry to inputs", () => {
+    const layout = parseLayout(
+      { "demo-inputs": { x: 4, y: 5, width: 300, height: 200 } },
+      OVERLAY_MANIFESTS,
+    );
+    expect(layout["inputs"]).toEqual({ x: 4, y: 5, width: 300, height: 200, scalePct: 100 });
+    expect(layout["demo-inputs"]).toBeUndefined();
   });
 
   it("ignores non-object input", () => {
@@ -160,11 +169,11 @@ describe("defaultBounds / initialBounds", () => {
 
   it("falls back to defaults when the stored bounds are off screen", () => {
     const stored = { x: -5000, y: 10, width: 400, height: 300 };
-    expect(initialBounds(demoInputs, stored, 100, [primary], primary)).toEqual({
-      x: 60,
-      y: 360,
-      width: 360,
-      height: 160,
+    expect(initialBounds(inputs, stored, 100, [primary], primary)).toEqual({
+      x: 40,
+      y: 910,
+      width: 556,
+      height: 120,
     });
   });
 
@@ -195,18 +204,18 @@ describe("planWindowChanges", () => {
   });
 
   it("keeps developer-only overlays closed while developer tools are off", () => {
-    const dev = OVERLAY_MANIFESTS.filter((m) => m.dev === true).map((m) => m.id);
-    expect(dev).toContain("demo-inputs");
-    const settings = { "demo-inputs": on, relative: on };
-    expect(planWindowChanges(OVERLAY_MANIFESTS, settings, [], false)).toEqual({
+    const devManifest: OverlayManifest = { ...relative, id: "dev-sample", dev: true };
+    const manifests = [...OVERLAY_MANIFESTS, devManifest];
+    const settings = { "dev-sample": on, relative: on };
+    expect(planWindowChanges(manifests, settings, [], false)).toEqual({
       open: ["relative"],
       close: [],
     });
-    expect(planWindowChanges(OVERLAY_MANIFESTS, settings, ["demo-inputs"], false)).toEqual({
+    expect(planWindowChanges(manifests, settings, ["dev-sample"], false)).toEqual({
       open: ["relative"],
-      close: ["demo-inputs"],
+      close: ["dev-sample"],
     });
-    expect(planWindowChanges(OVERLAY_MANIFESTS, settings, [], true).open).toContain("demo-inputs");
+    expect(planWindowChanges(manifests, settings, [], true).open).toContain("dev-sample");
   });
 
   it("treats an overlay without settings as off", () => {
