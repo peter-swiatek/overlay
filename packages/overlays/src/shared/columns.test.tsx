@@ -128,14 +128,33 @@ describe("driverColumns", () => {
     expect(zero).toContain("0.0");
   });
 
-  it("puts the class colour on the car number through the row style", () => {
+  it("puts the class colour on the row through --class-color", () => {
     const r = row({ carNumber: "12", classColour: "#ffda59" });
-    expect(driverRowStyle(r)).toEqual({ "--ov-class-colour": "#ffda59" });
+    expect(driverRowStyle(r)).toEqual({ "--class-color": "#ffda59" });
     expect(driverRowStyle(row())).toBeUndefined();
     const html = cell("car-number", r);
-    expect(html).toContain("var(--ov-class-colour, var(--ov-header))");
+    expect(html).toContain("ov-car-num");
     expect(html).toContain("#12");
-    expect(cell("car-number", row({ carNumber: "7" }))).toContain("var(--ov-text)");
+    expect(cell("car-number", row({ carNumber: null }))).toContain("--");
+  });
+
+  it("marks the position and car number cells for the class colour", () => {
+    const cols = driverColumns(CTX);
+    expect(cols.find((c) => c.id === "position")?.cellClassName).toBe("ov-cell--pos");
+    expect(cols.find((c) => c.id === "car-number")?.cellClassName).toBe("ov-cell--pos-fade");
+    expect(cols.find((c) => c.id === "driver")?.cellClassName).toBeUndefined();
+  });
+
+  it("shows the projected iRating change in the iRating pill", () => {
+    const up = cell("irating", row({ iRating: 2400, iRatingChange: 11 }));
+    expect(up).toContain("ov-ir-delta--up");
+    expect(up).toContain("11");
+    expect(cell("irating", row({ iRating: 2400, iRatingChange: -7 }))).toContain(
+      "ov-ir-delta--down",
+    );
+    expect(cell("irating", row({ iRating: 2400, iRatingChange: null }))).not.toContain(
+      "ov-ir-delta",
+    );
   });
 
   it("tints the iRating pill only with the combined licence pill", () => {

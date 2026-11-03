@@ -6,6 +6,7 @@ import type {
   StandingsGap,
   TelemetryFrame,
 } from "@overlay/sim-core/types";
+import type { FlagBadgeKind } from "@overlay/ui";
 import type { Decimals } from "@overlay/ui/types";
 
 export interface DriverRow {
@@ -24,6 +25,10 @@ export interface DriverRow {
   overallPosition: number | null;
   licence: string | null;
   iRating: number | null;
+  /** Projected iRating change (StandingsEntry.iRatingChange); null when not estimated. */
+  iRatingChange: number | null;
+  /** Off track, or showing a yellow flag while not on pit road: draws the yellow row. */
+  yellow: boolean;
   gapToLeader: StandingsGap | null;
   gapToClassLeader: StandingsGap | null;
   interval: StandingsGap | null;
@@ -86,6 +91,21 @@ function chosen(live: boolean, liveValue: number | null, official: number | null
   return live ? (liveValue ?? official) : (official ?? liveValue);
 }
 
+function isYellowCar(car: Car): boolean {
+  if (car.trackSurface === "offTrack") return true;
+  return car.flags?.yellow === true && car.onPitRoad !== true;
+}
+
+/** The flag badge a car shows, by priority DSQ > BLK > DMG > YEL; null when none. */
+export function flagBadgeKind(car: Car): FlagBadgeKind | null {
+  const flags = car.flags;
+  if (flags?.disqualified === true) return "dsq";
+  if (flags !== null && flags !== undefined && (flags.black || flags.furled)) return "blk";
+  if (flags?.repair === true) return "dmg";
+  if (isYellowCar(car)) return "yel";
+  return null;
+}
+
 function buildRow(
   car: Car,
   entry: StandingsEntry | undefined,
@@ -124,6 +144,8 @@ function buildRow(
     overallPosition,
     licence: car.license,
     iRating: car.iRating,
+    iRatingChange: entry?.iRatingChange ?? null,
+    yellow: isYellowCar(car),
     gapToLeader: roundGap(entry?.gapToLeader ?? null, gapDecimals),
     gapToClassLeader: roundGap(entry?.gapToClassLeader ?? null, gapDecimals),
     interval: roundGap(entry?.interval ?? null, gapDecimals),

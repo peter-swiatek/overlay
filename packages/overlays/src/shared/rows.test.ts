@@ -1,6 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { fixtureFrame } from "./fixtures";
-import { driverRows, reuseRows, type DriverRowOptions } from "./rows";
+import type { Car, Flags } from "@overlay/sim-core/types";
+import { driverRows, flagBadgeKind, reuseRows, type DriverRowOptions } from "./rows";
+
+function noFlags(): Flags {
+  return {
+    green: false,
+    yellow: false,
+    fullCourseYellow: false,
+    red: false,
+    blue: false,
+    white: false,
+    checkered: false,
+    black: false,
+    disqualified: false,
+    repair: false,
+    furled: false,
+  };
+}
 
 const OPTS: DriverRowOptions = { livePositions: true, gapDecimals: 1, lapDecimals: 3 };
 
@@ -174,5 +191,50 @@ describe("reuseRows", () => {
     const a = build(0.5, 0);
     const b = reuseRows(a, build(0.5005, 0.0004));
     expect(b.every((row, i) => row === a[i])).toBe(true);
+  });
+});
+
+describe("yellow rows and flag badges", () => {
+  it("is yellow off track or under a yellow flag, but not on pit road", () => {
+    const rows = driverRows(
+      fixtureFrame({
+        cars: [
+          { carIdx: 0 },
+          { carIdx: 1, trackSurface: "offTrack" },
+          { carIdx: 2, flags: { ...noFlags(), yellow: true } },
+          { carIdx: 3, flags: { ...noFlags(), yellow: true }, onPitRoad: true },
+          { carIdx: 4, trackSurface: "onTrack" },
+        ],
+      }),
+      OPTS,
+    );
+    expect(rows.map((r) => r.yellow)).toEqual([false, true, true, false, false]);
+  });
+
+  it("carries the projected iRating change", () => {
+    const rows = driverRows(
+      fixtureFrame({
+        cars: [{ carIdx: 0 }, { carIdx: 1 }],
+        standings: [{ carIdx: 0, iRatingChange: 14 }, { carIdx: 1 }],
+      }),
+      OPTS,
+    );
+    expect(rows.map((r) => r.iRatingChange)).toEqual([14, null]);
+  });
+
+  it("picks the flag badge by priority DSQ > BLK > DMG > YEL", () => {
+    const car = (flags: Partial<Flags> | null, surface: Car["trackSurface"] = null): Car => ({
+      ...fixtureFrame({ cars: [{ carIdx: 0 }] }).state.cars[0]!,
+      flags: flags === null ? null : { ...noFlags(), ...flags },
+      trackSurface: surface,
+    });
+    expect(flagBadgeKind(car(null))).toBeNull();
+    expect(flagBadgeKind(car({}))).toBeNull();
+    expect(flagBadgeKind(car({ yellow: true }))).toBe("yel");
+    expect(flagBadgeKind(car({ yellow: true, repair: true }))).toBe("dmg");
+    expect(flagBadgeKind(car({ yellow: true, repair: true, black: true }))).toBe("blk");
+    expect(flagBadgeKind(car({ furled: true }))).toBe("blk");
+    expect(flagBadgeKind(car({ black: true, disqualified: true }))).toBe("dsq");
+    expect(flagBadgeKind(car(null, "offTrack"))).toBe("yel");
   });
 });

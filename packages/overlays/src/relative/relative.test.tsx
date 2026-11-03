@@ -99,6 +99,15 @@ describe("RelativeOverlay", () => {
     expect(html).toContain("ov-row--own");
   });
 
+  it("draws a yellow row for an off-track car", () => {
+    const f = frame();
+    expect(render(f)).not.toContain("ov-row--yellow");
+    const car = f.state.cars.find((c) => c.carIdx === 3);
+    if (car === undefined) throw new Error("fixture");
+    car.trackSurface = "offTrack";
+    expect(render(f).match(/ov-row--yellow/g)).toHaveLength(1);
+  });
+
   it("prints signed gaps and colours only the cars behind", () => {
     const html = render(frame());
     expect(html).toContain("-1.2");

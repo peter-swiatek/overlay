@@ -1,4 +1,4 @@
-import type { TelemetryFrame } from "@overlay/sim-core/types";
+import type { Flags, TelemetryFrame } from "@overlay/sim-core/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { OverlayInstanceSettings } from "../contract";
@@ -14,6 +14,22 @@ import {
   type DriversAround,
   type LeaderboardViewOptions,
 } from "./view";
+
+function noFlags(): Flags {
+  return {
+    green: false,
+    yellow: false,
+    fullCourseYellow: false,
+    red: false,
+    blue: false,
+    white: false,
+    checkered: false,
+    black: false,
+    disqualified: false,
+    repair: false,
+    furled: false,
+  };
+}
 
 const OPTS: LeaderboardViewOptions = {
   showAll: true,
@@ -361,9 +377,44 @@ describe("LeaderboardOverlay", () => {
   it("draws a class bar per class in multi-class sessions", () => {
     const html = render(threeClasses(1), ALL);
     expect(html.match(/ov-section-bar/g)).toHaveLength(3);
+    expect(html.match(/class="ov-class-tab"/g)).toHaveLength(3);
     for (const name of ["Hypercar", "LMP2", "GT3"]) expect(html).toContain(name);
-    expect(html).toContain("3 cars");
-    expect(html).toContain("--ov-class-colour:#ff3333");
+    expect(html).toContain('aria-label="3 cars"');
+    expect(html).toContain("ov-helmet");
+    expect(html).toContain("--class-color:#ff3333");
+    expect(html).not.toContain("ov-lb-count");
+  });
+
+  it("shows the class strength of field in the band", () => {
+    const frame = threeClasses(1);
+    if (frame.derived.standings === null) throw new Error("fixture");
+    frame.derived.standings.classSof = { hy: 2600, p2: 1900 };
+    const html = render(frame, ALL);
+    expect(html).toContain("SoF 2.6k");
+    expect(html).toContain("SoF 1.9k");
+    expect(html.match(/SoF /g)).toHaveLength(2);
+  });
+
+  it("draws the yellow row for an off-track or yellow-flagged car, not one on pit road", () => {
+    const frame = threeClasses(1);
+    const car = (i: number) => {
+      const c = frame.state.cars.find((x) => x.carIdx === i);
+      if (c === undefined) throw new Error("fixture");
+      return c;
+    };
+    expect(render(frame, ALL)).not.toContain("ov-row--yellow");
+    car(0).trackSurface = "offTrack";
+    expect(render(frame, ALL).match(/ov-row--yellow/g)).toHaveLength(1);
+    car(2).flags = { ...noFlags(), yellow: true };
+    expect(render(frame, ALL).match(/ov-row--yellow/g)).toHaveLength(2);
+    car(2).onPitRoad = true;
+    expect(render(frame, ALL).match(/ov-row--yellow/g)).toHaveLength(1);
+  });
+
+  it("puts the position cell class and class colour on the position cells", () => {
+    const html = render(threeClasses(1), ALL);
+    expect(html).toContain("ov-cell--pos");
+    expect(html).toContain("ov-cell--pos-fade");
   });
 
   it("draws no class bar in a single-class session", () => {
@@ -408,7 +459,7 @@ describe("LeaderboardOverlay", () => {
   it("passes the class colour to the car number cells", () => {
     const html = render(threeClasses(1), ALL);
     expect(html).toMatch(
-      /--ov-class-colour:#33cc66[^>]*>(?:(?!<\/div><div class="ov-row)[\s\S])*ov-driver-number/,
+      /--class-color:#33cc66[^>]*>(?:(?!<\/div><div class="ov-row)[\s\S])*ov-car-num/,
     );
   });
 

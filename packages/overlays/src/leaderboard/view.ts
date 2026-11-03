@@ -16,6 +16,8 @@ export interface LeaderboardSection {
   colour: string | null;
   /** Cars in the class before "Drivers around" filtering. */
   total: number;
+  /** Strength of field of the class (derived.standings.classSof); null when unknown. */
+  sof: number | null;
   rows: DriverRow[];
 }
 
@@ -113,6 +115,7 @@ export function leaderboardView(
         ? (ordered.find((r) => r.classColour !== null)?.classColour ?? null)
         : null,
       total: ordered.length,
+      sof: frame?.derived.standings?.classSof[key] ?? null,
       rows: shown,
     });
   }

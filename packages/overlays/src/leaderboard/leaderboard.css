@@ -8,11 +8,6 @@
   color: var(--ov-text);
 }
 
-.ov-lb-count {
-  margin-left: 8px;
-  color: var(--ov-text-muted);
-}
-
 .ov-lb-empty {
   padding: 12px var(--ov-cell-pad-x, 8px);
   color: var(--ov-text-muted);

@@ -1,5 +1,5 @@
 import { useMemo, useRef } from "react";
-import { ClassBadge, DataTable, type TableSection } from "@overlay/ui";
+import { CarCount, DataTable, type TableSection } from "@overlay/ui";
 import type { OverlayProps } from "../module";
 import { useOverlayRuntime } from "../runtime";
 import { optionBoolean, optionNumber, optionStrings } from "../settings";
@@ -17,8 +17,8 @@ import { leaderboardView, reuseView, type LeaderboardView } from "./view";
 
 const AFTER_GAP = "ov-lb-after-gap";
 
-function carCount(total: number): string {
-  return total === 1 ? "1 car" : `${total} cars`;
+function sofText(sof: number): string {
+  return sof >= 1000 ? `SoF ${(sof / 1000).toFixed(1)}k` : `SoF ${Math.round(sof)}`;
 }
 
 export function LeaderboardOverlay({ settings }: OverlayProps) {
@@ -99,13 +99,15 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
     isOwnRow: (r: DriverRow) => r.isFocus,
     rowClassName: (r: DriverRow) => (gapRows.has(r.carIdx) ? AFTER_GAP : undefined),
     rowStyle: driverRowStyle,
+    isYellowRow: (r: DriverRow) => r.yellow,
   };
   const sections: TableSection<DriverRow>[] = view.sections.map((s) => ({
     key: s.key,
-    label: (
+    label: s.label,
+    meta: (
       <>
-        <ClassBadge name={s.label} colour={s.colour} />
-        <span className="ov-lb-count">{carCount(s.total)}</span>
+        <CarCount count={s.total} />
+        {s.sof === null ? null : <span>{sofText(s.sof)}</span>}
       </>
     ),
     colour: s.colour,

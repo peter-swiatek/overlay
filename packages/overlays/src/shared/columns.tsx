@@ -1,9 +1,9 @@
 import {
+  CarNumberBadge,
   ClassBadge,
   IRatingPill,
   LicencePill,
   PositionDelta,
-  readableTextColour,
   type TableColumn,
 } from "@overlay/ui";
 import {
@@ -60,19 +60,6 @@ function lapCell(value: number | null, decimals: Decimals, fastest = false): Rea
   );
 }
 
-function carNumberCell(row: DriverRow): ReactNode {
-  if (row.carNumber === null) return NONE;
-  const style: CSSProperties = {
-    background: "var(--ov-class-colour, var(--ov-header))",
-    color: row.classColour ? readableTextColour(row.classColour) : "var(--ov-text)",
-  };
-  return (
-    <span className="ov-driver-number" style={style}>
-      #{row.carNumber}
-    </span>
-  );
-}
-
 export { columnFloorChars };
 
 type Align = "left" | "center" | "right";
@@ -108,12 +95,18 @@ const LAYOUT: Record<DriverFieldId, Layout> = {
   energy: { align: "right" },
 };
 
+/** Extra body-cell classes: the position cell and the car number carry the class colour. */
+const CELL_CLASS: Partial<Record<DriverFieldId, string>> = {
+  position: "ov-cell--pos",
+  "car-number": "ov-cell--pos-fade",
+};
+
 /** One TableColumn per DriverFieldId, in DRIVER_FIELD_IDS order. Callers pass them all to DataTable; FieldConfig picks and orders. */
 export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[] {
   const renderers: Record<DriverFieldId, (row: DriverRow) => ReactNode> = {
     position: (r) => count(r.position),
     "overall-position": (r) => count(r.overallPosition),
-    "car-number": carNumberCell,
+    "car-number": (r) => <CarNumberBadge carNumber={r.carNumber} />,
     "car-class": (r) =>
       r.className === null ? NONE : <ClassBadge name={r.className} colour={r.classColour} />,
     driver: (r) => {
@@ -122,7 +115,12 @@ export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[
     },
     licence: (r) => <LicencePill licence={r.licence} />,
     irating: (r) => (
-      <IRatingPill iRating={r.iRating} licence={r.licence} tinted={ctx.combinedLicencePill} />
+      <IRatingPill
+        iRating={r.iRating}
+        licence={r.licence}
+        tinted={ctx.combinedLicencePill}
+        change={r.iRatingChange}
+      />
     ),
     gap: (r) =>
       ctx.gapMode === "relative"
@@ -159,6 +157,7 @@ export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[
       label: SHORT_LABEL[id],
       align: layout.align,
       grow: layout.grow,
+      cellClassName: CELL_CLASS[id],
       chars: field?.chars ?? 6,
       minChars: columnFloorChars(id),
       defaultWidthPct: field?.defaultWidthPct ?? 8,
@@ -167,9 +166,9 @@ export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[
   });
 }
 
-/** Row style for DataTable.rowStyle: { "--ov-class-colour": row.classColour } when known. */
+/** Row style for DataTable.rowStyle: { "--class-color": row.classColour } when known. */
 export function driverRowStyle(row: DriverRow): CSSProperties | undefined {
   return row.classColour === null
     ? undefined
-    : ({ "--ov-class-colour": row.classColour } as CSSProperties);
+    : ({ "--class-color": row.classColour } as CSSProperties);
 }

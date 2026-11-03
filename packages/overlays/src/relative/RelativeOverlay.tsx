@@ -118,6 +118,7 @@ export function RelativeOverlay({ settings }: OverlayProps) {
           showHeader={rowLabels}
           isOwnRow={(r) => r.isFocus}
           rowStyle={driverRowStyle}
+          isYellowRow={(r) => r.yellow}
         />
       )}
       {showFooter ? <InfoStrip items={selected.footer} /> : null}
