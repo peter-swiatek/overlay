@@ -6,6 +6,8 @@
   font-family: var(--ov-font-family);
   font-size: var(--ov-font-size);
   color: var(--ov-text);
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px var(--ov-border);
 }
 
 .ov-lb-empty {

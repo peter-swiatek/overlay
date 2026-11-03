@@ -12,7 +12,10 @@ import {
   readTableOptions,
   type DriverRow,
 } from "../shared";
+import { fitColumnsFor } from "../shared/table-fit";
+import { ChProbe, useFittedFields } from "../shared/useFittedFields";
 import "./leaderboard.css";
+import { leaderboardManifest } from "./manifest";
 import { leaderboardView, reuseView, type LeaderboardView } from "./view";
 
 const AFTER_GAP = "ov-lb-after-gap";
@@ -32,9 +35,11 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
   const rowLabels = optionBoolean(settings, "row-labels");
   const showDqLimit = optionBoolean(settings, "show-dq-limit");
   const headerIds = optionStrings(settings, "header-fields");
+  const sessionFooter = optionBoolean(settings, "session-footer");
+  const footerIds = optionStrings(settings, "footer-fields");
 
   const previous = useRef<LeaderboardView | null>(null);
-  const { view, header, sim } = useTelemetry((frame) => {
+  const { view, header, footer, sim } = useTelemetry((frame) => {
     const next = reuseView(
       previous.current,
       leaderboardView(frame, {
@@ -48,19 +53,31 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
       }),
     );
     previous.current = next;
+    const infoContext = {
+      prefs,
+      sessionDisplay: table.sessionDisplay,
+      showDqLimit,
+      lapDecimals: table.lapDecimals,
+      now: new Date(),
+    };
     return {
       view: next,
       sim: frame?.state.sim ?? null,
-      header: sessionHeader
-        ? infoItems(frame, headerIds, {
-            prefs,
-            sessionDisplay: table.sessionDisplay,
-            showDqLimit,
-            now: new Date(),
-          })
-        : [],
+      header: sessionHeader ? infoItems(frame, headerIds, infoContext) : [],
+      footer: sessionFooter ? infoItems(frame, footerIds, infoContext) : [],
     };
   }, 5);
+
+  const fields = useMemo(
+    () => fieldsForSim(settings.common.fields, sim),
+    [settings.common.fields, sim],
+  );
+  // Columns for the fit hook: the same ids, chars and floors DataTable gets (grow = driver).
+  const fitColumns = useMemo(() => fitColumnsFor(leaderboardManifest), []);
+  const fit = useFittedFields(fields, fitColumns, table.widthMode, table.widthScalePct);
+  const shown = (id: string): boolean => fit.fields.some((f) => f.id === id && f.visible);
+  const inlineFlagBadge = !shown("flag");
+  const inlinePitBadge = !shown("pit-lane");
 
   const columns = useMemo(
     () =>
@@ -72,9 +89,15 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
         lapDecimals: table.lapDecimals,
         combinedLicencePill,
         gapMode: "standings",
+        showIRatingChange: true,
+        pitInLastLap: true,
+        inlineFlagBadge,
+        inlinePitBadge,
       }),
     [
       prefs,
+      inlineFlagBadge,
+      inlinePitBadge,
       combinedLicencePill,
       table.nameDisplay,
       table.nameFormat,
@@ -82,16 +105,12 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
       table.lapDecimals,
     ],
   );
-  const fields = useMemo(
-    () => fieldsForSim(settings.common.fields, sim),
-    [settings.common.fields, sim],
-  );
   const gapRows = useMemo(() => new Set(view.afterGap), [view.afterGap]);
   const rowCount = view.sections.reduce((n, s) => n + s.rows.length, 0);
 
   const common = {
     columns,
-    config: fields,
+    config: fit.fields,
     rowKey: (r: DriverRow) => r.carIdx,
     widthMode: table.widthMode,
     widthScalePct: table.widthScalePct,
@@ -115,8 +134,9 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
   }));
 
   return (
-    <div className="panel leaderboard">
-      <InfoStrip items={header} />
+    <div ref={fit.ref} className="panel leaderboard" data-hidden-columns={fit.hiddenIds.join(" ")}>
+      <ChProbe />
+      <InfoStrip items={header} leftCount={Math.ceil(header.length / 2)} />
       {rowCount === 0 ? (
         <div className="ov-lb-empty">Waiting for standings</div>
       ) : view.multiClass ? (
@@ -124,6 +144,7 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
       ) : (
         <DataTable<DriverRow> {...common} rows={view.sections[0]?.rows ?? []} />
       )}
+      {footer.length > 0 ? <InfoStrip variant="footer" items={footer} /> : null}
     </div>
   );
 }
