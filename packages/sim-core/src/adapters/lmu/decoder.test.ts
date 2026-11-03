@@ -455,6 +455,63 @@ describe("field data for overlays", () => {
     });
   });
 
+  it("fills the player's lap timing, redline, surface and per-car flags from the slice", () => {
+    const { state } = new LmuDecoder().decode(raw);
+    const lap = state.player.lap;
+    expect(lap).not.toBeNull();
+    expect(lap?.delta).toBeNull();
+    expect(lap?.currentLapS).toBeGreaterThanOrEqual(0);
+    for (const t of [lap?.lastLapS, lap?.bestLapS]) expect(t == null || t > 0).toBe(true);
+    expect(state.player.redlineRpm).toBeGreaterThan(5000);
+    expect(state.player.trackSurface).toBe("onTrack");
+    expect(state.player.isOnTrack).toBe(true);
+    expect(state.player.absActive).toBeNull();
+    expect(state.player.pitLimiter).toBe(false);
+    expect(state.cars.every((c) => c.flags !== null && c.trackSurface === null)).toBe(true);
+  });
+
+  it("decodes synthetic lap times, blue flags and the stall surface", () => {
+    const edited = Buffer.from(raw);
+    const player = new LmuDecoder().decode(raw).state.cars.findIndex((c) => c.isPlayer);
+    const row = rowOf(player);
+    edited.writeDoubleLE(31.5, row + VEHICLE.timeIntoLap);
+    edited.writeDoubleLE(212.25, row + VEHICLE.lastLapTime);
+    edited.writeDoubleLE(-1, row + VEHICLE.bestLapTime);
+    edited.writeUInt8(6, rowOf(3) + VEHICLE.flag);
+    edited.writeUInt8(1, rowOf(4) + VEHICLE.underYellow);
+    const { state } = new LmuDecoder().decode(edited);
+    expect(state.player.lap).toEqual({
+      currentLapS: 31.5,
+      lastLapS: 212.25,
+      bestLapS: null,
+      delta: null,
+    });
+    expect(state.cars[3]!.flags?.blue).toBe(true);
+    expect(state.cars[4]!.flags?.yellow).toBe(true);
+    expect(state.cars[5]!.flags?.blue).toBe(false);
+
+    edited.writeUInt8(0, SCORING_BASE + SESSION.inRealtime);
+    expect(new LmuDecoder().decode(edited).state.player).toMatchObject({
+      trackSurface: "notInWorld",
+      isOnTrack: false,
+    });
+
+    const away = Buffer.from(raw);
+    away.writeUInt8(0, TELEMETRY_BASE + TELEMETRY.playerInCar);
+    expect(new LmuDecoder().decode(away).state.player.lap).toBeNull();
+  });
+
+  it("uses the REST session name as the session type name", () => {
+    const decoder = new LmuDecoder();
+    decoder.observeRest({
+      path: "/rest/watch/sessionInfo",
+      status: 200,
+      body: { session: "PRACTICE1", maxTime: 3600 },
+    });
+    expect(decoder.decode(raw).state.session.typeName).toBe("PRACTICE1");
+    expect(new LmuDecoder().decode(raw).state.session.typeName).toBeNull();
+  });
+
   it("separates the team from a vehicle name of the observed shape only", () => {
     expect(teamFromVehicleName("Example Racing Team 2026 #83:LM")).toBe("Example Racing Team");
     expect(teamFromVehicleName("Zofia Świątkowska Motorsport 2026 #5:A")).toBe(
