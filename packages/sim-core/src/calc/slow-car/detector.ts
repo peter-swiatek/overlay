@@ -12,6 +12,8 @@ export const SLOW_FOR_S = 0.5;
 const SMOOTHING_S = 0.3;
 /** More progress than this in one tick (a fraction of a lap) is a jump, not driving. */
 const JUMP_LAP = 0.05;
+/** After the phase turns to racing the detector stays quiet this long, seconds. */
+export const RACE_START_QUIET_S = 5;
 /** A gap in the clock longer than this loses the estimate, seconds. */
 const MAX_DT_S = 1;
 
@@ -29,6 +31,8 @@ interface CarTrack {
   speedMps: number | null;
   /** Tick time at which the estimate first dropped below the slow limit; null while above. */
   slowSinceS: number | null;
+  /** True once the estimate has been at or above the slow limit since this track began. */
+  wasFast: boolean;
 }
 
 /** Wraps a lap-fraction difference into (-0.5, 0.5]. */
@@ -42,9 +46,15 @@ function wrapDiff(diff: number): number {
 /** Finds the nearest slow or stopped car ahead of the player. Stateful (speed estimates); no timers. */
 export class SlowCarDetector {
   private readonly tracks = new Map<number, CarTrack>();
+  /** True while the last phase seen was a quiet one (or none). */
+  private wasQuiet = false;
+  /** Tick time at which the phase turned to racing after a quiet phase; null when not applicable. */
+  private racingSinceS: number | null = null;
 
   reset(): void {
     this.tracks.clear();
+    this.wasQuiet = false;
+    this.racingSinceS = null;
   }
 
   next(state: SimState): SlowCarAhead | null {
@@ -55,7 +65,13 @@ export class SlowCarDetector {
     if (phase === null || QUIET_PHASES.has(phase)) {
       // A standing grid would otherwise look slow the moment the race starts.
       this.tracks.clear();
+      this.wasQuiet = true;
+      this.racingSinceS = null;
       return null;
+    }
+    if (this.wasQuiet) {
+      this.wasQuiet = false;
+      this.racingSinceS = tickS;
     }
 
     const seen = new Set<number>();
@@ -65,6 +81,9 @@ export class SlowCarDetector {
     for (const idx of [...this.tracks.keys()]) {
       if (!seen.has(idx)) this.tracks.delete(idx);
     }
+
+    // Cars are still standing on the grid for a moment after the start.
+    if (this.racingSinceS !== null && tickS - this.racingSinceS < RACE_START_QUIET_S) return null;
 
     const player = state.cars.find((c) => c.carIdx === state.playerCarIdx) ?? null;
     if (player === null || player.lapDistPct === null) return null;
@@ -76,6 +95,8 @@ export class SlowCarDetector {
       if (car.carIdx === player.carIdx || car.lapDistPct === null) continue;
       const track = this.tracks.get(car.carIdx);
       if (track === undefined || track.speedMps === null || track.slowSinceS === null) continue;
+      // A car that has never been seen fast is standing (grid, restart), not slowing.
+      if (!track.wasFast) continue;
       if (tickS - track.slowSinceS < SLOW_FOR_S) continue;
       const distanceM = ((car.lapDistPct - player.lapDistPct + 1) % 1) * lengthM;
       if (distanceM <= 0 || distanceM > SLOW_CAR_RANGE_M) continue;
@@ -127,11 +148,14 @@ export class SlowCarDetector {
     prev.lastPct = pct;
     prev.lastTickS = tickS;
     if (speed < SLOW_MPS) prev.slowSinceS ??= tickS;
-    else prev.slowSinceS = null;
+    else {
+      prev.slowSinceS = null;
+      prev.wasFast = true;
+    }
     return true;
   }
 }
 
 function fresh(pct: number, tickS: number): CarTrack {
-  return { lastPct: pct, lastTickS: tickS, speedMps: null, slowSinceS: null };
+  return { lastPct: pct, lastTickS: tickS, speedMps: null, slowSinceS: null, wasFast: false };
 }

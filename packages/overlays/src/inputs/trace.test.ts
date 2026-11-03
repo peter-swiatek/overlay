@@ -26,6 +26,29 @@ describe("InputTrace", () => {
     expect(trace.samples.map((s) => s.t)).toEqual([2]);
   });
 
+  it("clears the trace after a gap longer than the window", () => {
+    const trace = new InputTrace(3);
+    trace.push(sample(10));
+    trace.push(sample(11));
+    trace.push(sample(14.5));
+    expect(trace.samples.map((s) => s.t)).toEqual([14.5]);
+  });
+
+  it("keeps the trace when the gap is within the window", () => {
+    const trace = new InputTrace(3);
+    trace.push(sample(10));
+    trace.push(sample(13));
+    expect(trace.samples.map((s) => s.t)).toEqual([10, 13]);
+  });
+
+  it("trims in place without replacing the backing array", () => {
+    const trace = new InputTrace(3);
+    const before = trace.samples;
+    for (let t = 0; t <= 20; t += 1) trace.push(sample(t));
+    expect(trace.samples).toBe(before);
+    expect(trace.samples.map((s) => s.t)).toEqual([17, 18, 19, 20]);
+  });
+
   it("trims when the window shrinks", () => {
     const trace = new InputTrace(10);
     for (let t = 0; t <= 10; t += 1) trace.push(sample(t));

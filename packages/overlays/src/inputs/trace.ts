@@ -11,9 +11,14 @@ export interface InputSample {
 
 export type TraceKey = "throttle" | "brake" | "clutch" | "steer";
 
-/** Keeps the samples of the last `windowS` seconds; drops everything when time goes back. */
+/**
+ * Keeps the samples of the last `windowS` seconds; drops everything when time goes back or
+ * when a sample arrives more than `windowS` after the previous one (a gap in live data).
+ * The backing array is reused and trimmed in place, so pushing at 60 Hz does not allocate a
+ * new array per frame.
+ */
 export class InputTrace {
-  private list: InputSample[] = [];
+  private readonly list: InputSample[] = [];
   private windowS: number;
 
   constructor(windowS: number) {
@@ -22,7 +27,9 @@ export class InputTrace {
 
   push(sample: InputSample): void {
     const last = this.list[this.list.length - 1];
-    if (last !== undefined && sample.t < last.t) this.list = [];
+    if (last !== undefined && (sample.t < last.t || sample.t - last.t > this.windowS)) {
+      this.list.length = 0;
+    }
     this.list.push(sample);
     this.trim();
   }
@@ -43,7 +50,7 @@ export class InputTrace {
     let drop = 0;
     // Keep one sample at or just outside the window so the line reaches the left edge.
     while (drop + 1 < this.list.length && (this.list[drop + 1] as InputSample).t <= cutoff) drop++;
-    if (drop > 0) this.list = this.list.slice(drop);
+    if (drop > 0) this.list.splice(0, drop);
   }
 }
 
