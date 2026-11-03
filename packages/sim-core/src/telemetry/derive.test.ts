@@ -40,8 +40,17 @@ describe("Deriver", () => {
       track: { trackKey: null, outlineReady: false },
       standings: null,
       proximity: null,
+      delta: null,
+      slowCar: null,
       energy: null,
     });
+  });
+
+  it("publishes no delta and no slow car yet", () => {
+    const d = new Deriver();
+    const out = d.next(simState({ tick: 1 }));
+    expect(out.delta).toBeNull();
+    expect(out.slowCar).toBeNull();
   });
 
   it("maps the session phase to the fuel tracker's session state", () => {

@@ -22,6 +22,8 @@ function frame(opts: { pitRoad?: boolean; limiter?: boolean; limit?: number | nu
       track: { trackKey: null, outlineReady: false },
       standings: null,
       proximity: null,
+      delta: null,
+      slowCar: null,
       gaps: [],
     },
   };

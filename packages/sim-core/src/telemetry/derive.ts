@@ -9,6 +9,7 @@ import {
   type FuelSample,
   type FuelTrackerOptions,
 } from "../calc/fuel";
+import type { BestLapStore } from "../calc/delta";
 import { MiniSectorRecorder, RollingLapTimes, relativeGap, type GapCarTick } from "../calc/gaps";
 import { ProximityTracker } from "../calc/proximity";
 import { StandingsTracker, type StandingsInputs } from "../calc/standings";
@@ -32,6 +33,8 @@ export interface DeriverOptions {
   now?: () => Date;
   /** Fuel use of earlier sessions; without it nothing is recorded or seeded. */
   fuelHistory?: FuelHistoryStore;
+  /** All-time best laps per car and track; without it they live only in memory. */
+  bestLaps?: BestLapStore;
 }
 
 export class Deriver {
@@ -119,6 +122,8 @@ export class Deriver {
       track: this.track.update(state, player),
       standings: this.standings.next(state, this.standingsInputs()),
       proximity: this.proximity.next(state),
+      delta: null,
+      slowCar: null,
       energy: this.updateEnergy(state, player, tickS),
     };
   }

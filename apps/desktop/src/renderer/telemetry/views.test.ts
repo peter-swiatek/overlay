@@ -15,6 +15,8 @@ function liveFrame(): TelemetryFrame {
       track: { trackKey: null, outlineReady: false },
       standings: null,
       proximity: null,
+      delta: null,
+      slowCar: null,
       gaps: [],
     },
   };

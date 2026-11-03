@@ -113,6 +113,8 @@ function frame(status: TelemetryFrame["status"], onTrack: boolean | null): Telem
       track: { trackKey: null, outlineReady: false },
       standings: null,
       proximity: null,
+      delta: null,
+      slowCar: null,
       gaps: [],
     },
   };
