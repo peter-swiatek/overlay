@@ -4,11 +4,13 @@ import {
   formatClockTime,
   formatIRating,
   formatPercent,
+  formatLapTime,
   formatSessionTime,
+  formatSpeed,
   formatTemperature,
   formatTimeOfDay,
 } from "@overlay/ui/format";
-import type { DisplayPrefs } from "@overlay/ui/types";
+import type { Decimals, DisplayPrefs } from "@overlay/ui/types";
 import { focusCarIdx } from "./rows";
 import type { SessionDisplay } from "./options";
 
@@ -27,6 +29,9 @@ export const HEADER_FIELD_IDS = [
   "wind-direction",
   "current-lap",
   "brake-bias",
+  "session-type",
+  "wind",
+  "session-best",
 ] as const;
 export type HeaderFieldId = (typeof HEADER_FIELD_IDS)[number];
 
@@ -45,6 +50,9 @@ const LABELS: Record<HeaderFieldId, string> = {
   "wind-direction": "Wind direction",
   "current-lap": "Current lap",
   "brake-bias": "Brake bias",
+  "session-type": "Session type",
+  wind: "Wind speed and direction",
+  "session-best": "Session best lap",
 };
 
 /** Short labels for the strip itself; the long ones above are for the settings lists. */
@@ -63,6 +71,9 @@ const SHORT_LABELS: Record<HeaderFieldId, string> = {
   "wind-direction": "Wind",
   "current-lap": "Lap",
   "brake-bias": "BB",
+  "session-type": "Session",
+  wind: "Wind",
+  "session-best": "Session Best",
 };
 
 /** Items only iRacing reports; the option list greys them out elsewhere. */
@@ -73,6 +84,7 @@ const IRACING_ONLY: readonly HeaderFieldId[] = [
   "humidity",
   "fog",
   "wind-direction",
+  "wind",
 ];
 
 /** SettingOption list for a "multi" header/footer field. */
@@ -89,6 +101,8 @@ export interface InfoContext {
   showDqLimit: boolean;
   /** Wall clock for "real-time" (the selector passes new Date()). */
   now: Date;
+  /** Decimals of the session best lap time. Default 3. */
+  lapDecimals?: Decimals;
 }
 
 export interface InfoItem {
@@ -96,6 +110,8 @@ export interface InfoItem {
   label: string;
   value: string;
   unavailable: boolean;
+  /** "fastest": the value is drawn in the fastest-lap colour. */
+  tone?: "fastest";
 }
 
 const COMPASS = [
@@ -148,6 +164,25 @@ function currentLap(frame: TelemetryFrame): string | null {
   return limited ? `${lap} / ${lapsTotal}` : String(lap);
 }
 
+function wind(frame: TelemetryFrame, prefs: DisplayPrefs): string | null {
+  const { conditions } = frame.state;
+  if (conditions.windSpeedMps === null) return null;
+  const speed = formatSpeed(conditions.windSpeedMps, prefs);
+  const text = `${speed.value} ${speed.unit}`.trim();
+  const direction = compassPoint(conditions.windDirRad);
+  return direction === null ? text : `${text} ${direction}`;
+}
+
+function sessionBest(frame: TelemetryFrame, decimals: Decimals): string | null {
+  const best = frame.derived.standings?.entries.find((e) => e.sessionBest);
+  if (best === undefined) return null;
+  const car = frame.state.cars.find((c) => c.carIdx === best.carIdx);
+  if (car === undefined) return null;
+  const lap = formatLapTime(car.bestLapS, decimals);
+  if (lap === "--") return null;
+  return car.carNumber === null ? lap : `${lap} (#${car.carNumber})`;
+}
+
 function itemValue(id: HeaderFieldId, frame: TelemetryFrame, ctx: InfoContext): string | null {
   const { session, conditions, player } = frame.state;
   const measure = (m: { value: string; unit: string }): string => `${m.value} ${m.unit}`.trim();
@@ -190,6 +225,12 @@ function itemValue(id: HeaderFieldId, frame: TelemetryFrame, ctx: InfoContext): 
       return currentLap(frame);
     case "brake-bias":
       return player.brakeBias === null ? null : formatPercent(player.brakeBias, 1);
+    case "session-type":
+      return session.typeName === null || session.typeName === "" ? null : session.typeName;
+    case "wind":
+      return wind(frame, ctx.prefs);
+    case "session-best":
+      return sessionBest(frame, ctx.lapDecimals ?? 3);
   }
 }
 
@@ -208,6 +249,7 @@ export function infoItems(
       label: SHORT_LABELS[id],
       value: value ?? "--",
       unavailable: value === null,
+      ...(id === "session-best" && value !== null ? { tone: "fastest" as const } : {}),
     });
   }
   return items;

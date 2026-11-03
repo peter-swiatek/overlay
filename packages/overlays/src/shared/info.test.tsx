@@ -24,9 +24,9 @@ function one(id: string, frame = fixtureFrame({ cars: [] }), ctx: Partial<InfoCo
 describe("infoItems", () => {
   const frame = fixtureFrame({
     playerCarIdx: 0,
-    cars: [{ carIdx: 0, lapInProgress: 7 }],
+    cars: [{ carIdx: 0, lapInProgress: 7, carNumber: "12", bestLapS: 92.3456 }],
     standingsInfo: { sof: 2412.4 },
-    standings: [{ carIdx: 0 }],
+    standings: [{ carIdx: 0, sessionBest: true }],
     session: {
       timeOfDayS: 14 * 3600 + 300,
       incidentLimit: 17,
@@ -34,6 +34,7 @@ describe("infoItems", () => {
       lapsTotal: 30,
       lapsRemaining: 24,
       timeRemainingS: 3661,
+      typeName: "Race",
     },
     conditions: {
       airTempC: 20,
@@ -43,6 +44,7 @@ describe("infoItems", () => {
       humidity: 0.5,
       fogLevel: 0,
       windDirRad: Math.PI / 2,
+      windSpeedMps: 5,
     },
     player: { incidentCount: 4, brakeBias: 0.565 },
   });
@@ -62,6 +64,32 @@ describe("infoItems", () => {
     expect(v("wind-direction")).toBe("E");
     expect(v("current-lap")).toBe("7 / 30");
     expect(v("brake-bias")).toBe("56.5%");
+  });
+
+  it("reads session type, wind and session best", () => {
+    expect(one("session-type", frame)?.value).toBe("Race");
+    expect(one("wind", frame)?.value).toBe("18 km/h E");
+    const mph: DisplayPrefs = { units: "imperial", speedInMph: false, timeFormat: "24h" };
+    expect(one("wind", frame, { prefs: mph })?.value).toBe("11 mph E");
+    const noDir = fixtureFrame({ cars: [], conditions: { windSpeedMps: 5 } });
+    expect(one("wind", noDir)?.value).toBe("18 km/h");
+    const best = one("session-best", frame);
+    expect(best).toMatchObject({ value: "1:32.346 (#12)", tone: "fastest", unavailable: false });
+    expect(one("session-best", frame, { lapDecimals: 1 })?.value).toBe("1:32.3 (#12)");
+    expect(one("session-type", frame)?.tone).toBeUndefined();
+  });
+
+  it("marks the new items unavailable without data", () => {
+    const empty = fixtureFrame({ cars: [{ carIdx: 0 }], standings: [{ carIdx: 0 }] });
+    for (const id of ["session-type", "wind", "session-best"]) {
+      expect(one(id, empty)).toMatchObject({ value: "--", unavailable: true });
+      expect(one(id, empty)?.tone).toBeUndefined();
+    }
+  });
+
+  it("lists wind as iRacing only", () => {
+    expect(HEADER_FIELD_OPTIONS.find((o) => o.value === "wind")?.sims).toEqual(["iracing"]);
+    expect(HEADER_FIELD_OPTIONS.find((o) => o.value === "session-best")?.sims).toBeUndefined();
   });
 
   it("hides the DQ limit on request", () => {
@@ -116,6 +144,37 @@ describe("InfoStrip", () => {
     expect(html).toContain("SoF");
     expect(html).toContain("2.4k");
     expect(html.match(/ov-info-item--unavailable/g)).toHaveLength(1);
+  });
+});
+
+describe("InfoStrip layout", () => {
+  const items = ["a", "b", "c", "d", "e"].map((id) => ({
+    id: id as "sof",
+    label: id,
+    value: id.toUpperCase(),
+    unavailable: false,
+  }));
+
+  it("splits into a left and a right group with leftCount", () => {
+    const html = renderToStaticMarkup(<InfoStrip items={items} leftCount={3} />);
+    const groups = html.split('class="ov-info-group"').slice(1);
+    expect(groups).toHaveLength(2);
+    expect(groups[0]?.match(/ov-info-item/g)).toHaveLength(3);
+    expect(groups[1]?.match(/ov-info-item/g)).toHaveLength(2);
+  });
+
+  it("has no groups without leftCount and adds the footer class", () => {
+    expect(renderToStaticMarkup(<InfoStrip items={items} />)).not.toContain("ov-info-group");
+    const footer = renderToStaticMarkup(<InfoStrip items={items} variant="footer" />);
+    expect(footer).toContain("ov-info-strip--footer");
+    expect(renderToStaticMarkup(<InfoStrip items={items} />)).not.toContain("--footer");
+  });
+
+  it("marks a fastest tone", () => {
+    const html = renderToStaticMarkup(
+      <InfoStrip items={[{ ...items[0]!, tone: "fastest" }, items[1]!]} />,
+    );
+    expect(html.match(/ov-fastest/g)).toHaveLength(1);
   });
 });
 

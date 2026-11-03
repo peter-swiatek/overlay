@@ -1,9 +1,11 @@
 import {
   CarNumberBadge,
   ClassBadge,
+  FlagBadge,
   IRatingPill,
   LicencePill,
   PositionDelta,
+  type FlagBadgeKind,
   type TableColumn,
 } from "@overlay/ui";
 import {
@@ -35,6 +37,14 @@ export interface DriverColumnContext {
   combinedLicencePill: boolean;
   /** "standings": gap = gap to the class leader with formatGap; "relative": gap = relativeGapS with formatDelta. */
   gapMode: "standings" | "relative";
+  /** Show the projected change in the iRating pill. Default true. */
+  showIRatingChange?: boolean;
+  /** Driver cell shows the flag badge after the name (pass true while the Flag column is not shown). Default false. */
+  inlineFlagBadge?: boolean;
+  /** Driver cell shows PIT after the name while on pit road (pass true while the Pit lane column is not shown). Default false. */
+  inlinePitBadge?: boolean;
+  /** Last lap cell reads "IN PIT" (muted) while the car is on pit road. Default false. */
+  pitInLastLap?: boolean;
 }
 
 const NONE = "--";
@@ -93,6 +103,8 @@ const LAYOUT: Record<DriverFieldId, Layout> = {
   "prev-stint": { align: "center" },
   "pos-change": { align: "center" },
   energy: { align: "right" },
+  p2p: { align: "center" },
+  flag: { align: "center" },
 };
 
 /** Extra body-cell classes: the position cell and the car number carry the class colour. */
@@ -111,7 +123,17 @@ export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[
       r.className === null ? NONE : <ClassBadge name={r.className} colour={r.classColour} />,
     driver: (r) => {
       const name = formatNameDisplay(r.driverName, r.teamName, ctx.nameDisplay, ctx.nameFormat);
-      return name === "" ? NONE : name;
+      const text = name === "" ? NONE : name;
+      let badge: FlagBadgeKind | null = null;
+      if (ctx.inlineFlagBadge === true && r.badge !== null) badge = r.badge;
+      else if (ctx.inlinePitBadge === true && r.onPitRoad) badge = "pit";
+      if (badge === null) return text;
+      return (
+        <>
+          <span className="ov-cell-text">{text}</span>
+          <FlagBadge kind={badge} />
+        </>
+      );
     },
     licence: (r) => <LicencePill licence={r.licence} />,
     irating: (r) => (
@@ -119,7 +141,7 @@ export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[
         iRating={r.iRating}
         licence={r.licence}
         tinted={ctx.combinedLicencePill}
-        change={r.iRatingChange}
+        change={ctx.showIRatingChange === false ? null : r.iRatingChange}
       />
     ),
     gap: (r) =>
@@ -127,7 +149,12 @@ export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[
         ? formatDelta(r.relativeGapS, ctx.gapDecimals)
         : formatGap(r.gapToClassLeader, ctx.gapDecimals),
     interval: (r) => formatGap(r.interval, ctx.gapDecimals),
-    "last-lap": (r) => lapCell(r.lastLapS, ctx.lapDecimals),
+    "last-lap": (r) =>
+      ctx.pitInLastLap === true && r.onPitRoad ? (
+        <span style={{ color: "var(--ov-text-muted)" }}>IN PIT</span>
+      ) : (
+        lapCell(r.lastLapS, ctx.lapDecimals)
+      ),
     "best-lap": (r) => lapCell(r.bestLapS, ctx.lapDecimals, r.fastest),
     "avg-lap": (r) => lapCell(r.avgLapS, ctx.lapDecimals),
     "last-lap-delta": (r) => (
@@ -148,6 +175,13 @@ export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[
     "prev-stint": (r) => count(r.prevStintLaps),
     "pos-change": (r) => <PositionDelta delta={r.positionsGained} />,
     energy: (r) => formatPercent(r.energyFraction),
+    p2p: (r) =>
+      r.p2pActive ? (
+        <span style={{ color: "var(--ov-accent)", fontWeight: 700 }}>{count(r.p2pCount)}</span>
+      ) : (
+        count(r.p2pCount)
+      ),
+    flag: (r) => (r.badge === null ? "" : <FlagBadge kind={r.badge} />),
   };
   return DRIVER_FIELD_IDS.map((id) => {
     const field = DRIVER_FIELDS.find((f) => f.id === id);

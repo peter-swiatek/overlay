@@ -172,6 +172,60 @@ describe("driverColumns", () => {
     expect(cell("last-pitted", row({ lastPitLap: 12 }))).toBe("L12");
     expect(cell("energy", row({ energyFraction: 0.42 }))).toBe("42%");
   });
+
+  it("renders push to pass: count, accent and bold while active", () => {
+    expect(cell("p2p", row())).toContain("--");
+    const idle = cell("p2p", row({ p2pCount: 3 }));
+    expect(idle).toContain("3");
+    expect(idle).not.toContain("var(--ov-accent)");
+    const active = cell("p2p", row({ p2pCount: 2, p2pActive: true }));
+    expect(active).toContain("var(--ov-accent)");
+    expect(active).toContain("font-weight:700");
+  });
+
+  it("renders the flag column badge, empty without one", () => {
+    expect(cell("flag", row())).toBe("");
+    const html = cell("flag", row({ badge: "off" }));
+    expect(html).toContain("ov-badge-flag--off");
+    expect(html).toContain("OFF");
+  });
+
+  it("puts the flag badge after the name only when asked", () => {
+    const r = row({ driverName: "Ada Testova", badge: "dsq", onPitRoad: true });
+    expect(cell("driver", r)).not.toContain("ov-badge-flag");
+    const inline = cell("driver", r, { inlineFlagBadge: true, inlinePitBadge: true });
+    expect(inline).toContain("ov-cell-text");
+    expect(inline).toContain("ov-badge-flag--dsq");
+    // PIT only when there is no flag badge.
+    expect(inline).not.toContain("ov-badge-flag--pit");
+    const pit = cell("driver", row({ driverName: "Ada Testova", onPitRoad: true }), {
+      inlineFlagBadge: true,
+      inlinePitBadge: true,
+    });
+    expect(pit).toContain("ov-badge-flag--pit");
+    expect(pit).toContain("PIT");
+    const flagOnly = cell("driver", row({ driverName: "Ada Testova", onPitRoad: true }), {
+      inlineFlagBadge: true,
+    });
+    expect(flagOnly).not.toContain("ov-badge-flag");
+  });
+
+  it("drops the iRating change with showIRatingChange: false", () => {
+    const r = row({ iRating: 2400, iRatingChange: 11 });
+    expect(cell("irating", r, { showIRatingChange: false })).not.toContain("ov-ir-delta");
+    expect(cell("irating", r, { showIRatingChange: true })).toContain("ov-ir-delta");
+  });
+
+  it("reads IN PIT in the last lap cell on pit road with pitInLastLap", () => {
+    const r = row({ lastLapS: 92.345, onPitRoad: true });
+    expect(cell("last-lap", r)).toContain("1:32.345");
+    const inPit = cell("last-lap", r, { pitInLastLap: true });
+    expect(inPit).toContain("IN PIT");
+    expect(inPit).toContain("var(--ov-text-muted)");
+    expect(cell("last-lap", row({ lastLapS: 92.345 }), { pitInLastLap: true })).toContain(
+      "1:32.345",
+    );
+  });
 });
 
 describe("driverFields", () => {
@@ -209,6 +263,15 @@ describe("column floors", () => {
     for (const id of ["position", "car-number", "driver", "gap"]) {
       expect(driverColumns(CTX).find((c) => c.id === id)?.dropPriority).toBeUndefined();
     }
+  });
+
+  it("p2p and flag are appended with the planned drop priorities", () => {
+    expect(DRIVER_FIELD_IDS.slice(-2)).toEqual(["p2p", "flag"]);
+    const p2p = DRIVER_FIELDS.find((f) => f.id === "p2p");
+    const flag = DRIVER_FIELDS.find((f) => f.id === "flag");
+    expect(p2p).toMatchObject({ dropPriority: 22, defaultVisible: false, sims: ["iracing"] });
+    expect(flag).toMatchObject({ dropPriority: 38, defaultVisible: false, chars: 5 });
+    expect(flag?.sims).toBeUndefined();
   });
 
   it("the manifest fields carry chars and minChars", () => {

@@ -54,6 +54,12 @@ export interface DriverRow {
    * Per-car virtual energy (TELEM.veFraction at offset 776 on other cars' rows) is unverified and deferred.
    */
   energyFraction: number | null;
+  /** Push-to-pass activations left (Car.p2pCount); null when the car has none. */
+  p2pCount: number | null;
+  /** Push to pass active now. */
+  p2pActive: boolean;
+  /** Flag / penalty badge (flagBadgeKind); null for none. */
+  badge: FlagBadgeKind | null;
   /** lapsCompleted + lapDistPct, for ordering; null unknown. Not compared by reuseRows (callers sort before reusing). */
   progressLaps: number | null;
 }
@@ -96,13 +102,14 @@ function isYellowCar(car: Car): boolean {
   return car.flags?.yellow === true && car.onPitRoad !== true;
 }
 
-/** The flag badge a car shows, by priority DSQ > BLK > DMG > YEL; null when none. */
+/** The flag badge a car shows, by priority DSQ > BLK > DMG > OFF > YEL; null when none. */
 export function flagBadgeKind(car: Car): FlagBadgeKind | null {
   const flags = car.flags;
   if (flags?.disqualified === true) return "dsq";
   if (flags !== null && flags !== undefined && (flags.black || flags.furled)) return "blk";
   if (flags?.repair === true) return "dmg";
-  if (isYellowCar(car)) return "yel";
+  if (car.trackSurface === "offTrack") return "off";
+  if (car.flags?.yellow === true && car.onPitRoad !== true) return "yel";
   return null;
 }
 
@@ -166,6 +173,9 @@ function buildRow(
     positionsGained:
       startPosition === null || overallPosition === null ? null : startPosition - overallPosition,
     energyFraction: car.fuelFraction,
+    p2pCount: car.p2pCount,
+    p2pActive: car.p2pActive === true,
+    badge: flagBadgeKind(car),
     progressLaps:
       entry?.progressLaps ??
       (car.lapsCompleted !== null && car.lapDistPct !== null
