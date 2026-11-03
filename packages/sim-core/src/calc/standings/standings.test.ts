@@ -507,3 +507,32 @@ describe("timed race finish", () => {
     expect(order(s)).toEqual([1, 0, 2]);
   });
 });
+
+describe("projected iRating change", () => {
+  const cars: CarSpec[] = [
+    { carIdx: 1, iRating: 2000, lapDistPct: 0.9 },
+    { carIdx: 2, iRating: 2000, lapDistPct: 0.5 },
+    { carIdx: 3, iRating: 2000, lapDistPct: 0.1 },
+    { carIdx: 4, iRating: null, lapDistPct: 0.05 },
+  ];
+
+  it("fills the change in a race from the live order", () => {
+    const s = run(cars);
+    expect(by(s, 1).iRatingChange as number).toBeGreaterThan(0);
+    expect(by(s, 3).iRatingChange as number).toBeLessThan(0);
+    expect(by(s, 4).iRatingChange).toBeNull();
+  });
+
+  it("is null outside races", () => {
+    const s = run(cars, { type: "practice" });
+    expect(s.entries.every((e) => e.iRatingChange === null)).toBe(true);
+  });
+
+  it("is null for a class with fewer than two rated cars", () => {
+    const s = run([
+      { carIdx: 1, iRating: 2000, classId: "a", lapDistPct: 0.9 },
+      { carIdx: 2, iRating: 2000, classId: "b", lapDistPct: 0.5 },
+    ]);
+    expect(s.entries.every((e) => e.iRatingChange === null)).toBe(true);
+  });
+});

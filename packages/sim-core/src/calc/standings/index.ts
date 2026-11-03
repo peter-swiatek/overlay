@@ -2,12 +2,14 @@ import type { Car, SimState } from "../../model";
 import type { GapReferenceLap } from "../gaps";
 import { bestLapGap, lapTimeChain, raceGap } from "./gap";
 import { hasOfficialOrder, officialOrder, raceOrder, type OrderCar } from "./order";
+import { projectIRatingChanges } from "./irating";
 import { newPitHistory, stepPit, stintLaps, type PitHistory } from "./pit";
 import { strengthOfField } from "./sof";
 import type { Standings, StandingsEntry, StandingsGap, StandingsInputs } from "./types";
 
 export * from "./types";
 export { strengthOfField } from "./sof";
+export { projectIRatingChanges } from "./irating";
 export { officialOrder, raceOrder, type OrderCar } from "./order";
 export { raceGap, bestLapGap, lapTimeChain } from "./gap";
 export { newPitHistory, stepPit, stintLaps, type PitHistory } from "./pit";
@@ -308,6 +310,24 @@ export class StandingsTracker {
       if (recordStart) {
         this.startPositions.set(car.carIdx, rank);
         e.startPosition = rank;
+      }
+    }
+
+    // Projected iRating change per class from the live class order; races only.
+    if (race) {
+      const byClass = new Map<string, { carIdx: number; iRating: number; position: number }[]>();
+      for (let i = 0; i < n; i++) {
+        const car = cars[i] as Car;
+        const pos = (entries[i] as StandingsEntry).liveClassPosition;
+        if (pos === null || car.iRating === null || !(car.iRating > 0)) continue;
+        const key = car.classId ?? "";
+        let list = byClass.get(key);
+        if (!list) byClass.set(key, (list = []));
+        list.push({ carIdx: car.carIdx, iRating: car.iRating, position: pos });
+      }
+      for (const list of byClass.values()) {
+        const changes = projectIRatingChanges(list);
+        for (const e of entries) e.iRatingChange = changes.get(e.carIdx) ?? e.iRatingChange;
       }
     }
 
