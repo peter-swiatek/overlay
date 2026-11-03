@@ -5,8 +5,8 @@ export const pitSpeedManifest: OverlayManifest = {
   title: "Pit Speed",
   description: "Your speed against the pit lane limit.",
   sims: ["iracing", "lmu"],
-  defaultSize: { width: 280, height: 110 },
-  minSize: { width: 180, height: 70 },
+  defaultSize: { width: 240, height: 48 },
+  minSize: { width: 160, height: 36 },
   defaultPosition: { x: 820, y: 120 },
   table: false,
   // The reference lists only "Pit stop info"; the other three let the user trim the widget.
