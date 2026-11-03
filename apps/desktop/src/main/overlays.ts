@@ -1,12 +1,20 @@
 import { BrowserWindow, screen } from "electron";
 import type { OverlayInstanceSettings, OverlayManifest } from "@overlay/overlays/contract";
+import type { SimName } from "@overlay/sim-core/types";
 import type { TableMetrics } from "@overlay/ui/fit";
 import { IPC, type Bounds, type Size } from "../shared/types";
-import { fitTarget, parseTableMetrics, planAutoWidth, planOptionSize } from "./auto-width";
+import {
+  fitTarget,
+  parseTableMetrics,
+  planAutoWidth,
+  planOptionSize,
+  retargetScale,
+} from "./auto-width";
 import {
   clampToWorkArea,
   effectiveMinSize,
   growToMin,
+  placeInWorkArea,
   initialBounds,
   isReachable,
   parseContentMin,
@@ -67,6 +75,8 @@ export class OverlayManager {
   private saveTimer: NodeJS.Timeout | undefined;
   /** The newest table font report from any window (all windows share the theme). */
   private lastMetrics: TableMetrics | null = null;
+  /** The sim the telemetry source currently reads; null while unknown (replay, mock, none). */
+  private activeSim: SimName | null = null;
   /** Asks the z-order keeper to re-raise the overlays (never activates them). */
   onShouldRaise: (() => void) | undefined;
 
@@ -195,7 +205,7 @@ export class OverlayManager {
     const settings = this.effectiveSettings()[id];
     const metrics = this.metricsFor(id);
     if (!manifest?.table || !settings || !metrics) return;
-    const target = fitTarget(manifest, settings, metrics);
+    const target = fitTarget(manifest, settings, metrics, this.activeSim);
     const entry = this.open.get(id);
     const prevFit = this.layout[id]?.fitWidth;
     if (entry && !entry.win.isDestroyed()) {
@@ -223,10 +233,12 @@ export class OverlayManager {
     }
     const stored = this.layout[id];
     if (!stored) return;
+    // The stored bounds stay at their own scale until the overlay opens, so the target does too.
+    const storedTarget = retargetScale(target, settings.common.scalePct, stored.scalePct);
     const plan = planAutoWidth({
       bounds: stored,
       storedFitWidth: prevFit,
-      target,
+      target: storedTarget,
       area: screen.getDisplayMatching(stored).workArea,
     });
     if (plan.bounds || plan.fitWidth !== prevFit) {
@@ -266,6 +278,15 @@ export class OverlayManager {
       this.scheduleSave();
     } else if (plan.bounds) {
       this.scheduleSave();
+    }
+  }
+
+  /** Sets the sim the telemetry source reads (null when unknown) and refits the table overlays when it changed. */
+  setActiveSim(sim: SimName | null): void {
+    if (sim === this.activeSim) return;
+    this.activeSim = sim;
+    for (const manifest of this.deps.manifests) {
+      if (manifest.table) this.applyFit(manifest.id);
     }
   }
 
@@ -310,7 +331,7 @@ export class OverlayManager {
       // First use: open at the size of the layout option's current value.
       const scaled = scaleSize(optionSize, scalePct);
       const chrome = settings.common.showTitleBar ? TITLE_BAR_PX : 0;
-      bounds = clampToWorkArea(
+      bounds = placeInWorkArea(
         { ...bounds, width: scaled.width, height: scaled.height + chrome },
         workAreas.find((a) => isReachable(bounds, [a])) ?? primary,
         scaleSize(manifest.minSize, scalePct),
@@ -324,7 +345,9 @@ export class OverlayManager {
     }
     if (stored && stored.scalePct !== scalePct && layoutEntry.fitWidth !== undefined) {
       // The fit was recorded at the old scale; re-record it at this one (no resize).
-      const target = this.lastMetrics ? fitTarget(manifest, settings, this.lastMetrics) : null;
+      const target = this.lastMetrics
+        ? fitTarget(manifest, settings, this.lastMetrics, this.activeSim)
+        : null;
       if (target?.fitWidth != null) layoutEntry.fitWidth = target.fitWidth;
     }
     this.layout[id] = layoutEntry;
@@ -395,7 +418,7 @@ export class OverlayManager {
     // The reported content minimum was measured at the old scale; it is re-measured shortly.
     entry.contentMin = scaleContentMin(entry.contentMin, (toPct / entry.scalePct) * 100, chrome);
     const metrics = this.metricsFor(manifest.id);
-    const target = metrics ? fitTarget(manifest, settings, metrics) : null;
+    const target = metrics ? fitTarget(manifest, settings, metrics, this.activeSim) : null;
     entry.tableMinWidth = target
       ? target.minWidth
       : Math.round((entry.tableMinWidth * toPct) / entry.scalePct);

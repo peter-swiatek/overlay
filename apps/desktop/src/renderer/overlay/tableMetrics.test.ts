@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { metricsChanged, readMetrics } from "./tableMetrics";
+import { metricsChanged, readMetrics, whenFontsReady } from "./tableMetrics";
 
 describe("readMetrics", () => {
   it("divides the 100 ch span by 100 and reads the padding", () => {
@@ -28,5 +28,31 @@ describe("metricsChanged", () => {
   it("reports a move of 0.01 px or more on either value", () => {
     expect(metricsChanged(base, { chPx: 8.7, cellPadPx: 7 })).toBe(true);
     expect(metricsChanged(base, { chPx: 8.6, cellPadPx: 5 })).toBe(true);
+  });
+});
+
+describe("whenFontsReady", () => {
+  it("waits for document.fonts.ready", async () => {
+    let resolve: () => void = () => undefined;
+    const ready = new Promise<void>((r) => {
+      resolve = r;
+    });
+    let called = 0;
+    whenFontsReady({ fonts: { ready } }, () => {
+      called += 1;
+    });
+    await Promise.resolve();
+    expect(called).toBe(0);
+    resolve();
+    await ready;
+    await Promise.resolve();
+    expect(called).toBe(1);
+  });
+  it("runs at once when the font API is missing", () => {
+    let called = 0;
+    whenFontsReady({}, () => {
+      called += 1;
+    });
+    expect(called).toBe(1);
   });
 });
