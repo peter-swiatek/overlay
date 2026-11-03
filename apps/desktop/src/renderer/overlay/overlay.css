@@ -93,30 +93,6 @@ body,
   border-radius: 6px;
 }
 
-.inputs {
-  display: flex;
-  gap: 12px;
-  padding: 10px;
-}
-.bar-track {
-  flex: 1;
-  display: flex;
-  align-items: flex-end;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  overflow: hidden;
-}
-.bar {
-  width: 100%;
-  height: 0;
-}
-.bar.throttle {
-  background: #2fd05a;
-}
-.bar.brake {
-  background: #ee3b3b;
-}
-
 .edit-frame {
   position: absolute;
   inset: 0;
@@ -145,45 +121,4 @@ body,
   font-size: 14px;
   text-align: center;
   color: var(--ov-text-muted, #c4c9d2);
-}
-
-.bar.clutch {
-  background: #3b8cee;
-}
-.clutch-track {
-  flex: 0.5;
-}
-.readout {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  min-width: 0;
-  font-variant-numeric: tabular-nums;
-}
-.gear {
-  font-size: 44px;
-  font-weight: 700;
-  line-height: 1;
-}
-.speed {
-  font-size: 14px;
-  color: var(--ov-text-muted, #c4c9d2);
-}
-.steer-track {
-  position: relative;
-  width: 100%;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-}
-.steer-mark {
-  position: absolute;
-  top: -2px;
-  width: 4px;
-  height: 12px;
-  margin-left: -2px;
-  background: #ffc400;
-  border-radius: 2px;
 }

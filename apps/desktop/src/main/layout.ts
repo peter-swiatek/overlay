@@ -56,12 +56,12 @@ function parseBounds(value: unknown): StoredBounds | undefined {
   return stored;
 }
 
-/** M1 stored the demo inputs window as "inputs"; it is "demo-inputs" now. */
-const LEGACY_IDS: Readonly<Record<string, string>> = { "demo-inputs": "inputs" };
+/** The developer demo "demo-inputs" became the Inputs overlay; its stored bounds carry over. */
+const LEGACY_IDS: Readonly<Record<string, string>> = { inputs: "demo-inputs" };
 
 /**
  * Reads stored bounds for the known overlays only. Invalid entries and unknown ids are dropped
- * (the overlay then gets default bounds), and M1's "inputs" entry migrates to "demo-inputs".
+ * (the overlay then gets default bounds), and a stored "demo-inputs" entry migrates to "inputs".
  */
 export function parseLayout(raw: unknown, manifests: readonly OverlayManifest[]): Layout {
   const stored = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};

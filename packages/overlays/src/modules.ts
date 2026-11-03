@@ -8,7 +8,7 @@ import { compactHudModule } from "./compact-hud";
 import { deltaBarModule } from "./delta-bar";
 import { telemetryStripModule } from "./telemetry-strip";
 import { weatherModule } from "./weather";
-import { demoInputsModule } from "./demo-inputs";
+import { inputsModule } from "./inputs";
 
 export const OVERLAY_MODULES: readonly OverlayModule[] = [
   relativeModule,
@@ -20,7 +20,7 @@ export const OVERLAY_MODULES: readonly OverlayModule[] = [
   deltaBarModule,
   telemetryStripModule,
   weatherModule,
-  demoInputsModule,
+  inputsModule,
 ];
 
 export function moduleById(id: string): OverlayModule | undefined {

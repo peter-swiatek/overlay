@@ -8,7 +8,7 @@ import { compactHudManifest } from "./compact-hud/manifest";
 import { deltaBarManifest } from "./delta-bar/manifest";
 import { telemetryStripManifest } from "./telemetry-strip/manifest";
 import { weatherManifest } from "./weather/manifest";
-import { demoInputsManifest } from "./demo-inputs/manifest";
+import { inputsManifest } from "./inputs/manifest";
 
 export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   relativeManifest,
@@ -20,7 +20,7 @@ export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   deltaBarManifest,
   telemetryStripManifest,
   weatherManifest,
-  demoInputsManifest,
+  inputsManifest,
 ];
 
 export function manifestById(id: string): OverlayManifest | undefined {

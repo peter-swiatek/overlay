@@ -15,7 +15,7 @@ import {
   type VisibilityInput,
 } from "./visibility";
 
-const demoInputsModule = moduleById("demo-inputs") as OverlayModule;
+const inputsModule = moduleById("inputs") as OverlayModule;
 const rules = { hideInGarage: false, hideOnTrack: false, alwaysShow: false };
 const base: VisibilityInput = {
   live: true,
@@ -164,8 +164,8 @@ describe("contentStyle", () => {
 
 describe("OverlayContent", () => {
   const live: HostView = { live: true, playerOnTrack: true, sim: "iracing", notice: null };
-  const settings = defaultInstanceSettings(demoInputsModule.manifest);
-  const render = (view: HostView, editing = false, module: OverlayModule = demoInputsModule) =>
+  const settings = defaultInstanceSettings(inputsModule.manifest);
+  const render = (view: HostView, editing = false, module: OverlayModule = inputsModule) =>
     renderToStaticMarkup(
       <OverlayContent
         module={module}
@@ -183,16 +183,16 @@ describe("OverlayContent", () => {
   });
 
   it("adds the edit frame with the overlay title in edit mode", () => {
-    const html = render(live, true, { ...demoInputsModule, Component: () => <i>body</i> });
+    const html = render(live, true, { ...inputsModule, Component: () => <i>body</i> });
     expect(html).toContain("edit-frame");
-    expect(html).toContain("Inputs (demo)");
+    expect(html).toContain("Inputs");
     expect(html).toContain("opacity:1");
   });
 
   it("shows a note for an unsupported sim only in edit mode", () => {
     const onlyIracing: OverlayModule = {
-      ...demoInputsModule,
-      manifest: { ...demoInputsModule.manifest, sims: ["iracing"] },
+      ...inputsModule,
+      manifest: { ...inputsModule.manifest, sims: ["iracing"] },
     };
     const lmu: HostView = { ...live, sim: "lmu" };
     expect(render(lmu, false, onlyIracing)).toBe("");
