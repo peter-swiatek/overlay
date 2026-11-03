@@ -151,6 +151,10 @@ export const RESULTS_STREAM = {
  * | vehicleFilename    | cstr 32 | standings vehicleFilename                                        |
  * | fuelFraction   | u8      | standings fuelFraction x 255 exactly (value / 255 equals REST to the last digit, correlation 1.0000, 4,255 vehicle/frame pairs; found by searching every u8, f32 and f64 in the row) |
  *
+ * The player's lap timing reads three of these (`timeIntoLap`, `lastLapTime`, `bestLapTime`) from
+ * the player's scoring row; no new offsets were needed. The scoring `flag` and `underYellow`
+ * bytes also give every car's flags (blue = 6; the other flags have no observed trigger).
+ *
  * The scoring `fuelFraction` follows fuel, not virtual energy: in the Ferrari 499P recording it
  * differs from `veFraction` (e.g. 0.33 fuel against 0.33..1.00 energy, mostly different), and for
  * the player it stays within one count of fuelLitres / tankCapacityLitres in the telemetry row.
@@ -199,6 +203,14 @@ export const VEHICLE = {
   vehicleFilename: { offset: 544, length: 32 },
   fuelFraction: 578,
 } as const;
+
+/**
+ * Searched and not provable (so decoded as null): an ABS-active byte. Nothing in the telemetry
+ * row was found that pulses only under heavy braking and never at throttle, so
+ * `player.absActive` stays null. Per-car track surface (off track, approaching pits) has no
+ * evidence either; only the player's own surface is derived from the in-car byte, the real-time
+ * byte and the garage-stall byte.
+ */
 
 /** Telemetry block: three count bytes, then the rows. */
 export const TELEMETRY_BASE = RESULTS_STREAM.offset + RESULTS_STREAM.length;

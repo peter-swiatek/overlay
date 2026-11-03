@@ -4,11 +4,13 @@ import {
   lmuClassColour,
   type Car,
   type Flags,
+  type PlayerLap,
   type SessionInfo,
   type SessionPhase,
   type SessionTiming,
   type SessionType,
   type SimState,
+  type TrackSurface,
   type TyreCorner,
   type TyreSet,
   type Vec3,
@@ -183,6 +185,14 @@ export class LmuDecoder {
     state.flags = playerRow === null ? null : readFlags(f, playerRow);
     state.player.worldPos = playerRow === null ? null : readWorldPos(f, playerRow);
     state.player.yawRad = playerRow === null ? null : readYaw(f, playerRow);
+    if (playerRow !== null) {
+      const inCar = f.u8(TELEMETRY_BASE + TELEMETRY.playerInCar) === 1;
+      const live = f.u8(SCORING_BASE + SESSION.inRealtime) === 1;
+      const stalled = cars.find((c) => c.isPlayer)?.inPitStall === true;
+      state.player.lap = inCar ? readPlayerLap(f, playerRow) : null;
+      state.player.trackSurface = playerSurface(inCar, live, stalled);
+      state.player.isOnTrack = inCar && live;
+    }
 
     const telemetryRow = playerId === null ? null : findTelemetryRow(f, playerId);
     if (telemetryRow !== null) readPlayer(f, telemetryRow, state);
@@ -351,9 +361,32 @@ function readSession(
     pitSpeedLimitMps: null,
     incidentLimit: null,
     timeOfDayS: timeOfDay(f.f32(s + SESSION.timeOfDay)),
-    typeName: null,
+    typeName: rest.session?.session ?? null,
     trackUsage: null,
   };
+}
+
+/**
+ * The player's lap timing from the scoring row: time into the lap, last and best lap (the sim
+ * writes -1 or 0 until a lap is set). LMU has no live delta channels, so `delta` stays null.
+ */
+function readPlayerLap(f: Frame, row: number): PlayerLap {
+  const into = f.f64(row + VEHICLE.timeIntoLap);
+  return {
+    currentLapS: Number.isFinite(into) && into >= 0 ? into : null,
+    lastLapS: positiveOrNull(f.f64(row + VEHICLE.lastLapTime)),
+    bestLapS: positiveOrNull(f.f64(row + VEHICLE.bestLapTime)),
+    delta: null,
+  };
+}
+
+/**
+ * In the stall, else on track while in real time and in the car, else not in the world. Never
+ * `offTrack` or `approachingPits`: nothing in the buffer proves them.
+ */
+function playerSurface(inCar: boolean, live: boolean, inStall: boolean): TrackSurface {
+  if (inStall) return "inPitStall";
+  return inCar && live ? "onTrack" : "notInWorld";
 }
 
 /** Seconds after midnight; the sim keeps counting past 24 h in long sessions. */
@@ -457,6 +490,7 @@ function readCar(f: Frame, o: number, trackLengthM: number, rest: LmuRestSnapsho
   car.estTimeS = timeIntoLap >= 0 && Number.isFinite(timeIntoLap) ? timeIntoLap : null;
   car.isPlayer = f.u8(o + VEHICLE.player) === 1;
   car.connected = controlKnown;
+  car.flags = readFlags(f, o);
   return car;
 }
 
@@ -547,6 +581,7 @@ function readPlayer(f: Frame, o: number, state: SimState): void {
   const energy = f.f32(o + TELEM.veFraction);
   player.energyFraction = energy >= 0 && energy <= 1 ? energy : null;
   player.pitLimiter = f.u8(o + TELEM.pitLimiterOn) === 1;
+  player.redlineRpm = positiveOrNull(f.f64(o + TELEM.rpmLimit));
   // The row holds the rear share, including live brake migration; SimState wants the front share.
   const rear = f.f64(o + TELEM.rearBrakeBias);
   player.brakeBias = rear > 0 && rear < 1 ? 1 - rear : null;
