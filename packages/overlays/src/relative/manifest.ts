@@ -14,16 +14,21 @@ const DEFAULT_VISIBLE: readonly DriverFieldId[] = [
   "driver",
   "licence",
   "irating",
-  "last-lap",
   "gap",
 ];
+
+/**
+ * Window width that fits the default columns at the nominal metrics, rounded up.
+ * relative.test.tsx asserts it equals the computed fit.
+ */
+const DEFAULT_WIDTH = 454;
 
 export const relativeManifest: OverlayManifest = {
   id: "relative",
   title: "Relative",
   description: "Cars around you on track, with the gap to each.",
   sims: ["iracing", "lmu"],
-  defaultSize: { width: 520, height: 300 },
+  defaultSize: { width: DEFAULT_WIDTH, height: 300 },
   minSize: { width: 260, height: 140 },
   defaultPosition: { x: 40, y: 600 },
   table: true,
@@ -101,7 +106,7 @@ export const relativeManifest: OverlayManifest = {
       label: "Header fields",
       kind: "multi",
       section: "Header and footer",
-      default: ["air-temp", "track-temp", "wetness"],
+      default: ["air-temp", "track-temp", "wetness", "wind"],
       options: HEADER_FIELD_OPTIONS,
       max: 5,
     },
