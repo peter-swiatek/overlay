@@ -3,7 +3,7 @@ import { performance } from "node:perf_hooks";
 import { describe, expect, it } from "vitest";
 import { RecordKind } from "../../fixtures/format";
 import { FixtureReader } from "../../fixtures/reader";
-import { isSimState, type SimState } from "../../model/sim-state";
+import { emptyFlags, isSimState, type SimState } from "../../model/sim-state";
 import { IracingAdapter } from "./adapter";
 import { VarType, decodeSessionYaml } from "./decoder";
 import { SessionInfoCache, type IracingSessionInfo } from "./session-yaml";
@@ -490,10 +490,10 @@ describe("IracingAdapter on synthetic buffers", () => {
     expect(flagsOf(0x20)).toEqual(["blue"]);
     expect(flagsOf(0x4000)).toEqual(["fullCourseYellow"]);
     expect(flagsOf(0x10000)).toEqual(["black"]);
-    expect(flagsOf(0x20000)).toEqual(["black"]);
-    // furled (warning), repair and debris have no SimState slot: ignored, never shown as black
-    expect(flagsOf(0x80000)).toEqual([]);
-    expect(flagsOf(0x100000)).toEqual([]);
+    expect(flagsOf(0x20000)).toEqual(["black", "disqualified"]);
+    // furled (warning) and repair have their own slots, never shown as black; debris has none
+    expect(flagsOf(0x80000)).toEqual(["furled"]);
+    expect(flagsOf(0x100000)).toEqual(["repair"]);
     expect(flagsOf(0x80)).toEqual([]);
     expect(flagsOf(0x80000000 + 0x4)).toEqual(["green"]); // start-light bits are ignored
     expect(flagsOf(0x10000000 + 0x40000 + 0x400)).toEqual([]); // startHidden, servicible, greenHeld
@@ -857,6 +857,254 @@ describe("IracingAdapter field data (synthetic)", () => {
 
   it("gives no brake bias while the player is not in the world", () => {
     expect(run({ dcBrakeBias: 55, CarIdxTrackSurface: [-1, -1] }).player.brakeBias).toBeNull();
+  });
+});
+
+describe("IracingAdapter design-system fields (synthetic)", () => {
+  const delta = (name: string): SyntheticVar[] => [
+    { name, type: VarType.Float },
+    { name: `${name}_OK`, type: VarType.Bool },
+    { name: `${name}_DD`, type: VarType.Float },
+  ];
+  const vars: SyntheticVar[] = [
+    { name: "SessionTime", type: VarType.Double },
+    { name: "SessionNum", type: VarType.Int },
+    { name: "SessionFlags", type: VarType.Bitfield },
+    { name: "PlayerCarIdx", type: VarType.Int },
+    { name: "CarIdxPosition", type: VarType.Int, count: 3 },
+    { name: "CarIdxTrackSurface", type: VarType.Int, count: 3 },
+    { name: "CarIdxSessionFlags", type: VarType.Bitfield, count: 3 },
+    { name: "CarIdxP2P_Count", type: VarType.Int, count: 3 },
+    { name: "CarIdxP2P_Status", type: VarType.Bool, count: 3 },
+    { name: "LapCurrentLapTime", type: VarType.Float },
+    { name: "LapLastLapTime", type: VarType.Float },
+    { name: "LapBestLapTime", type: VarType.Float },
+    ...delta("LapDeltaToBestLap"),
+    ...delta("LapDeltaToSessionBestLap"),
+    ...delta("LapDeltaToSessionLastlLap"),
+    { name: "BrakeABSactive", type: VarType.Bool },
+    { name: "PlayerTrackSurface", type: VarType.Int },
+    { name: "IsOnTrack", type: VarType.Bool },
+    { name: "SteeringWheelAngleMax", type: VarType.Float },
+    { name: "PlayerCarSLFirstRPM", type: VarType.Float },
+    { name: "PlayerCarSLShiftRPM", type: VarType.Float },
+    { name: "PlayerCarSLLastRPM", type: VarType.Float },
+    { name: "PlayerCarSLBlinkRPM", type: VarType.Float },
+    { name: "WeatherDeclaredWet", type: VarType.Bool },
+  ];
+  const layout = syntheticLayout(vars);
+  const adapter = IracingAdapter.fromHeaderBytes(layout.header);
+  const info: IracingSessionInfo = {
+    trackName: null,
+    trackConfig: null,
+    trackLengthM: null,
+    pitSpeedLimitMps: null,
+    incidentLimit: null,
+    pitStallLapDistPct: null,
+    currentSessionNum: 1,
+    sessions: [
+      {
+        sessionNum: 0,
+        typeName: "Lone Qualify",
+        type: "qualifying",
+        lapsLimit: null,
+        timeLimitS: null,
+      },
+      {
+        sessionNum: 1,
+        typeName: "Race",
+        type: "race",
+        lapsLimit: null,
+        timeLimitS: null,
+        trackRubberState: "moderate usage",
+      },
+    ],
+    driverCarIdx: 0,
+    fuelCapacityL: null,
+    drivers: [0, 1, 2].map((carIdx) => ({
+      carIdx,
+      driverName: `Driver ${carIdx}`,
+      carName: null,
+      carNumber: null,
+      classId: null,
+      className: null,
+      classColour: null,
+      iRating: null,
+      license: null,
+      isPaceCar: false,
+      teamName: null,
+    })),
+    redlineRpm: 8000,
+    shiftLightRpm: { firstRpm: 5000, shiftRpm: 7000, lastRpm: 6800, blinkRpm: null },
+  };
+  const run = (values: Record<string, number | number[]>, i: IracingSessionInfo | null = info) =>
+    adapter.toSimState(
+      layout.buffer({
+        PlayerCarIdx: 0,
+        SessionNum: 1,
+        CarIdxTrackSurface: [3, 3, 3],
+        PlayerTrackSurface: 3,
+        ...values,
+      }),
+      i,
+    );
+
+  it("reads the player's lap times and the three delta channels", () => {
+    const s = run({
+      LapCurrentLapTime: 42.5,
+      LapLastLapTime: 91.25,
+      LapBestLapTime: 90.5,
+      LapDeltaToBestLap: -0.25,
+      LapDeltaToBestLap_OK: 1,
+      LapDeltaToBestLap_DD: 0.5,
+      LapDeltaToSessionBestLap: 0.75,
+      LapDeltaToSessionBestLap_OK: 1,
+      LapDeltaToSessionBestLap_DD: -0.125,
+      LapDeltaToSessionLastlLap: 1.5,
+      LapDeltaToSessionLastlLap_OK: 1,
+      LapDeltaToSessionLastlLap_DD: 0,
+    });
+    expect(s.player.lap).toEqual({
+      currentLapS: 42.5,
+      lastLapS: 91.25,
+      bestLapS: 90.5,
+      delta: {
+        best: { s: -0.25, ok: true, rate: 0.5 },
+        sessionBest: { s: 0.75, ok: true, rate: -0.125 },
+        sessionLast: { s: 1.5, ok: true, rate: 0 },
+      },
+    });
+  });
+
+  it("marks a channel not ok when its _OK is false, and unset lap times as null", () => {
+    const s = run({ LapDeltaToBestLap: 0.5, LapDeltaToBestLap_OK: 0, LapDeltaToBestLap_DD: 0.25 });
+    expect(s.player.lap?.delta?.best).toEqual({ s: 0.5, ok: false, rate: 0.25 });
+    expect(s.player.lap?.lastLapS).toBeNull();
+    expect(s.player.lap?.bestLapS).toBeNull();
+  });
+
+  it("gives null channels, rates and fields when the variables are missing", () => {
+    const sparse = syntheticLayout([
+      { name: "PlayerCarIdx", type: VarType.Int },
+      { name: "CarIdxPosition", type: VarType.Int, count: 1 },
+      { name: "CarIdxTrackSurface", type: VarType.Int, count: 1 },
+      { name: "CarIdxClass", type: VarType.Int, count: 1 },
+      { name: "LapDeltaToBestLap", type: VarType.Float },
+    ]);
+    const s = IracingAdapter.fromHeaderBytes(sparse.header).toSimState(
+      sparse.buffer({ PlayerCarIdx: 0, CarIdxTrackSurface: [3], LapDeltaToBestLap: 0.5 }),
+      null,
+    );
+    expect(s.player.lap?.delta).toEqual({
+      best: { s: 0.5, ok: false, rate: null },
+      sessionBest: null,
+      sessionLast: null,
+    });
+    expect(s.player.lap?.currentLapS).toBeNull();
+    expect(s.player.absActive).toBeNull();
+    expect(s.player.isOnTrack).toBeNull();
+    expect(s.player.trackSurface).toBeNull();
+    expect(s.player.steerMaxRad).toBeNull();
+    expect(s.player.shiftLights).toBeNull();
+    expect(s.player.redlineRpm).toBeNull();
+    expect(s.conditions.declaredWet).toBeNull();
+    expect(s.cars[0]?.flags).toBeNull();
+    expect(s.cars[0]?.p2pCount).toBeNull();
+    expect(s.cars[0]?.p2pActive).toBeNull();
+  });
+
+  it("has no lap while the player is not in the world", () => {
+    const s = run({ CarIdxTrackSurface: [-1, 3, 3], LapCurrentLapTime: 5, BrakeABSactive: 1 });
+    expect(s.player.lap).toBeNull();
+    expect(s.player.absActive).toBeNull();
+  });
+
+  it("reads ABS, on-track, steering lock and the redline", () => {
+    const s = run({ BrakeABSactive: 1, IsOnTrack: 1, SteeringWheelAngleMax: 7.85 });
+    expect(s.player.absActive).toBe(true);
+    expect(s.player.isOnTrack).toBe(true);
+    expect(s.player.steerMaxRad).toBeCloseTo(7.85, 5);
+    expect(s.player.redlineRpm).toBe(8000);
+    const off = run({ BrakeABSactive: 0, IsOnTrack: 0, SteeringWheelAngleMax: 0 });
+    expect(off.player.absActive).toBe(false);
+    expect(off.player.isOnTrack).toBe(false);
+    expect(off.player.steerMaxRad).toBeNull();
+    expect(run({}, null).player.redlineRpm).toBeNull();
+  });
+
+  it("uses the live shift-light points, then the session info, then nothing", () => {
+    const live = run({
+      PlayerCarSLFirstRPM: 5200,
+      PlayerCarSLShiftRPM: 7600,
+      PlayerCarSLLastRPM: 7400,
+      PlayerCarSLBlinkRPM: 7800,
+    });
+    expect(live.player.shiftLights).toEqual({
+      firstRpm: 5200,
+      shiftRpm: 7600,
+      lastRpm: 7400,
+      blinkRpm: 7800,
+    });
+    const noBlink = run({
+      PlayerCarSLFirstRPM: 5200,
+      PlayerCarSLShiftRPM: 7600,
+      PlayerCarSLLastRPM: 7400,
+    });
+    expect(noBlink.player.shiftLights?.blinkRpm).toBeNull();
+    expect(run({}).player.shiftLights).toEqual(info.shiftLightRpm);
+    expect(run({}, { ...info, shiftLightRpm: null }).player.shiftLights).toBeNull();
+    expect(run({}, null).player.shiftLights).toBeNull();
+  });
+
+  it.each([
+    [-1, "notInWorld"],
+    [0, "offTrack"],
+    [1, "inPitStall"],
+    [2, "approachingPits"],
+    [3, "onTrack"],
+    [7, null],
+  ] as const)("maps track surface %i to %s for the player and cars", (raw, expected) => {
+    const s = run({ PlayerTrackSurface: raw, CarIdxTrackSurface: [3, raw, 3] });
+    expect(s.player.trackSurface).toBe(expected);
+    expect(s.cars[1]?.trackSurface).toBe(expected);
+  });
+
+  it("takes the session name and rubber state from the current entry", () => {
+    const s = run({});
+    expect(s.session.typeName).toBe("Race");
+    expect(s.session.trackUsage).toBe("moderate usage");
+    const q = run({ SessionNum: 0 });
+    expect(q.session.typeName).toBe("Lone Qualify");
+    expect(q.session.trackUsage).toBeNull();
+    expect(run({}, null).session.typeName).toBeNull();
+  });
+
+  it("reads the declared-wet flag", () => {
+    expect(run({ WeatherDeclaredWet: 1 }).conditions.declaredWet).toBe(true);
+    expect(run({ WeatherDeclaredWet: 0 }).conditions.declaredWet).toBe(false);
+  });
+
+  it("decodes per-car flags including disqualified, repair and furled", () => {
+    const s = run({
+      SessionFlags: 0x20000 | 0x100000 | 0x80000,
+      CarIdxSessionFlags: [0x20000, 0x100000 | 0x8, 0x80000],
+    });
+    expect(s.cars[0]?.flags).toMatchObject({
+      disqualified: true,
+      black: true,
+      repair: false,
+      furled: false,
+    });
+    expect(s.cars[1]?.flags).toMatchObject({ repair: true, yellow: true, disqualified: false });
+    expect(s.cars[2]?.flags).toMatchObject({ furled: true, black: false, repair: false });
+    expect(s.flags).toMatchObject({ disqualified: true, repair: true, furled: true, black: true });
+    expect(run({}).cars[0]?.flags).toEqual(emptyFlags());
+  });
+
+  it("reads push-to-pass count and status", () => {
+    const s = run({ CarIdxP2P_Count: [10, -1, 0], CarIdxP2P_Status: [1, 0, 0] });
+    expect(s.cars.map((c) => c.p2pCount)).toEqual([10, null, 0]);
+    expect(s.cars.map((c) => c.p2pActive)).toEqual([true, false, false]);
   });
 });
 

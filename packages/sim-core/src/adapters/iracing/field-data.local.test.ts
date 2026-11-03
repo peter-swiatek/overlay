@@ -26,6 +26,16 @@ const FIELDS = [
   "conditions.windDirRad",
   "player.pitStallLapDistPct",
   "player.brakeBias",
+  "player.lap.currentLapS",
+  "player.lap.lastLapS",
+  "player.lap.bestLapS",
+  "player.lap.delta.best",
+  "player.lap.delta.sessionBest",
+  "player.lap.delta.sessionLast",
+  "player.steerMaxRad",
+  "player.redlineRpm",
+  "player.shiftLights.shiftRpm",
+  "car.p2pCount",
 ] as const;
 
 function pick(state: ReturnType<IracingAdapter["toSimState"]>, field: (typeof FIELDS)[number]) {
@@ -48,6 +58,26 @@ function pick(state: ReturnType<IracingAdapter["toSimState"]>, field: (typeof FI
       return state.player.pitStallLapDistPct;
     case "player.brakeBias":
       return state.player.brakeBias;
+    case "player.lap.currentLapS":
+      return state.player.lap?.currentLapS ?? null;
+    case "player.lap.lastLapS":
+      return state.player.lap?.lastLapS ?? null;
+    case "player.lap.bestLapS":
+      return state.player.lap?.bestLapS ?? null;
+    case "player.lap.delta.best":
+      return state.player.lap?.delta?.best?.s ?? null;
+    case "player.lap.delta.sessionBest":
+      return state.player.lap?.delta?.sessionBest?.s ?? null;
+    case "player.lap.delta.sessionLast":
+      return state.player.lap?.delta?.sessionLast?.s ?? null;
+    case "player.steerMaxRad":
+      return state.player.steerMaxRad;
+    case "player.redlineRpm":
+      return state.player.redlineRpm;
+    case "player.shiftLights.shiftRpm":
+      return state.player.shiftLights?.shiftRpm ?? null;
+    case "car.p2pCount":
+      return state.cars.find((c) => c.isPlayer === true)?.p2pCount ?? null;
   }
 }
 
@@ -63,6 +93,8 @@ describe("iRacing field data on a full recording", () => {
       let teamRows = 0;
       let worldPosRows = 0;
       let fuelRows = 0;
+      let surfaceRows = 0;
+      let yellowRows = 0;
       const ranges = new Map<string, Range>(
         FIELDS.map((f) => [f, { n: 0, min: Infinity, max: -Infinity }]),
       );
@@ -84,6 +116,8 @@ describe("iRacing field data on a full recording", () => {
           }
           for (const c of state.cars) {
             carRows++;
+            if (c.trackSurface !== null) surfaceRows++;
+            if (c.flags?.yellow === true) yellowRows++;
             if (c.teamName !== null) teamRows++;
             if (c.worldPos !== null) worldPosRows++;
             if (c.fuelFraction !== null) fuelRows++;
@@ -99,6 +133,7 @@ describe("iRacing field data on a full recording", () => {
           `iRacing field data: ${frames} frames`,
           ...lines,
           `teamName ${teamRows}/${carRows} car rows; worldPos ${worldPosRows}; fuelFraction ${fuelRows}`,
+          `trackSurface ${surfaceRows}/${carRows} car rows; yellow-flagged ${yellowRows}`,
         ].join("\n"),
       );
       expect(frames).toBeGreaterThan(1000);

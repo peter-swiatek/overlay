@@ -5,9 +5,13 @@ import {
   type Car,
   type CarLeftRight,
   type Flags,
+  type LapDeltaChannel,
+  type PlayerLap,
   type SessionPhase,
   type SessionTiming,
+  type ShiftLightRpm,
   type SimState,
+  type TrackSurface,
   type TyreCorner,
   type TyreSet,
   type Vec3,
@@ -28,15 +32,28 @@ const FLAG_YELLOW = 0x8 | 0x100;
 const FLAG_RED = 0x10;
 const FLAG_BLUE = 0x20;
 const FLAG_CAUTION = 0x4000 | 0x8000;
-// Not mapped, SimState has no slot: furled black (0x80000, a warning), repair/meatball
-// (0x100000) and debris (0x80).
-const FLAG_BLACK = 0x10000 | 0x20000;
+const FLAG_DISQUALIFY = 0x20000;
+const FLAG_BLACK = 0x10000 | FLAG_DISQUALIFY;
+/** Furled black: a warning. */
+const FLAG_FURLED = 0x80000;
+/** Meatball: repair required. */
+const FLAG_REPAIR = 0x100000;
+// Not mapped, SimState has no slot: debris (0x80).
 
 /** irsdk_EngineWarnings: pit speed limiter. */
 const ENGINE_PIT_LIMITER = 0x10;
 
 const TRACK_SURFACE_NOT_IN_WORLD = -1;
 const TRACK_SURFACE_IN_PIT_STALL = 1;
+
+/** irsdk_TrkLoc to {@link TrackSurface}; anything else is unknown. */
+const TRACK_SURFACES: Record<number, TrackSurface> = {
+  [-1]: "notInWorld",
+  0: "offTrack",
+  1: "inPitStall",
+  2: "approachingPits",
+  3: "onTrack",
+};
 
 const PHASES: Record<number, SessionPhase> = {
   1: "garage",
@@ -85,6 +102,7 @@ export class IracingAdapter {
       trackTempC: r.number("TrackTempCrew"),
       wetness: wetness(r.number("TrackWetness")),
       ...weather(r),
+      declaredWet: r.bool("WeatherDeclaredWet"),
     };
     state.flags = flags(r.number("SessionFlags"));
     state.cars = buildCars(r, info, state.playerCarIdx);
@@ -118,6 +136,8 @@ function fillSession(state: SimState, r: VarReader, info: IracingSessionInfo | n
   s.pitSpeedLimitMps = info?.pitSpeedLimitMps ?? null;
   s.incidentLimit = info?.incidentLimit ?? null;
   s.timeOfDayS = nonNegativeBelow(r.number("SessionTimeOfDay"), SECONDS_PER_DAY + 1);
+  s.typeName = entry?.typeName ?? null;
+  s.trackUsage = entry?.trackRubberState ?? null;
 }
 
 function findSession(
@@ -184,6 +204,9 @@ function flags(bits: number | null): Flags | null {
   f.blue = (bits & FLAG_BLUE) !== 0;
   f.fullCourseYellow = (bits & FLAG_CAUTION) !== 0;
   f.black = (bits & FLAG_BLACK) !== 0;
+  f.disqualified = (bits & FLAG_DISQUALIFY) !== 0;
+  f.repair = (bits & FLAG_REPAIR) !== 0;
+  f.furled = (bits & FLAG_FURLED) !== 0;
   return f;
 }
 
@@ -250,6 +273,11 @@ function buildCar(
   // drives), so a car counts as connected while it is in the world; a driver sitting in the
   // garage reads as not connected.
   car.connected = inWorld;
+  car.flags = flags(r.number("CarIdxSessionFlags", carIdx));
+  const p2p = r.number("CarIdxP2P_Count", carIdx);
+  car.p2pCount = p2p === null || p2p < 0 ? null : p2p;
+  car.p2pActive = r.bool("CarIdxP2P_Status", carIdx);
+  car.trackSurface = trackSurface(surface);
   return car;
 }
 
@@ -283,6 +311,52 @@ function fillPlayer(state: SimState, r: VarReader, info: IracingSessionInfo | nu
   p.velocityMps = live(velocity(r));
   p.pitStallLapDistPct = info?.pitStallLapDistPct ?? null;
   p.brakeBias = live(brakeBias(r.number("dcBrakeBias")));
+  p.lap = driving ? lap(r) : null;
+  p.absActive = live(r.bool("BrakeABSactive"));
+  p.trackSurface = trackSurface(r.number("PlayerTrackSurface"));
+  p.isOnTrack = r.bool("IsOnTrack");
+  p.steerMaxRad = positive(r.number("SteeringWheelAngleMax"));
+  p.redlineRpm = info?.redlineRpm ?? null;
+  p.shiftLights = shiftLights(r) ?? info?.shiftLightRpm ?? null;
+}
+
+function trackSurface(value: number | null): TrackSurface | null {
+  return value === null ? null : (TRACK_SURFACES[value] ?? null);
+}
+
+function lap(r: VarReader): PlayerLap {
+  return {
+    currentLapS: atLeast(r.number("LapCurrentLapTime"), 0),
+    lastLapS: positive(r.number("LapLastLapTime")),
+    bestLapS: positive(r.number("LapBestLapTime")),
+    delta: {
+      best: deltaChannel(r, "LapDeltaToBestLap"),
+      sessionBest: deltaChannel(r, "LapDeltaToSessionBestLap"),
+      // The sim spells this one "Lastl".
+      sessionLast: deltaChannel(r, "LapDeltaToSessionLastlLap"),
+    },
+  };
+}
+
+function deltaChannel(r: VarReader, name: string): LapDeltaChannel | null {
+  const s = r.number(name);
+  if (s === null) return null;
+  return { s, ok: r.bool(`${name}_OK`) === true, rate: r.number(`${name}_DD`) };
+}
+
+/** The live points follow the current gear; all of first/shift/last must be set to count. */
+function shiftLights(r: VarReader): ShiftLightRpm | null {
+  const first = r.number("PlayerCarSLFirstRPM");
+  const shift = r.number("PlayerCarSLShiftRPM");
+  const last = r.number("PlayerCarSLLastRPM");
+  if (first === null || shift === null || last === null) return null;
+  if (first <= 0 || shift <= 0 || last <= 0) return null;
+  return {
+    firstRpm: first,
+    shiftRpm: shift,
+    lastRpm: last,
+    blinkRpm: positive(r.number("PlayerCarSLBlinkRPM")),
+  };
 }
 
 /**
