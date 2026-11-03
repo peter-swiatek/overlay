@@ -39,10 +39,13 @@
   padding: 3px 8px;
   align-items: center;
 }
+.dl-bt {
+  padding-inline: 6px;
+}
 .dl-bt > div {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto 3.3em;
-  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) auto 3em;
+  gap: 4px;
   align-items: baseline;
   white-space: nowrap;
 }
