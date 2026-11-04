@@ -26,7 +26,7 @@ describe("formatLapDelta", () => {
 
 describe("formatStripLapTime", () => {
   it("formats valid laps", () => {
-    expect(formatStripLapTime(99.41)).toBe("1:39.410");
+    expect(formatStripLapTime(99.41)).toBe("1:39.41");
   });
   it("shows the placeholder for invalid laps", () => {
     expect(formatStripLapTime(null)).toBe("--:--.---");

@@ -57,7 +57,7 @@ function H2hTile({ car, direction }: { car: HeadToHeadCar | null; direction: "ah
   return (
     <div className="dl-tile dl-h2h-tile" style={style} data-side={direction}>
       <Triangle className="dl-dir" rotate={direction === "ahead" ? 0 : 180} />
-      <span className="pos">{car.classPosition}</span>
+      <span className="pos">{`P${car.classPosition}`}</span>
       <CarNumberBadge carNumber={car.carNumber} />
       <span className="nm">{car.name}</span>
       <span className="gp">{car.gapText}</span>

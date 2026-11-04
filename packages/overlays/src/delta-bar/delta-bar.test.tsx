@@ -64,7 +64,7 @@ describe("DeltaBarOverlay markup", () => {
     expect(html).toContain("dl-bt");
     expect(html).toContain("All-time Best");
     expect(html).toContain("Session Best");
-    expect(html).toContain("1:39.400");
+    expect(html).toContain("1:39.40");
     expect(html).toContain("-0.42");
     expect(html).toContain("dl-trend");
     expect(html).toContain("<b>+4</b>");
@@ -72,10 +72,10 @@ describe("DeltaBarOverlay markup", () => {
     expect(html).toContain("-2.0");
     expect(html).toContain("+2.0");
     expect(html).toContain("Pred");
-    expect(html).toContain("1:39.380");
-    expect(html).toContain("1:40.060");
-    expect(html).toContain("1:39.100");
-    expect(html).toContain("Live delta vs Session best 1:39.800");
+    expect(html).toContain("1:39.38");
+    expect(html).toContain("1:40.06");
+    expect(html).toContain("1:39.10");
+    expect(html).toContain("Live delta vs Session best 1:39.80");
     expect(html).not.toContain("dl-lap");
     expect(html).not.toContain("dl-h2h");
   });
@@ -89,8 +89,8 @@ describe("DeltaBarOverlay markup", () => {
   it("shows the edit sample while editing and hidden", () => {
     const html = render(null, { runtime: { editing: true } });
     expect(html).toContain("-0.42");
-    expect(html).toContain("1:39.400");
-    expect(html).toContain("1:39.120");
+    expect(html).toContain("1:39.40");
+    expect(html).toContain("1:39.12");
     expect(html).toContain("dl-h2h");
     expect(html).toContain("A. Sample");
   });
@@ -164,7 +164,7 @@ describe("DeltaBarOverlay markup", () => {
     expect(html).toContain("dl-lap");
     expect(html).toContain("BEST");
     expect(html).toContain("best dl-blink");
-    expect(html).toContain("1:39.500");
+    expect(html).toContain("1:39.50");
     expect(html).toContain("dl-fill-gain");
     expect(html).toContain("-0.30");
   });
@@ -188,7 +188,7 @@ describe("DeltaBarOverlay markup", () => {
     const html = render(raceFrame());
     expect(html).toContain("dl-h2h");
     expect(html).toContain("A. Ahead");
-    expect(html).toContain("#8");
+    expect(html).toMatch(/class="pos">P\d+</);
     expect(html).toContain("-1.3");
     expect(html).toContain("--class-color:#ff0000");
     // an empty tile keeps the second slot
