@@ -65,7 +65,7 @@ describe("presets", () => {
         text: "#f2f4f8",
         textMuted: "#c4c9d2",
         border: "#ffffff1f",
-        ownRow: "#1496b452",
+        ownRow: "#1aa8c270",
       },
       font: "inter",
       weight: 500,
@@ -410,12 +410,12 @@ describe("resolveFunctionalColour and contrastRatio", () => {
 describe("preset own-row colours", () => {
   it("uses the blue own-row highlight in every preset (Glacier: a lighter blue)", () => {
     expect(Object.fromEntries(THEME_PRESETS.map((t) => [t.id, t.tokens.ownRow]))).toEqual({
-      graphite: "#1496b452",
-      midnight: "#1496b452",
-      carbon: "#1496b452",
-      paddock: "#1496b452",
+      graphite: "#1aa8c270",
+      midnight: "#1aa8c270",
+      carbon: "#1aa8c270",
+      paddock: "#1aa8c270",
       glacier: "#0284c738",
-      aurora: "#1496b452",
+      aurora: "#1aa8c270",
     });
   });
 });
