@@ -324,7 +324,7 @@ describe("manifest", () => {
     const layout = fuelManifest.settings.find((x) => x.key === "layout");
     expect(layout?.default).toBe("vertical");
     expect(by?.sizes[String(layout?.default)]).toEqual(fuelManifest.defaultSize);
-    expect(by?.sizes.horizontal).toEqual({ width: 480, height: 196 });
+    expect(by?.sizes.horizontal).toEqual({ width: 480, height: 216 });
     expect(fuelManifest.defaultSize).toEqual({ width: 250, height: 360 });
   });
 

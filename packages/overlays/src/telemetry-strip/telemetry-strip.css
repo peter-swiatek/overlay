@@ -32,9 +32,8 @@
   height: 96px;
   background: var(--ov-bg);
   border-radius: 0 6px 6px 0;
-  box-shadow:
-    inset 0 0 0 1px var(--ov-border),
-    0 6px 18px rgba(0, 0, 0, 0.25);
+  /* No outer drop shadow: the hub fills the window's height, so the window edge would cut it off square. */
+  box-shadow: inset 0 0 0 1px var(--ov-border);
   overflow: hidden;
 }
 /* Panel left end is cut away by a circle matching the hub (r 68, centre at panel 0,48). */
@@ -171,7 +170,6 @@
   border-radius: 50%;
   background: var(--gear-gap);
   border: 1px solid var(--gear-outline);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
 .ts-ring {
   position: absolute;

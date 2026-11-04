@@ -17,7 +17,7 @@ export const fuelManifest: OverlayManifest = {
     key: "layout",
     sizes: {
       vertical: { width: 250, height: 360 },
-      horizontal: { width: 480, height: 196 },
+      horizontal: { width: 480, height: 216 },
     },
   },
   defaultPosition: { x: 1360, y: 560 },
