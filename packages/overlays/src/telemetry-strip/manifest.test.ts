@@ -4,7 +4,7 @@ import { telemetryStripManifest as m } from "./manifest";
 
 describe("telemetry-strip manifest", () => {
   it("has the fixed geometry and starts disabled and hidden in the garage", () => {
-    expect(m.defaultSize).toEqual({ width: 594, height: 136 });
+    expect(m.defaultSize).toEqual({ width: 609, height: 136 });
     expect(m.minSize).toEqual(m.defaultSize);
     expect(m.sims).toEqual(["iracing", "lmu"]);
     expect(m.rateHz).toBe(30);
