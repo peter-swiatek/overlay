@@ -148,6 +148,19 @@
   );
 }
 
+/* The first highlighted cell (right after position / car number) fades in from nothing, so the
+   gradient blends out of the plain cells instead of starting at an edge. */
+.ov-row--own:not(.ov-row--yellow)
+  > :is(.ov-cell--pos, .ov-cell--pos-fade)
+  + .ov-cell:not(.ov-cell--pos, .ov-cell--pos-fade) {
+  background: linear-gradient(
+    90deg,
+    rgb(from var(--ov-own-row) r g b / 0) 0%,
+    rgb(from var(--ov-own-row) r g b / calc(alpha * max(0.45, 1.6 - 0.25 * (var(--own-k) - 1))))
+      100%
+  );
+}
+
 /* Declared after the own row: a row that is both keeps the yellow background and lines (and bold). */
 .ov-row--yellow > .ov-cell {
   --row-base-bg: var(--ov-yellow-row);
