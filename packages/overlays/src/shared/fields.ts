@@ -211,7 +211,7 @@ export function fieldsForSim(config: readonly FieldConfig[], sim: SimName | null
 export type IRatingSize = "auto" | "narrow" | "wide";
 
 /** Column width in characters that holds the iRating pill in each mode (narrow: "10.0k"; wide: value + arrow + 3 digits). */
-export const IRATING_CHARS: Record<IRatingSize, number> = { auto: 8, narrow: 6, wide: 11 };
+export const IRATING_CHARS: Record<IRatingSize, number> = { auto: 8, narrow: 6, wide: 10 };
 
 /** Setting key of the toggle that switches a table's iRating pill to the wide, change-showing size. */
 export const IRATING_CHANGE_KEY = "irating-change";

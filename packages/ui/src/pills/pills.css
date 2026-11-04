@@ -100,9 +100,11 @@
   padding: 0;
 }
 
+/* Just fits "10.4k" plus a 3-digit change; the change block keeps its width when empty. */
 .ov-pill--ir-wide {
-  width: 7.2em;
-  padding: 0 0.56em;
+  width: 6.2em;
+  padding: 0 0.4em;
+  gap: 0;
   justify-content: space-between;
 }
 
