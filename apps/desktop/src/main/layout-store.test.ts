@@ -136,6 +136,40 @@ describe("parseLayout", () => {
     expect(layout["demo-inputs"]).toBeUndefined();
   });
 
+  it("grows a Compact HUD still at its old default size upwards to the new default", () => {
+    const layout = parseLayout(
+      { "compact-hud": { x: 100, y: 800, width: 340, height: 172, scalePct: 100 } },
+      OVERLAY_MANIFESTS,
+    );
+    expect(layout["compact-hud"]).toEqual({
+      x: 100,
+      y: 800 + 172 - 284,
+      width: 340,
+      height: 284,
+      scalePct: 100,
+    });
+  });
+
+  it("migrates an old default size at another scale and with the title bar", () => {
+    const layout = parseLayout(
+      {
+        "compact-hud": { x: 0, y: 500, width: 425, height: 215 + 20, scalePct: 125 },
+        "delta-bar": { x: 10, y: 20, width: 560, height: 131, scalePct: 100, fitWidth: 560 },
+      },
+      OVERLAY_MANIFESTS,
+    );
+    expect(layout["compact-hud"]).toMatchObject({ y: 500 + 235 - 375, width: 425, height: 375 });
+    expect(layout["delta-bar"]).toEqual({ x: 10, y: 20, width: 480, height: 108, scalePct: 100 });
+  });
+
+  it("keeps a window the user resized away from an old default", () => {
+    const layout = parseLayout(
+      { "compact-hud": { x: 1, y: 2, width: 360, height: 180, scalePct: 100 } },
+      OVERLAY_MANIFESTS,
+    );
+    expect(layout["compact-hud"]).toEqual({ x: 1, y: 2, width: 360, height: 180, scalePct: 100 });
+  });
+
   it("ignores non-object input", () => {
     expect(parseLayout(null, OVERLAY_MANIFESTS)).toEqual({});
     expect(parseLayout([1, 2], OVERLAY_MANIFESTS)).toEqual({});

@@ -71,9 +71,40 @@ export function parseLayout(raw: unknown, manifests: readonly OverlayManifest[])
     const bounds =
       parseBounds(stored[manifest.id]) ??
       (legacyId === undefined ? undefined : parseBounds(stored[legacyId]));
-    if (bounds) layout[manifest.id] = bounds;
+    if (bounds) layout[manifest.id] = migrateRetiredSize(bounds, manifest);
   }
   return layout;
+}
+
+/**
+ * Default sizes a later design replaced. A window still at one of these (the user never resized
+ * it) moves to the new default size, so the new layout is not squeezed into the old window.
+ * `anchorBottom` keeps the bottom edge where it was when the window grows upwards.
+ */
+const RETIRED_DEFAULT_SIZES: Readonly<
+  Record<string, readonly { size: Size; anchorBottom: boolean }[]>
+> = {
+  "compact-hud": [{ size: { width: 340, height: 172 }, anchorBottom: true }],
+  "delta-bar": [{ size: { width: 560, height: 131 }, anchorBottom: false }],
+};
+
+function migrateRetiredSize(bounds: StoredBounds, manifest: OverlayManifest): StoredBounds {
+  const retired = RETIRED_DEFAULT_SIZES[manifest.id];
+  if (!retired) return bounds;
+  for (const { size, anchorBottom } of retired) {
+    const old = scaleSize(size, bounds.scalePct);
+    if (Math.abs(bounds.width - old.width) > 1) continue;
+    // The window may carry the title bar on top of the content.
+    const chrome = [0, TITLE_BAR_PX].find((c) => Math.abs(bounds.height - c - old.height) <= 1);
+    if (chrome === undefined) continue;
+    const next = scaleSize(manifest.defaultSize, bounds.scalePct);
+    const height = next.height + chrome;
+    const y = anchorBottom ? bounds.y + bounds.height - height : bounds.y;
+    const migrated: StoredBounds = { ...bounds, y, width: next.width, height };
+    delete migrated.fitWidth;
+    return migrated;
+  }
+  return bounds;
 }
 
 /** A size scaled by a percentage, rounded to whole pixels. */
