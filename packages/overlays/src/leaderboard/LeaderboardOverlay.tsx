@@ -28,6 +28,7 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
   const { useTelemetry, prefs, livePositions, combinedLicencePill } = useOverlayRuntime();
   const table = readTableOptions(settings);
   const showAll = optionBoolean(settings, "show-all");
+  const iRatingChange = optionBoolean(settings, "irating-change");
   const around = optionNumber(settings, "around");
   const topMyClass = optionNumber(settings, "top-my-class");
   const topOtherClasses = optionNumber(settings, "top-other-classes");
@@ -89,7 +90,8 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
         lapDecimals: table.lapDecimals,
         combinedLicencePill,
         gapMode: "standings",
-        showIRatingChange: true,
+        showIRatingChange: iRatingChange,
+        iRatingSize: iRatingChange ? "wide" : "narrow",
         pitInLastLap: true,
         inlineFlagBadge,
         inlinePitBadge,
@@ -103,6 +105,7 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
       table.nameFormat,
       table.gapDecimals,
       table.lapDecimals,
+      iRatingChange,
     ],
   );
   const gapRows = useMemo(() => new Set(view.afterGap), [view.afterGap]);

@@ -24,13 +24,22 @@ export const leaderboardManifest: OverlayManifest = {
   title: "Leaderboard",
   description: "Standings for the whole field.",
   sims: ["iracing", "lmu"],
-  defaultSize: { width: 594, height: 440 },
+  defaultSize: { width: 620, height: 440 },
   minSize: { width: 300, height: 160 },
   defaultPosition: { x: 40, y: 40 },
   table: true,
   fields: driverFields(DRIVER_FIELD_IDS, LEADERBOARD_DEFAULT_VISIBLE),
   settings: [
     ...TABLE_OPTION_FIELDS,
+    {
+      key: "irating-change",
+      label: "iRating change",
+      kind: "toggle",
+      section: "Drivers",
+      default: true,
+      help: "Wide iRating pill with the projected change right-aligned.",
+      sims: ["iracing"],
+    },
     {
       key: "show-all",
       label: "Show all drivers",

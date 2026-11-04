@@ -605,3 +605,12 @@ describe("LeaderboardOverlay restyle", () => {
     expect(render(threeClasses(1), ALL)).toContain('data-hidden-columns=""');
   });
 });
+
+describe("Leaderboard iRating pill size", () => {
+  it("uses the wide pill by default and the narrow one with iRating change off", () => {
+    expect(render(threeClasses(1), ALL)).toContain("ov-pill--ir-wide");
+    const off = render(threeClasses(1), { options: { "show-all": true, "irating-change": false } });
+    expect(off).toContain("ov-pill--ir-narrow");
+    expect(off).not.toContain("ov-pill--ir-wide");
+  });
+});
