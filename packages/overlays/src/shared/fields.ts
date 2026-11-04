@@ -170,8 +170,14 @@ export function columnFloorChars(fieldId: string): number | undefined {
   const label = (SHORT_LABEL as Partial<Record<string, string>>)[fieldId];
   if (spec === undefined || label === undefined) return undefined;
   const base = spec.minChars ?? spec.chars;
-  return Math.max(base ?? 0, labelChars(label));
+  return Math.max(base ?? 0, LABEL_FLOOR_CHARS[fieldId] ?? labelChars(label));
 }
+
+/**
+ * Header floors measured rather than estimated: the small uppercase "POS" label fits in the
+ * 3 characters the position digits need, so the column stays as narrow as the design's.
+ */
+const LABEL_FLOOR_CHARS: Readonly<Record<string, number>> = { position: 3 };
 
 /** Every driver column, in this order, with the reference labels and default widths. defaultVisible = Leaderboard defaults. */
 export const DRIVER_FIELDS: readonly OverlayFieldDef[] = DRIVER_FIELD_IDS.map((id) => ({
