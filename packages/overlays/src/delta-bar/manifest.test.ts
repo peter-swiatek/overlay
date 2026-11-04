@@ -4,8 +4,8 @@ import { deltaBarManifest as m } from "./manifest";
 
 describe("delta-bar manifest", () => {
   it("has the defaults of the plan", () => {
-    expect(m.defaultSize).toEqual({ width: 560, height: 131 });
-    expect(m.minSize).toEqual({ width: 360, height: 101 });
+    expect(m.defaultSize).toEqual({ width: 480, height: 108 });
+    expect(m.minSize).toEqual({ width: 320, height: 82 });
     expect(m.sims).toEqual(["iracing", "lmu"]);
     expect(m.rateHz).toBe(20);
     expect(m.fields).toEqual([]);
