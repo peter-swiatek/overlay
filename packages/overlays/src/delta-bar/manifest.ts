@@ -6,8 +6,8 @@ export const deltaBarManifest: OverlayManifest = {
   description:
     "Live delta to your reference lap with best times, delta speed and the cars around you in your class.",
   sims: ["iracing", "lmu"],
-  defaultSize: { width: 560, height: 131 },
-  minSize: { width: 360, height: 101 },
+  defaultSize: { width: 480, height: 108 },
+  minSize: { width: 320, height: 82 },
   defaultPosition: { x: 680, y: 190 },
   table: false,
   fields: [],

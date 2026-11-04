@@ -82,9 +82,9 @@ export function DeltaBarOverlay({ settings }: OverlayProps) {
       : " dl-spd--loss";
 
   const cols = [
-    options.showBestTimes ? "212px" : null,
+    options.showBestTimes ? "198px" : null,
     "minmax(0, 1fr)",
-    options.showDeltaSpeed ? "196px" : null,
+    options.showDeltaSpeed ? "142px" : null,
   ]
     .filter((c) => c !== null)
     .join(" ");
