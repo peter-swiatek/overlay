@@ -79,7 +79,7 @@ export function FlagBadge({ kind }: { kind: FlagBadgeKind }): JSX.Element {
 }
 
 export function CarNumberBadge({ carNumber }: { carNumber: string | null }): JSX.Element {
-  return <span className="ov-car-num">{carNumber === null ? "--" : `#${carNumber}`}</span>;
+  return <span className="ov-car-num">{carNumber === null ? "--" : carNumber}</span>;
 }
 
 export function ClassBadge({ name, colour }: { name: string; colour: string | null }): JSX.Element {

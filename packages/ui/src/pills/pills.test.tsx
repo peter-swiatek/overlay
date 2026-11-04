@@ -140,7 +140,7 @@ describe("pills", () => {
   });
   it("renders the car number badge", () => {
     expect(renderToStaticMarkup(<CarNumberBadge carNumber="5" />)).toBe(
-      '<span class="ov-car-num">#5</span>',
+      '<span class="ov-car-num">5</span>',
     );
     expect(renderToStaticMarkup(<CarNumberBadge carNumber={null} />)).toContain("--");
   });

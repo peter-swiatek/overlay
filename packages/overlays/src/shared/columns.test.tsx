@@ -134,7 +134,8 @@ describe("driverColumns", () => {
     expect(driverRowStyle(row())).toBeUndefined();
     const html = cell("car-number", r);
     expect(html).toContain("ov-car-num");
-    expect(html).toContain("#12");
+    expect(html).toContain('<span class="ov-car-num">12</span>');
+    expect(html).not.toContain("#12");
     expect(cell("car-number", row({ carNumber: null }))).toContain("--");
   });
 

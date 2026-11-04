@@ -188,7 +188,7 @@ describe("DeltaBarOverlay markup", () => {
     const html = render(raceFrame());
     expect(html).toContain("dl-h2h");
     expect(html).toContain("A. Ahead");
-    expect(html).toContain("#8");
+    expect(html).toContain('<span class="ov-car-num">8</span>');
     expect(html).toContain("-1.3");
     expect(html).toContain("--class-color:#ff0000");
     // an empty tile keeps the second slot
