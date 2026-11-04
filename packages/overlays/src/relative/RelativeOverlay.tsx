@@ -40,6 +40,7 @@ export function RelativeOverlay({ settings }: OverlayProps) {
   const behind = optionNumber(settings, "drivers-behind");
   const hideInPits = optionBoolean(settings, "hide-in-pits");
   const gapThreat = optionBoolean(settings, "gap-threat");
+  const iRatingChange = optionBoolean(settings, "irating-change");
   const previous = useRef<readonly RelativeRow[]>([]);
 
   const { prefs, livePositions, combinedLicencePill } = runtime;
@@ -88,7 +89,8 @@ export function RelativeOverlay({ settings }: OverlayProps) {
       lapDecimals,
       combinedLicencePill,
       gapMode: "relative",
-      showIRatingChange: false,
+      showIRatingChange: iRatingChange,
+      iRatingSize: iRatingChange ? "wide" : "narrow",
       inlineFlagBadge,
       inlinePitBadge,
       pitInLastLap: false,
@@ -113,6 +115,7 @@ export function RelativeOverlay({ settings }: OverlayProps) {
     combinedLicencePill,
     inlineFlagBadge,
     inlinePitBadge,
+    iRatingChange,
   ]);
 
   const fit = useFittedFields(fields, columns, table.widthMode, table.widthScalePct);

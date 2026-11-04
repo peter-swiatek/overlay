@@ -74,8 +74,8 @@ describe("relative manifest", () => {
     );
     if (widths === null || widths.fitPx === null) throw new Error("table manifest");
     expect(relativeManifest.defaultSize).toEqual({ width: Math.ceil(widths.fitPx), height: 300 });
-    expect(relativeManifest.defaultSize.width).toBeGreaterThan(440);
-    expect(relativeManifest.defaultSize.width).toBeLessThan(470);
+    expect(relativeManifest.defaultSize.width).toBeGreaterThan(420);
+    expect(relativeManifest.defaultSize.width).toBeLessThan(440);
   });
 
   it("shows air, track, wetness and wind in the header by default", () => {
@@ -153,7 +153,7 @@ describe("RelativeOverlay", () => {
     expect(html).not.toContain(">Gap<");
   });
 
-  it("never shows the iRating change, even when the entry has one", () => {
+  describe("iRating change option", () => {
     const f = fixtureFrame({
       playerCarIdx: 0,
       cars: [
@@ -166,10 +166,46 @@ describe("RelativeOverlay", () => {
         { carIdx: 1, iRatingChange: 25 },
       ],
     });
-    const html = render(f);
-    expect(html).toContain(">2.0k<");
-    expect(html).not.toContain("+25");
-    expect(html).not.toContain("+11");
+
+    it("is an iRacing-only toggle in Drivers, off by default", () => {
+      const field = relativeManifest.settings.find((s) => s.key === "irating-change");
+      expect(field).toMatchObject({
+        kind: "toggle",
+        section: "Drivers",
+        default: false,
+        sims: ["iracing"],
+      });
+    });
+
+    it("off: narrow fixed pill without the change, even when the entry has one", () => {
+      const html = render(f);
+      expect(html).toContain(">2.0k<");
+      expect(html).toContain("ov-pill--ir-narrow");
+      expect(html).not.toContain("ov-pill--ir-wide");
+      expect(html).not.toContain("ov-ir-delta");
+    });
+
+    it("on: wide fixed pill with the change", () => {
+      const html = render(f, { "irating-change": true });
+      expect(html).toContain("ov-pill--ir-wide");
+      expect(html).not.toContain("ov-pill--ir-narrow");
+      expect(html).toContain("\u25B2</span>25");
+      expect(html).toContain("\u25B2</span>11");
+    });
+
+    it("the fit width follows the toggle", () => {
+      const fit = (on: boolean): number => {
+        const settings = applySettingsPatch(
+          relativeManifest,
+          defaultInstanceSettings(relativeManifest),
+          { options: { "irating-change": on } },
+        );
+        const widths = tableWidthsFor(relativeManifest, settings, NOMINAL_TABLE_METRICS);
+        if (widths === null || widths.fitPx === null) throw new Error("table manifest");
+        return widths.fitPx;
+      };
+      expect(fit(true)).toBeGreaterThan(fit(false));
+    });
   });
 
   it("draws an OFF badge after the name of an off-track car, a PIT badge for pit road", () => {

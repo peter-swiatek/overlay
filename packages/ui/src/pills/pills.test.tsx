@@ -117,6 +117,34 @@ describe("pills", () => {
     expect(tintedUp).toContain("ov-ir-delta--up");
     expect(tintedUp).toContain("var(--ov-locked-licence-a)");
   });
+  it("renders fixed-size iRating pills", () => {
+    const narrow = renderToStaticMarkup(
+      <IRatingPill iRating={10400} tinted={false} change={123} size="narrow" />,
+    );
+    expect(narrow).toContain("ov-pill--ir-narrow");
+    expect(narrow).toContain("10.4k");
+    expect(narrow).not.toContain("ov-ir-delta");
+    const wide = renderToStaticMarkup(
+      <IRatingPill iRating={10400} tinted={false} change={-123} size="wide" />,
+    );
+    expect(wide).toContain("ov-pill--ir-wide");
+    expect(wide).toContain("ov-ir-delta ov-ir-delta--fixed ov-ir-delta--down");
+    expect(wide).toContain("\u25BC</span>123");
+    // No change: the fixed block stays, empty, so the pill keeps its width.
+    for (const change of [0, null, undefined]) {
+      const none = renderToStaticMarkup(
+        <IRatingPill iRating={950} tinted={false} change={change} size="wide" />,
+      );
+      expect(none).toContain('<span class="ov-ir-delta ov-ir-delta--fixed"></span>');
+    }
+    const auto = renderToStaticMarkup(<IRatingPill iRating={950} tinted={false} size="auto" />);
+    expect(auto).not.toContain("ov-pill--ir-");
+  });
+  it("sizes the fixed pills in CSS with a right-justified change block", () => {
+    expect(css).toMatch(/\.ov-pill--ir-narrow\s*\{[^}]*width:/);
+    expect(css).toMatch(/\.ov-pill--ir-wide\s*\{[^}]*width:/);
+    expect(css).toMatch(/\.ov-ir-delta--fixed\s*\{[^}]*justify-content:\s*flex-end/);
+  });
   it("renders the car count with a decorative helmet", () => {
     const html = renderToStaticMarkup(<CarCount count={12} />);
     expect(html).toContain('aria-label="12 cars"');

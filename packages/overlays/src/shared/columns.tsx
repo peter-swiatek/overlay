@@ -21,8 +21,10 @@ import {
   DRIVER_FIELDS,
   DRIVER_FIELD_IDS,
   SHORT_LABEL,
+  IRATING_CHARS,
   columnFloorChars,
   type DriverFieldId,
+  type IRatingSize,
 } from "./fields";
 import type { DriverRow } from "./rows";
 import "./driver-table.css";
@@ -39,6 +41,8 @@ export interface DriverColumnContext {
   gapMode: "standings" | "relative";
   /** Show the projected change in the iRating pill. Default true. */
   showIRatingChange?: boolean;
+  /** iRating pill size: "auto" (content-sized, default), or a fixed "narrow" / "wide" width. */
+  iRatingSize?: IRatingSize;
   /** Driver cell shows the flag badge after the name (pass true while the Flag column is not shown). Default false. */
   inlineFlagBadge?: boolean;
   /** Driver cell shows PIT after the name while on pit road (pass true while the Pit lane column is not shown). Default false. */
@@ -142,6 +146,7 @@ export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[
         licence={r.licence}
         tinted={ctx.combinedLicencePill}
         change={ctx.showIRatingChange === false ? null : r.iRatingChange}
+        size={ctx.iRatingSize ?? "auto"}
       />
     ),
     gap: (r) =>
@@ -183,6 +188,8 @@ export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[
       ),
     flag: (r) => (r.badge === null ? "" : <FlagBadge kind={r.badge} />),
   };
+  const size = ctx.iRatingSize ?? "auto";
+  const fixedIRating = size !== "auto";
   return DRIVER_FIELD_IDS.map((id) => {
     const field = DRIVER_FIELDS.find((f) => f.id === id);
     const layout = LAYOUT[id];
@@ -192,8 +199,8 @@ export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[
       align: layout.align,
       grow: layout.grow,
       cellClassName: CELL_CLASS[id],
-      chars: field?.chars ?? 6,
-      minChars: columnFloorChars(id),
+      chars: fixedIRating && id === "irating" ? IRATING_CHARS[size] : (field?.chars ?? 6),
+      minChars: fixedIRating && id === "irating" ? IRATING_CHARS[size] : columnFloorChars(id),
       dropPriority: field?.dropPriority,
       defaultWidthPct: field?.defaultWidthPct ?? 8,
       render: renderers[id],
