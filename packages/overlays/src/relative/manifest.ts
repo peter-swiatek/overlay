@@ -82,7 +82,7 @@ export const relativeManifest: OverlayManifest = {
       label: "Show row labels",
       kind: "toggle",
       section: "Layout",
-      default: false,
+      default: true,
     },
     {
       key: "session-footer",

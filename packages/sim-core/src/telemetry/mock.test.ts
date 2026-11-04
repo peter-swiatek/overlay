@@ -209,4 +209,14 @@ describe("MockSource", () => {
       expect(st.player.incidentCount).toBe(d >= 2.5 ? 2 : 0);
     }
   });
+
+  it("gives the spotter left, right and both calls within a minute", () => {
+    const mock = new MockSource();
+    const seen = new Set<string>();
+    for (let i = 0; i < 60 * 60; i++) seen.add(mock.step(1 / 60).player.carLeftRight ?? "null");
+    expect(seen.has("clear")).toBe(true);
+    expect([...seen].some((c) => c === "left" || c === "twoLeft")).toBe(true);
+    expect([...seen].some((c) => c === "right" || c === "twoRight")).toBe(true);
+    expect(seen.has("both")).toBe(true);
+  });
 });

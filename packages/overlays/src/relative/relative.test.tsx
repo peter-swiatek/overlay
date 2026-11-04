@@ -198,8 +198,8 @@ describe("RelativeOverlay", () => {
   });
 
   it("toggles row labels", () => {
-    expect(render(frame())).not.toContain("ov-row--header");
-    expect(render(frame(), { "row-labels": true })).toContain("ov-row--header");
+    expect(render(frame())).toContain("ov-row--header");
+    expect(render(frame(), { "row-labels": false })).not.toContain("ov-row--header");
   });
 
   it("draws the flag border only when on", () => {

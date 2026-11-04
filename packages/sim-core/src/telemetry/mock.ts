@@ -1,4 +1,11 @@
-import { emptyCar, emptyFlags, emptySimState, type Car, type SimState } from "../model";
+import {
+  emptyCar,
+  emptyFlags,
+  emptySimState,
+  type Car,
+  type CarLeftRight,
+  type SimState,
+} from "../model";
 
 export interface MockSourceOptions {
   /** Cars on track, player included. Default 20. */
@@ -55,6 +62,39 @@ const UNCLEAN_LAP_INCIDENTS = 2;
  * player (carIdx 0, a GT3 car) burning fuel and topping up when low. Advance it with `step`;
  * the same sequence of steps always gives the same states.
  */
+/** A car this close (metres, along the lap) counts as alongside the player. */
+const ALONGSIDE_M = 5;
+/** Scripted spotter calls when no mock car is alongside, so the spotter has something to show. */
+const SPOTTER_CYCLE_S = 24;
+const SPOTTER_SCRIPT: readonly (readonly [number, number, CarLeftRight])[] = [
+  [2, 6, "left"],
+  [10, 14, "right"],
+  [18, 21, "both"],
+];
+
+/**
+ * The spotter call: cars within ALONGSIDE_M go left (odd index) or right (even index); with none
+ * alongside, the scripted calls repeat every SPOTTER_CYCLE_S seconds.
+ */
+function spotterCall(cars: readonly Car[], playerPct: number, timeS: number): CarLeftRight {
+  let left = 0;
+  let right = 0;
+  for (const car of cars) {
+    if (car.isPlayer || car.lapDistPct === null) continue;
+    let d = car.lapDistPct - playerPct;
+    d -= Math.round(d);
+    if (Math.abs(d * TRACK_LENGTH_M) >= ALONGSIDE_M) continue;
+    if (car.carIdx % 2 === 1) left++;
+    else right++;
+  }
+  if (left > 0 && right > 0) return "both";
+  if (left > 0) return left > 1 ? "twoLeft" : "left";
+  if (right > 0) return right > 1 ? "twoRight" : "right";
+  const t = timeS % SPOTTER_CYCLE_S;
+  for (const [from, to, call] of SPOTTER_SCRIPT) if (t >= from && t < to) return call;
+  return "clear";
+}
+
 export class MockSource {
   private timeS = 0;
   private readonly carCount: number;
@@ -152,6 +192,7 @@ export class MockSource {
     // cars[0] itself stays on track and off pit road, so fuel and standings see no stop.
     p.trackSurface = approachingPits ? "approachingPits" : "onTrack";
     p.isOnTrack = true;
+    p.carLeftRight = spotterCall(state.cars, playerFraction, this.timeS);
     p.shiftLights = { firstRpm: 5200, shiftRpm: 7600, lastRpm: 7400, blinkRpm: 7800 };
     p.redlineRpm = 8000;
     p.steerMaxRad = 7.85;
