@@ -90,9 +90,10 @@
   white-space: nowrap;
 }
 
+/* In the vertical card (a column) the well keeps its own height; flex: 1 there would collapse it. */
 .fuel-gauge-well {
   box-sizing: border-box;
-  flex: 1;
+  flex: none;
   height: 2.57em;
   padding: 0.29em;
   border-radius: 6px;
@@ -103,6 +104,7 @@
 }
 
 .fuel-tank-card--row .fuel-gauge-well {
+  flex: 1;
   height: 2.43em;
 }
 

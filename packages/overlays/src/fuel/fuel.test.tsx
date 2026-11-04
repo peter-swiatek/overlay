@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 // Tests may use the sim-core entry for fixtures; overlay code itself must not.
 import { emptyCar, emptySimState, type FuelOutputs, type TelemetryFrame } from "@overlay/sim-core";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -453,5 +455,27 @@ describe("selector timing", () => {
     const median = times[100] ?? 0;
     console.log(`fuelView median ${median.toFixed(4)} ms`);
     expect(median).toBeLessThan(2);
+  });
+});
+
+describe("fuel gauge well CSS", () => {
+  const css = readFileSync(join(__dirname, "fuel.css"), "utf8");
+  const rule = (selector: string): string => {
+    const start = css.indexOf(`${selector} {`);
+    expect(start).toBeGreaterThanOrEqual(0);
+    return css.slice(start, css.indexOf("}", start));
+  };
+
+  it("keeps the vertical well 36 px tall with 4 px padding instead of flexing in the column", () => {
+    const well = rule(".fuel-gauge-well");
+    expect(well).toContain("flex: none;");
+    expect(well).toContain("height: 2.57em;");
+    expect(well).toContain("padding: 0.29em;");
+  });
+
+  it("lets the horizontal well fill the row at 34 px", () => {
+    const row = rule(".fuel-tank-card--row .fuel-gauge-well");
+    expect(row).toContain("flex: 1;");
+    expect(row).toContain("height: 2.43em;");
   });
 });
