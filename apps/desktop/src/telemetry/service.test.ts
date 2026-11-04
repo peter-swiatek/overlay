@@ -178,7 +178,7 @@ describe("TelemetryService", () => {
       // Frames carry the key and the flag, never the outline.
       const frames = port.sent.filter((m) => (m as { seq?: unknown }).seq !== undefined);
       const last = frames[frames.length - 1];
-      expect(last?.derived.track).toEqual({ trackKey: KEY, outlineReady: true });
+      expect(last?.derived.track).toMatchObject({ trackKey: KEY, outlineReady: true });
       expect(JSON.stringify(last)).not.toContain('"points"');
       // The reply does not disturb the frame sequence.
       expect(port.seqs.filter((s) => s !== undefined)).toEqual(
@@ -204,6 +204,8 @@ describe("TelemetryService", () => {
       expect(frames[frames.length - 1]?.derived.track).toEqual({
         trackKey: KEY,
         outlineReady: false,
+        pitExitLapDistPct: null,
+        pitExitDistanceM: null,
       });
     });
   });

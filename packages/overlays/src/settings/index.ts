@@ -153,8 +153,13 @@ function parseOptionsPartial(
   const out: Record<string, SettingValue> = {};
   if (!isObj(raw)) return out;
   for (const setting of manifest.settings) {
-    if (!has(raw, setting.key)) continue;
-    const v = parseOptionValue(setting, raw[setting.key]);
+    const from = has(raw, setting.key)
+      ? setting.key
+      : setting.legacyKey !== undefined && has(raw, setting.legacyKey)
+        ? setting.legacyKey
+        : null;
+    if (from === null) continue;
+    const v = parseOptionValue(setting, raw[from]);
     if (v !== undefined) out[setting.key] = v;
   }
   return out;

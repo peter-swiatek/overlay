@@ -119,6 +119,8 @@ describe("Deriver track output", () => {
     expect(deriver.next(state("iracing", first)).track).toEqual({
       trackKey: "iracing_test-ring_grand-prix",
       outlineReady: false,
+      pitExitLapDistPct: null,
+      pitExitDistanceM: null,
     });
     expect(deriver.trackOutline).toBeNull();
     const driver = new Driver(deriver);
@@ -127,13 +129,20 @@ describe("Deriver track output", () => {
     expect(deriver.trackOutline?.source).toBe("integrated");
     expect(store.saves).toEqual(["iracing_test-ring_grand-prix:integrated"]);
     const after = deriver.next(state("iracing", first, { length: LENGTH }));
-    expect(after.track).toEqual({ trackKey: "iracing_test-ring_grand-prix", outlineReady: true });
+    expect(after.track).toEqual({
+      trackKey: "iracing_test-ring_grand-prix",
+      outlineReady: true,
+      pitExitLapDistPct: null,
+      pitExitDistanceM: null,
+    });
   });
 
   it("does nothing for a state that is not connected", () => {
     expect(new Deriver().next(emptySimState("iracing")).track).toEqual({
       trackKey: null,
       outlineReady: false,
+      pitExitLapDistPct: null,
+      pitExitDistanceM: null,
     });
   });
 
@@ -186,6 +195,8 @@ describe("TrackTracker outline policy", () => {
       expect(tracker.update(state("iracing", s), null)).toEqual({
         trackKey: "iracing_test-ring_grand-prix",
         outlineReady: false,
+        pitExitLapDistPct: null,
+        pitExitDistanceM: null,
       });
     }
   });
@@ -332,7 +343,12 @@ describe("TrackTracker outline policy", () => {
     driver.flush();
     const s = lapSamples(circle(RADIUS))[0] as TrackSample;
     const out = deriver.next(state("iracing", s, { name: "Other Ring", config: null }));
-    expect(out.track).toEqual({ trackKey: "iracing_other-ring_2510m", outlineReady: false });
+    expect(out.track).toEqual({
+      trackKey: "iracing_other-ring_2510m",
+      outlineReady: false,
+      pitExitLapDistPct: null,
+      pitExitDistanceM: null,
+    });
     expect(deriver.trackOutline).toBeNull();
   });
 });

@@ -21,7 +21,12 @@ function liveFrame(): TelemetryFrame {
     derived: {
       fuel: null,
       energy: null,
-      track: { trackKey: null, outlineReady: false },
+      track: {
+        trackKey: null,
+        outlineReady: false,
+        pitExitLapDistPct: null,
+        pitExitDistanceM: null,
+      },
       standings: null,
       proximity: null,
       delta: null,

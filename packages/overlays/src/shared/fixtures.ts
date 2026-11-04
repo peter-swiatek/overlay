@@ -200,7 +200,12 @@ export function fixtureFrame(input: {
       fuel: null,
       energy: null,
       gaps: input.gaps ?? [],
-      track: { trackKey: null, outlineReady: false },
+      track: {
+        trackKey: null,
+        outlineReady: false,
+        pitExitLapDistPct: null,
+        pitExitDistanceM: null,
+      },
       standings,
       proximity: null,
       delta: null,

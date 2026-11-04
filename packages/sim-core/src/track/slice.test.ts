@@ -31,6 +31,8 @@ describe("the committed S/F crossing slice (20 s of VIR)", async () => {
     expect(outputs.at(-1)?.track).toEqual({
       trackKey: "iracing_virginia-international-raceway_full-course",
       outlineReady: false,
+      pitExitLapDistPct: null,
+      pitExitDistanceM: null,
     });
     expect(deriver.trackOutline).toBeNull();
     expect(deriver.trackTracker.lastLap).toMatchObject({ ok: false, reason: "incomplete" });

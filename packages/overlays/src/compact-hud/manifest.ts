@@ -6,8 +6,9 @@ export const compactHudManifest: OverlayManifest = {
   description:
     "Speed, gear, rpm, shift lights, pedals and the gaps to the cars around you in one capsule.",
   sims: ["iracing"],
-  defaultSize: { width: 340, height: 172 },
-  minSize: { width: 340, height: 172 },
+  // 112 px pit guide strip on top of the 172 px HUD; the minimum is 75 %.
+  defaultSize: { width: 340, height: 284 },
+  minSize: { width: 255, height: 213 },
   defaultPosition: { x: 790, y: 760 },
   table: false,
   fields: [],
@@ -38,9 +39,10 @@ export const compactHudManifest: OverlayManifest = {
       default: true,
     },
     {
-      key: "show-pit-countdown",
+      key: "show-pit-guide",
+      legacyKey: "show-pit-countdown",
       kind: "toggle",
-      label: "Pit box countdown",
+      label: "Pit guide",
       section: "Layout",
       default: true,
     },

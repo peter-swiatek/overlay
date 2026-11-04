@@ -26,6 +26,7 @@ interface Scene {
   nearby?: number[];
   meDist?: number;
   slow?: number;
+  pitExitM?: number;
 }
 
 function scene(s: Scene = {}): TelemetryFrame {
@@ -71,6 +72,7 @@ function scene(s: Scene = {}): TelemetryFrame {
   if (s.slow !== undefined) {
     f.derived.slowCar = { carIdx: 9, distanceM: s.slow, speedMps: 8, stopped: false };
   }
+  if (s.pitExitM !== undefined) f.derived.track.pitExitDistanceM = s.pitExitM;
   return f;
 }
 
@@ -123,24 +125,92 @@ describe("CompactHudOverlay scenarios", () => {
     expect(html).toContain("stroke:var(--ov-locked-loss)");
   });
 
-  it("pit entry: limiter badge, green outline, pit pill, no tabs", () => {
+  it("pit-box: limiter badge, green outline, cyan BOX chip, marker from the distance, no tabs", () => {
     const html = render(
       scene({
         meDist: 0.9,
-        player: { pitLimiter: true, trackSurface: "approachingPits", pitStallLapDistPct: 0.93 },
+        player: { pitLimiter: true, trackSurface: "approachingPits", pitStallLapDistPct: 0.915 },
       }),
     );
     expect(html).toContain("hud-badge--lim");
     expect(html).toContain("hud-body--lim");
-    expect(html).toContain("Pit box 120 m");
-    expect(html).toContain("hud-status--pit");
+    expect(html).toContain('class="hud-win"');
+    expect(html).toContain("hud-pit-line");
+    expect(html).toContain("<small>BOX</small><b>060</b><small>m</small>");
+    expect(html).toContain("background:var(--ov-locked-pit-box)");
+    expect(html).toContain("transform:translateY(52.8px)");
+    expect(html).toContain('aria-label="Pit box in 60 metres"');
     expect(html).not.toContain("hud-tab");
+  });
+
+  it("in-box: BOX 000 with the marker on the line, gear N, 0 km/h", () => {
+    const html = render(
+      scene({
+        meDist: 0.9,
+        player: {
+          pitLimiter: true,
+          trackSurface: "inPitStall",
+          pitStallLapDistPct: 0.9,
+          gear: 0,
+          speedMps: 0,
+        },
+      }),
+    );
+    expect(html).toContain("<small>BOX</small><b>000</b><small>m</small>");
+    expect(html).toContain("transform:translateY(20px)");
+    expect(html).toContain(">N<");
+    expect(html).toContain(">0<");
+  });
+
+  it("pit-exit: magenta EXIT chip", () => {
+    const html = render(
+      scene({
+        meDist: 0.9,
+        pitExitM: 30,
+        player: { pitLimiter: true, trackSurface: "approachingPits", pitStallLapDistPct: 0.8 },
+      }),
+    );
+    expect(html).toContain("<small>EXIT</small><b>030</b><small>m</small>");
+    expect(html).toContain("background:var(--ov-locked-pit-exit)");
+    expect(html).toContain('aria-label="Pit exit in 30 metres"');
+  });
+
+  it("draws no pit guide off pit road or when the option is off", () => {
+    expect(render(scene())).not.toContain("hud-pit");
+    const off = defaultInstanceSettings(compactHudManifest);
+    off.options["show-pit-guide"] = false;
+    const html = renderToStaticMarkup(
+      <OverlayRuntimeContext.Provider
+        value={staticRuntime(
+          scene({
+            meDist: 0.9,
+            player: { trackSurface: "approachingPits", pitStallLapDistPct: 0.95 },
+          }),
+          {},
+        )}
+      >
+        <CompactHudOverlay settings={off} />
+      </OverlayRuntimeContext.Provider>,
+    );
+    expect(html).not.toContain("hud-pit");
   });
 
   it("slow car: the yellow pill", () => {
     const html = render(scene({ slow: 180 }));
     expect(html).toContain("hud-status--slow");
     expect(html).toContain("▲ Slow car ahead · 180 m");
+  });
+
+  it("slow car: no pill on pit road", () => {
+    const html = render(
+      scene({
+        slow: 180,
+        meDist: 0.9,
+        player: { trackSurface: "approachingPits", pitStallLapDistPct: 0.95 },
+      }),
+    );
+    expect(html).not.toContain("hud-status");
+    expect(html).toContain("hud-pit-chip");
   });
 
   it("idle: gear N, no tabs, no pills, no badges", () => {
@@ -155,7 +225,7 @@ describe("CompactHudOverlay scenarios", () => {
       }),
     );
     expect(html).toContain(">N<");
-    for (const c of ["hud-tab", "hud-status", "hud-badge", "hud-prox", "hud-blink"]) {
+    for (const c of ["hud-tab", "hud-status", "hud-badge", "hud-prox", "hud-blink", "hud-pit"]) {
       expect(html).not.toContain(c);
     }
   });
