@@ -17,9 +17,21 @@ export interface HudGap {
   gapS: number;
   lapLine: LapLine | null;
 }
-export type HudStatus =
-  | { kind: "slow"; distanceM: number }
-  | { kind: "pit"; distanceM: number; /** 0 at 500 m .. 1 at the box. */ fill: number };
+/** The slow-car pill; never shown on pit road. */
+export interface HudStatus {
+  kind: "slow";
+  distanceM: number;
+}
+
+/** The pit guide above the HUD: the pit box or, near the end of pit road, the pit exit. */
+export interface PitGuide {
+  /** Null off pit road, when the option is off, or when there is nothing to guide to. */
+  kind: "box" | "exit" | null;
+  /** Metres to the box / exit line, whole; 0 when `kind` is null. */
+  distanceM: number;
+  /** Top edge of the car marker in px inside the 112 px strip: 20 at 0 m .. 102 at 150 m or more. */
+  markerY: number;
+}
 
 export interface CompactHudView {
   /** False when not live or the player is not on track: the overlay renders nothing unless editing. */
@@ -40,13 +52,14 @@ export interface CompactHudView {
   proximityAhead: ProximityLevel | null;
   proximityBehind: ProximityLevel | null;
   status: HudStatus | null;
+  pitGuide: PitGuide;
 }
 
 export interface HudOptions {
   gapRangeS: number;
   showGapTabs: boolean;
   showProximity: boolean;
-  showPitCountdown: boolean;
+  showPitGuide: boolean;
   showSlowCar: boolean;
   slowCarRangeM: number;
   shiftSource: ShiftLightSource;
@@ -54,8 +67,15 @@ export interface HudOptions {
 
 /** Shift-light steps (pairs) in the HUD. */
 export const HUD_LIGHT_STEPS = 6;
-/** The pit pill appears when the stall is at most this far ahead, metres. */
-export const PIT_COUNTDOWN_M = 500;
+/** The pit guide shows the box when the stall is at most this far ahead, metres. */
+export const PIT_GUIDE_BOX_M = 500;
+/** The pit guide switches to the exit when the exit line is closer than this, metres. */
+export const PIT_GUIDE_EXIT_M = 100;
+/** The car marker stops climbing below this distance, metres. */
+export const PIT_MARKER_FULL_M = 150;
+/** Marker top edge at the stop line (0 m) and the travel down to 150 m, px. */
+const MARKER_TOP_PX = 20;
+const MARKER_TRAVEL_PX = 82;
 
 const PIN_HALF_PX = 108;
 
@@ -82,6 +102,14 @@ export function pinPx(steer: number | null): number {
   return Math.round(PIN_HALF_PX + Math.max(-1, Math.min(1, steer)) * PIN_HALF_PX);
 }
 
+/** Top edge of the car marker for a distance to the line, px (one decimal). */
+export function pitMarkerY(distanceM: number): number {
+  const d = Math.min(Math.max(distanceM, 0), PIT_MARKER_FULL_M);
+  return Math.round((MARKER_TOP_PX + (d / PIT_MARKER_FULL_M) * MARKER_TRAVEL_PX) * 10) / 10;
+}
+
+const NO_PIT_GUIDE: PitGuide = { kind: null, distanceM: 0, markerY: MARKER_TOP_PX };
+
 const finite = (v: number | null | undefined): number | null =>
   v === null || v === undefined || !Number.isFinite(v) ? null : v;
 const round = (v: number, step: number): number => Math.round(v / step) * step;
@@ -102,6 +130,7 @@ const INACTIVE: CompactHudView = {
   proximityAhead: null,
   proximityBehind: null,
   status: null,
+  pitGuide: NO_PIT_GUIDE,
 };
 
 /** A race scene: 168 km/h in 4th, partial lights, both gap tabs, a car 8 m ahead. */
@@ -121,6 +150,7 @@ export const EDIT_SAMPLE: CompactHudView = {
   proximityAhead: "near",
   proximityBehind: null,
   status: null,
+  pitGuide: NO_PIT_GUIDE,
 };
 
 const LONE_QUALIFY = /^lone qualify$/i;
@@ -190,28 +220,35 @@ export function compactHudView(frame: TelemetryFrame | null, options: HudOptions
     proximityBehind = proximityLevel(Number.isFinite(bestBehind) ? bestBehind : null);
   }
 
-  // Status pill: a slow car first, then the pit box.
+  // On pit road the pit guide takes over from the slow-car pill.
+  const onPit =
+    player.trackSurface === "approachingPits" ||
+    player.trackSurface === "inPitStall" ||
+    me?.onPitRoad === true;
   let status: HudStatus | null = null;
+  let pitGuide = NO_PIT_GUIDE;
   const slow = derived.slowCar;
-  if (options.showSlowCar && slow !== null && slow.distanceM <= options.slowCarRangeM) {
-    status = { kind: "slow", distanceM: Math.round(slow.distanceM) };
-  } else if (options.showPitCountdown) {
-    const onPit =
-      player.trackSurface === "approachingPits" ||
-      player.trackSurface === "inPitStall" ||
-      me?.onPitRoad === true;
+  if (!onPit) {
+    if (options.showSlowCar && slow !== null && slow.distanceM <= options.slowCarRangeM) {
+      status = { kind: "slow", distanceM: Math.round(slow.distanceM) };
+    }
+  } else if (options.showPitGuide) {
+    const exitM = finite(derived.track.pitExitDistanceM);
     const stall = finite(player.pitStallLapDistPct);
     const here = finite(me?.lapDistPct);
-    if (onPit && stall !== null && here !== null && trackLengthM !== null) {
-      const distanceM = ((stall - here + 1) % 1) * trackLengthM;
-      if (distanceM <= PIT_COUNTDOWN_M) {
-        status = {
-          kind: "pit",
-          distanceM: Math.round(distanceM),
-          fill: round(clamp01(1 - distanceM / PIT_COUNTDOWN_M), 0.01),
-        };
-      }
-    }
+    const boxM =
+      player.trackSurface === "inPitStall"
+        ? 0
+        : stall !== null && here !== null && trackLengthM !== null
+          ? ((stall - here + 1) % 1) * trackLengthM
+          : null;
+    const guide = (kind: "box" | "exit", metres: number): PitGuide => ({
+      kind,
+      distanceM: Math.round(metres),
+      markerY: pitMarkerY(Math.round(metres)),
+    });
+    if (exitM !== null && exitM < PIT_GUIDE_EXIT_M) pitGuide = guide("exit", exitM);
+    else if (boxM !== null && boxM <= PIT_GUIDE_BOX_M) pitGuide = guide("box", boxM);
   }
 
   const rpm = finite(player.rpm);
@@ -232,5 +269,6 @@ export function compactHudView(frame: TelemetryFrame | null, options: HudOptions
     proximityAhead,
     proximityBehind,
     status,
+    pitGuide,
   };
 }

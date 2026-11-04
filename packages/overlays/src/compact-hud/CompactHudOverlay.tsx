@@ -31,7 +31,7 @@ function readOptions(settings: OverlayProps["settings"]): HudOptions {
     gapRangeS: optionNumber(settings, "gap-range"),
     showGapTabs: optionBoolean(settings, "show-gap-tabs"),
     showProximity: optionBoolean(settings, "show-proximity"),
-    showPitCountdown: optionBoolean(settings, "show-pit-countdown"),
+    showPitGuide: optionBoolean(settings, "show-pit-guide"),
     showSlowCar: optionBoolean(settings, "show-slow-car"),
     slowCarRangeM: optionNumber(settings, "slow-car-range"),
     shiftSource: optionString(settings, "shift-lights") === "custom" ? "custom" : "car",
@@ -83,129 +83,141 @@ export function CompactHudOverlay({ settings }: OverlayProps) {
 
   const status = v.status;
   const statusDistance = status === null ? null : formatDistance(status.distanceM, prefs);
+  const pit = v.pitGuide;
+  const pitDistance = pit.kind === null ? null : formatDistance(pit.distanceM, prefs);
 
   return (
-    <div className="hud" role="group" aria-label={label}>
-      <svg className="hud-shape" viewBox="0 0 340 172" aria-hidden="true">
-        <path
-          className={v.limiter ? "body hud-body--lim" : "body"}
-          d={hudShape(aheadShown, behindShown)}
-        />
-        {v.ahead?.lapLine && (
-          <path
-            className="lap"
-            d="M128,28.5 L212,28.5"
-            style={{ stroke: LAP_COLOUR[v.ahead.lapLine] }}
-          />
-        )}
-        {v.behind?.lapLine && (
-          <path
-            className="lap"
-            d="M128,167.5 L212,167.5"
-            style={{ stroke: LAP_COLOUR[v.behind.lapLine] }}
-          />
-        )}
-      </svg>
-
-      {status !== null && statusDistance !== null && (
+    <div className="hud-win">
+      {pit.kind !== null && pitDistance !== null && (
         <div
-          className={
-            status.kind === "slow" ? "hud-status hud-status--slow" : "hud-status hud-status--pit"
-          }
+          className="hud-pit"
+          role="img"
+          aria-label={`Pit ${pit.kind === "exit" ? "exit" : "box"} in ${pitDistance.value} ${pitDistance.unit === "ft" ? "feet" : "metres"}`}
         >
-          {status.kind === "slow" ? (
+          <i className="hud-pit-rail" style={{ left: 92 }} />
+          <i className="hud-pit-rail" style={{ left: 206 }} />
+          <i className="hud-pit-car" style={{ transform: `translateY(${pit.markerY}px)` }} />
+          <i className="hud-pit-line" />
+          <span
+            className="hud-pit-chip"
+            style={{
+              background:
+                pit.kind === "exit" ? "var(--ov-locked-pit-exit)" : "var(--ov-locked-pit-box)",
+            }}
+          >
+            <small>{pit.kind === "exit" ? "EXIT" : "BOX"}</small>
+            <b>{String(Math.round(Number(pitDistance.value))).padStart(3, "0")}</b>
+            <small>{pitDistance.unit}</small>
+          </span>
+        </div>
+      )}
+      <div className="hud" role="group" aria-label={label}>
+        <svg className="hud-shape" viewBox="0 0 340 172" aria-hidden="true">
+          <path
+            className={v.limiter ? "body hud-body--lim" : "body"}
+            d={hudShape(aheadShown, behindShown)}
+          />
+          {v.ahead?.lapLine && (
+            <path
+              className="lap"
+              d="M128,28.5 L212,28.5"
+              style={{ stroke: LAP_COLOUR[v.ahead.lapLine] }}
+            />
+          )}
+          {v.behind?.lapLine && (
+            <path
+              className="lap"
+              d="M128,167.5 L212,167.5"
+              style={{ stroke: LAP_COLOUR[v.behind.lapLine] }}
+            />
+          )}
+        </svg>
+
+        {status !== null && statusDistance !== null && (
+          <div className="hud-status hud-status--slow">
             <span>
               ▲ Slow car ahead · {statusDistance.value} {statusDistance.unit}
             </span>
-          ) : (
+          </div>
+        )}
+
+        {v.ahead && (
+          <div className="hud-tab hud-tab--ahead" style={{ color: "var(--ov-locked-gain)" }}>
+            +{v.ahead.gapS.toFixed(1)}
+          </div>
+        )}
+        {v.behind && (
+          <div className="hud-tab hud-tab--behind" style={{ color: "var(--ov-locked-loss)" }}>
+            -{v.behind.gapS.toFixed(1)}
+          </div>
+        )}
+
+        <div className="hud-cap">
+          <svg className="hud-arcs" viewBox="0 0 330 100" aria-hidden="true">
+            <path className="hud-track" d="M50,87 A37,37 0 0 1 50,13" pathLength="100" />
+            <path
+              className="hud-arc hud-arc--brake"
+              d="M50,87 A37,37 0 0 1 50,13"
+              pathLength="100"
+              style={{ strokeDasharray: `${v.brake * 100} 100` } as CSSProperties}
+            />
+            <path className="hud-track" d="M280,87 A37,37 0 0 0 280,13" pathLength="100" />
+            <path
+              className="hud-arc hud-arc--throttle"
+              d="M280,87 A37,37 0 0 0 280,13"
+              pathLength="100"
+              style={{ strokeDasharray: `${v.throttle * 100} 100` } as CSSProperties}
+            />
+          </svg>
+
+          <Lights view={v} blink={blink} />
+
+          <div className="hud-num hud-num--speed">
+            <b>{speed.value}</b>
+            <span>{speed.unit}</span>
+          </div>
+          <div
+            className={`hud-gear${v.lights.shift ? " hud-gear--shift" : ""}${blink ? " hud-blink" : ""}`}
+          >
+            {gear}
+          </div>
+          <div className="hud-num hud-num--rpm">
+            <b>{v.rpm === null ? "--" : v.rpm}</b>
+            <span>RPM</span>
+          </div>
+
+          {v.abs && <div className="hud-badge hud-badge--abs">ABS</div>}
+          {v.limiter && <div className="hud-badge hud-badge--lim">LIM</div>}
+
+          <div className="hud-steer">
+            <i style={{ left: `${v.pinPx}px` }} />
+          </div>
+
+          {v.proximityAhead && (
             <>
-              <span>
-                Pit box {statusDistance.value} {statusDistance.unit}
-              </span>
-              <span className="hud-pitbar">
-                <i style={{ width: `${Math.round(status.fill * 100)}%` }} />
-              </span>
+              <div
+                className="hud-prox hud-prox--l hud-prox--ahead"
+                style={{ background: PROXIMITY_COLOUR[v.proximityAhead] }}
+              />
+              <div
+                className="hud-prox hud-prox--r hud-prox--ahead"
+                style={{ background: PROXIMITY_COLOUR[v.proximityAhead] }}
+              />
+            </>
+          )}
+          {v.proximityBehind && (
+            <>
+              <div
+                className="hud-prox hud-prox--l hud-prox--behind"
+                style={{ background: PROXIMITY_COLOUR[v.proximityBehind] }}
+              />
+              <div
+                className="hud-prox hud-prox--r hud-prox--behind"
+                style={{ background: PROXIMITY_COLOUR[v.proximityBehind] }}
+              />
             </>
           )}
         </div>
-      )}
-
-      {v.ahead && (
-        <div className="hud-tab hud-tab--ahead" style={{ color: "var(--ov-locked-gain)" }}>
-          +{v.ahead.gapS.toFixed(1)}
-        </div>
-      )}
-      {v.behind && (
-        <div className="hud-tab hud-tab--behind" style={{ color: "var(--ov-locked-loss)" }}>
-          -{v.behind.gapS.toFixed(1)}
-        </div>
-      )}
-
-      <div className="hud-cap">
-        <svg className="hud-arcs" viewBox="0 0 330 100" aria-hidden="true">
-          <path className="hud-track" d="M50,87 A37,37 0 0 1 50,13" pathLength="100" />
-          <path
-            className="hud-arc hud-arc--brake"
-            d="M50,87 A37,37 0 0 1 50,13"
-            pathLength="100"
-            style={{ strokeDasharray: `${v.brake * 100} 100` } as CSSProperties}
-          />
-          <path className="hud-track" d="M280,87 A37,37 0 0 0 280,13" pathLength="100" />
-          <path
-            className="hud-arc hud-arc--throttle"
-            d="M280,87 A37,37 0 0 0 280,13"
-            pathLength="100"
-            style={{ strokeDasharray: `${v.throttle * 100} 100` } as CSSProperties}
-          />
-        </svg>
-
-        <Lights view={v} blink={blink} />
-
-        <div className="hud-num hud-num--speed">
-          <b>{speed.value}</b>
-          <span>{speed.unit}</span>
-        </div>
-        <div
-          className={`hud-gear${v.lights.shift ? " hud-gear--shift" : ""}${blink ? " hud-blink" : ""}`}
-        >
-          {gear}
-        </div>
-        <div className="hud-num hud-num--rpm">
-          <b>{v.rpm === null ? "--" : v.rpm}</b>
-          <span>RPM</span>
-        </div>
-
-        {v.abs && <div className="hud-badge hud-badge--abs">ABS</div>}
-        {v.limiter && <div className="hud-badge hud-badge--lim">LIM</div>}
-
-        <div className="hud-steer">
-          <i style={{ left: `${v.pinPx}px` }} />
-        </div>
-
-        {v.proximityAhead && (
-          <>
-            <div
-              className="hud-prox hud-prox--l hud-prox--ahead"
-              style={{ background: PROXIMITY_COLOUR[v.proximityAhead] }}
-            />
-            <div
-              className="hud-prox hud-prox--r hud-prox--ahead"
-              style={{ background: PROXIMITY_COLOUR[v.proximityAhead] }}
-            />
-          </>
-        )}
-        {v.proximityBehind && (
-          <>
-            <div
-              className="hud-prox hud-prox--l hud-prox--behind"
-              style={{ background: PROXIMITY_COLOUR[v.proximityBehind] }}
-            />
-            <div
-              className="hud-prox hud-prox--r hud-prox--behind"
-              style={{ background: PROXIMITY_COLOUR[v.proximityBehind] }}
-            />
-          </>
-        )}
       </div>
     </div>
   );

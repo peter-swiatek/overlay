@@ -67,7 +67,12 @@ function frame(
     derived: {
       fuel,
       energy: opts.energy ?? null,
-      track: { trackKey: null, outlineReady: false },
+      track: {
+        trackKey: null,
+        outlineReady: false,
+        pitExitLapDistPct: null,
+        pitExitDistanceM: null,
+      },
       standings: null,
       proximity: null,
       delta: null,

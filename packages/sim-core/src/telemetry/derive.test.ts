@@ -37,7 +37,12 @@ describe("Deriver", () => {
     expect(out).toEqual({
       fuel: null,
       gaps: [],
-      track: { trackKey: null, outlineReady: false },
+      track: {
+        trackKey: null,
+        outlineReady: false,
+        pitExitLapDistPct: null,
+        pitExitDistanceM: null,
+      },
       standings: null,
       proximity: null,
       delta: null,

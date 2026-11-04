@@ -23,6 +23,7 @@ import { TelemetryService } from "./service";
 import { WorkerSessionParser, type WorkerLike } from "./session-parser";
 import { FileBestLapStore, bestLapFile } from "./best-lap-store";
 import { FileFuelHistoryStore, fuelHistoryFile } from "./fuel-history-store";
+import { FilePitExitStore, pitExitFile } from "./pit-exit-store";
 import { FileTrackOutlineStore, parseUserDataArg, trackOutlineDir } from "./track-store";
 
 const parentPort = process.parentPort;
@@ -71,6 +72,9 @@ async function main(): Promise<void> {
       ? {}
       : {
           trackOutlines: new FileTrackOutlineStore(trackOutlineDir(userData), (message) =>
+            console.error(message),
+          ),
+          pitExits: new FilePitExitStore(pitExitFile(userData), (message) =>
             console.error(message),
           ),
           fuelHistory: new FileFuelHistoryStore(fuelHistoryFile(userData), (message) =>

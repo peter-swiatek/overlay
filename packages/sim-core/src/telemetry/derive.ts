@@ -15,7 +15,13 @@ import { ProximityTracker } from "../calc/proximity";
 import { SlowCarDetector } from "../calc/slow-car";
 import { StandingsTracker, type StandingsInputs } from "../calc/standings";
 import type { Car, SessionPhase, SessionType, SimState } from "../model";
-import { TrackTracker, trackKeyOf, type TrackOutline, type TrackOutlineStore } from "../track";
+import {
+  TrackTracker,
+  trackKeyOf,
+  type PitExitStore,
+  type TrackOutline,
+  type TrackOutlineStore,
+} from "../track";
 import { emptyDerived, type Derived, type DerivedGap } from "./frame";
 
 /** The clock going back by more than this means a new session or a restarted replay. */
@@ -30,6 +36,8 @@ const CLOCK_BACKWARDS_S = 1;
 export interface DeriverOptions {
   /** Where track outlines are kept between runs; without it they live only in memory. */
   trackOutlines?: TrackOutlineStore;
+  /** Where the learned pit-exit line of each track is kept; without it it lives only in memory. */
+  pitExits?: PitExitStore;
   /** Clock for outline timestamps. */
   now?: () => Date;
   /** Fuel use of earlier sessions; without it nothing is recorded or seeded. */
@@ -57,6 +65,7 @@ export class Deriver {
     this.delta = new DeltaTracker({ store: options.bestLaps ?? null });
     this.track = new TrackTracker({
       ...(options.trackOutlines ? { store: options.trackOutlines } : {}),
+      ...(options.pitExits ? { pitExits: options.pitExits } : {}),
       ...(options.now ? { now: options.now } : {}),
     });
   }

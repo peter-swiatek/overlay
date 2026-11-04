@@ -1,4 +1,15 @@
-/* Compact HUD: fixed 340 x 172 px geometry (Scale % shrinks it), text in em of --ov-font-size. */
+/* Compact HUD: fixed 340 x 284 px window (112 px pit guide over the 172 px HUD; Scale % shrinks it), text in em of --ov-font-size. */
+.hud-win {
+  position: relative;
+  width: 340px;
+  height: 284px;
+  flex: none;
+}
+.hud-win > .hud {
+  position: absolute;
+  left: 0;
+  top: 112px;
+}
 .hud {
   position: relative;
   width: 340px;
@@ -30,24 +41,83 @@
   background: var(--ov-locked-flag-yellow);
   color: #0b0d12;
 }
-.hud-status--pit {
-  background: var(--ov-bg);
+/* Slow-car pill: just above the HUD (y -30..-8), inside the pit guide strip. */
+.hud-status--slow {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+/* Pit guide: the top 112 px of the window, drawn only on pit road (transparent otherwise).
+   A stop line for the pit box or pit exit, a distance chip on the line, and a car marker that
+   climbs to the line as the distance closes. */
+.hud-pit {
+  position: absolute;
+  left: 20px;
+  top: 0;
+  width: 300px;
+  height: 112px;
   color: var(--ov-text);
-  box-shadow: inset 0 0 0 1px var(--ov-border);
+  font-family: var(--ov-font-family);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
 }
-.hud-pitbar {
-  display: block;
-  width: 54px;
-  height: 5px;
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--ov-text) 14%, transparent);
-  overflow: hidden;
+.hud-pit-rail {
+  position: absolute;
+  top: 18px;
+  bottom: 6px;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.32), transparent);
 }
-.hud-pitbar > i {
-  display: block;
-  height: 100%;
-  background: var(--ov-locked-gain);
-  border-radius: 3px;
+.hud-pit-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 17px;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #f8fafc 18%, #f8fafc 82%, transparent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.hud-pit-car {
+  position: absolute;
+  left: 98px;
+  top: 0;
+  width: 104px;
+  height: 30px;
+  border-radius: 9px 9px 0 0;
+  background: linear-gradient(
+    180deg,
+    var(--ov-locked-gain),
+    color-mix(in srgb, var(--ov-locked-gain) 0%, transparent)
+  );
+  box-shadow: inset 0 2px 0 color-mix(in srgb, #fff 35%, transparent);
+  will-change: transform;
+}
+.hud-pit-chip {
+  position: absolute;
+  left: 50%;
+  top: 7px;
+  transform: translateX(-50%);
+  height: 23px;
+  padding: 0 10px;
+  border-radius: 999px;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  line-height: 23px;
+  color: #0b0d12;
+  font-size: var(--ov-font-size);
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  z-index: 2;
+}
+.hud-pit-chip small {
+  font-size: 0.7em;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+.hud-pit-chip b {
+  font-size: 1.18em;
 }
 .hud-shape {
   position: absolute;

@@ -53,7 +53,11 @@ export const LOCKED_GROUPS: readonly {
   },
   {
     title: "Driving aids",
-    items: [["shift", "Shift light"]],
+    items: [
+      ["shift", "Shift light"],
+      ["pitBox", "Pit box"],
+      ["pitExit", "Pit exit"],
+    ],
   },
 ];
 

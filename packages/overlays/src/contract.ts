@@ -23,6 +23,8 @@ interface SettingFieldBase {
   help?: string;
   /** Panel group heading, e.g. "Layout"; fields without one go under "Options". */
   section?: string;
+  /** Earlier key of a renamed option: its stored value is read when the new key is absent. */
+  legacyKey?: string;
   sims?: readonly SimName[];
 }
 

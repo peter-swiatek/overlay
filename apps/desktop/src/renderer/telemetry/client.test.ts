@@ -35,7 +35,12 @@ function frame(seq: number, patch: Partial<TelemetryFrame> = {}): TelemetryFrame
     derived: {
       fuel: null,
       gaps: [],
-      track: { trackKey: null, outlineReady: false },
+      track: {
+        trackKey: null,
+        outlineReady: false,
+        pitExitLapDistPct: null,
+        pitExitDistanceM: null,
+      },
       standings: null,
       proximity: null,
       delta: null,

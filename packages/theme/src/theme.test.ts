@@ -131,6 +131,8 @@ describe("locked colours", () => {
         "licencePro": "#1a1a1a",
         "licenceR": "#e0322c",
         "loss": "#ef4444",
+        "pitBox": "#38bdf8",
+        "pitExit": "#e879f9",
         "rejoinRed": "#ef4444",
         "rejoinYellow": "#facc15",
         "shift": "#38bdf8",
@@ -138,9 +140,9 @@ describe("locked colours", () => {
     `);
   });
 
-  it("has 20 locked keys with shift last", () => {
-    expect(LOCKED_COLOUR_KEYS).toHaveLength(20);
-    expect(LOCKED_COLOUR_KEYS[LOCKED_COLOUR_KEYS.length - 1]).toBe("shift");
+  it("has 22 locked keys with the pit colours last", () => {
+    expect(LOCKED_COLOUR_KEYS).toHaveLength(22);
+    expect(LOCKED_COLOUR_KEYS.slice(-3)).toEqual(["shift", "pitBox", "pitExit"]);
   });
 
   it("is frozen and has every key", () => {
@@ -155,6 +157,8 @@ describe("locked colours", () => {
     expect(vars["--ov-locked-flag-blue"]).toBe("#2563eb");
     expect(vars["--ov-locked-gain"]).toBe("#22c55e");
     expect(vars["--ov-locked-shift"]).toBe("#38bdf8");
+    expect(vars["--ov-locked-pit-box"]).toBe("#38bdf8");
+    expect(vars["--ov-locked-pit-exit"]).toBe("#e879f9");
   });
 });
 

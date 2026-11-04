@@ -2,13 +2,20 @@ import type { Player, TelemetryFrame } from "@overlay/sim-core/types";
 import { describe, expect, it } from "vitest";
 import { fixtureFrame } from "../shared/fixtures";
 import { hudShape } from "./shape";
-import { compactHudView, lapLine, pinPx, proximityLevel, type HudOptions } from "./view";
+import {
+  compactHudView,
+  lapLine,
+  pinPx,
+  pitMarkerY,
+  proximityLevel,
+  type HudOptions,
+} from "./view";
 
 const OPTIONS: HudOptions = {
   gapRangeS: 5,
   showGapTabs: true,
   showProximity: true,
-  showPitCountdown: true,
+  showPitGuide: true,
   showSlowCar: true,
   slowCarRangeM: 300,
   shiftSource: "car",
@@ -251,42 +258,127 @@ describe("compactHudView: proximity", () => {
   });
 });
 
-describe("compactHudView: status pill", () => {
+describe("pitMarkerY", () => {
+  it("climbs from 102 px at 150 m or more to the stop line at 0 m", () => {
+    expect(pitMarkerY(0)).toBe(20);
+    expect(pitMarkerY(75)).toBe(61);
+    expect(pitMarkerY(150)).toBe(102);
+    expect(pitMarkerY(400)).toBe(102);
+    expect(pitMarkerY(-5)).toBe(20);
+  });
+});
+
+describe("compactHudView: pit guide", () => {
   const pit = (dist: number, extra: Partial<Player> = {}) =>
     frame({
       meDist: 0.9,
       player: { trackSurface: "approachingPits", pitStallLapDistPct: dist, ...extra },
     });
+  const NONE = { kind: null, distanceM: 0, markerY: 20 };
 
-  it("counts down to the pit box with a fill of 0 at 500 m, 0.5 at 250 m and 1 at the box", () => {
-    expect(compactHudView(pit(0.9 + 500 / 4000), OPTIONS).status).toEqual({
-      kind: "pit",
-      distanceM: 500,
-      fill: 0,
-    });
-    expect(compactHudView(pit(0.9 + 250 / 4000), OPTIONS).status).toMatchObject({ fill: 0.5 });
-    expect(compactHudView(pit(0.9), OPTIONS).status).toMatchObject({ distanceM: 0, fill: 1 });
+  it("is empty off pit road", () => {
+    expect(compactHudView(frame(), OPTIONS).pitGuide).toEqual(NONE);
+    expect(compactHudView(pit(0.95, { trackSurface: "onTrack" }), OPTIONS).pitGuide).toEqual(NONE);
   });
 
-  it("wraps over the line and is hidden beyond 500 m, off pit approach, or when switched off", () => {
+  it("pit-box: counts down to the box and moves the marker with the distance", () => {
+    expect(compactHudView(pit(0.9 + 500 / 4000), OPTIONS).pitGuide).toEqual({
+      kind: "box",
+      distanceM: 500,
+      markerY: 102,
+    });
+    expect(compactHudView(pit(0.9 + 60 / 4000), OPTIONS).pitGuide).toEqual({
+      kind: "box",
+      distanceM: 60,
+      markerY: 52.8,
+    });
+    expect(compactHudView(pit(0.9), OPTIONS).pitGuide).toEqual({
+      kind: "box",
+      distanceM: 0,
+      markerY: 20,
+    });
+  });
+
+  it("recognises pit road from the car flag as well as the track surface", () => {
+    const f = frame({ meDist: 0.9, player: { pitStallLapDistPct: 0.91 } });
+    expect(compactHudView(f, OPTIONS).pitGuide.kind).toBeNull();
+    (f.state.cars[0] as { onPitRoad: boolean | null }).onPitRoad = true;
+    expect(compactHudView(f, OPTIONS).pitGuide).toMatchObject({ kind: "box", distanceM: 40 });
+  });
+
+  it("in-box: BOX 0 on the line while in the stall, even without a stall position", () => {
+    const v = compactHudView(
+      frame({ meDist: 0.9, player: { trackSurface: "inPitStall", pitStallLapDistPct: null } }),
+      OPTIONS,
+    );
+    expect(v.pitGuide).toEqual({ kind: "box", distanceM: 0, markerY: 20 });
+    const past = compactHudView(
+      frame({ meDist: 0.9, player: { trackSurface: "inPitStall", pitStallLapDistPct: 0.89 } }),
+      OPTIONS,
+    );
+    expect(past.pitGuide.distanceM).toBe(0);
+  });
+
+  it("wraps over the line and is hidden beyond 500 m or when switched off", () => {
     const f = frame({
       meDist: 0.95,
       player: { trackSurface: "approachingPits", pitStallLapDistPct: 0.02 },
     });
-    expect(compactHudView(f, OPTIONS).status).toMatchObject({ kind: "pit", distanceM: 280 });
-    expect(compactHudView(pit(0.9 + 600 / 4000), OPTIONS).status).toBeNull();
-    expect(compactHudView(pit(0.95, { trackSurface: "onTrack" }), OPTIONS).status).toBeNull();
-    expect(compactHudView(pit(0.95), { ...OPTIONS, showPitCountdown: false }).status).toBeNull();
+    expect(compactHudView(f, OPTIONS).pitGuide).toMatchObject({ kind: "box", distanceM: 280 });
+    expect(compactHudView(pit(0.9 + 600 / 4000), OPTIONS).pitGuide).toEqual(NONE);
+    expect(compactHudView(pit(0.95), { ...OPTIONS, showPitGuide: false }).pitGuide).toEqual(NONE);
   });
 
-  it("shows the slow car within range and before the pit pill", () => {
+  it("pit-exit: shown when the exit is under 100 m ahead, else the box", () => {
     const f = pit(0.95);
-    f.derived.slowCar = { carIdx: 5, distanceM: 180.4, speedMps: 8, stopped: false };
-    expect(compactHudView(f, OPTIONS).status).toEqual({ kind: "slow", distanceM: 180 });
-    f.derived.slowCar = { carIdx: 5, distanceM: 301, speedMps: 8, stopped: false };
-    expect(compactHudView(f, OPTIONS).status?.kind).toBe("pit");
-    f.derived.slowCar = { carIdx: 5, distanceM: 100, speedMps: 8, stopped: false };
-    expect(compactHudView(f, { ...OPTIONS, showSlowCar: false }).status?.kind).toBe("pit");
+    f.derived.track.pitExitDistanceM = 30.4;
+    expect(compactHudView(f, OPTIONS).pitGuide).toEqual({
+      kind: "exit",
+      distanceM: 30,
+      markerY: 36.4,
+    });
+    f.derived.track.pitExitDistanceM = 99.4;
+    expect(compactHudView(f, OPTIONS).pitGuide.kind).toBe("exit");
+    f.derived.track.pitExitDistanceM = 100;
+    expect(compactHudView(f, OPTIONS).pitGuide.kind).toBe("box");
+    f.derived.track.pitExitDistanceM = 3900;
+    expect(compactHudView(f, OPTIONS).pitGuide.kind).toBe("box");
+  });
+
+  it("skips the exit until it is learned (no distance)", () => {
+    const f = pit(0.95);
+    f.derived.track.pitExitDistanceM = null;
+    expect(compactHudView(f, OPTIONS).pitGuide.kind).toBe("box");
+  });
+
+  it("shows the exit past the box even when the box is behind", () => {
+    const f = pit(0.85);
+    f.derived.track.pitExitDistanceM = 50;
+    expect(compactHudView(f, OPTIONS).pitGuide).toMatchObject({ kind: "exit", distanceM: 50 });
+  });
+});
+
+describe("compactHudView: slow-car pill", () => {
+  const slow = (extra: Partial<Player> = {}, distanceM = 180.4) => {
+    const f = frame({ player: extra });
+    f.derived.slowCar = { carIdx: 5, distanceM, speedMps: 8, stopped: false };
+    return f;
+  };
+
+  it("shows the slow car within range", () => {
+    expect(compactHudView(slow(), OPTIONS).status).toEqual({ kind: "slow", distanceM: 180 });
+    expect(compactHudView(slow({}, 301), OPTIONS).status).toBeNull();
+    expect(compactHudView(slow(), { ...OPTIONS, showSlowCar: false }).status).toBeNull();
+  });
+
+  it("never shows on pit road, where the pit guide takes over", () => {
+    const f = slow({ trackSurface: "approachingPits", pitStallLapDistPct: 0.55 });
+    const v = compactHudView(f, OPTIONS);
+    expect(v.status).toBeNull();
+    expect(v.pitGuide.kind).toBe("box");
+    const noGuide = compactHudView(f, { ...OPTIONS, showPitGuide: false });
+    expect(noGuide.status).toBeNull();
+    expect(noGuide.pitGuide.kind).toBeNull();
   });
 });
 
