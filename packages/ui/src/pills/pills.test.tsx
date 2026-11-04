@@ -74,8 +74,15 @@ describe("pills", () => {
     expect(css).toMatch(
       /\.ov-pill--lic-c \.ov-lic-ltr,\s*\.ov-pill--lic-d \.ov-lic-ltr\s*\{\s*color: #0b0d12;/,
     );
-    expect(css).toContain("padding: 0 0.3em 0 0.62em");
-    expect(css).toContain("padding: 0 0.52em 0 0.36em");
+    expect(css).toContain("padding: 0 0.34em 0 0.44em");
+    expect(css).toContain("min-width: 1.62em");
+    expect(css).toContain("padding: 0 0.5em 0 0.4em");
+    expect(css).not.toContain("0.62em");
+  });
+  it("draws flag badges as 3px rounded rectangles, not pills", () => {
+    const rule = /\.ov-badge-flag \{[^}]*\}/.exec(css)?.[0] ?? "";
+    expect(rule).toContain("border-radius: 3px");
+    expect(rule).not.toContain("999px");
   });
   it("tints the iRating pill only when asked and a licence is known", () => {
     const tinted = renderToStaticMarkup(<IRatingPill iRating={1550} licence="C 2.00" tinted />);

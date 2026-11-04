@@ -56,9 +56,14 @@
   font-weight: 800;
 }
 
-/* The letter sits in a round cap, so it gets more padding on the left than on the right. */
+/* The cap is a fixed-width box with the letter centred in it, plus a small left bias for the
+   rounded end. "Pro" grows past the minimum width. */
 .ov-lic-ltr {
-  padding: 0 0.3em 0 0.62em;
+  box-sizing: border-box;
+  min-width: 1.62em;
+  padding: 0 0.34em 0 0.44em;
+  justify-content: center;
+  text-align: center;
   background: var(--lic-color);
   color: #ffffff;
 }
@@ -69,7 +74,7 @@
 }
 
 .ov-lic-num {
-  padding: 0 0.52em 0 0.36em;
+  padding: 0 0.5em 0 0.4em;
   color: #ffffff;
 }
 
@@ -149,7 +154,8 @@
   height: 1.56em;
   margin-left: 0.56em;
   padding: 0 0.67em;
-  border-radius: 999px;
+  /* Rounded rectangle, not a pill: reads differently from the licence and iRating pills. */
+  border-radius: 3px;
   font-size: 0.64em;
   font-weight: 800;
   letter-spacing: 0.04em;
