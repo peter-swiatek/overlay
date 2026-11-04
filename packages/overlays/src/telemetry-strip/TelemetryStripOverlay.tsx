@@ -55,7 +55,7 @@ export function TelemetryStripOverlay({ settings }: OverlayProps) {
       role="group"
       aria-label={`Telemetry strip, gear ${formatGear(v.gear)}, ${speed.value} ${speed.unit}`}
     >
-      <div className="ts-panel">
+      <div className="ts-panel ts-panel-cut">
         <div className="ts-row1">
           {shown.has("speed") && (
             <div className="ts-speed">
@@ -87,7 +87,7 @@ export function TelemetryStripOverlay({ settings }: OverlayProps) {
             </div>
           )}
         </div>
-        <div className="ts-band">
+        <div className="ts-band ts-band-cut">
           {shown.has("position") && (
             <>
               <span className="ts-pos">{v.position === null ? NO_VALUE : `P${v.position}`}</span>

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import type { DisplayPrefs } from "@overlay/ui/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -148,5 +149,24 @@ describe("TelemetryStripOverlay", () => {
     const html = render(frame(5800), {}, custom);
     expect((html.match(/ts-led-on/g) ?? []).length).toBe(0);
     expect((render(frame(5800)).match(/ts-led-on/g) ?? []).length).toBeGreaterThan(0);
+  });
+
+  it("cuts the panel and band around the hub and draws the hub last", () => {
+    const html = render(frame());
+    expect(html).toContain('class="ts-panel ts-panel-cut"');
+    expect(html).toContain('class="ts-band ts-band-cut"');
+    expect(html.indexOf("ts-hub")).toBeGreaterThan(html.indexOf("ts-panel"));
+  });
+
+  it("styles the cuts and an opaque hub", () => {
+    const css = readFileSync(new URL("./telemetry-strip.css", import.meta.url), "utf8");
+    expect(css).toContain("circle 68px at 0 48px, transparent 68px, #000 68.5px");
+    expect(css).toContain("circle 82px at -32px -1px, transparent 81.5px, #000 82.5px");
+    const hub = css.match(/\.ts-hub \{[^}]*\}/)?.[0] ?? "";
+    expect(hub).toContain("z-index: 2");
+    expect(hub).toContain("var(--gear-gap)");
+    expect(hub).not.toContain("--ov-bg");
+    expect(css).toContain("--ts-base: rgb(from var(--ov-bg) r g b)");
+    expect(css).toMatch(/:root\[data-tone="light"\] \.ts-root \{[^}]*--gear-bg: #fff/);
   });
 });

@@ -6,8 +6,8 @@ export const telemetryStripManifest: OverlayManifest = {
   description:
     "Gear with a throttle and brake ring, speed, shift lights, rpm, position, fuel, last lap and track temperature.",
   sims: ["iracing", "lmu"],
-  defaultSize: { width: 594, height: 136 },
-  minSize: { width: 594, height: 136 },
+  defaultSize: { width: 609, height: 136 },
+  minSize: { width: 609, height: 136 },
   defaultPosition: { x: 1280, y: 40 },
   table: false,
   fields: [
