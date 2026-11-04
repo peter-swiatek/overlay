@@ -4,6 +4,7 @@ export {
   ClassBadge,
   FlagBadge,
   IRatingPill,
+  type IRatingPillSize,
   LicencePill,
   PositionDelta,
 } from "./pills";

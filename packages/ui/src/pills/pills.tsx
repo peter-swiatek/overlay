@@ -20,17 +20,26 @@ export function LicencePill({ licence }: { licence: string | null }): JSX.Elemen
   );
 }
 
+export type IRatingPillSize = "auto" | "narrow" | "wide";
+
 export function IRatingPill({
   iRating,
   licence,
   tinted,
   change,
+  size = "auto",
 }: {
   iRating: number | null;
   licence?: string | null;
   tinted: boolean;
   /** Signed projected/actual change; null, 0 or non-finite shows no delta. */
   change?: number | null;
+  /**
+   * "auto": the pill grows with its content. "narrow": fixed width for the widest value, no change
+   * block. "wide": fixed width for the value plus an arrow and three digits; the change block has
+   * a fixed width and is right-justified, so the pill never resizes with the change.
+   */
+  size?: IRatingPillSize;
 }): JSX.Element {
   const { licenceClass } = parseLicence(licence ?? null);
   const style: CSSProperties | undefined =
@@ -40,13 +49,30 @@ export function IRatingPill({
   const rounded = change === null || change === undefined ? 0 : Math.round(change);
   const showDelta = Number.isFinite(rounded) && rounded !== 0;
   return (
-    <span className={`ov-pill ov-pill--ir${style ? " ov-pill--ir-tinted" : ""}`} style={style}>
+    <span
+      className={`ov-pill ov-pill--ir${size === "auto" ? "" : ` ov-pill--ir-${size}`}${style ? " ov-pill--ir-tinted" : ""}`}
+      style={style}
+    >
       <span className="ov-ir-val">{formatIRating(iRating)}</span>
-      {showDelta && (
-        <span className={`ov-ir-delta ov-ir-delta--${rounded > 0 ? "up" : "down"}`}>
-          <span className="ov-ir-tri">{rounded > 0 ? "\u25B2" : "\u25BC"}</span>
-          {Math.abs(rounded)}
+      {size === "wide" ? (
+        <span
+          className={`ov-ir-delta ov-ir-delta--fixed${showDelta ? ` ov-ir-delta--${rounded > 0 ? "up" : "down"}` : ""}`}
+        >
+          {showDelta && (
+            <>
+              <span className="ov-ir-tri">{rounded > 0 ? "\u25B2" : "\u25BC"}</span>
+              {Math.abs(rounded)}
+            </>
+          )}
         </span>
+      ) : (
+        size === "auto" &&
+        showDelta && (
+          <span className={`ov-ir-delta ov-ir-delta--${rounded > 0 ? "up" : "down"}`}>
+            <span className="ov-ir-tri">{rounded > 0 ? "\u25B2" : "\u25BC"}</span>
+            {Math.abs(rounded)}
+          </span>
+        )
       )}
     </span>
   );

@@ -14,6 +14,8 @@ export interface MockSourceOptions {
 
 const GT3 = { id: "1", name: "GT3", colour: "#ffda59", lapS: 100 };
 const HYPER = { id: "2", name: "Hypercar", colour: "#ff5888", lapS: 86 };
+/** Spread of iRatings (incl. a five-digit one) so the projected changes differ in size and sign. */
+const MOCK_IRATINGS: readonly number[] = [2400, 3100, 1850, 10400, 2050, 1500, 2700, 1980];
 const TRACK_LENGTH_M = 5000;
 const FUEL_CAPACITY_L = 60;
 const FUEL_PER_LAP_L = 2.4;
@@ -235,7 +237,8 @@ export class MockSource {
     car.estTimeS = (distance - lapsCompleted) * lapTimeOf(index);
     car.isPaceCar = false;
     car.isPlayer = index === 0;
-    car.iRating = 2000 + index * 50;
+    car.iRating =
+      MOCK_IRATINGS[index % MOCK_IRATINGS.length]! + Math.floor(index / MOCK_IRATINGS.length) * 37;
     car.license = "A 3.00";
     car.connected = true;
     car.flags = this.carFlags(index);

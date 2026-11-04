@@ -6,7 +6,8 @@ import { applySettingsPatch, defaultInstanceSettings } from "../settings";
 import { driverColumns } from "./columns";
 import { DRIVER_FIELD_IDS, driverFields } from "./fields";
 import { TABLE_OPTION_FIELDS } from "./options";
-import { fitColumnsFor, tableWidthsFor } from "./table-fit";
+import { IRATING_CHARS } from "./fields";
+import { fitColumnsFor, iRatingSizeFor, tableWidthsFor } from "./table-fit";
 
 const BOARD = [
   "position",
@@ -82,5 +83,69 @@ describe("tableWidthsFor", () => {
     expect(
       tableWidthsFor(manifest, defaultInstanceSettings(manifest), NOMINAL_TABLE_METRICS),
     ).toBeNull();
+  });
+});
+
+describe("iRating pill size in the fit", () => {
+  const WITH_TOGGLE: OverlayManifest = {
+    ...MANIFEST,
+    settings: [
+      ...MANIFEST.settings,
+      {
+        key: "irating-change",
+        label: "iRating change",
+        kind: "toggle",
+        section: "Drivers",
+        default: false,
+      },
+    ],
+  };
+  const withToggle = (on: boolean) =>
+    applySettingsPatch(WITH_TOGGLE, defaultInstanceSettings(WITH_TOGGLE), {
+      options: { "irating-change": on },
+    });
+  const ir = (columns: ReturnType<typeof fitColumnsFor>) => columns.find((c) => c.id === "irating");
+
+  it("is auto without the toggle and narrow or wide with it", () => {
+    expect(iRatingSizeFor(MANIFEST)).toBe("auto");
+    expect(iRatingSizeFor(WITH_TOGGLE)).toBe("narrow");
+    expect(iRatingSizeFor(WITH_TOGGLE, withToggle(true))).toBe("wide");
+    expect(iRatingSizeFor(WITH_TOGGLE, withToggle(false))).toBe("narrow");
+  });
+
+  it("sets the irating chars and floor per size", () => {
+    expect(ir(fitColumnsFor(MANIFEST))).toMatchObject({ chars: IRATING_CHARS.auto });
+    expect(ir(fitColumnsFor(WITH_TOGGLE, withToggle(false)))).toMatchObject({
+      chars: IRATING_CHARS.narrow,
+      minChars: IRATING_CHARS.narrow,
+    });
+    expect(ir(fitColumnsFor(WITH_TOGGLE, withToggle(true)))).toMatchObject({
+      chars: IRATING_CHARS.wide,
+      minChars: IRATING_CHARS.wide,
+    });
+  });
+
+  it("matches the columns the overlay gives DataTable for each size", () => {
+    for (const on of [false, true]) {
+      const columns = driverColumns({
+        prefs: DEFAULT_DISPLAY_PREFS,
+        nameDisplay: "driver",
+        nameFormat: "f-last",
+        gapDecimals: 1,
+        lapDecimals: 3,
+        combinedLicencePill: false,
+        gapMode: "standings",
+        iRatingSize: on ? "wide" : "narrow",
+      });
+      const expected = columns.find((c) => c.id === "irating");
+      const got = ir(fitColumnsFor(WITH_TOGGLE, withToggle(on)));
+      expect(got).toMatchObject({ chars: expected?.chars, minChars: expected?.minChars });
+    }
+  });
+
+  it("widens the table fit with the wide pill", () => {
+    const fit = (on: boolean) =>
+      tableWidthsFor(WITH_TOGGLE, withToggle(on), NOMINAL_TABLE_METRICS)?.fitPx ?? 0;
+    expect(fit(true)).toBeGreaterThan(fit(false));
   });
 });

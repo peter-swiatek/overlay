@@ -94,6 +94,28 @@
   font-weight: 800;
 }
 
+/* Fixed sizes: the pill never resizes with the value or the change (tabular numerals). */
+.ov-pill--ir-narrow {
+  width: 4.2em;
+  padding: 0;
+}
+
+.ov-pill--ir-wide {
+  width: 7.2em;
+  padding: 0 0.56em;
+  justify-content: space-between;
+}
+
+.ov-pill--ir-wide .ov-ir-val {
+  text-align: left;
+}
+
+.ov-ir-delta--fixed {
+  box-sizing: border-box;
+  width: 2.6em;
+  justify-content: flex-end;
+}
+
 /* Combined licence pill: the inline licence colours replace the light body. */
 .ov-pill--ir-tinted {
   border-color: transparent;
