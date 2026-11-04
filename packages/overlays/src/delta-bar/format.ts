@@ -15,10 +15,10 @@ export function formatLapDelta(s: number | null): string {
   return s > 0 ? `+${text}` : text;
 }
 
-/** Lap time for the strip, best times and Pred / Last / Optimal, 2 decimals ("1:39.41"); invalid or null -> "--:--.---". */
+/** Lap time for the strip, best times and Pred / Last / Optimal, 3 decimals ("1:39.412"); invalid or null -> "--:--.---". */
 export function formatStripLapTime(s: number | null): string {
   if (s === null || !Number.isFinite(s) || s <= 0) return NO_LAP;
-  return formatLapTime(s, 2);
+  return formatLapTime(s, 3);
 }
 
 /** Speed delta in the user's unit, whole numbers, signed ("+4"); 0 -> "0"; null -> "--". */
