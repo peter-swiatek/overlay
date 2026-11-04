@@ -97,19 +97,55 @@
   );
 }
 
-/* The first highlighted cell (after position / car number) carries the light end of the gradient:
-   the own-row colour at a stronger alpha fading to the plain own-row colour, which the cells to its
-   right keep, so the row reads as one left-to-right gradient. */
-.ov-row--own:not(.ov-row--yellow)
-  > :is(.ov-cell--pos, .ov-cell--pos-fade)
-  + .ov-cell:not(.ov-cell--pos-fade) {
-  background:
-    linear-gradient(
-      90deg,
-      rgb(from var(--ov-own-row) r g b / min(1, calc(alpha * 1.9))) 0%,
-      transparent 100%
-    ),
-    var(--row-base-bg);
+/* Own-row gradient, pale on the left and strongest at the right edge. Cells are separate grid
+   items, so each one draws its own slice: the k-th cell from the right runs from strength
+   f(k) to f(k - 1), with f(k) = max(0.45, 1.6 - 0.25k) times the own-row colour's alpha. The
+   slices meet without a seam whatever the column widths. */
+.ov-row--own > .ov-cell {
+  --own-k: 12;
+}
+.ov-row--own > .ov-cell:nth-last-child(1) {
+  --own-k: 1;
+}
+.ov-row--own > .ov-cell:nth-last-child(2) {
+  --own-k: 2;
+}
+.ov-row--own > .ov-cell:nth-last-child(3) {
+  --own-k: 3;
+}
+.ov-row--own > .ov-cell:nth-last-child(4) {
+  --own-k: 4;
+}
+.ov-row--own > .ov-cell:nth-last-child(5) {
+  --own-k: 5;
+}
+.ov-row--own > .ov-cell:nth-last-child(6) {
+  --own-k: 6;
+}
+.ov-row--own > .ov-cell:nth-last-child(7) {
+  --own-k: 7;
+}
+.ov-row--own > .ov-cell:nth-last-child(8) {
+  --own-k: 8;
+}
+.ov-row--own > .ov-cell:nth-last-child(9) {
+  --own-k: 9;
+}
+.ov-row--own > .ov-cell:nth-last-child(10) {
+  --own-k: 10;
+}
+.ov-row--own > .ov-cell:nth-last-child(11) {
+  --own-k: 11;
+}
+.ov-row--own > .ov-cell:nth-last-child(12) {
+  --own-k: 12;
+}
+.ov-row--own:not(.ov-row--yellow) > .ov-cell:not(.ov-cell--pos, .ov-cell--pos-fade) {
+  background: linear-gradient(
+    90deg,
+    rgb(from var(--ov-own-row) r g b / calc(alpha * max(0.45, 1.6 - 0.25 * var(--own-k)))),
+    rgb(from var(--ov-own-row) r g b / calc(alpha * max(0.45, 1.6 - 0.25 * (var(--own-k) - 1))))
+  );
 }
 
 /* Declared after the own row: a row that is both keeps the yellow background and lines (and bold). */

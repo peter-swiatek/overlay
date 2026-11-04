@@ -277,4 +277,10 @@ describe("own-row highlight CSS", () => {
     expect(css).toContain(".ov-row--own:not(.ov-row--yellow) > .ov-cell--pos-fade {");
     expect(css).toContain(".ov-row--own.ov-row--alt:not(.ov-row--yellow) > .ov-cell--pos-fade {");
   });
+
+  it("grows stronger from left to right: the last cell ends at the full strength", () => {
+    expect(css).toContain(".ov-row--own > .ov-cell:nth-last-child(1) {\n  --own-k: 1;");
+    expect(css).toContain("max(0.45, 1.6 - 0.25 * var(--own-k))");
+    expect(css).toContain("max(0.45, 1.6 - 0.25 * (var(--own-k) - 1))");
+  });
 });
