@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { CSSProperties } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -264,5 +266,15 @@ describe("columnFloorPct", () => {
     expect(columnFloorPct(1, 100000, 7, 8, 100)).toBe(1);
     expect(columnFloorPct(50, 100, 7, 8, 100)).toBe(100);
     expect(columnFloorPct(5, 0, 7, 8, 100)).toBe(100);
+  });
+});
+
+describe("own-row highlight CSS", () => {
+  const css = readFileSync(join(__dirname, "table.css"), "utf8");
+
+  it("starts after the position and car-number cells, except on a yellow row", () => {
+    expect(css).toContain(".ov-row--own:not(.ov-row--yellow) > .ov-cell--pos,");
+    expect(css).toContain(".ov-row--own:not(.ov-row--yellow) > .ov-cell--pos-fade {");
+    expect(css).toContain(".ov-row--own.ov-row--alt:not(.ov-row--yellow) > .ov-cell--pos-fade {");
   });
 });

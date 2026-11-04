@@ -77,6 +77,26 @@
   font-weight: 700;
 }
 
+/* The own-row highlight starts after the position and car-number cells, which keep the plain row. */
+.ov-row--own:not(.ov-row--yellow) > .ov-cell--pos,
+.ov-row--own:not(.ov-row--yellow) > .ov-cell--pos-fade {
+  --row-base-bg: color-mix(
+    in srgb,
+    var(--ov-row) calc(var(--ov-row-opacity, 1) * 100%),
+    transparent
+  );
+  box-shadow: none;
+}
+
+.ov-row--own.ov-row--alt:not(.ov-row--yellow) > .ov-cell--pos,
+.ov-row--own.ov-row--alt:not(.ov-row--yellow) > .ov-cell--pos-fade {
+  --row-base-bg: color-mix(
+    in srgb,
+    var(--ov-row-alt) calc(var(--ov-row-opacity, 1) * 100%),
+    transparent
+  );
+}
+
 /* Declared after the own row: a row that is both keeps the yellow background and lines (and bold). */
 .ov-row--yellow > .ov-cell {
   --row-base-bg: var(--ov-yellow-row);
