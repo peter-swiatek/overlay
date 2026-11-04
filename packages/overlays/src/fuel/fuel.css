@@ -93,8 +93,8 @@
 .fuel-gauge-well {
   box-sizing: border-box;
   flex: 1;
-  height: 1.71em;
-  padding: 0.21em;
+  height: 2.57em;
+  padding: 0.29em;
   border-radius: 6px;
   background: color-mix(in srgb, var(--ov-bg) 40%, #000);
   border: 1px solid color-mix(in srgb, var(--ov-text) 14%, transparent);
@@ -103,7 +103,7 @@
 }
 
 .fuel-tank-card--row .fuel-gauge-well {
-  height: 1.57em;
+  height: 2.43em;
 }
 
 .fuel-gauge-fill {
