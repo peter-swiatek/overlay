@@ -25,8 +25,14 @@ function makeFormat(view: FuelView, prefs: DisplayPrefs) {
     const m = formatVolume(value, prefs, decimals);
     return `${m.value} ${m.unit}`;
   };
+  /** As `amount` without the unit, for the table, refuel pills and targets (as in the design). */
+  const num = (value: number | null, decimals: 1 | 2 = 1): string => {
+    if (value === null) return NO_VALUE;
+    if (view.unit === "energy") return formatPercent(value / 100, 1);
+    return formatVolume(value, prefs, decimals).value;
+  };
   const laps = (value: number | null): string => (value === null ? NO_VALUE : value.toFixed(1));
-  return { amount, laps };
+  return { amount, num, laps };
 }
 
 type Fmt = ReturnType<typeof makeFormat>;
@@ -149,12 +155,12 @@ function Consumption({ view, fmt, shown }: BlockProps) {
         {view.consumption.map((r) => (
           <div key={r.label} className="fuel-cons-row">
             <span>{r.label}</span>
-            <span>{fmt.amount(r.perLap, 2)}</span>
+            <span>{fmt.num(r.perLap, 2)}</span>
             <span>{fmt.laps(r.laps)}</span>
             <span>{fmt.laps(r.stintLaps)}</span>
             {refuel ? (
               <span>
-                <span className="fuel-refuel-pill">{fmt.amount(r.refuel)}</span>
+                <span className="fuel-refuel-pill">{fmt.num(r.refuel)}</span>
               </span>
             ) : null}
           </div>
@@ -182,7 +188,7 @@ function Targets({ view, fmt }: { view: FuelView; fmt: Fmt }) {
         view.targets.map((t) => (
           <div key={t.extraLaps} className="fuel-target-cell">
             <div className="fuel-target-lbl">{`${t.laps} laps`}</div>
-            <div className="fuel-target-val">{fmt.amount(t.perLap, 2)}</div>
+            <div className="fuel-target-val">{fmt.num(t.perLap, 2)}</div>
           </div>
         ))
       )}

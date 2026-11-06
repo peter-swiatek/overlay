@@ -18,18 +18,25 @@ export function shouldReport(last: Size | null, next: Size): boolean {
 }
 
 /**
- * Smallest size (visual CSS px, zoom included) `el` needs: lays it out at `min-content` for a
- * moment and reads its box. Tables size to the sum of their column floors; with `width` only,
+ * Smallest size (visual CSS px, zoom included) `el` needs: the width laid out at `min-content`,
+ * the height at `min-content` for the current width. Tables size to the sum of their column floors; with `width` only,
  * the height is reported as 0 because tables may drop rows.
  */
 export function measureMinContent(el: HTMLElement, includeHeight: boolean): Size {
   const { width, height } = el.style;
   el.style.width = "min-content";
-  el.style.height = includeHeight ? "min-content" : "";
-  const rect = el.getBoundingClientRect();
+  el.style.height = "";
+  const minWidth = el.getBoundingClientRect().width;
+  // The height is measured at the window's current width: at min-content width text wraps and
+  // the content reads taller than it ever is at the size the user sees.
   el.style.width = width;
+  let minHeight = 0;
+  if (includeHeight) {
+    el.style.height = "min-content";
+    minHeight = el.getBoundingClientRect().height;
+  }
   el.style.height = height;
-  return { width: Math.ceil(rect.width), height: includeHeight ? Math.ceil(rect.height) : 0 };
+  return { width: Math.ceil(minWidth), height: includeHeight ? Math.ceil(minHeight) : 0 };
 }
 
 /**

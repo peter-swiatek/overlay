@@ -479,3 +479,15 @@ describe("fuel gauge well CSS", () => {
     expect(row).toContain("height: 2.43em;");
   });
 });
+
+describe("Fuel table units", () => {
+  it("shows plain numbers in the table, refuel pills and targets, the unit only on the tank", () => {
+    const html = render(frame(outputs(), { fuelL: 30 }));
+    const pills = html.match(/class="fuel-refuel-pill">([^<]*)</g) ?? [];
+    expect(pills.length).toBeGreaterThan(0);
+    for (const p of pills) expect(p).not.toMatch(/ L</);
+    const targets = html.match(/class="fuel-target-val">([^<]*)</g) ?? [];
+    for (const t of targets) expect(t).not.toMatch(/ L</);
+    expect(html).toMatch(/30\.00 L/);
+  });
+});
