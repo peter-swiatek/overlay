@@ -478,6 +478,12 @@ describe("fuel gauge well CSS", () => {
     expect(row).toContain("flex: 1;");
     expect(row).toContain("height: 2.43em;");
   });
+
+  it("flattens the vertical laps-remaining block so its header sits midway between targets and cards", () => {
+    expect(css).toContain(
+      ".fuel--vertical .fuel-slot:has(> .fuel-rem),\n.fuel--vertical .fuel-rem {\n  display: contents;",
+    );
+  });
 });
 
 describe("Fuel table units", () => {

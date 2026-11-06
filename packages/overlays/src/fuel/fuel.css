@@ -525,3 +525,11 @@
   justify-content: flex-start;
   gap: 0.21em;
 }
+
+/* Vertical: lift the laps-remaining header into the panel's own flow so the
+   space-between gaps above and below it are equal, centring it between the
+   targets strip and the laps-remaining cards. */
+.fuel--vertical .fuel-slot:has(> .fuel-rem),
+.fuel--vertical .fuel-rem {
+  display: contents;
+}
