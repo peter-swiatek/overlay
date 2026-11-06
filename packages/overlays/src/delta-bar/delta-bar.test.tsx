@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { TelemetryFrame } from "@overlay/sim-core/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -206,5 +208,14 @@ describe("DeltaBarOverlay markup", () => {
     expect(html).toContain("fill-gain");
     // 0.42 / 5 of half the bar
     expect(html).toContain("width:4.2%");
+  });
+});
+
+describe("Delta Bar CSS", () => {
+  it("sizes its text from the theme font size so the tiles match the 480 x 108 design", () => {
+    const css = readFileSync(join(__dirname, "delta-bar.css"), "utf8");
+    const start = css.indexOf(".dl {");
+    const rule = css.slice(start, css.indexOf("}", start));
+    expect(rule).toContain("font-size: var(--ov-font-size, 14px);");
   });
 });

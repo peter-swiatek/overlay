@@ -6,6 +6,8 @@
   gap: 4px;
   width: 100%;
   font-family: var(--ov-font-family);
+  /* The theme's text size (14 px, 12 px compact); every em size in this overlay is relative to it. */
+  font-size: var(--ov-font-size, 14px);
   color: var(--ov-text);
 }
 .dl-tile {
