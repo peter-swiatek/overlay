@@ -306,3 +306,59 @@
   height: 0.7em;
   color: var(--ov-text-muted);
 }
+
+/* Sector bar: the track's official sectors in place of the delta bar, the same height as the bar line */
+.dl-sectors {
+  display: flex;
+  gap: 2px;
+  /* One line of the bar line's 0.7em labels, so swapping the two never changes the tile height. */
+  font-size: 0.7em;
+  height: 1lh;
+}
+.dl-sec {
+  position: relative;
+  flex-basis: 0;
+  min-width: 0;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--ov-text) 8%, transparent);
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dl-sec.is-current {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ov-text) 22%, transparent);
+}
+.dl-sec--done {
+  background: color-mix(in srgb, var(--ov-text) 22%, transparent);
+}
+.dl-sec--best {
+  background: var(--ov-locked-fastest);
+  box-shadow: none;
+}
+.dl-sec--gain {
+  background: var(--ov-locked-gain);
+  box-shadow: none;
+}
+.dl-sec--loss {
+  background: var(--ov-locked-loss);
+  box-shadow: none;
+}
+.dl-sec > span {
+  color: #0b0f14;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+}
+.dl-sec-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: #ffffff;
+  z-index: 2;
+}

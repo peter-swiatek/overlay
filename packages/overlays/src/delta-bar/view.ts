@@ -3,6 +3,8 @@ import type {
   BestTime,
   DeltaReferenceKind,
   DeltaReferenceMode,
+  SectorState,
+  SectorTiming,
   TelemetryFrame,
 } from "@overlay/sim-core/types";
 import { optionBoolean, optionNumber, optionString } from "../settings";
@@ -13,6 +15,23 @@ export type { HeadToHeadCar };
 
 export type Tone = "gain" | "loss" | null;
 
+/** The middle tile's bar: the ±range delta bar, or the track's official sectors. */
+export type BarStyle = "delta" | "sectors";
+
+export interface SectorSegment {
+  /** Share of the lap (0..1); the segment's flex-grow. */
+  lengthFrac: number;
+  /** Null while not done (or done with neither a reference nor a best). */
+  state: SectorState | null;
+  done: boolean;
+  deltaS: number | null;
+  /** Wide enough (lengthFrac >= SECTOR_TEXT_MIN_FRAC) to print the delta inside. */
+  showText: boolean;
+  current: boolean;
+  /** Car position within the current segment, 0..1; null for the others. */
+  markerFrac: number | null;
+}
+
 export interface DeltaBarOptions {
   mode: DeltaReferenceMode;
   rangeS: 1 | 2 | 5;
@@ -20,6 +39,7 @@ export interface DeltaBarOptions {
   showDeltaSpeed: boolean;
   showBestTimes: boolean;
   showHeadToHead: boolean;
+  barStyle: BarStyle;
 }
 
 export interface DeltaBarView {
@@ -44,7 +64,12 @@ export interface DeltaBarView {
   bestDeltasHidden: boolean;
   lapComplete: { lapTimeS: number; deltaS: number | null; best: boolean } | null;
   headToHead: HeadToHead | null;
+  /** Sector segments when the bar style is "sectors" and the track has sector data; else null. */
+  sectors: SectorSegment[] | null;
 }
+
+/** A sector at least this share of the lap (about 32 px of the 464 px row) prints its delta. */
+export const SECTOR_TEXT_MIN_FRAC = 0.07;
 
 /** Rate (s/s) beyond which the trend arrow shows. */
 export const TREND_THRESHOLD = 0.005;
@@ -69,6 +94,7 @@ const INACTIVE: DeltaBarView = {
   bestDeltasHidden: false,
   lapComplete: null,
   headToHead: null,
+  sectors: null,
 };
 
 const finite = (v: number | null | undefined): number | null =>
@@ -88,6 +114,35 @@ export function barFill(deltaS: number | null, rangeS: number): DeltaBarView["ba
   if (deltaS === null) return { fraction: 0, tone: null };
   const fraction = Math.min(1, Math.abs(deltaS) / rangeS);
   return { fraction, tone: deltaS < 0 ? "gain" : deltaS > 0 ? "loss" : null };
+}
+
+/** The segments for one reference kind; null without sector data. */
+export function sectorSegments(
+  timing: SectorTiming | null,
+  kind: DeltaReferenceKind | null,
+): SectorSegment[] | null {
+  if (timing === null || timing.startPcts.length === 0) return null;
+  const starts = timing.startPcts;
+  const ref = timing.byReference[kind ?? "sessionBestClean"];
+  const pct = finite(timing.lapDistPct);
+  return starts.map((from, i) => {
+    const to = starts[i + 1] ?? 1;
+    const lengthFrac = Math.max(0, to - from);
+    const current = timing.current === i;
+    const deltaS = finite(ref?.deltas[i]);
+    return {
+      lengthFrac,
+      state: ref?.states[i] ?? null,
+      done: finite(timing.times[i]) !== null,
+      deltaS,
+      showText: deltaS !== null && lengthFrac >= SECTOR_TEXT_MIN_FRAC - 1e-9,
+      current,
+      markerFrac:
+        current && pct !== null && lengthFrac > 0
+          ? Math.min(1, Math.max(0, (pct - from) / lengthFrac))
+          : null,
+    };
+  });
 }
 
 export function deltaBarView(
@@ -146,6 +201,7 @@ export function deltaBarView(
     headToHead: options.showHeadToHead
       ? headToHead(state, derived.standings, delta.lapNumber, livePositions)
       : null,
+    sectors: options.barStyle === "sectors" ? sectorSegments(delta.sectors ?? null, kind) : null,
   };
 }
 
@@ -160,6 +216,7 @@ export function readDeltaBarOptions(settings: OverlayInstanceSettings): DeltaBar
     showDeltaSpeed: optionBoolean(settings, "show-delta-speed"),
     showBestTimes: optionBoolean(settings, "show-best-times"),
     showHeadToHead: optionBoolean(settings, "show-head-to-head"),
+    barStyle: optionString(settings, "bar-style") === "sectors" ? "sectors" : "delta",
   };
 }
 
@@ -199,6 +256,22 @@ export const EDIT_SAMPLE: DeltaBarView = {
       lastLapDiffS: -0.18,
     },
   },
+  sectors: null,
+};
+
+/** Four unequal sectors for the edit sample: two done, the car in the third. */
+const SAMPLE_STARTS = [0, 0.27, 0.53, 0.78];
+const SAMPLE_SECTORS: SectorTiming = {
+  startPcts: SAMPLE_STARTS,
+  current: 2,
+  lapDistPct: 0.62,
+  times: [27.31, 26.12, null, null],
+  byReference: {
+    allTimeBest: { deltas: [-0.21, 0.12, null, null], states: ["best", "loss", null, null] },
+    sessionBestClean: { deltas: [-0.21, 0.12, null, null], states: ["best", "loss", null, null] },
+    sessionBest: { deltas: [-0.21, 0.12, null, null], states: ["best", "loss", null, null] },
+    lastLap: { deltas: [-0.3, -0.08, null, null], states: ["best", "gain", null, null] },
+  },
 };
 
 /** The edit sample with the bar range and head-to-head toggle of the options applied. */
@@ -208,5 +281,9 @@ export function editSample(options: DeltaBarOptions): DeltaBarView {
     rangeS: options.rangeS,
     bar: barFill(EDIT_SAMPLE.deltaS, options.rangeS),
     headToHead: options.showHeadToHead ? EDIT_SAMPLE.headToHead : null,
+    sectors:
+      options.barStyle === "sectors"
+        ? sectorSegments(SAMPLE_SECTORS, EDIT_SAMPLE.referenceKind)
+        : null,
   };
 }

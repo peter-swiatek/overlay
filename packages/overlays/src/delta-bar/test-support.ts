@@ -10,6 +10,7 @@ export const OPTIONS: DeltaBarOptions = {
   showDeltaSpeed: true,
   showBestTimes: true,
   showHeadToHead: true,
+  barStyle: "delta",
 };
 
 export function deltaOutputs(over: Partial<DeltaOutputs> = {}): DeltaOutputs {

@@ -10,6 +10,7 @@ import {
   EDIT_SAMPLE,
   editSample,
   readDeltaBarOptions,
+  sectorSegments,
 } from "./view";
 
 describe("deltaBarView visibility", () => {
@@ -261,6 +262,45 @@ describe("readDeltaBarOptions", () => {
     s.options["reference"] = "nonsense";
     s.options["bar-range"] = "3";
     expect(readDeltaBarOptions(s)).toMatchObject({ mode: "auto", rangeS: 2 });
+  });
+  it("reads the bar style, delta for anything but sectors", () => {
+    const s = defaultInstanceSettings(deltaBarManifest);
+    s.options["bar-style"] = "sectors";
+    expect(readDeltaBarOptions(s).barStyle).toBe("sectors");
+    s.options["bar-style"] = "zigzag";
+    expect(readDeltaBarOptions(s).barStyle).toBe("delta");
+  });
+});
+
+describe("sectorSegments", () => {
+  const ref = { deltas: [-0.1, null, null], states: ["gain" as const, null, null] };
+  const timing = {
+    startPcts: [0, 0.5, 0.55],
+    current: 1,
+    lapDistPct: 0.51,
+    times: [40, null, null],
+    byReference: { allTimeBest: ref, sessionBestClean: ref, sessionBest: ref, lastLap: ref },
+  };
+
+  it("is null without sector data", () => {
+    expect(sectorSegments(null, "lastLap")).toBeNull();
+  });
+
+  it("sizes segments by length and places the marker inside the current one", () => {
+    const segs = sectorSegments(timing, "lastLap")!;
+    expect(segs.map((x) => Number(x.lengthFrac.toFixed(3)))).toEqual([0.5, 0.05, 0.45]);
+    expect(segs.map((x) => x.done)).toEqual([true, false, false]);
+    expect(segs[0]).toMatchObject({ state: "gain", deltaS: -0.1, showText: true });
+    expect(segs[1]!.current).toBe(true);
+    expect(segs[1]!.markerFrac!).toBeCloseTo(0.2, 6);
+    expect(segs[2]!.markerFrac).toBeNull();
+  });
+
+  it("is only built for the sectors bar style", () => {
+    const d = deltaOutputs({ sectors: timing });
+    expect(deltaBarView(liveFrame(d), OPTIONS, true).sectors).toBeNull();
+    const v = deltaBarView(liveFrame(d), { ...OPTIONS, barStyle: "sectors" }, true);
+    expect(v.sectors).toHaveLength(3);
   });
 });
 

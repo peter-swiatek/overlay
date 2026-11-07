@@ -35,6 +35,18 @@ export const deltaBarManifest: OverlayManifest = {
       default: true,
     },
     {
+      key: "bar-style",
+      kind: "select",
+      label: "Bar style",
+      section: "Layout",
+      help: "Sectors needs the track's sector data; otherwise the delta bar shows",
+      default: "delta",
+      options: [
+        { value: "delta", label: "Delta bar" },
+        { value: "sectors", label: "Sectors" },
+      ],
+    },
+    {
       key: "reference",
       kind: "select",
       label: "Reference",

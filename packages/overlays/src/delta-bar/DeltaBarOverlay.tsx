@@ -11,6 +11,7 @@ import {
   editSample,
   readDeltaBarOptions,
   type DeltaBarView,
+  type SectorSegment,
   type Tone,
 } from "./view";
 import "./delta-bar.css";
@@ -65,6 +66,35 @@ function H2hTile({ car, direction }: { car: HeadToHeadCar | null; direction: "ah
       <span className="nm">{car.name}</span>
       <span className="gp">{car.gapText}</span>
       <span className={`d${toneClass(diffTone)}`}>{diff === null ? "" : formatLapDelta(diff)}</span>
+    </div>
+  );
+}
+
+const pct = (v: number): string => `${Number((v * 100).toFixed(2))}%`;
+
+/** The official sectors in place of the delta bar: widths by length, coloured by result. */
+function SectorRow({ segments }: { segments: SectorSegment[] }) {
+  const done = segments.filter((s) => s.done).length;
+  return (
+    <div
+      className="dl-sectors"
+      role="img"
+      aria-label={`Sectors: ${done} of ${segments.length} done`}
+    >
+      {segments.map((s, i) => {
+        const cls =
+          "dl-sec" +
+          (s.state !== null ? ` dl-sec--${s.state}` : s.done ? " dl-sec--done" : "") +
+          (s.current ? " is-current" : "");
+        return (
+          <div key={i} className={cls} style={{ flexGrow: Number(s.lengthFrac.toFixed(5)) }}>
+            {s.showText && s.deltaS !== null && <span>{formatLapDelta(s.deltaS)}</span>}
+            {s.markerFrac !== null && (
+              <i className="dl-sec-mark" style={{ left: pct(s.markerFrac) }} />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -139,22 +169,26 @@ export function DeltaBarOverlay({ settings }: OverlayProps) {
         )}
       </div>
       <div className="dl-tile dl-barrow">
-        <div className="dl-barline">
-          <span>{`-${range}`}</span>
-          <div
-            className="dl-bar"
-            role="img"
-            aria-label={`Delta ${formatLapDelta(v.deltaS)} seconds on a plus or minus ${v.rangeS} second scale`}
-          >
-            <i className="tick" style={{ left: "25%" }} />
-            <i className="tick" style={{ left: "75%" }} />
-            {v.bar.tone !== null && v.bar.fraction > 0 && (
-              <i className={`fill fill-${v.bar.tone}`} style={barFillStyle} />
-            )}
-            <i className="mid" />
+        {v.sectors !== null ? (
+          <SectorRow segments={v.sectors} />
+        ) : (
+          <div className="dl-barline">
+            <span>{`-${range}`}</span>
+            <div
+              className="dl-bar"
+              role="img"
+              aria-label={`Delta ${formatLapDelta(v.deltaS)} seconds on a plus or minus ${v.rangeS} second scale`}
+            >
+              <i className="tick" style={{ left: "25%" }} />
+              <i className="tick" style={{ left: "75%" }} />
+              {v.bar.tone !== null && v.bar.fraction > 0 && (
+                <i className={`fill fill-${v.bar.tone}`} style={barFillStyle} />
+              )}
+              <i className="mid" />
+            </div>
+            <span>{`+${range}`}</span>
           </div>
-          <span>{`+${range}`}</span>
-        </div>
+        )}
         <div className="dl-times">
           <span>
             Pred<b className={toneClass(v.tone).trim()}>{formatStripLapTime(v.predictedLapS)}</b>

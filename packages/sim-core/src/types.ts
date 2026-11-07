@@ -25,5 +25,8 @@ export type {
   DeltaReferenceMode,
   LapCompletion,
   LiveDelta,
+  SectorDeltas,
+  SectorState,
+  SectorTiming,
 } from "./calc/delta/types";
 export type { SlowCarAhead } from "./calc/slow-car/types";

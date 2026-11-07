@@ -8,6 +8,7 @@ import { defaultInstanceSettings } from "../settings";
 import { fixtureFrame } from "../shared/fixtures";
 import { DeltaBarOverlay } from "./DeltaBarOverlay";
 import { deltaBarManifest } from "./manifest";
+import type { SectorState, SectorTiming } from "@overlay/sim-core/types";
 import { deltaOutputs, liveFrame } from "./test-support";
 
 function render(
@@ -211,7 +212,135 @@ describe("DeltaBarOverlay markup", () => {
   });
 });
 
+/** Sector timing with the same deltas and states for every reference. */
+function sectorTiming(
+  startPcts: number[],
+  deltas: (number | null)[],
+  states: (SectorState | null)[],
+  current: number | null,
+  lapDistPct: number | null,
+): SectorTiming {
+  const ref = { deltas, states };
+  return {
+    startPcts,
+    current,
+    lapDistPct,
+    times: deltas.map((d) => (d === null ? null : 30 + d)),
+    byReference: { allTimeBest: ref, sessionBestClean: ref, sessionBest: ref, lastLap: ref },
+  };
+}
+
+const SECTORS = { "bar-style": "sectors" };
+const segments = (html: string): string[] => html.match(/<div class="dl-sec[ "][^>]*>/g) ?? [];
+
+describe("DeltaBarOverlay sector bar", () => {
+  const four = sectorTiming(
+    [0, 0.27, 0.53, 0.78],
+    [-0.21, -0.08, 0.12, null],
+    ["best", "gain", "loss", null],
+    3,
+    0.89,
+  );
+
+  it("replaces the delta bar with one segment per sector, sized by length", () => {
+    const html = render(liveFrame(deltaOutputs({ sectors: four })), { options: SECTORS });
+    expect(html).not.toContain("dl-barline");
+    expect(html).toContain("dl-sectors");
+    const segs = segments(html);
+    expect(segs).toHaveLength(4);
+    expect(segs.map((x) => /flex-grow:([\d.]+)/.exec(x)?.[1])).toEqual([
+      "0.27",
+      "0.26",
+      "0.25",
+      "0.22",
+    ]);
+    // Pred / Last / Optimal stay below
+    expect(html).toContain("Pred");
+    expect(html).toContain("Optimal");
+  });
+
+  it("colours done sectors by state and marks the car in the current one", () => {
+    const html = render(liveFrame(deltaOutputs({ sectors: four })), { options: SECTORS });
+    const segs = segments(html);
+    expect(segs[0]).toContain("dl-sec dl-sec--best");
+    expect(segs[1]).toContain("dl-sec dl-sec--gain");
+    expect(segs[2]).toContain("dl-sec dl-sec--loss");
+    expect(segs[3]).toContain('class="dl-sec is-current"');
+    expect(html).toContain("<span>-0.21</span>");
+    expect(html).toContain("<span>-0.08</span>");
+    expect(html).toContain("<span>+0.12</span>");
+    // (0.89 - 0.78) / 0.22 of the last sector
+    expect(html).toContain('class="dl-sec-mark" style="left:50%"');
+    expect(html.match(/dl-sec-mark/g)).toHaveLength(1);
+  });
+
+  it("uses the deltas of the chosen reference", () => {
+    const t = structuredClone(four);
+    t.byReference.lastLap = {
+      deltas: [0.4, 0.3, 0.2, null],
+      states: ["loss", "loss", "loss", null],
+    };
+    const html = render(liveFrame(deltaOutputs({ sectors: t })), {
+      options: { ...SECTORS, reference: "lastLap" },
+    });
+    expect(html).toContain("<span>+0.40</span>");
+    expect(segments(html)[0]).toContain("dl-sec--loss");
+  });
+
+  it("falls back to the delta bar without sector data, and keeps it when the style is delta", () => {
+    const none = render(liveFrame(deltaOutputs({ sectors: null })), { options: SECTORS });
+    expect(none).toContain("dl-barline");
+    expect(none).not.toContain("dl-sectors");
+    const delta = render(liveFrame(deltaOutputs({ sectors: four })));
+    expect(delta).toContain("dl-barline");
+    expect(delta).not.toContain("dl-sectors");
+  });
+
+  it("draws twelve sectors and prints deltas only in the wide ones", () => {
+    const starts = [0, 0.04, 0.12, 0.2, 0.3, 0.36, 0.45, 0.55, 0.62, 0.7, 0.8, 0.9];
+    const deltas = starts.map((_, i) => (i < 11 ? 0.05 * (i % 2 === 0 ? 1 : -1) : null));
+    const states = deltas.map((d): SectorState | null =>
+      d === null ? null : d < 0 ? "gain" : "loss",
+    );
+    const t = sectorTiming(starts, deltas, states, 11, 0.95);
+    const html = render(liveFrame(deltaOutputs({ sectors: t })), { options: SECTORS });
+    const segs = segments(html);
+    expect(segs).toHaveLength(12);
+    expect(segs[0]).toContain("flex-grow:0.04");
+    expect(segs[11]).toContain("flex-grow:0.1");
+    // 0.04 and 0.06 are too narrow for text; the other nine done sectors print theirs
+    expect(html.match(/<span>[+-]0\.05<\/span>/g)).toHaveLength(9);
+  });
+
+  it("previews sample sectors while editing", () => {
+    const html = render(null, { runtime: { editing: true }, options: SECTORS });
+    expect(segments(html)).toHaveLength(4);
+    expect(html).toContain("dl-sec--best");
+  });
+
+  it("keeps the lap-complete strip over the sector row", () => {
+    const d = deltaOutputs({ sectors: four, lastCompletion: completion, lapCompleteVisible: true });
+    const html = render(liveFrame(d), { options: SECTORS });
+    expect(html).toContain("dl-sectors");
+    expect(html).toContain("dl-lap");
+  });
+});
+
 describe("Delta Bar CSS", () => {
+  it("gives the sector row the bar line's height and the locked state colours", () => {
+    const css = readFileSync(join(__dirname, "delta-bar.css"), "utf8");
+    const rule = (sel: string) => {
+      const start = css.indexOf(`${sel} {`);
+      return css.slice(start, css.indexOf("}", start));
+    };
+    expect(rule(".dl-sectors")).toContain("font-size: 0.7em;");
+    expect(rule(".dl-sectors")).toContain("height: 1lh;");
+    expect(rule(".dl-sectors")).toContain("gap: 2px;");
+    expect(rule(".dl-sec--best")).toContain("var(--ov-locked-fastest)");
+    expect(rule(".dl-sec--gain")).toContain("var(--ov-locked-gain)");
+    expect(rule(".dl-sec--loss")).toContain("var(--ov-locked-loss)");
+  });
+
   it("sizes its text from the theme font size so the tiles match the 480 x 108 design", () => {
     const css = readFileSync(join(__dirname, "delta-bar.css"), "utf8");
     const start = css.indexOf(".dl {");

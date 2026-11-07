@@ -18,6 +18,7 @@ describe("delta-bar manifest", () => {
       "show-delta-speed": true,
       "show-best-times": true,
       "show-head-to-head": true,
+      "bar-style": "delta",
       reference: "auto",
       "bar-range": "2",
       "hide-below": 35,
@@ -28,6 +29,14 @@ describe("delta-bar manifest", () => {
       "sessionBest",
       "allTimeBest",
       "lastLap",
+    ]);
+  });
+  it("offers the sector bar as a Layout choice next to the delta bar", () => {
+    const style = m.settings.find((x) => x.key === "bar-style");
+    expect(style).toMatchObject({ kind: "select", section: "Layout", label: "Bar style" });
+    expect(style?.kind === "select" && style.options).toEqual([
+      { value: "delta", label: "Delta bar" },
+      { value: "sectors", label: "Sectors" },
     ]);
   });
 });
