@@ -936,6 +936,7 @@ describe("IracingAdapter design-system fields (synthetic)", () => {
     })),
     redlineRpm: 8000,
     shiftLightRpm: { firstRpm: 5000, shiftRpm: 7000, lastRpm: 6800, blinkRpm: null },
+    sectorStartPcts: [0, 0.3, 0.65],
   };
   const run = (values: Record<string, number | number[]>, i: IracingSessionInfo | null = info) =>
     adapter.toSimState(
@@ -1077,6 +1078,11 @@ describe("IracingAdapter design-system fields (synthetic)", () => {
     expect(q.session.typeName).toBe("Lone Qualify");
     expect(q.session.trackUsage).toBeNull();
     expect(run({}, null).session.typeName).toBeNull();
+  });
+
+  it("carries the sector boundaries from the session info", () => {
+    expect(run({}).session.sectorStartPcts).toEqual([0, 0.3, 0.65]);
+    expect(run({}, null).session.sectorStartPcts).toBeNull();
   });
 
   it("reads the declared-wet flag", () => {

@@ -37,6 +37,8 @@ export interface ScriptOptions {
   source?: SimSource;
   /** Seconds to keep running after the last lap's line. Default: the time delay plus two ticks. */
   tailS?: number;
+  /** session.sectorStartPcts (default null: no sector data). */
+  sectorStartPcts?: number[] | null;
 }
 
 export const SCRIPT_TRACK_LENGTH_M = 4000;
@@ -132,6 +134,7 @@ export function scriptStates(laps: readonly ScriptLap[], options: ScriptOptions)
     s.session.trackName = "Script Ring";
     s.session.trackConfig = options.sim === "iracing" ? "Full Course" : null;
     s.session.trackLengthM = SCRIPT_TRACK_LENGTH_M;
+    s.session.sectorStartPcts = options.sectorStartPcts ?? null;
     s.playerCarIdx = 0;
     s.focusCarIdx = 0;
     s.cars = [

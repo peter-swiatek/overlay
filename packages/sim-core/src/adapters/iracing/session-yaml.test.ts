@@ -409,3 +409,68 @@ describe("Windows-1252 decoding", () => {
     expect(parseSessionYaml(decoded).drivers[0]?.driverName).toBe("\u0160ar\u017eo \u0152uvre");
   });
 });
+
+describe("parseSessionYaml sector boundaries (SplitTimeInfo)", () => {
+  function withSectors(rows: [num: string, pct: string][]): string {
+    const lines = ["SplitTimeInfo:", " Sectors:"];
+    for (const [n, pct] of rows) lines.push(` - SectorNum: ${n}`, `   SectorStartPct: ${pct}`);
+    return yamlWithDrivers([]) + lines.join("\n") + "\n";
+  }
+
+  it("reads the sector starts as lap fractions", () => {
+    const info = parseSessionYaml(
+      withSectors([
+        ["0", "0.000000"],
+        ["1", "0.312345"],
+        ["2", "0.687654"],
+      ]),
+    );
+    expect(info.sectorStartPcts).toEqual([0, 0.312345, 0.687654]);
+  });
+
+  it("handles a track with more than ten sectors and orders them by SectorNum", () => {
+    const pcts = Array.from({ length: 12 }, (_, i) => (i / 12).toFixed(6));
+    const rows = pcts.map((p, i) => [String(i), p] as [string, string]).reverse();
+    const info = parseSessionYaml(withSectors(rows));
+    expect(info.sectorStartPcts).toHaveLength(12);
+    expect(info.sectorStartPcts?.[0]).toBe(0);
+    expect(info.sectorStartPcts?.[11]).toBeCloseTo(11 / 12, 5);
+    const s = info.sectorStartPcts!;
+    for (let i = 1; i < s.length; i++) expect(s[i]!).toBeGreaterThan(s[i - 1]!);
+  });
+
+  it("is null when SplitTimeInfo is missing or malformed", () => {
+    expect(parseSessionYaml(yamlWithDrivers([])).sectorStartPcts).toBeNull();
+    const bad: [string, string][][] = [
+      [
+        ["0", "0.1"],
+        ["1", "0.5"],
+      ], // does not start at 0
+      [
+        ["0", "0"],
+        ["1", "1.2"],
+      ], // out of range
+      [
+        ["0", "0"],
+        ["1", "0.5"],
+        ["2", "0.4"],
+      ], // not rising
+      [
+        ["0", "0"],
+        ["1", "abc"],
+      ], // not a number
+      [
+        ["0", "0"],
+        ["x", "0.5"],
+      ], // no sector number
+    ];
+    for (const rows of bad) expect(parseSessionYaml(withSectors(rows)).sectorStartPcts).toBeNull();
+  });
+
+  it("reads the six VIR sectors from a committed slice", async () => {
+    const slice = await loadSlice(`${FIXTURE_DIR}iracing-ferrari-race-start-20s.ovfx`);
+    expect(parseSessionYaml(slice.yamlTexts[0] ?? "").sectorStartPcts).toEqual([
+      0, 0.184456, 0.337214, 0.504637, 0.734279, 0.829332,
+    ]);
+  });
+});

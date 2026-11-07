@@ -32,6 +32,7 @@ describe("SimState", () => {
     const state = emptySimState("iracing");
     expect(state.session.typeName).toBeNull();
     expect(state.session.trackUsage).toBeNull();
+    expect(state.session.sectorStartPcts).toBeNull();
     expect(state.conditions.declaredWet).toBeNull();
     const p = state.player;
     expect(p.lap).toBeNull();

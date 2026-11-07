@@ -135,6 +135,7 @@ export function fixtureFrame(input: {
       timeOfDayS: null,
       typeName: null,
       trackUsage: null,
+      sectorStartPcts: null,
       ...input.session,
     },
     conditions: {

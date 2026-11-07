@@ -32,6 +32,16 @@ describe("Deriver delta", () => {
     expect(live.lastLap?.rate).not.toBeNull();
   });
 
+  it("times the demo track's four sectors against the references", () => {
+    const f = frames.find((x) => x.t >= 420)!; // lap 5, past the middle
+    const sectors = f.derived.delta!.sectors!;
+    expect(sectors.startPcts).toEqual([0, 0.27, 0.53, 0.78]);
+    expect(sectors.current).not.toBeNull();
+    expect(sectors.times[0]).not.toBeNull();
+    expect(sectors.byReference.lastLap.deltas[0]).not.toBeNull();
+    expect(sectors.byReference.lastLap.states[0]).not.toBeNull();
+  });
+
   it("separates the session best from the best clean lap after the demo's unclean lap 3", () => {
     const f = frames.find((x) => x.t >= 420)!; // lap 5
     const refs = f.derived.delta!.references;

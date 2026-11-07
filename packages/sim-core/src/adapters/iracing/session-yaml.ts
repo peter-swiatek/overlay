@@ -8,7 +8,7 @@ import type { SessionType, ShiftLightRpm } from "../../model/sim-state";
  * string and nothing is coerced (a driver called `null` or `yes` stays a name). Numbers are
  * converted explicitly by the extractors below.
  *
- * Only WeekendInfo, SessionInfo and DriverInfo are parsed, each on its own, so a problem in a
+ * Only WeekendInfo, SessionInfo, DriverInfo and SplitTimeInfo are parsed, each on its own, so a problem in a
  * section we do not use (CarSetup, CameraInfo) can never cost us the ones we do.
  */
 
@@ -56,6 +56,11 @@ export interface IracingSessionInfo {
   redlineRpm?: number | null;
   /** DriverInfo DriverCarSLFirstRPM / SLShiftRPM / SLLastRPM / SLBlinkRPM; null when missing or all 0. */
   shiftLightRpm?: ShiftLightRpm | null;
+  /**
+   * SplitTimeInfo Sectors[].SectorStartPct: where each official sector starts as a lap fraction,
+   * sorted, the first is 0, every value in [0, 1). Null when missing or malformed.
+   */
+  sectorStartPcts?: number[] | null;
   currentSessionNum: number | null;
   sessions: IracingSessionEntry[];
   driverCarIdx: number | null;
@@ -67,7 +72,7 @@ export interface IracingSessionInfo {
 
 type Dict = Record<string, unknown>;
 
-const SECTIONS = ["WeekendInfo", "SessionInfo", "DriverInfo"] as const;
+const SECTIONS = ["WeekendInfo", "SessionInfo", "DriverInfo", "SplitTimeInfo"] as const;
 
 const KEY_LINE = /^(\s*(?:- )?)([A-Za-z_]\w*):(?:[ \t]+(.*))?$/;
 
@@ -76,6 +81,7 @@ export function parseSessionYaml(text: string): IracingSessionInfo {
   const weekend = parseSection(sections.get("WeekendInfo"));
   const session = parseSection(sections.get("SessionInfo"));
   const driver = parseSection(sections.get("DriverInfo"));
+  const splits = parseSection(sections.get("SplitTimeInfo"));
   const drivers = asArray(driver["Drivers"]).flatMap((d) => {
     const parsed = extractDriver(asDict(d));
     return parsed === null ? [] : [parsed];
@@ -89,6 +95,7 @@ export function parseSessionYaml(text: string): IracingSessionInfo {
     pitStallLapDistPct: fraction(driver["DriverPitTrkPct"]),
     redlineRpm: positive(driver["DriverCarRedLine"]),
     shiftLightRpm: shiftLights(driver),
+    sectorStartPcts: sectorStarts(splits["Sectors"]),
     currentSessionNum: int(session["CurrentSessionNum"]),
     sessions: asArray(session["Sessions"]).flatMap((s) => {
       const parsed = extractSession(asDict(s));
@@ -240,6 +247,30 @@ function shiftLights(driver: Dict): ShiftLightRpm | null {
   const blink = positive(driver["DriverCarSLBlinkRPM"]);
   if (firstRpm <= 0 && shiftRpm <= 0 && lastRpm <= 0 && blink === null) return null;
   return { firstRpm, shiftRpm, lastRpm, blinkRpm: blink };
+}
+
+/**
+ * The sector start fractions ordered by SectorNum. Null when there are none, a number is missing
+ * or out of [0, 1), the first sector does not start at 0 or the starts do not strictly rise.
+ */
+function sectorStarts(value: unknown): number[] | null {
+  const rows = asArray(value).map((r) => {
+    const d = asDict(r);
+    return { n: int(d["SectorNum"]), pct: num(d["SectorStartPct"]) };
+  });
+  if (rows.length === 0) return null;
+  const out: { n: number; pct: number }[] = [];
+  for (const r of rows) {
+    if (r.n === null || r.pct === null || r.pct < 0 || r.pct >= 1) return null;
+    out.push({ n: r.n, pct: r.pct });
+  }
+  out.sort((a, b) => a.n - b.n);
+  const pcts = out.map((r) => r.pct);
+  if (pcts[0] !== 0) return null;
+  for (let i = 1; i < pcts.length; i++) {
+    if (!(pcts[i]! > pcts[i - 1]!)) return null;
+  }
+  return pcts;
 }
 
 function fraction(value: unknown): number | null {

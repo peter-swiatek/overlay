@@ -85,6 +85,40 @@ export interface DeltaOutputs {
   lapCompleteVisible: boolean;
   /** Sum of the best sector times of this session's clean laps; null before one. */
   optimalLapS: number | null;
+  /** Timing by the track's official sectors; null when the track has no sector data. */
+  sectors: SectorTiming | null;
+}
+
+/**
+ * How a completed sector went: "best" is the player's best of the session for that sector on a
+ * clean lap (it wins over gain), "gain" is at or under the reference, "loss" over it.
+ */
+export type SectorState = "best" | "gain" | "loss";
+
+/** One reference lap's view of the sectors shown. Both arrays have one entry per sector. */
+export interface SectorDeltas {
+  /** Sector time minus the reference lap's time for the same sector; null when not done or no trace. */
+  deltas: (number | null)[];
+  /** Null while the sector is not done, or done with neither a reference nor a best. */
+  states: (SectorState | null)[];
+}
+
+/**
+ * Official sector timing for the player. The sectors shown belong to the lap in progress, except
+ * for the lap-complete window after the line (LAP_COMPLETE_SHOW_S), which shows the lap just
+ * finished until a sector of the new lap completes.
+ */
+export interface SectorTiming {
+  /** Where each sector starts as a lap fraction: sorted, the first is 0, all in [0, 1). */
+  startPcts: number[];
+  /** Index of the sector the car is in now; null when its lap position is unknown. */
+  current: number | null;
+  /** The car's lap fraction now (for a position marker); null when unknown. */
+  lapDistPct: number | null;
+  /** Sector times of the lap shown, seconds; null when not done. */
+  times: (number | null)[];
+  /** The shown lap's sectors against each reference kind (every kind is present). */
+  byReference: Record<DeltaReferenceKind, SectorDeltas>;
 }
 
 /** A stored all-time best lap. */

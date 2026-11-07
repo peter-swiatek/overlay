@@ -36,6 +36,7 @@ export function deltaOutputs(over: Partial<DeltaOutputs> = {}): DeltaOutputs {
     lastCompletion: null,
     lapCompleteVisible: false,
     optimalLapS: 99.1,
+    sectors: null,
     ...over,
   };
 }

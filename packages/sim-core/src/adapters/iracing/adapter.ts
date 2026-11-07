@@ -138,6 +138,7 @@ function fillSession(state: SimState, r: VarReader, info: IracingSessionInfo | n
   s.timeOfDayS = nonNegativeBelow(r.number("SessionTimeOfDay"), SECONDS_PER_DAY + 1);
   s.typeName = entry?.typeName ?? null;
   s.trackUsage = entry?.trackRubberState ?? null;
+  s.sectorStartPcts = info?.sectorStartPcts ?? null;
 }
 
 function findSession(

@@ -80,6 +80,7 @@ describe("MockSource", () => {
       expect(p.absActive === (p.inputs.brake ?? 0) > 0.8).toBe(true);
       expect(st.session.typeName).toBe("Race");
       expect(st.session.trackUsage).toBe("moderate usage");
+      expect(st.session.sectorStartPcts).toEqual([0, 0.27, 0.53, 0.78]);
       expect(st.conditions.declaredWet).toBe(false);
       expect(st.conditions.humidity).not.toBeNull();
       expect(st.conditions.windSpeedMps).not.toBeNull();

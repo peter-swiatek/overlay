@@ -501,6 +501,27 @@ describe("field data for overlays", () => {
     expect(new LmuDecoder().decode(away).state.player.lap).toBeNull();
   });
 
+  it("learns the sector starts from the player's sector changes", () => {
+    const decoder = new LmuDecoder();
+    const player = decoder.decode(raw).state.cars.findIndex((c) => c.isPlayer);
+    const row = rowOf(player);
+    const length = raw.readDoubleLE(SCORING_BASE + SESSION.lapDistance);
+    const frame = (rawSector: number, pct: number) => {
+      const b = Buffer.from(raw);
+      b.writeInt8(rawSector, row + VEHICLE.sector);
+      b.writeDoubleLE(pct * length, row + VEHICLE.lapDistance);
+      return decoder.decode(b).state.session.sectorStartPcts;
+    };
+    expect(frame(1, 0.25)).toBeNull();
+    expect(frame(2, 0.252)).toBeNull();
+    expect(frame(2, 0.6)).toBeNull();
+    const starts = frame(0, 0.602)!;
+    expect(starts[0]).toBe(0);
+    expect(starts[1]!).toBeCloseTo(0.251, 6);
+    expect(starts[2]!).toBeCloseTo(0.601, 6);
+    expect(frame(0, 0.7)).toEqual(starts);
+  });
+
   it("uses the REST session name as the session type name", () => {
     const decoder = new LmuDecoder();
     decoder.observeRest({

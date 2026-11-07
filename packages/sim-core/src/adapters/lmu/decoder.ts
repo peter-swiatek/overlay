@@ -32,6 +32,7 @@ import {
 } from "./layout";
 import { decodeSimText } from "../../sim-text";
 import { applyRestResponse, emptyRestSnapshot, type LmuRestSnapshot } from "./rest";
+import { LmuSectorLearner } from "./sectors";
 
 export interface LmuDecodeResult {
   /** `connected: false` and otherwise empty when `error` is set. */
@@ -118,6 +119,7 @@ function failed(error: string): LmuDecodeResult {
 export class LmuDecoder {
   private rest: LmuRestSnapshot = emptyRestSnapshot();
   private readonly validated: readonly number[];
+  private readonly sectors = new LmuSectorLearner();
 
   constructor(options: LmuDecoderOptions = {}) {
     this.validated = options.validatedGameVersions ?? LMU_VALIDATED_GAME_VERSIONS;
@@ -176,6 +178,11 @@ export class LmuDecoder {
     state.playerCarIdx = playerId;
     state.focusCarIdx = playerId;
     state.session = readSession(f, trackLengthM, count, this.rest);
+    state.session.sectorStartPcts = this.sectors.observe(
+      state.session.trackName === null ? null : `${state.session.trackName}|${trackLengthM}`,
+      playerRow === null ? -1 : f.i8(playerRow + VEHICLE.sector),
+      cars.find((c) => c.isPlayer)?.lapDistPct ?? null,
+    );
     state.conditions = {
       ...state.conditions,
       airTempC: f.f64(SCORING_BASE + SESSION.ambientTemp),
@@ -363,6 +370,8 @@ function readSession(
     timeOfDayS: timeOfDay(f.f32(s + SESSION.timeOfDay)),
     typeName: rest.session?.session ?? null,
     trackUsage: null,
+    // Learned from the player's sector changes by LmuSectorLearner (decode fills it in).
+    sectorStartPcts: null,
   };
 }
 

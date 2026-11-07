@@ -4,6 +4,7 @@ import { carTrackKey } from "../fuel/history";
 import { LapCleanliness } from "./clean";
 import { OptimalLap } from "./optimal";
 import { DeltaRate } from "./rate";
+import { SectorTimer, type LapSectors, type SectorReference } from "./sectors";
 import { autoReferenceKind } from "./select";
 import { computedDelta, LapTraceRecorder, traceSpeedAt } from "./trace";
 import type {
@@ -66,6 +67,8 @@ export interface DeltaTickInput {
   bestLapKey: string | null;
   /** Live source (not replay or mock): only then is the store written. */
   record: boolean;
+  /** session.sectorStartPcts: the track's official sector starts; null without sector data. */
+  sectorStartPcts?: readonly number[] | null;
 }
 
 let keyMemo: { args: string; key: string | null } | null = null;
@@ -101,6 +104,7 @@ export function deltaInput(state: SimState, player: Car | null): DeltaTickInput 
     inPitStall: player.inPitStall === true,
     bestLapKey: bestLapKeyOf(state, player),
     record: state.source !== "replay" && state.source !== "mock",
+    sectorStartPcts: state.session.sectorStartPcts,
   };
 }
 
@@ -126,6 +130,8 @@ interface Pending {
   lastLapSBefore: number | null;
   /** The sim changed the last lap time just before the line was seen (the time came first). */
   timeFirst: boolean;
+  /** The finished lap's official sectors, kept for the session bests once the lap resolves. */
+  sectors: LapSectors | null;
 }
 
 interface LastDeltas {
@@ -158,6 +164,7 @@ export class DeltaTracker {
   private sessionBestLap: TimedLap | null = null;
   private sessionBestCleanLap: TimedLap | null = null;
   private optimal = new OptimalLap();
+  private sectorTimer = new SectorTimer();
 
   // The lap in progress.
   private started = false;
@@ -190,6 +197,7 @@ export class DeltaTracker {
     this.sessionBestLap = null;
     this.sessionBestCleanLap = null;
     this.optimal.reset();
+    this.sectorTimer.reset();
     this.started = false;
     this.recorder.start();
     this.forceBroken = false;
@@ -210,6 +218,7 @@ export class DeltaTracker {
   next(input: DeltaTickInput | null): DeltaOutputs | null {
     if (input === null) return null;
     this.loadKey(input);
+    this.sectorTimer.setTrack(input.sectorStartPcts ?? null);
     const lapNumber = this.lapNumberOf(input);
     this.advanceLap(input, lapNumber);
     this.resolvePending(input);
@@ -265,6 +274,11 @@ export class DeltaTracker {
       lastCompletion: this.completion,
       lapCompleteVisible: this.lapCompleteVisible(lapNumber, elapsedS, input),
       optimalLapS: this.optimal.lapS,
+      sectors: this.sectorTimer.output(
+        input.lapDistPct,
+        elapsedS <= LAP_COMPLETE_SHOW_S,
+        this.cleanliness.clean,
+      ),
     };
   }
 
@@ -324,6 +338,7 @@ export class DeltaTracker {
   private advanceLap(input: DeltaTickInput, lapNumber: number | null): void {
     const done = input.lapsCompleted;
     if (!this.started) {
+      this.sectorTimer.dropLap();
       this.startLap(input, false);
       return;
     }
@@ -335,6 +350,7 @@ export class DeltaTracker {
       }
       // A jump, a step back, or the first count of a session: the lap in progress is dropped.
       this.pending = null;
+      this.sectorTimer.dropLap();
       this.startLap(input, prev === null && done === 0);
       return;
     }
@@ -346,12 +362,20 @@ export class DeltaTracker {
     this.cleanliness.sample(this.cleanSample(input));
     if (pct === null) {
       this.forceBroken = true;
+      this.sectorTimer.sample(null, 0, input.tickS, [], false);
       return;
     }
     const wrapped =
       this.prevPct !== null && this.prevPct > WRAP_FROM && pct < WRAP_TO && !this.forceBroken;
     if (wrapped) return; // the line was seen before the lap count moved
     this.prevPct = pct;
+    this.sectorTimer.sample(
+      pct,
+      this.elapsedOf(input),
+      input.tickS,
+      this.sectorReferences(),
+      this.cleanliness.clean,
+    );
     if (!this.forceBroken) this.recorder.sample(pct, this.elapsedOf(input), input.speedMps);
     if (this.snapshot === null && pct >= CLOSING_PCT) {
       this.snapshot = this.takeSnapshot(input, this.lapNumberOf(input));
@@ -366,6 +390,12 @@ export class DeltaTracker {
     const snapshot =
       this.snapshot ?? this.takeSnapshot(input, lapNumber === null ? null : lapNumber - 1);
     const finished = lapNumber !== null ? lapNumber - 1 : (this.prevLapsCompleted ?? 0) + 1;
+    const sectors = this.sectorTimer.line(
+      input.lapDistPct,
+      input.tickS,
+      this.sectorReferences(),
+      this.cleanliness.clean,
+    );
     this.pending = {
       lapNumber: finished,
       trace,
@@ -376,12 +406,20 @@ export class DeltaTracker {
       lastLapSBefore: this.prevLastLapS,
       timeFirst:
         this.lastLapChangedAtS !== null && input.tickS - this.lastLapChangedAtS <= TIME_FIRST_S,
+      sectors,
     };
     this.startLap(input, true);
     this.closingLap = true;
     const pct = input.lapDistPct;
     if (pct !== null && pct < CROSSING_MAX_PCT) {
       this.recorder.sample(pct, this.elapsedOf(input), input.speedMps);
+      this.sectorTimer.sample(
+        pct,
+        this.elapsedOf(input),
+        input.tickS,
+        this.sectorReferences(),
+        this.cleanliness.clean,
+      );
     }
   }
 
@@ -417,6 +455,7 @@ export class DeltaTracker {
     const lapTimeS = force && !arrived ? null : input.lastLapS;
     const time = lapTimeS !== null && lapTimeS > 0 ? lapTimeS : null;
     const clean = p.clean && !p.touchedPitRoad && time !== null;
+    this.sectorTimer.resolve(p.sectors, clean);
     this.completion = {
       lapNumber: p.lapNumber,
       lapTimeS: time,
@@ -573,6 +612,23 @@ export class DeltaTracker {
         return this.last?.trace ?? null;
     }
   };
+
+  /** The reference laps that have a trace, for the sector deltas. */
+  private sectorReferences(): SectorReference[] {
+    const out: SectorReference[] = [];
+    const add = (
+      kind: DeltaReferenceKind,
+      lap: { lapTimeS: number; trace: LapTrace | null } | null,
+    ) => {
+      if (lap !== null && lap.trace !== null)
+        out.push({ kind, trace: lap.trace, lapTimeS: lap.lapTimeS });
+    };
+    add("allTimeBest", this.allTime);
+    add("sessionBestClean", this.sessionBestCleanLap);
+    add("sessionBest", this.sessionBestLap);
+    add("lastLap", this.last);
+    return out;
+  }
 
   private lapBroken(): boolean {
     return this.forceBroken || this.recorder.broken;

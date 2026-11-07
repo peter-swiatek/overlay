@@ -17,6 +17,8 @@ const HYPER = { id: "2", name: "Hypercar", colour: "#ff5888", lapS: 86 };
 /** Spread of iRatings (incl. a five-digit one) so the projected changes differ in size and sign. */
 const MOCK_IRATINGS: readonly number[] = [2400, 3100, 1850, 10400, 2050, 1500, 2700, 1980];
 const TRACK_LENGTH_M = 5000;
+/** Four sectors of unequal length, so the sector bar can be previewed. */
+const MOCK_SECTOR_STARTS: readonly number[] = [0, 0.27, 0.53, 0.78];
 const FUEL_CAPACITY_L = 60;
 const FUEL_PER_LAP_L = 2.4;
 const REFUEL_BELOW_L = 4;
@@ -149,6 +151,7 @@ export class MockSource {
     s.pitSpeedLimitMps = 22.2;
     s.typeName = "Race";
     s.trackUsage = "moderate usage";
+    s.sectorStartPcts = [...MOCK_SECTOR_STARTS];
     state.conditions = {
       ...state.conditions,
       airTempC: 22,

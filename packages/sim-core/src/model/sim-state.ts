@@ -56,6 +56,11 @@ export interface SessionInfo {
   typeName: string | null;
   /** Rubbered-in state as the sim words it (iRacing SessionTrackRubberState, e.g. "moderate usage"). */
   trackUsage: string | null;
+  /**
+   * Where each of the track's official sectors starts, as a lap fraction: sorted, the first is 0,
+   * every value in [0, 1). Null when the sim gives no sector data (or it has not been learned yet).
+   */
+  sectorStartPcts: number[] | null;
 }
 
 export interface Conditions {
@@ -366,6 +371,7 @@ export function emptySimState(source: SimSource = "mock"): SimState {
       timeOfDayS: null,
       typeName: null,
       trackUsage: null,
+      sectorStartPcts: null,
     },
     conditions: {
       airTempC: null,
