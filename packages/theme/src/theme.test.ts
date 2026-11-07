@@ -135,14 +135,15 @@ describe("locked colours", () => {
         "pitExit": "#e879f9",
         "rejoinRed": "#ef4444",
         "rejoinYellow": "#facc15",
+        "sectorSlower": "#facc15",
         "shift": "#38bdf8",
       }
     `);
   });
 
-  it("has 22 locked keys with the pit colours last", () => {
-    expect(LOCKED_COLOUR_KEYS).toHaveLength(22);
-    expect(LOCKED_COLOUR_KEYS.slice(-3)).toEqual(["shift", "pitBox", "pitExit"]);
+  it("has 23 locked keys with the pit colours and sector slower last", () => {
+    expect(LOCKED_COLOUR_KEYS).toHaveLength(23);
+    expect(LOCKED_COLOUR_KEYS.slice(-4)).toEqual(["shift", "pitBox", "pitExit", "sectorSlower"]);
   });
 
   it("is frozen and has every key", () => {

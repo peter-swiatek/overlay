@@ -24,4 +24,6 @@ export const LOCKED_COLOURS: Readonly<Record<LockedColourKey, string>> = Object.
   shift: "#38bdf8",
   pitBox: "#38bdf8",
   pitExit: "#e879f9",
+  /** Delta Bar sector slower than the reference: yellow, so red stays for real losses elsewhere. */
+  sectorSlower: "#facc15",
 });

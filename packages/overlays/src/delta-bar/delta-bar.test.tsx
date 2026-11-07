@@ -338,7 +338,7 @@ describe("Delta Bar CSS", () => {
     expect(rule(".dl-sectors")).toContain("gap: 2px;");
     expect(rule(".dl-sec--best")).toContain("var(--ov-locked-fastest)");
     expect(rule(".dl-sec--gain")).toContain("var(--ov-locked-gain)");
-    expect(rule(".dl-sec--loss")).toContain("var(--ov-locked-loss)");
+    expect(rule(".dl-sec--loss")).toContain("var(--ov-locked-sector-slower)");
   });
 
   it("sizes its text from the theme font size so the tiles match the 480 x 108 design", () => {

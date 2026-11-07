@@ -37,6 +37,7 @@
   --ov-locked-shift: #38bdf8;
   --ov-locked-pit-box: #38bdf8;
   --ov-locked-pit-exit: #e879f9;
+  --ov-locked-sector-slower: #facc15;
 }
 
 :root[data-compact="true"] {

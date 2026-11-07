@@ -268,7 +268,7 @@
 }
 .dl-h2h-tile {
   display: grid;
-  grid-template-columns: 8px 31px minmax(0, 1fr) 28px 36px;
+  grid-template-columns: 8px auto minmax(0, 1fr) 28px 36px;
   gap: 3px;
   align-items: center;
   height: calc(var(--ov-row-height, 24px) - 2px);
@@ -279,6 +279,11 @@
 }
 .dl-h2h-empty {
   display: block;
+}
+/* A compact number badge: as wide as its digits need, from 1.9em. */
+.dl-h2h-tile .ov-car-num {
+  min-width: 1.9em;
+  padding: 0 0.25em;
 }
 .dl-h2h-tile .nm {
   font-weight: 600;
@@ -336,7 +341,7 @@
   box-shadow: none;
 }
 .dl-sec--loss {
-  background: var(--ov-locked-loss);
+  background: var(--ov-locked-sector-slower);
   box-shadow: none;
 }
 .dl-sec > span {

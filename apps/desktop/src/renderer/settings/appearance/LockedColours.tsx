@@ -38,6 +38,7 @@ export const LOCKED_GROUPS: readonly {
     items: [
       ["lapFaster", "Lap faster"],
       ["lapSlower", "Lap slower"],
+      ["sectorSlower", "Sector slower"],
     ],
   },
   {
