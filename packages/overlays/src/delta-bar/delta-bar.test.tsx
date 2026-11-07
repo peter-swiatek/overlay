@@ -99,12 +99,12 @@ describe("DeltaBarOverlay markup", () => {
 
   it("collapses the grid per toggle", () => {
     const all = render(liveFrame(deltaOutputs()));
-    expect(all).toContain("grid-template-columns:212px minmax(0, 1fr) 142px");
+    expect(all).toContain("grid-template-columns:minmax(0, 1fr) 118px 118px");
     const noSpeed = render(liveFrame(deltaOutputs()), { options: { "show-delta-speed": false } });
-    expect(noSpeed).toContain('grid-template-columns:212px minmax(0, 1fr)"');
+    expect(noSpeed).toContain('grid-template-columns:minmax(0, 1fr) 118px"');
     expect(noSpeed).not.toContain("dl-spd");
     const noBest = render(liveFrame(deltaOutputs()), { options: { "show-best-times": false } });
-    expect(noBest).toContain("grid-template-columns:minmax(0, 1fr) 142px");
+    expect(noBest).toContain("grid-template-columns:minmax(0, 1fr) 118px");
     expect(noBest).not.toContain("dl-bt");
     const neither = render(liveFrame(deltaOutputs()), {
       options: { "show-best-times": false, "show-delta-speed": false },

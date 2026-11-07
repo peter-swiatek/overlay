@@ -30,7 +30,7 @@
 }
 .dl-top {
   display: grid;
-  grid-template-columns: 212px minmax(0, 1fr) 142px;
+  grid-template-columns: minmax(0, 1fr) 118px 118px;
   gap: 4px;
   height: 3.15em;
 }

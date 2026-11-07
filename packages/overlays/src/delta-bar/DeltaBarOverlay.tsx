@@ -15,6 +15,9 @@ import {
 } from "./view";
 import "./delta-bar.css";
 
+/** Width of the live delta and speed tiles, equal so the best-times tile gets the spare width. */
+const SIDE_TILE_PX = 118;
+
 const toneClass = (tone: Tone): string =>
   tone === "gain" ? " dl-gain" : tone === "loss" ? " dl-loss" : "";
 
@@ -81,10 +84,13 @@ export function DeltaBarOverlay({ settings }: OverlayProps) {
       ? " dl-spd--gain"
       : " dl-spd--loss";
 
+  // The live delta and speed tiles share one fixed width; the best-times tile takes the rest.
+  // Without best times, the live delta stretches instead.
+  const tile = `${SIDE_TILE_PX}px`;
   const cols = [
-    options.showBestTimes ? "212px" : null,
-    "minmax(0, 1fr)",
-    options.showDeltaSpeed ? "142px" : null,
+    options.showBestTimes ? "minmax(0, 1fr)" : null,
+    options.showBestTimes ? tile : "minmax(0, 1fr)",
+    options.showDeltaSpeed ? tile : null,
   ]
     .filter((c) => c !== null)
     .join(" ");
