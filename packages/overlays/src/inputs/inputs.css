@@ -72,6 +72,15 @@
   border-radius: 4px;
   background: color-mix(in srgb, #000 35%, transparent);
 }
+/* The panel's thin outline, drawn above the traces so lines never cover it. */
+.inp-well::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  pointer-events: none;
+}
 :root[data-tone="light"] .inp-well {
   background: color-mix(in srgb, var(--ov-text) 8%, transparent);
 }

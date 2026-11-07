@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 // Tests may use the sim-core entry for fixtures; overlay code itself must not.
 import { emptySimState, type TelemetryFrame } from "@overlay/sim-core";
 import { DEFAULT_DISPLAY_PREFS } from "@overlay/ui/types";
@@ -173,5 +175,16 @@ describe("inputsModule", () => {
       options: { "trace-seconds": 99 },
     });
     expect(patched.options["trace-seconds"]).toBe(10);
+  });
+});
+
+describe("Inputs CSS", () => {
+  it("outlines the trace panel above the traces", () => {
+    const css = readFileSync(join(__dirname, "inputs.css"), "utf8");
+    const start = css.indexOf(".inp-well::after {");
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(css.slice(start, css.indexOf("}", start))).toContain(
+      "box-shadow: inset 0 0 0 1px var(--ov-border);",
+    );
   });
 });
