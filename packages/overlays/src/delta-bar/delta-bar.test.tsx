@@ -192,7 +192,7 @@ describe("DeltaBarOverlay markup", () => {
     expect(html).toContain("dl-h2h");
     expect(html).toContain("A. Ahead");
     expect(html).toContain('<span class="ov-car-num">8</span>');
-    expect(html).toMatch(/class="pos">P\d+</);
+    expect(html).not.toMatch(/class="pos"/);
     expect(html).toContain("-1.3");
     expect(html).toContain("--class-color:#ff0000");
     // an empty tile keeps the second slot

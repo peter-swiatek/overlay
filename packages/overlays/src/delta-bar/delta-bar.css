@@ -268,7 +268,7 @@
 }
 .dl-h2h-tile {
   display: grid;
-  grid-template-columns: 8px 26px 31px minmax(0, 1fr) 28px 36px;
+  grid-template-columns: 8px 31px minmax(0, 1fr) 28px 36px;
   gap: 3px;
   align-items: center;
   height: calc(var(--ov-row-height, 24px) - 2px);
@@ -279,12 +279,6 @@
 }
 .dl-h2h-empty {
   display: block;
-}
-.dl-h2h-tile .pos {
-  font-weight: 800;
-  text-align: center;
-  border-left: 3px solid var(--class-color, var(--ov-border));
-  padding-left: 2px;
 }
 .dl-h2h-tile .nm {
   font-weight: 600;
