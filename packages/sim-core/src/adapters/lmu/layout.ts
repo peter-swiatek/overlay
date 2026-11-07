@@ -67,6 +67,13 @@ export const SCORING_BASE = 1632;
  * | maxPathWetness   | f64     | REST maxPathWetness 0 (dry in the whole recording)          |
  * | averagePathWetness   | f64     | REST averagePathWetness 0 (dry in the whole recording)      |
  * | serverName       | cstr 32 | REST serverName "-none-"                                    |
+ * | timeOfDay        | f32     | REST GetGameState timeOfDay within 3 s on 114 of 114 paired frames (the REST body is up to a second older); advances exactly 1.0000 s per session second; seconds after midnight, can pass 86,400 |
+ *
+ * Searched and not provable here: the wind vector (REST sessionInfo windSpeed and the public
+ * struct order put it at 244, three f64, but both were exactly 0 in the whole recording, so the
+ * offset is not proven) and `raining` above, which was also 0 throughout. Neither is decoded.
+ * The pit speed limit is nowhere: no f32/f64 near 60, 80, 50 km/h (or in m/s) exists at a fixed
+ * place in any buffer region, and no REST body names one.
  */
 export const SESSION = {
   trackName: { offset: 0, length: 64 },
@@ -88,6 +95,7 @@ export const SESSION = {
   minPathWetness: 268,
   maxPathWetness: 276,
   averagePathWetness: 332,
+  timeOfDay: 344,
   serverName: { offset: 296, length: 32 },
 } as const;
 
@@ -131,6 +139,7 @@ export const RESULTS_STREAM = {
  * | lapStartTime     | f64     | standings lapStartET                                             |
  * | worldPos       | f64 x3  | standings carPosition x, y, z                                    |
  * | carVelocity       | f64 x3  | standings carVelocity x, y, z                                    |
+ * | orientation    | f64 x9  | standings orientation matrix, three rows of three; the car's nose is minus the third column (matched the direction of motion within 10 degrees on 1,854 of 1,931 moving frames) |
  * | pitState       | u8      | standings pitState: 0 NONE, 5 EXITING (1-4 not observed: no stop) |
  * | qualification  | i32     | standings qualification                                         |
  * | timeIntoLap    | f64     | standings timeIntoLap                                            |
@@ -140,6 +149,17 @@ export const RESULTS_STREAM = {
  * | inGarageStall  | u8      | standings inGarageStall                                          |
  * | steamID        | u64     | standings steamID (0 in the recording; zeroed by redaction)      |
  * | vehicleFilename    | cstr 32 | standings vehicleFilename                                        |
+ * | fuelFraction   | u8      | standings fuelFraction x 255 exactly (value / 255 equals REST to the last digit, correlation 1.0000, 4,255 vehicle/frame pairs; found by searching every u8, f32 and f64 in the row) |
+ *
+ * The player's lap timing reads three of these (`timeIntoLap`, `lastLapTime`, `bestLapTime`) from
+ * the player's scoring row; no new offsets were needed. The scoring `flag` and `underYellow`
+ * bytes also give every car's flags (blue = 6; the other flags have no observed trigger).
+ *
+ * The scoring `fuelFraction` follows fuel, not virtual energy: in the Ferrari 499P recording it
+ * differs from `veFraction` (e.g. 0.33 fuel against 0.33..1.00 energy, mostly different), and for
+ * the player it stays within one count of fuelLitres / tankCapacityLitres in the telemetry row.
+ * (The telemetry row's own fuel for the other cars drifts by about 0.012 from the REST value, so
+ * the scoring byte is the source for all cars.)
  */
 export const VEHICLE = {
   slotId: 0,
@@ -170,6 +190,8 @@ export const VEHICLE = {
   /** f64 x3 world position in metres (the table's "pos"); y is up, the ground plane is x/z. */
   worldPos: 264,
   carVelocity: 288,
+  /** f64 x9, row-major 3x3; world = matrix * local, the nose is local -z. */
+  orientation: 336,
   pitState: 457,
   qualification: 460,
   timeIntoLap: 464,
@@ -179,7 +201,16 @@ export const VEHICLE = {
   inGarageStall: 507,
   steamID: 536,
   vehicleFilename: { offset: 544, length: 32 },
+  fuelFraction: 578,
 } as const;
+
+/**
+ * Searched and not provable (so decoded as null): an ABS-active byte. Nothing in the telemetry
+ * row was found that pulses only under heavy braking and never at throttle, so
+ * `player.absActive` stays null. Per-car track surface (off track, approaching pits) has no
+ * evidence either; only the player's own surface is derived from the in-car byte, the real-time
+ * byte and the garage-stall byte.
+ */
 
 /** Telemetry block: three count bytes, then the rows. */
 export const TELEMETRY_BASE = RESULTS_STREAM.offset + RESULTS_STREAM.length;
@@ -211,6 +242,7 @@ export const TELEMETRY = {
  * | tankCapacityLitres  | f64     | 110 litres, the Hypercar tank                                      |
  * | pitLimiterOn  | u8      | 0 on track; 1 in the pit lane (LOCAL)                              |
  * | veFraction     | f32     | 0..1; tracks standings veFraction (0.9831 vs 0.9823 a tick later)  |
+ * | rearBrakeBias | f64     | rear share of the brake force, 0..1. REST getPlayerGarageData VM_BRAKE_BALANCE stringValue "51.0:49.0" (front:rear) equals 1 - this value on 115 of 115 paired frames; over the recording the value moves between 0.4475 and 0.49, so it includes the live brake migration |
  */
 export const TELEM = {
   slotId: 0,
@@ -228,6 +260,7 @@ export const TELEM = {
   pitLimiterOn: 604,
   tankCapacityLitres: 608,
   veFraction: 776,
+  rearBrakeBias: 664,
   tyresOffset: 848,
   tyreStride: 260,
 } as const;

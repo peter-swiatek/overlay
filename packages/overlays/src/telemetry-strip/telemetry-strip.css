@@ -1,0 +1,218 @@
+/* Fixed geometry in px as the design hand-off (609 x 136); text in em of --ov-font-size (14 px = 1em). */
+.ts-root {
+  position: relative;
+  box-sizing: border-box;
+  width: 609px;
+  height: 136px;
+  color: var(--ov-text);
+  font-family: var(--ov-font-family);
+  font-weight: var(--ov-font-weight, 500);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  /* Hub layers are opaque: the theme background with its alpha dropped, then tinted. */
+  --ts-base: rgb(from var(--ov-bg) r g b);
+  --gear-gap: color-mix(in srgb, #000 12%, var(--ts-base));
+  --gear-ring: color-mix(in srgb, var(--ov-text) 12%, var(--ts-base));
+  --gear-bg: color-mix(in srgb, var(--ov-text) 8%, var(--ts-base));
+  --gear-outline: color-mix(in srgb, var(--ov-text-muted) 70%, var(--ts-base));
+  --ts-band: color-mix(in srgb, #000 35%, transparent);
+}
+:root[data-tone="light"] .ts-root {
+  --ts-band: color-mix(in srgb, var(--ov-text) 7%, transparent);
+  --gear-gap: color-mix(in srgb, var(--ov-text) 6%, var(--ts-base));
+  --gear-ring: color-mix(in srgb, var(--ov-text) 16%, var(--ts-base));
+  --gear-bg: #fff;
+  --gear-outline: color-mix(in srgb, var(--ov-text-muted) 50%, var(--ts-base));
+}
+.ts-panel {
+  position: absolute;
+  left: 68px;
+  right: 0;
+  top: 20px;
+  height: 96px;
+  background: var(--ov-bg);
+  border-radius: 0 6px 6px 0;
+  /* No outer drop shadow: the hub fills the window's height, so the window edge would cut it off square. */
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  overflow: hidden;
+}
+/* Panel left end is cut away by a circle matching the hub (r 68, centre at panel 0,48). */
+.ts-panel-cut {
+  -webkit-mask-image: radial-gradient(circle 68px at 0 48px, transparent 68px, #000 68.5px);
+  mask-image: radial-gradient(circle 68px at 0 48px, transparent 68px, #000 68.5px);
+}
+.ts-row1 {
+  position: absolute;
+  left: 95px;
+  right: 14px;
+  top: 14px;
+  height: 29px;
+  display: flex;
+  align-items: center;
+}
+.ts-speed {
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  gap: 4px;
+}
+.ts-speed-num {
+  min-width: 37px;
+  text-align: right;
+  font-size: 1.79em;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.ts-label {
+  font-size: 0.71em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ov-text-muted);
+  line-height: 1;
+}
+.ts-leds {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 3.4px;
+  margin-left: 12px;
+}
+.ts-led {
+  box-sizing: border-box;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--ov-text) 22%, transparent);
+  background: color-mix(in srgb, var(--ov-text) 6%, transparent);
+}
+.ts-led-on {
+  border-color: color-mix(in srgb, var(--led) 70%, #000);
+  background: var(--led);
+}
+.ts-rpm {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-left: auto;
+}
+.ts-rpm-num {
+  font-size: 1.29em;
+  font-weight: 700;
+  line-height: 1;
+}
+/* Second row: the left edge is cut by a circle concentric with the gear hub (r 82), centred at band (-32, -1). */
+.ts-band {
+  position: absolute;
+  left: 32px;
+  right: 14px;
+  top: 49px;
+  height: 31px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 12px 0 73px;
+  background: var(--ts-band);
+  border-radius: 0 4px 4px 0;
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  overflow: hidden;
+}
+.ts-band-cut {
+  -webkit-mask-image: radial-gradient(circle 82px at -32px -1px, transparent 81.5px, #000 82.5px);
+  mask-image: radial-gradient(circle 82px at -32px -1px, transparent 81.5px, #000 82.5px);
+}
+.ts-pos {
+  font-size: 1.36em;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+.ts-chip {
+  padding: 0 4px;
+  border-radius: 2px;
+  font-size: 0.86em;
+  font-weight: 500;
+  line-height: 13px;
+}
+.ts-chip-gain {
+  color: var(--ov-locked-gain);
+  background: color-mix(in srgb, var(--ov-locked-gain) 16%, transparent);
+}
+.ts-chip-loss {
+  color: var(--ov-locked-loss);
+  background: color-mix(in srgb, var(--ov-locked-loss) 16%, transparent);
+}
+.ts-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  white-space: nowrap;
+}
+.ts-stat .ts-label {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.ts-stat-num {
+  font-size: 1.07em;
+  font-weight: 700;
+}
+.ts-hub {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  top: 0;
+  box-sizing: border-box;
+  width: 136px;
+  height: 136px;
+  border-radius: 50%;
+  background: var(--gear-gap);
+  border: 1px solid var(--gear-outline);
+}
+.ts-ring {
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  overflow: visible;
+}
+.ts-ring circle {
+  fill: none;
+  stroke-width: 8px;
+  transform-origin: 68px 68px;
+}
+.ts-ring-track {
+  stroke: var(--gear-ring);
+}
+.ts-throttle {
+  stroke: var(--ov-locked-gain);
+}
+.ts-brake {
+  stroke: var(--ov-locked-loss);
+}
+.ts-disc {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  width: 106px;
+  height: 106px;
+  border-radius: 50%;
+  background: var(--gear-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ts-gear {
+  font-size: 3.57em;
+  font-weight: 700;
+  line-height: 1;
+}
+.ts-blink {
+  animation: ts-blink 0.25s steps(1, end) infinite;
+}
+@keyframes ts-blink {
+  50% {
+    opacity: 0.15;
+  }
+}

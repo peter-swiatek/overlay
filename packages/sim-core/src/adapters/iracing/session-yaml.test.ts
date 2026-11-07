@@ -188,6 +188,144 @@ describe("mapSessionType", () => {
   });
 });
 
+describe("parseSessionYaml redline, shift lights and track usage", () => {
+  const sli = (first: string, shift: string, last: string, blink: string) =>
+    [
+      ` DriverCarRedLine: 8000.000`,
+      ` DriverCarSLFirstRPM: ${first}`,
+      ` DriverCarSLShiftRPM: ${shift}`,
+      ` DriverCarSLLastRPM: ${last}`,
+      ` DriverCarSLBlinkRPM: ${blink}`,
+    ].join("\n");
+
+  it("reads the redline and the four shift-light points", () => {
+    const info = parseSessionYaml(
+      yamlWithDrivers([], sli("5200.000", "7600.000", "7400.000", "7800.000")),
+    );
+    expect(info.redlineRpm).toBe(8000);
+    expect(info.shiftLightRpm).toEqual({
+      firstRpm: 5200,
+      shiftRpm: 7600,
+      lastRpm: 7400,
+      blinkRpm: 7800,
+    });
+  });
+
+  it("gives a null blink point for 0 and null shift lights when all are 0 or missing", () => {
+    expect(
+      parseSessionYaml(yamlWithDrivers([], sli("5200", "7600", "7400", "0"))).shiftLightRpm,
+    ).toEqual({ firstRpm: 5200, shiftRpm: 7600, lastRpm: 7400, blinkRpm: null });
+    const zero = parseSessionYaml(yamlWithDrivers([], sli("0", "0", "0", "0")));
+    expect(zero.shiftLightRpm).toBeNull();
+    const missing = parseSessionYaml(
+      yamlWithDrivers([], " DriverCarSLFirstRPM: 5200\n DriverCarSLShiftRPM: 7600"),
+    );
+    expect(missing.shiftLightRpm).toBeNull();
+    expect(missing.redlineRpm).toBeNull();
+    expect(parseSessionYaml(yamlWithDrivers([], " DriverCarRedLine: 0")).redlineRpm).toBeNull();
+  });
+
+  it("reads SessionTrackRubberState per session, trimmed, null when missing or empty", () => {
+    const text = [
+      "SessionInfo:",
+      " CurrentSessionNum: 1",
+      " Sessions:",
+      " - SessionNum: 0",
+      "   SessionType: Practice",
+      "   SessionTrackRubberState: moderate usage  ",
+      " - SessionNum: 1",
+      "   SessionType: Race",
+      "   SessionTrackRubberState:",
+      " - SessionNum: 2",
+      "   SessionType: Race",
+      "",
+    ].join("\n");
+    expect(parseSessionYaml(text).sessions.map((s) => s.trackRubberState)).toEqual([
+      "moderate usage",
+      null,
+      null,
+    ]);
+  });
+
+  it("reads the same values from every committed slice", async () => {
+    const files = [
+      "iracing-ferrari-quali-to-race-10s.ovfx",
+      "iracing-ferrari-race-start-20s.ovfx",
+      "iracing-ferrari-sf-crossing-20s.ovfx",
+    ];
+    for (const f of files) {
+      const slice = await loadSlice(`${FIXTURE_DIR}${f}`);
+      const info = parseSessionYaml(slice.yamlTexts[0] ?? "");
+      expect(info.redlineRpm).toBe(8000);
+      // The real car lights its last LED (7600) below the shift point (7700).
+      expect(info.shiftLightRpm).toEqual({
+        firstRpm: 7000,
+        shiftRpm: 7700,
+        lastRpm: 7600,
+        blinkRpm: 7950,
+      });
+      expect(info.sessions.map((x) => x.trackRubberState)).toEqual([
+        "high usage",
+        "carry over",
+        "carry over",
+      ]);
+    }
+  });
+});
+
+describe("parseSessionYaml field data (synthetic)", () => {
+  const withOptions = (options: string[], driverInfo = ""): string =>
+    yamlWithDrivers(driver(1, { UserName: "A" }), driverInfo).replace(
+      "WeekendInfo:\n",
+      ["WeekendInfo:", " WeekendOptions:", ...options.map((o) => `  ${o}`), ""].join("\n"),
+    );
+
+  it.each([
+    ["25", 25],
+    ["unlimited", null],
+    ["0", null],
+    ["", null],
+  ])("IncidentLimit %j gives %s", (value, expected) => {
+    expect(parseSessionYaml(withOptions([`IncidentLimit: ${value}`])).incidentLimit).toBe(expected);
+  });
+
+  it("gives null when WeekendOptions or IncidentLimit is missing", () => {
+    expect(parseSessionYaml(yamlWithDrivers([])).incidentLimit).toBeNull();
+    expect(parseSessionYaml(withOptions(["NumStarters: 3"])).incidentLimit).toBeNull();
+  });
+
+  it("reads DriverPitTrkPct and rejects values outside 0..1", () => {
+    const pct = (v: string) =>
+      parseSessionYaml(yamlWithDrivers([], ` DriverPitTrkPct: ${v}`)).pitStallLapDistPct;
+    expect(pct("0.971175")).toBeCloseTo(0.971175, 6);
+    expect(pct("1.5")).toBeNull();
+    expect(pct("-1.000000")).toBeNull();
+    expect(parseSessionYaml(yamlWithDrivers([])).pitStallLapDistPct).toBeNull();
+  });
+
+  it("reads TeamName as UTF-8 and as Windows-1252, and null when empty", () => {
+    const text = yamlWithDrivers([
+      ...driver(1, { UserName: "Max Example", TeamName: "Zofia Świątkowska Racing" }),
+      ...driver(2, { UserName: "B", TeamName: "Écurie José María Pérez" }),
+      ...driver(3, { UserName: "C", TeamName: "" }),
+      ...driver(4, { UserName: "D", TeamName: "Bob: the #1 Team" }),
+    ]);
+    const utf8 = parseSessionYaml(decodeSessionYaml(Buffer.from(text, "utf8")));
+    const names = (info: ReturnType<typeof parseSessionYaml>) =>
+      info.drivers.map((d) => d.teamName);
+    expect(names(utf8)).toEqual([
+      "Zofia Świątkowska Racing",
+      "Écurie José María Pérez",
+      null,
+      "Bob: the #1 Team",
+    ]);
+    // cp1252 cannot hold Ś, ą, ł: use only characters it has.
+    const cp = yamlWithDrivers(driver(2, { UserName: "B", TeamName: "Écurie José María Pérez" }));
+    const parsed = parseSessionYaml(decodeSessionYaml(Buffer.from(cp, "latin1")));
+    expect(parsed.drivers[0]?.teamName).toBe("Écurie José María Pérez");
+  });
+});
+
 describe("SessionInfoCache driven by the real header counter", () => {
   const layout = syntheticLayout([{ name: "SessionTime", type: VarType.Double }]);
   const decoder = IracingDecoder.fromHeaderBytes(layout.header);
@@ -269,5 +407,70 @@ describe("Windows-1252 decoding", () => {
     expect(bytes.includes(0x8a)).toBe(true);
     const decoded = decodeSessionYaml(Buffer.concat([bytes, Buffer.alloc(8)]));
     expect(parseSessionYaml(decoded).drivers[0]?.driverName).toBe("\u0160ar\u017eo \u0152uvre");
+  });
+});
+
+describe("parseSessionYaml sector boundaries (SplitTimeInfo)", () => {
+  function withSectors(rows: [num: string, pct: string][]): string {
+    const lines = ["SplitTimeInfo:", " Sectors:"];
+    for (const [n, pct] of rows) lines.push(` - SectorNum: ${n}`, `   SectorStartPct: ${pct}`);
+    return yamlWithDrivers([]) + lines.join("\n") + "\n";
+  }
+
+  it("reads the sector starts as lap fractions", () => {
+    const info = parseSessionYaml(
+      withSectors([
+        ["0", "0.000000"],
+        ["1", "0.312345"],
+        ["2", "0.687654"],
+      ]),
+    );
+    expect(info.sectorStartPcts).toEqual([0, 0.312345, 0.687654]);
+  });
+
+  it("handles a track with more than ten sectors and orders them by SectorNum", () => {
+    const pcts = Array.from({ length: 12 }, (_, i) => (i / 12).toFixed(6));
+    const rows = pcts.map((p, i) => [String(i), p] as [string, string]).reverse();
+    const info = parseSessionYaml(withSectors(rows));
+    expect(info.sectorStartPcts).toHaveLength(12);
+    expect(info.sectorStartPcts?.[0]).toBe(0);
+    expect(info.sectorStartPcts?.[11]).toBeCloseTo(11 / 12, 5);
+    const s = info.sectorStartPcts!;
+    for (let i = 1; i < s.length; i++) expect(s[i]!).toBeGreaterThan(s[i - 1]!);
+  });
+
+  it("is null when SplitTimeInfo is missing or malformed", () => {
+    expect(parseSessionYaml(yamlWithDrivers([])).sectorStartPcts).toBeNull();
+    const bad: [string, string][][] = [
+      [
+        ["0", "0.1"],
+        ["1", "0.5"],
+      ], // does not start at 0
+      [
+        ["0", "0"],
+        ["1", "1.2"],
+      ], // out of range
+      [
+        ["0", "0"],
+        ["1", "0.5"],
+        ["2", "0.4"],
+      ], // not rising
+      [
+        ["0", "0"],
+        ["1", "abc"],
+      ], // not a number
+      [
+        ["0", "0"],
+        ["x", "0.5"],
+      ], // no sector number
+    ];
+    for (const rows of bad) expect(parseSessionYaml(withSectors(rows)).sectorStartPcts).toBeNull();
+  });
+
+  it("reads the six VIR sectors from a committed slice", async () => {
+    const slice = await loadSlice(`${FIXTURE_DIR}iracing-ferrari-race-start-20s.ovfx`);
+    expect(parseSessionYaml(slice.yamlTexts[0] ?? "").sectorStartPcts).toEqual([
+      0, 0.184456, 0.337214, 0.504637, 0.734279, 0.829332,
+    ]);
   });
 });

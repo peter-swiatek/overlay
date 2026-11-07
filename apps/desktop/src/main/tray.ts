@@ -1,11 +1,19 @@
 import { join } from "node:path";
-import { Menu, Tray, app, dialog, nativeImage } from "electron";
+import { Menu, Tray, app, nativeImage } from "electron";
 import { BUILD_INFO } from "../shared/build-info";
 import { MARKER_PRESETS } from "../shared/capture-types";
+import type { AppSettingsStore } from "./app-settings";
 import type { CaptureManager } from "./capture-manager";
 import type { OverlayManager } from "./overlays";
+import { pickReplayFile } from "./replay-dialog";
 import type { TelemetryManager } from "./telemetry-manager";
-import { buildAboutItem, buildDataSourceMenu, buildUpdateItems, trayTooltip } from "./tray-model";
+import {
+  buildAboutItem,
+  buildDataSourceMenu,
+  buildOverlayStateItems,
+  buildUpdateItems,
+  trayTooltip,
+} from "./tray-model";
 import type { Updater } from "./updater";
 
 function trayIconPath(): string {
@@ -15,7 +23,7 @@ function trayIconPath(): string {
 }
 
 export interface TrayActions {
-  showSettings(): void;
+  showMainWindow(): void;
   quit(): void;
 }
 
@@ -28,10 +36,11 @@ export class AppTray {
     private readonly telemetry: TelemetryManager,
     private readonly updater: Updater,
     private readonly actions: TrayActions,
+    private readonly appSettings: AppSettingsStore,
   ) {
     this.tray = new Tray(nativeImage.createFromPath(trayIconPath()));
     this.tray.setToolTip(trayTooltip(BUILD_INFO));
-    this.tray.on("double-click", () => actions.showSettings());
+    this.tray.on("double-click", () => actions.showMainWindow());
     this.refresh();
   }
 
@@ -39,19 +48,17 @@ export class AppTray {
   refresh(): void {
     this.tray.setContextMenu(
       Menu.buildFromTemplate([
-        { label: "Show settings", click: () => this.actions.showSettings() },
-        {
-          label: "Toggle overlays visible",
-          type: "checkbox",
-          checked: this.overlays.isVisible,
-          click: () => this.overlays.toggleVisible(),
-        },
-        {
-          label: "Toggle edit mode (Ctrl+Shift+F10)",
-          type: "checkbox",
-          checked: this.overlays.isEditMode,
-          click: () => this.overlays.toggleEditMode(),
-        },
+        ...buildOverlayStateItems(
+          {
+            overlaysVisible: this.overlays.isVisible,
+            overlaysLocked: !this.overlays.isEditMode,
+          },
+          {
+            showMainWindow: () => this.actions.showMainWindow(),
+            toggleVisible: () => this.overlays.toggleVisible(),
+            toggleLocked: () => this.overlays.toggleEditMode(),
+          },
+        ),
         { type: "separator" },
         this.capture.isRecording
           ? { label: "Stop recording", click: () => this.capture.stop() }
@@ -72,10 +79,14 @@ export class AppTray {
         { type: "separator" },
         {
           label: "Data source",
-          submenu: buildDataSourceMenu(this.telemetry.getSettings(), {
-            select: (source) => this.telemetry.updateSettings({ source }),
-            pickReplayFile: () => void this.pickReplayFile(),
-          }),
+          submenu: buildDataSourceMenu(
+            this.telemetry.getSettings(),
+            {
+              select: (source) => this.telemetry.updateSettings({ source }),
+              pickReplayFile: () => void this.chooseReplayFile(),
+            },
+            this.appSettings.load().developer.enabled,
+          ),
         },
         { type: "separator" },
         ...buildUpdateItems(
@@ -97,18 +108,18 @@ export class AppTray {
     );
   }
 
-  private async pickReplayFile(): Promise<void> {
-    const result = await dialog.showOpenDialog({
-      title: "Replay a recording",
-      properties: ["openFile"],
-      filters: [{ name: "Fixture recording", extensions: ["ovfx"] }],
-    });
-    const path = result.filePaths[0];
-    if (result.canceled || path === undefined) {
+  private async chooseReplayFile(): Promise<void> {
+    const path = await pickReplayFile();
+    if (path === null) {
       this.refresh(); // radio items flip on click even when nothing changed
       return;
     }
     this.telemetry.updateSettings({ source: "replay", replayPath: path });
+  }
+
+  /** A balloon notice from the tray icon (Windows shows it as a notification). */
+  showNotice(title: string, content: string): void {
+    this.tray.displayBalloon({ title, content, iconType: "info" });
   }
 
   destroy(): void {

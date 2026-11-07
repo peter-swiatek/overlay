@@ -11,10 +11,25 @@ ipcRenderer.on(IPC.telemetryPort, (event) => {
   page.postMessage({ type: "telemetry-port" }, "*", [...event.ports]);
 });
 
+/** Subscribes to a main-to-renderer channel; returns the unsubscribe function. */
+function subscribe<A extends unknown[]>(
+  channel: string,
+  callback: (...args: A) => void,
+): () => void {
+  const listener = (_event: unknown, ...args: unknown[]): void => callback(...(args as A));
+  ipcRenderer.on(channel, listener);
+  return () => {
+    ipcRenderer.removeListener(channel, listener);
+  };
+}
+
 const api: OverlayApi = {
   getAppInfo: () => ipcRenderer.invoke(IPC.getAppInfo),
   setDisplaySettings: (patch) => ipcRenderer.invoke(IPC.setDisplaySettings, patch),
   getMetrics: () => ipcRenderer.invoke(IPC.getMetrics),
+  startPerfCheck: () => ipcRenderer.invoke(IPC.perfStart),
+  cancelPerfCheck: () => ipcRenderer.invoke(IPC.perfCancel),
+  onPerfProgress: (callback) => subscribe(IPC.perfProgress, callback),
   getEditMode: () => ipcRenderer.invoke(IPC.getEditMode),
   onEditModeChanged: (callback) => {
     const listener = (_event: unknown, editing: boolean): void => callback(editing);
@@ -24,6 +39,8 @@ const api: OverlayApi = {
     };
   },
   resizeBy: (dx, dy) => ipcRenderer.send(IPC.resizeBy, dx, dy),
+  reportContentMinSize: (size) => ipcRenderer.send(IPC.contentMinSize, size),
+  reportTableMetrics: (metrics) => ipcRenderer.send(IPC.tableMetrics, metrics),
   getCaptureStatus: () => ipcRenderer.invoke(IPC.getCaptureStatus),
   onCaptureStatus: (callback) => {
     const listener = (_event: unknown, status: Parameters<typeof callback>[0]): void =>
@@ -36,6 +53,47 @@ const api: OverlayApi = {
   getCaptureSettings: () => ipcRenderer.invoke(IPC.getCaptureSettings),
   setCaptureSettings: (patch) => ipcRenderer.invoke(IPC.setCaptureSettings, patch),
   subscribeTelemetry: (rateHz) => ipcRenderer.send(IPC.telemetrySubscribe, rateHz),
+  overlays: {
+    getAll: () => ipcRenderer.invoke(IPC.overlaysGetAll),
+    get: (id) => ipcRenderer.invoke(IPC.overlaysGet, id),
+    update: (id, patch) => ipcRenderer.invoke(IPC.overlaysUpdate, id, patch),
+    reset: (id) => ipcRenderer.invoke(IPC.overlaysReset, id),
+    onChanged: (callback) => subscribe(IPC.overlaysChanged, callback),
+    getSizes: () => ipcRenderer.invoke(IPC.overlaysGetSizes),
+    onSizesChanged: (callback) => subscribe(IPC.overlaysSizesChanged, callback),
+  },
+  appState: {
+    get: () => ipcRenderer.invoke(IPC.appStateGet),
+    set: (patch) => ipcRenderer.invoke(IPC.appStateSet, patch),
+    onChanged: (callback) => subscribe(IPC.appStateChanged, callback),
+  },
+  theme: {
+    getState: () => ipcRenderer.invoke(IPC.themeGetState),
+    getActive: () => ipcRenderer.invoke(IPC.themeGetActive),
+    setActive: (id) => ipcRenderer.invoke(IPC.themeSetActive, id),
+    save: (theme) => ipcRenderer.invoke(IPC.themeSave, theme),
+    remove: (id) => ipcRenderer.invoke(IPC.themeRemove, id),
+    importCode: (code) => ipcRenderer.invoke(IPC.themeImportCode, code),
+    exportCode: (id) => ipcRenderer.invoke(IPC.themeExportCode, id),
+    importFile: () => ipcRenderer.invoke(IPC.themeImportFile),
+    exportFile: (id) => ipcRenderer.invoke(IPC.themeExportFile, id),
+    onChanged: (callback) => subscribe(IPC.themeChanged, callback),
+  },
+  appSettings: {
+    get: () => ipcRenderer.invoke(IPC.appSettingsGet),
+    update: (patch) => ipcRenderer.invoke(IPC.appSettingsUpdate, patch),
+    onChanged: (callback) => subscribe(IPC.appSettingsChanged, callback),
+  },
+  telemetry: {
+    getSource: () => ipcRenderer.invoke(IPC.telemetryGetSource),
+    setSource: (source) => ipcRenderer.invoke(IPC.telemetrySetSource, source),
+    pickReplayFile: () => ipcRenderer.invoke(IPC.telemetryPickReplay),
+    getStatus: () => ipcRenderer.invoke(IPC.telemetryGetStatus),
+    onStatus: (callback) => subscribe(IPC.telemetryStatusChanged, callback),
+    onSourceChanged: (callback) => subscribe(IPC.telemetrySourceChanged, callback),
+  },
+  restartApp: () => ipcRenderer.invoke(IPC.appRestart),
+  quit: () => ipcRenderer.invoke(IPC.appQuit),
 };
 
 contextBridge.exposeInMainWorld("overlayApi", api);

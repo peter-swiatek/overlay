@@ -1,0 +1,254 @@
+.ov-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  max-width: 100%;
+  height: 1.42em;
+  padding: 0 0.58em;
+  border-radius: 999px;
+  line-height: 1;
+  font-size: 0.82em;
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Two-tone licence pill: solid letter cap, dark tinted safety-rating body. */
+.ov-pill--lic-a,
+.ov-pill--lic-b,
+.ov-pill--lic-c,
+.ov-pill--lic-d,
+.ov-pill--lic-r,
+.ov-pill--lic-pro {
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--lic-color) 82%, rgba(255, 255, 255, 0.25));
+  background: color-mix(in srgb, var(--lic-color) 38%, #070b14);
+  color: #ffffff;
+}
+
+.ov-pill--lic-a {
+  --lic-color: var(--ov-locked-licence-a);
+}
+.ov-pill--lic-b {
+  --lic-color: var(--ov-locked-licence-b);
+}
+.ov-pill--lic-c {
+  --lic-color: var(--ov-locked-licence-c);
+}
+.ov-pill--lic-d {
+  --lic-color: var(--ov-locked-licence-d);
+}
+.ov-pill--lic-r {
+  --lic-color: var(--ov-locked-licence-r);
+}
+.ov-pill--lic-pro {
+  --lic-color: var(--ov-locked-licence-pro);
+}
+
+.ov-lic-ltr,
+.ov-lic-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-weight: 800;
+}
+
+/* The cap is a fixed-width box with the letter centred in it, plus a small left bias for the
+   rounded end. "Pro" grows past the minimum width. */
+.ov-lic-ltr {
+  box-sizing: border-box;
+  min-width: 1.62em;
+  padding: 0 0.34em 0 0.44em;
+  justify-content: center;
+  text-align: center;
+  background: var(--lic-color);
+  color: #ffffff;
+}
+
+.ov-pill--lic-c .ov-lic-ltr,
+.ov-pill--lic-d .ov-lic-ltr {
+  color: #0b0d12;
+}
+
+.ov-lic-num {
+  padding: 0 0.5em 0 0.4em;
+  color: #ffffff;
+}
+
+/* iRating capsule: light body, optional projected change with a direction triangle. */
+.ov-pill--ir {
+  gap: 0.2em;
+  padding: 0 0.56em;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  background: #f4f6fa;
+  color: #11141c;
+  font-weight: 800;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+}
+
+.ov-ir-val {
+  color: #11141c;
+  font-weight: 800;
+}
+
+/* Fixed sizes: the pill never resizes with the value or the change (tabular numerals). */
+.ov-pill--ir-narrow {
+  width: 4.2em;
+  padding: 0;
+}
+
+/* Just fits "10.4k" plus a 3-digit change; the change block keeps its width when empty. */
+.ov-pill--ir-wide {
+  width: 6.2em;
+  padding: 0 0.4em;
+  gap: 0;
+  justify-content: space-between;
+}
+
+.ov-pill--ir-wide .ov-ir-val {
+  text-align: left;
+}
+
+.ov-ir-delta--fixed {
+  box-sizing: border-box;
+  width: 2.6em;
+  justify-content: flex-end;
+}
+
+/* Combined licence pill: the inline licence colours replace the light body. */
+.ov-pill--ir-tinted {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.ov-pill--ir-tinted .ov-ir-val {
+  color: inherit;
+}
+
+.ov-ir-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1em;
+  font-size: 0.92em;
+  font-weight: 800;
+}
+
+.ov-ir-delta--up {
+  color: #237a30;
+}
+
+.ov-ir-delta--down {
+  color: #c92a2a;
+}
+
+.ov-ir-tri {
+  font-size: 0.72em;
+  line-height: 1;
+}
+
+/* Car count: the number followed by a small racing-helmet glyph. */
+.ov-car-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+}
+
+.ov-helmet {
+  flex: none;
+  width: 1.35em;
+  height: 1.35em;
+  fill: currentColor;
+}
+
+/* The traced line art is thin when small; a same-colour stroke thickens it a touch. */
+.ov-helmet path {
+  stroke: currentColor;
+  stroke-width: 10px;
+  stroke-linejoin: round;
+}
+
+.ov-badge-flag {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  height: 1.56em;
+  margin-left: 0.56em;
+  padding: 0 0.67em;
+  /* Rounded rectangle, not a pill: reads differently from the licence and iRating pills. */
+  border-radius: 3px;
+  font-size: 0.64em;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ov-badge-flag--yel,
+.ov-badge-flag--off {
+  background: var(--ov-locked-flag-yellow);
+  color: #0b0d12;
+}
+
+.ov-badge-flag--pit {
+  border: 1px solid var(--ov-border);
+  background: color-mix(in srgb, var(--ov-text) 18%, transparent);
+  color: var(--ov-text-muted);
+}
+
+.ov-badge-flag--dsq {
+  background: var(--ov-locked-loss);
+  color: #ffffff;
+}
+
+.ov-badge-flag--blk {
+  border: 1px solid var(--ov-border);
+  background: var(--ov-locked-flag-black);
+  color: #ffffff;
+}
+
+.ov-badge-flag--dmg {
+  background: color-mix(in srgb, var(--ov-locked-loss) 50%, var(--ov-locked-flag-yellow));
+  color: #0b0d12;
+}
+
+/* Car number: dark chip with a class-coloured left border. */
+.ov-car-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.15em;
+  height: 1.35em;
+  padding: 0 0.32em;
+  border: 1px solid color-mix(in srgb, var(--ov-text) 16%, transparent);
+  border-left: 2.5px solid var(--class-color, var(--ov-accent));
+  border-radius: 2px;
+  background: rgba(15, 18, 24, 0.55);
+  color: #ffffff;
+  font-size: 0.86em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ov-pill--plain {
+  background: color-mix(in srgb, var(--ov-text) 14%, transparent);
+  color: var(--ov-text);
+}
+
+.ov-delta {
+  font-variant-numeric: tabular-nums;
+}
+
+.ov-delta--gain {
+  color: var(--ov-locked-gain);
+}
+
+.ov-delta--loss {
+  color: var(--ov-locked-loss);
+}
+
+.ov-delta--none {
+  color: var(--ov-text-muted);
+}

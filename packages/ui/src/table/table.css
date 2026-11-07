@@ -1,0 +1,253 @@
+.ov-table {
+  display: grid;
+  width: 100%;
+  font-family: var(--ov-font-family, inherit);
+  font-weight: var(--ov-font-weight, 500);
+  font-size: var(--ov-font-size, 14px);
+  color: var(--ov-text);
+  grid-auto-rows: var(--ov-row-height, 24px);
+  /* Derived here, not on :root, so a scoped preview theme resolves them from its own tokens. */
+  --ov-own-row-line: rgb(from var(--ov-own-row) r g b / 0.45);
+  --ov-yellow-row: color-mix(in srgb, var(--ov-locked-flag-yellow) 30%, transparent);
+  --ov-yellow-row-line: color-mix(in srgb, var(--ov-locked-flag-yellow) 52%, transparent);
+}
+
+.ov-row,
+.ov-section {
+  display: contents;
+}
+
+.ov-cell {
+  --row-base-bg: color-mix(
+    in srgb,
+    var(--ov-row) calc(var(--ov-row-opacity, 1) * 100%),
+    transparent
+  );
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 var(--ov-cell-pad-x, 7px);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background: var(--row-base-bg);
+  box-sizing: border-box;
+}
+
+.ov-cell-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ov-table--compact .ov-cell {
+  padding: 0 calc(var(--ov-cell-pad-x, 7px) / 2);
+}
+
+.ov-cell--right {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.ov-cell--center {
+  justify-content: center;
+  text-align: center;
+}
+
+.ov-row--alt > .ov-cell {
+  --row-base-bg: color-mix(
+    in srgb,
+    var(--ov-row-alt) calc(var(--ov-row-opacity, 1) * 100%),
+    transparent
+  );
+  background: var(--row-base-bg);
+}
+
+.ov-row--own > .ov-cell {
+  --row-base-bg: color-mix(
+    in srgb,
+    var(--ov-own-row) calc(var(--ov-row-opacity, 1) * 100%),
+    transparent
+  );
+  background: var(--row-base-bg);
+  box-shadow:
+    inset 0 1px 0 var(--ov-own-row-line),
+    inset 0 -1px 0 var(--ov-own-row-line);
+  font-weight: 700;
+}
+
+/* The own-row highlight starts after the position and car-number cells, which keep the plain row. */
+.ov-row--own:not(.ov-row--yellow) > .ov-cell--pos,
+.ov-row--own:not(.ov-row--yellow) > .ov-cell--pos-fade {
+  --row-base-bg: color-mix(
+    in srgb,
+    var(--ov-row) calc(var(--ov-row-opacity, 1) * 100%),
+    transparent
+  );
+  box-shadow: none;
+}
+
+.ov-row--own.ov-row--alt:not(.ov-row--yellow) > .ov-cell--pos,
+.ov-row--own.ov-row--alt:not(.ov-row--yellow) > .ov-cell--pos-fade {
+  --row-base-bg: color-mix(
+    in srgb,
+    var(--ov-row-alt) calc(var(--ov-row-opacity, 1) * 100%),
+    transparent
+  );
+}
+
+/* Own-row gradient, pale on the left and strongest at the right edge. Cells are separate grid
+   items, so each one draws its own slice: the k-th cell from the right runs from strength
+   f(k) to f(k - 1), with f(k) = max(0.45, 1.6 - 0.25k) times the own-row colour's alpha. The
+   slices meet without a seam whatever the column widths. */
+.ov-row--own > .ov-cell {
+  --own-k: 12;
+}
+.ov-row--own > .ov-cell:nth-last-child(1) {
+  --own-k: 1;
+}
+.ov-row--own > .ov-cell:nth-last-child(2) {
+  --own-k: 2;
+}
+.ov-row--own > .ov-cell:nth-last-child(3) {
+  --own-k: 3;
+}
+.ov-row--own > .ov-cell:nth-last-child(4) {
+  --own-k: 4;
+}
+.ov-row--own > .ov-cell:nth-last-child(5) {
+  --own-k: 5;
+}
+.ov-row--own > .ov-cell:nth-last-child(6) {
+  --own-k: 6;
+}
+.ov-row--own > .ov-cell:nth-last-child(7) {
+  --own-k: 7;
+}
+.ov-row--own > .ov-cell:nth-last-child(8) {
+  --own-k: 8;
+}
+.ov-row--own > .ov-cell:nth-last-child(9) {
+  --own-k: 9;
+}
+.ov-row--own > .ov-cell:nth-last-child(10) {
+  --own-k: 10;
+}
+.ov-row--own > .ov-cell:nth-last-child(11) {
+  --own-k: 11;
+}
+.ov-row--own > .ov-cell:nth-last-child(12) {
+  --own-k: 12;
+}
+.ov-row--own:not(.ov-row--yellow) > .ov-cell:not(.ov-cell--pos, .ov-cell--pos-fade) {
+  background: linear-gradient(
+    90deg,
+    rgb(from var(--ov-own-row) r g b / calc(alpha * max(0.45, 1.6 - 0.25 * var(--own-k)))),
+    rgb(from var(--ov-own-row) r g b / calc(alpha * max(0.45, 1.6 - 0.25 * (var(--own-k) - 1))))
+  );
+}
+
+/* The first highlighted cell (right after position / car number) fades in from nothing, so the
+   gradient blends out of the plain cells instead of starting at an edge. */
+.ov-row--own:not(.ov-row--yellow)
+  > :is(.ov-cell--pos, .ov-cell--pos-fade)
+  + .ov-cell:not(.ov-cell--pos, .ov-cell--pos-fade) {
+  background: linear-gradient(
+    90deg,
+    rgb(from var(--ov-own-row) r g b / 0) 0%,
+    rgb(from var(--ov-own-row) r g b / calc(alpha * max(0.45, 1.6 - 0.25 * (var(--own-k) - 1))))
+      100%
+  );
+}
+
+/* Declared after the own row: a row that is both keeps the yellow background and lines (and bold). */
+.ov-row--yellow > .ov-cell {
+  --row-base-bg: var(--ov-yellow-row);
+  background: var(--row-base-bg);
+  box-shadow:
+    inset 0 1px 0 var(--ov-yellow-row-line),
+    inset 0 -1px 0 var(--ov-yellow-row-line);
+}
+
+.ov-row--header > .ov-cell {
+  --row-base-bg: var(--ov-header);
+  background: var(--ov-header);
+  color: var(--ov-text-muted);
+  font-size: 0.82em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--ov-border);
+}
+
+/* Position cell: class-colour gradient over the row background. */
+.ov-cell--pos {
+  padding-left: calc(var(--ov-cell-pad-x, 7px) - 2px);
+  justify-content: center;
+  font-weight: 700;
+  border-left: 3px solid var(--class-color, var(--ov-accent));
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--class-color, var(--ov-accent)) 36%, transparent) 0%,
+      color-mix(in srgb, var(--class-color, var(--ov-accent)) 12%, transparent) 100%
+    ),
+    var(--row-base-bg) !important;
+}
+
+.ov-cell--pos-fade {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--class-color, var(--ov-accent)) 12%, transparent) 0%,
+      transparent 95%
+    ),
+    var(--row-base-bg) !important;
+}
+
+/* Class band: replaces the old section bar. */
+.ov-class-band {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  min-width: 0;
+  height: var(--ov-row-height, 24px);
+  padding-right: var(--ov-cell-pad-x, 7px);
+  overflow: hidden;
+  white-space: nowrap;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--class-color, var(--ov-accent)) 28%, var(--ov-header)) 0%,
+    color-mix(in srgb, var(--class-color, var(--ov-accent)) 8%, var(--ov-header)) 65%,
+    var(--ov-header) 100%
+  );
+  border-top: 1px solid var(--ov-border);
+  border-bottom: 1px solid var(--ov-border);
+  color: var(--ov-text);
+}
+
+.ov-class-tab {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 1em 0 0.57em;
+  background: var(--class-color, var(--ov-accent));
+  color: #0b0d12;
+  font-size: 0.82em;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 0.5em) 100%, 0 100%);
+}
+
+.ov-class-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7em;
+  font-size: 0.8em;
+  color: var(--ov-text-muted);
+  font-weight: 600;
+}

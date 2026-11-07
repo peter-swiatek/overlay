@@ -1,0 +1,80 @@
+/* Rows are display: contents, so these style cell content, never the row. */
+.ov-info-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.66em;
+  min-height: 1.83em;
+  padding: 0.17em var(--ov-cell-pad-x, 7px);
+  overflow: hidden;
+  white-space: nowrap;
+  box-sizing: border-box;
+  /* A long strip never widens the window; the table alone sets widths. */
+  contain: inline-size;
+  background: var(--ov-header);
+  border-bottom: 1px solid var(--ov-border);
+  font-family: var(--ov-font-family, inherit);
+  font-weight: var(--ov-font-weight, 500);
+  font-size: calc(var(--ov-font-size, 14px) * 0.86);
+  color: var(--ov-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.ov-info-strip--footer {
+  margin-top: auto;
+  border-top: 1px solid var(--ov-border);
+  border-bottom: 0;
+}
+
+.ov-info-group {
+  display: flex;
+  align-items: baseline;
+  gap: 0.83em;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ov-info-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.33em;
+  white-space: nowrap;
+}
+
+.ov-info-label {
+  color: var(--ov-text-muted);
+  font-weight: 500;
+}
+
+.ov-info-value {
+  font-weight: 700;
+  color: var(--ov-text);
+}
+
+.ov-info-value.ov-fastest {
+  color: var(--ov-locked-fastest);
+}
+
+.ov-info-item--unavailable .ov-info-value {
+  color: var(--ov-text-muted);
+}
+
+/* In the flag column the badge starts at the cell edge. */
+.ov-cell > .ov-badge-flag:first-child {
+  margin-left: 0;
+}
+
+/* Hidden probe: one `ch` of the table font and --ov-cell-pad-x for useFittedFields. */
+.ov-ch-probe {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100ch;
+  height: 0;
+  visibility: hidden;
+  pointer-events: none;
+  font-family: var(--ov-font-family, inherit);
+  font-weight: var(--ov-font-weight, 500);
+  font-size: var(--ov-font-size, 14px);
+  font-variant-numeric: tabular-nums;
+}

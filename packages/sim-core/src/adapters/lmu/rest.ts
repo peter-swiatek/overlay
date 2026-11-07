@@ -6,6 +6,8 @@
 export interface LmuRestCar {
   carClass: string | null;
   carNumber: string | null;
+  /** `fullTeamName`: always the leading part of the scoring vehicleName in the recording. */
+  teamName: string | null;
   /** Pit state name such as "NONE" or "EXITING". */
   pitState: string | null;
 }
@@ -38,6 +40,7 @@ export function parseStandings(body: unknown): Map<number, LmuRestCar> {
     cars.set(slot, {
       carClass: nonEmptyString(entry["carClass"]),
       carNumber: nonEmptyString(entry["carNumber"]),
+      teamName: nonEmptyString(entry["fullTeamName"]),
       pitState: nonEmptyString(entry["pitState"]),
     });
   }

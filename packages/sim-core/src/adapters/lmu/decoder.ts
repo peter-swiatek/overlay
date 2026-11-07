@@ -4,11 +4,13 @@ import {
   lmuClassColour,
   type Car,
   type Flags,
+  type PlayerLap,
   type SessionInfo,
   type SessionPhase,
   type SessionTiming,
   type SessionType,
   type SimState,
+  type TrackSurface,
   type TyreCorner,
   type TyreSet,
   type Vec3,
@@ -30,6 +32,7 @@ import {
 } from "./layout";
 import { decodeSimText } from "../../sim-text";
 import { applyRestResponse, emptyRestSnapshot, type LmuRestSnapshot } from "./rest";
+import { LmuSectorLearner } from "./sectors";
 
 export interface LmuDecodeResult {
   /** `connected: false` and otherwise empty when `error` is set. */
@@ -48,6 +51,7 @@ export interface LmuDecoderOptions {
 export const LMU_VALIDATED_GAME_VERSIONS: readonly number[] = [14200];
 
 const KELVIN = 273.15;
+const SECONDS_PER_DAY = 86_400;
 /** `maxLaps` and end times at or above these mean "no limit" (the sim writes INT_MAX). */
 const MAX_REAL_LAPS = 1_000_000;
 const MAX_REAL_END_ET_S = 1_000_000;
@@ -115,6 +119,7 @@ function failed(error: string): LmuDecodeResult {
 export class LmuDecoder {
   private rest: LmuRestSnapshot = emptyRestSnapshot();
   private readonly validated: readonly number[];
+  private readonly sectors = new LmuSectorLearner();
 
   constructor(options: LmuDecoderOptions = {}) {
     this.validated = options.validatedGameVersions ?? LMU_VALIDATED_GAME_VERSIONS;
@@ -173,13 +178,28 @@ export class LmuDecoder {
     state.playerCarIdx = playerId;
     state.focusCarIdx = playerId;
     state.session = readSession(f, trackLengthM, count, this.rest);
+    state.session.sectorStartPcts = this.sectors.observe(
+      state.session.trackName === null ? null : `${state.session.trackName}|${trackLengthM}`,
+      playerRow === null ? -1 : f.i8(playerRow + VEHICLE.sector),
+      cars.find((c) => c.isPlayer)?.lapDistPct ?? null,
+    );
     state.conditions = {
+      ...state.conditions,
       airTempC: f.f64(SCORING_BASE + SESSION.ambientTemp),
       trackTempC: f.f64(SCORING_BASE + SESSION.trackTemp),
       wetness: clamp01(f.f64(SCORING_BASE + SESSION.averagePathWetness)),
     };
     state.flags = playerRow === null ? null : readFlags(f, playerRow);
     state.player.worldPos = playerRow === null ? null : readWorldPos(f, playerRow);
+    state.player.yawRad = playerRow === null ? null : readYaw(f, playerRow);
+    if (playerRow !== null) {
+      const inCar = f.u8(TELEMETRY_BASE + TELEMETRY.playerInCar) === 1;
+      const live = f.u8(SCORING_BASE + SESSION.inRealtime) === 1;
+      const stalled = cars.find((c) => c.isPlayer)?.inPitStall === true;
+      state.player.lap = inCar ? readPlayerLap(f, playerRow) : null;
+      state.player.trackSurface = playerSurface(inCar, live, stalled);
+      state.player.isOnTrack = inCar && live;
+    }
 
     const telemetryRow = playerId === null ? null : findTelemetryRow(f, playerId);
     if (telemetryRow !== null) readPlayer(f, telemetryRow, state);
@@ -344,8 +364,43 @@ function readSession(
     // Neither the scoring block nor REST names the layout.
     trackConfig: null,
     trackLengthM: trackLengthM > 0 ? trackLengthM : null,
+    // No pit speed limit exists in the buffer or the recorded REST bodies (see layout.ts).
     pitSpeedLimitMps: null,
+    incidentLimit: null,
+    timeOfDayS: timeOfDay(f.f32(s + SESSION.timeOfDay)),
+    typeName: rest.session?.session ?? null,
+    trackUsage: null,
+    // Learned from the player's sector changes by LmuSectorLearner (decode fills it in).
+    sectorStartPcts: null,
   };
+}
+
+/**
+ * The player's lap timing from the scoring row: time into the lap, last and best lap (the sim
+ * writes -1 or 0 until a lap is set). LMU has no live delta channels, so `delta` stays null.
+ */
+function readPlayerLap(f: Frame, row: number): PlayerLap {
+  const into = f.f64(row + VEHICLE.timeIntoLap);
+  return {
+    currentLapS: Number.isFinite(into) && into >= 0 ? into : null,
+    lastLapS: positiveOrNull(f.f64(row + VEHICLE.lastLapTime)),
+    bestLapS: positiveOrNull(f.f64(row + VEHICLE.bestLapTime)),
+    delta: null,
+  };
+}
+
+/**
+ * In the stall, else on track while in real time and in the car, else not in the world. Never
+ * `offTrack` or `approachingPits`: nothing in the buffer proves them.
+ */
+function playerSurface(inCar: boolean, live: boolean, inStall: boolean): TrackSurface {
+  if (inStall) return "inPitStall";
+  return inCar && live ? "onTrack" : "notInWorld";
+}
+
+/** Seconds after midnight; the sim keeps counting past 24 h in long sessions. */
+function timeOfDay(seconds: number): number | null {
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds % SECONDS_PER_DAY : null;
 }
 
 /**
@@ -365,6 +420,9 @@ function readFlags(f: Frame, playerRow: number): Flags {
     white: false,
     checkered: false,
     black: false,
+    disqualified: false,
+    repair: false,
+    furled: false,
   };
 }
 
@@ -424,18 +482,24 @@ function readCar(f: Frame, o: number, trackLengthM: number, rest: LmuRestSnapsho
   car.className = className;
   car.classColour = lmuClassColour(className);
   car.carNumber = extra?.carNumber ?? numberFromVehicleName(vehicleName);
+  car.teamName = extra?.teamName ?? teamFromVehicleName(vehicleName);
+  car.worldPos = readWorldPos(f, o);
+  car.fuelFraction = f.u8(o + VEHICLE.fuelFraction) / 255;
   car.position = f.u8(o + VEHICLE.position) || null;
   car.lapsCompleted = laps;
   car.lapInProgress = laps + 1;
   car.lapDistPct = lapPct(f.f64(o + VEHICLE.lapDistance), trackLengthM);
   car.onPitRoad = inPits;
   car.inPitStall = inPitStall(f, o, inPits, extra?.pitState ?? null);
-  car.isOnTrack = controlKnown ? !inPits : null;
+  // Like iRacing, "on track" means in the world (a car in the pits is), so overlays and the
+  // spotter can tell the pits from a car that is not there.
+  car.isOnTrack = controlKnown ? true : null;
   car.lastLapS = positiveOrNull(f.f64(o + VEHICLE.lastLapTime));
   car.bestLapS = positiveOrNull(f.f64(o + VEHICLE.bestLapTime));
   car.estTimeS = timeIntoLap >= 0 && Number.isFinite(timeIntoLap) ? timeIntoLap : null;
   car.isPlayer = f.u8(o + VEHICLE.player) === 1;
   car.connected = controlKnown;
+  car.flags = readFlags(f, o);
   return car;
 }
 
@@ -462,6 +526,16 @@ function inPitStall(
 
 export function numberFromVehicleName(name: string): string | null {
   return /#(\w+)/.exec(name)?.[1] ?? null;
+}
+
+/**
+ * vehicleName is "<team> <year> #<number>:<livery tag>" for every car in the recording (4,255
+ * rows, one shape), and REST fullTeamName equals the part before the year. Anything that does not
+ * match that shape gives no team rather than a guess.
+ */
+export function teamFromVehicleName(name: string): string | null {
+  const team = /^(.+?)\s+\d{4}\s+#\w+:/.exec(name)?.[1]?.trim();
+  return team === undefined || team.length === 0 ? null : team;
 }
 
 function lapPct(lapDist: number, trackLengthM: number): number | null {
@@ -516,7 +590,25 @@ function readPlayer(f: Frame, o: number, state: SimState): void {
   const energy = f.f32(o + TELEM.veFraction);
   player.energyFraction = energy >= 0 && energy <= 1 ? energy : null;
   player.pitLimiter = f.u8(o + TELEM.pitLimiterOn) === 1;
+  player.redlineRpm = positiveOrNull(f.f64(o + TELEM.rpmLimit));
+  // The row holds the rear share, including live brake migration; SimState wants the front share.
+  const rear = f.f64(o + TELEM.rearBrakeBias);
+  player.brakeBias = rear > 0 && rear < 1 ? 1 - rear : null;
   player.tyres = readTyres(f, o);
+}
+
+/**
+ * Heading of the car's nose in the SimState convention for LMU: with the ground plane x/z and north
+ * taken as -z (the way rFactor 2 cars face at yaw 0), the nose direction is (-sin yaw, -cos yaw).
+ * The nose is minus the third column of the orientation matrix, so yaw = atan2(m[0][2], m[2][2]).
+ * Null when the matrix is not finite or the nose points (almost) straight up or down.
+ */
+function readYaw(f: Frame, row: number): number | null {
+  const o = row + VEHICLE.orientation;
+  const m02 = f.f64(o + 2 * 8);
+  const m22 = f.f64(o + 8 * 8);
+  if (!Number.isFinite(m02 + m22) || Math.hypot(m02, m22) < 0.5) return null;
+  return Math.atan2(m02, m22);
 }
 
 function readWorldPos(f: Frame, row: number): Vec3 | null {

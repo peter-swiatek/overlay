@@ -9,6 +9,7 @@ import {
   numberFromVehicleName,
   phaseOf,
   sessionTypeOf,
+  teamFromVehicleName,
   type LmuDecodeResult,
 } from "./decoder";
 import {
@@ -379,5 +380,225 @@ describe("frame consistency", () => {
     const later = Buffer.from(raw);
     later.writeInt32LE(6, SCORING_BASE + SESSION.sessionCode);
     expect(decoder.decode(later).state.cars.find((c) => c.carIdx === 0)?.carNumber).toBe("83");
+  });
+});
+
+describe("field data for overlays", () => {
+  const raw = onTrack.frames[0]!.raw;
+  const rowOf = (i: number) => VEHICLE_ROWS_OFFSET + i * VEHICLE_STRIDE;
+  const playerTelemetryRow = (buffer: Buffer) =>
+    TELEMETRY_BASE +
+    TELEMETRY.rowsOffset +
+    buffer[TELEMETRY_BASE + TELEMETRY.playerRowIndex]! * TELEMETRY.rowStride;
+
+  it("reads a world position and a fuel fraction for every vehicle in the slice", () => {
+    for (const { result } of onTrack.frames) {
+      const { cars } = result.state;
+      expect(cars.length).toBe(37);
+      for (const car of cars) {
+        expect(car.worldPos).not.toBeNull();
+        expect(Number.isFinite((car.worldPos?.x ?? NaN) + (car.worldPos?.z ?? NaN))).toBe(true);
+        expect(car.fuelFraction).toBeGreaterThanOrEqual(0);
+        expect(car.fuelFraction).toBeLessThanOrEqual(1);
+      }
+      expect(result.state.player.worldPos).toEqual(cars.find((c) => c.isPlayer)?.worldPos);
+    }
+  });
+
+  it("fills the player's brake bias, the time of day and a team for every car in the slice", () => {
+    const { state } = new LmuDecoder().decode(raw);
+    expect(state.player.brakeBias).toBeGreaterThan(0.3);
+    expect(state.player.brakeBias).toBeLessThan(0.7);
+    expect(state.session.timeOfDayS).toBeGreaterThan(0);
+    expect(state.session.timeOfDayS).toBeLessThan(86_400);
+    expect(state.cars.every((c) => c.teamName !== null && c.teamName.length > 0)).toBe(true);
+    expect(state.cars.every((c) => !(c.teamName ?? "").includes("#"))).toBe(true);
+  });
+
+  it("decodes synthetic values at the documented offsets", () => {
+    const edited = Buffer.from(raw);
+    const row = rowOf(2);
+    edited.writeUInt8(204, row + VEHICLE.fuelFraction); // 204 / 255 = 0.8
+    edited.writeDoubleLE(-142.5, row + VEHICLE.worldPos);
+    edited.writeDoubleLE(7.25, row + VEHICLE.worldPos + 8);
+    edited.writeDoubleLE(1155.5, row + VEHICLE.worldPos + 16);
+    edited.writeFloatLE(51_000, SCORING_BASE + SESSION.timeOfDay);
+    edited.writeDoubleLE(0.45, playerTelemetryRow(edited) + TELEM.rearBrakeBias);
+    const { state } = new LmuDecoder().decode(edited);
+    const car = state.cars[2]!;
+    expect(car.fuelFraction).toBeCloseTo(0.8, 6);
+    expect(car.worldPos).toEqual({ x: -142.5, y: 7.25, z: 1155.5 });
+    expect(state.session.timeOfDayS).toBe(51_000);
+    expect(state.player.brakeBias).toBeCloseTo(0.55, 6);
+  });
+
+  it("wraps a time of day past 24 h and ignores a rear bias outside 0..1", () => {
+    const edited = Buffer.from(raw);
+    edited.writeFloatLE(86_400 + 120, SCORING_BASE + SESSION.timeOfDay);
+    edited.writeDoubleLE(0, playerTelemetryRow(edited) + TELEM.rearBrakeBias);
+    const { state } = new LmuDecoder().decode(edited);
+    expect(state.session.timeOfDayS).toBe(120);
+    expect(state.player.brakeBias).toBeNull();
+  });
+
+  it("leaves what is not proven null", () => {
+    const { state } = new LmuDecoder().decode(raw);
+    expect(state.session.pitSpeedLimitMps).toBeNull();
+    expect(state.session.incidentLimit).toBeNull();
+    expect(state.player.pitStallLapDistPct).toBeNull();
+    expect(state.conditions).toMatchObject({
+      precipitation: null,
+      humidity: null,
+      fogLevel: null,
+      windSpeedMps: null,
+      windDirRad: null,
+    });
+  });
+
+  it("fills the player's lap timing, redline, surface and per-car flags from the slice", () => {
+    const { state } = new LmuDecoder().decode(raw);
+    const lap = state.player.lap;
+    expect(lap).not.toBeNull();
+    expect(lap?.delta).toBeNull();
+    expect(lap?.currentLapS).toBeGreaterThanOrEqual(0);
+    for (const t of [lap?.lastLapS, lap?.bestLapS]) expect(t == null || t > 0).toBe(true);
+    expect(state.player.redlineRpm).toBeGreaterThan(5000);
+    expect(state.player.trackSurface).toBe("onTrack");
+    expect(state.player.isOnTrack).toBe(true);
+    expect(state.player.absActive).toBeNull();
+    expect(state.player.pitLimiter).toBe(false);
+    expect(state.cars.every((c) => c.flags !== null && c.trackSurface === null)).toBe(true);
+  });
+
+  it("decodes synthetic lap times, blue flags and the stall surface", () => {
+    const edited = Buffer.from(raw);
+    const player = new LmuDecoder().decode(raw).state.cars.findIndex((c) => c.isPlayer);
+    const row = rowOf(player);
+    edited.writeDoubleLE(31.5, row + VEHICLE.timeIntoLap);
+    edited.writeDoubleLE(212.25, row + VEHICLE.lastLapTime);
+    edited.writeDoubleLE(-1, row + VEHICLE.bestLapTime);
+    edited.writeUInt8(6, rowOf(3) + VEHICLE.flag);
+    edited.writeUInt8(1, rowOf(4) + VEHICLE.underYellow);
+    const { state } = new LmuDecoder().decode(edited);
+    expect(state.player.lap).toEqual({
+      currentLapS: 31.5,
+      lastLapS: 212.25,
+      bestLapS: null,
+      delta: null,
+    });
+    expect(state.cars[3]!.flags?.blue).toBe(true);
+    expect(state.cars[4]!.flags?.yellow).toBe(true);
+    expect(state.cars[5]!.flags?.blue).toBe(false);
+
+    edited.writeUInt8(0, SCORING_BASE + SESSION.inRealtime);
+    expect(new LmuDecoder().decode(edited).state.player).toMatchObject({
+      trackSurface: "notInWorld",
+      isOnTrack: false,
+    });
+
+    const away = Buffer.from(raw);
+    away.writeUInt8(0, TELEMETRY_BASE + TELEMETRY.playerInCar);
+    expect(new LmuDecoder().decode(away).state.player.lap).toBeNull();
+  });
+
+  it("learns the sector starts from the player's sector changes", () => {
+    const decoder = new LmuDecoder();
+    const player = decoder.decode(raw).state.cars.findIndex((c) => c.isPlayer);
+    const row = rowOf(player);
+    const length = raw.readDoubleLE(SCORING_BASE + SESSION.lapDistance);
+    const frame = (rawSector: number, pct: number) => {
+      const b = Buffer.from(raw);
+      b.writeInt8(rawSector, row + VEHICLE.sector);
+      b.writeDoubleLE(pct * length, row + VEHICLE.lapDistance);
+      return decoder.decode(b).state.session.sectorStartPcts;
+    };
+    expect(frame(1, 0.25)).toBeNull();
+    expect(frame(2, 0.252)).toBeNull();
+    expect(frame(2, 0.6)).toBeNull();
+    const starts = frame(0, 0.602)!;
+    expect(starts[0]).toBe(0);
+    expect(starts[1]!).toBeCloseTo(0.251, 6);
+    expect(starts[2]!).toBeCloseTo(0.601, 6);
+    expect(frame(0, 0.7)).toEqual(starts);
+  });
+
+  it("uses the REST session name as the session type name", () => {
+    const decoder = new LmuDecoder();
+    decoder.observeRest({
+      path: "/rest/watch/sessionInfo",
+      status: 200,
+      body: { session: "PRACTICE1", maxTime: 3600 },
+    });
+    expect(decoder.decode(raw).state.session.typeName).toBe("PRACTICE1");
+    expect(new LmuDecoder().decode(raw).state.session.typeName).toBeNull();
+  });
+
+  it("separates the team from a vehicle name of the observed shape only", () => {
+    expect(teamFromVehicleName("Example Racing Team 2026 #83:LM")).toBe("Example Racing Team");
+    expect(teamFromVehicleName("Zofia Świątkowska Motorsport 2026 #5:A")).toBe(
+      "Zofia Świątkowska Motorsport",
+    );
+    expect(teamFromVehicleName("Some Car")).toBeNull();
+    expect(teamFromVehicleName("2026 #1:X")).toBeNull();
+    expect(teamFromVehicleName("")).toBeNull();
+  });
+
+  it("prefers the REST team name over the one parsed from the vehicle name", () => {
+    const decoder = new LmuDecoder();
+    const parsed = decoder.decode(raw).state.cars[0]?.teamName;
+    expect(parsed).not.toBeNull();
+    decoder.observeRest({
+      path: "/rest/watch/standings",
+      status: 200,
+      body: [{ slotID: raw.readInt32LE(rowOf(0)), fullTeamName: "Max Example Racing" }],
+    });
+    expect(decoder.decode(raw).state.cars[0]?.teamName).toBe("Max Example Racing");
+  });
+
+  it("reads the player's heading from the orientation matrix (nose = minus the third column)", () => {
+    const playerRow = rowOf(onTrack.frames[0]!.result.state.cars.findIndex((c) => c.isPlayer));
+    const withNose = (fx: number, fz: number) => {
+      const edited = Buffer.from(raw);
+      // Rows of the matrix; only the third column matters: column 3 = -(nose).
+      const o = playerRow + VEHICLE.orientation;
+      [1, 0, -fx, 0, 1, 0, 0, 0, -fz].forEach((v, i) => edited.writeDoubleLE(v, o + i * 8));
+      return new LmuDecoder().decode(edited).state.player.yawRad;
+    };
+    const dir = (yaw: number | null) => [-Math.sin(yaw as number), -Math.cos(yaw as number)];
+    // Nose towards -z (yaw 0), towards -x (yaw 90 degrees), towards +z, and a slanted one.
+    expect(withNose(0, -1)).toBeCloseTo(0, 9);
+    expect(withNose(-1, 0)).toBeCloseTo(Math.PI / 2, 9);
+    expect(Math.abs(withNose(0, 1) as number)).toBeCloseTo(Math.PI, 9);
+    const k = Math.SQRT1_2;
+    const [dx, dz] = dir(withNose(k, k));
+    expect(dx).toBeCloseTo(k, 9);
+    expect(dz).toBeCloseTo(k, 9);
+    // A matrix with the nose pointing straight up gives no heading.
+    expect(withNose(0, 0)).toBeNull();
+  });
+
+  it("keeps a car in the pits in the world and tells it from one that is not there", () => {
+    const edited = Buffer.from(raw);
+    edited.writeUInt8(1, rowOf(1) + VEHICLE.pitting);
+    edited.writeInt8(1, rowOf(1) + VEHICLE.inControl);
+    edited.writeInt8(-1, rowOf(2) + VEHICLE.inControl);
+    const { cars } = new LmuDecoder().decode(edited).state;
+    expect(cars[1]).toMatchObject({ onPitRoad: true, isOnTrack: true, connected: true });
+    expect(cars[2]).toMatchObject({ isOnTrack: null, connected: false });
+  });
+
+  it("falls back to the REST team name when the vehicle name has no recognisable shape", () => {
+    const edited = Buffer.from(raw);
+    const at = rowOf(0) + VEHICLE.vehicleName.offset;
+    edited.fill(0, at, at + VEHICLE.vehicleName.length);
+    edited.write("Plain Name", at, "latin1");
+    const decoder = new LmuDecoder();
+    expect(decoder.decode(edited).state.cars[0]?.teamName).toBeNull();
+    decoder.observeRest({
+      path: "/rest/watch/standings",
+      status: 200,
+      body: [{ slotID: edited.readInt32LE(rowOf(0)), fullTeamName: "Max Example Racing" }],
+    });
+    expect(decoder.decode(edited).state.cars[0]?.teamName).toBe("Max Example Racing");
   });
 });

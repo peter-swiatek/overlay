@@ -1,0 +1,101 @@
+.ps-panel {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.57em;
+  padding: 0 0.71em;
+  font-family: var(--ov-font-family);
+}
+.ps-sign {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.14em;
+  height: 2.14em;
+  border: 0.25em solid #ef4444;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #0b0d12;
+  font-size: 1em;
+}
+.ps-sign-text {
+  font-size: 0.93em;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.ps-speed {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+.ps-speed-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.29em;
+  color: var(--ov-text);
+}
+.ps-speed.ps-over .ps-speed-row {
+  color: var(--ov-locked-loss);
+}
+.ps-speed.ps-under .ps-speed-row {
+  color: var(--ov-locked-gain);
+}
+.ps-num {
+  font-size: 1.5em;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.ps-unit {
+  font-size: 0.78em;
+  font-weight: 600;
+  color: var(--ov-text-muted);
+}
+.ps-bar {
+  height: 0.29em;
+  margin-top: 0.2em;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.14);
+}
+.ps-fill {
+  height: 100%;
+  border-radius: 2px;
+}
+.ps-fill-over {
+  background: var(--ov-locked-loss);
+}
+.ps-fill-under {
+  background: var(--ov-locked-gain);
+}
+.ps-info {
+  font-size: 0.78em;
+  color: var(--ov-text-muted);
+  white-space: nowrap;
+}
+.ps-pill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 1.57em;
+  margin-left: auto;
+  padding: 0 0.57em;
+  border-radius: 999px;
+  font-size: 0.86em;
+  font-weight: 800;
+  white-space: nowrap;
+  color: var(--ov-text-muted);
+  background: color-mix(in srgb, var(--ov-text) 18%, transparent);
+}
+.ps-pill-on {
+  color: #051409;
+  background: var(--ov-locked-gain);
+}
+:root:not([data-reduced-effects="true"]) .ps-fill {
+  transition: width 100ms linear;
+}

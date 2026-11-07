@@ -6,7 +6,8 @@ body,
   height: 100%;
   background: transparent;
   overflow: hidden;
-  font-family: "Segoe UI", system-ui, sans-serif;
+  font-family: var(--ov-font-family, "Segoe UI", system-ui, sans-serif);
+  font-weight: var(--ov-font-weight, 400);
   user-select: none;
 }
 
@@ -15,55 +16,81 @@ body,
   width: 100%;
   height: 100%;
 }
+/* Title bar on while driving: in flow, the content fills the rest. */
+.overlay[data-titlebar="true"] {
+  display: flex;
+  flex-direction: column;
+}
+.overlay[data-titlebar="true"] > .overlay-content {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Chrome in fixed px. Editing with the setting off: laid over the top, no reflow. */
+.ov-titlebar {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: 20px;
+  padding: 0 8px;
+  background: rgba(255, 196, 0, 0.16);
+  border-bottom: 1px dashed rgba(255, 196, 0, 0.55);
+  color: #ffc400;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.overlay:not([data-titlebar="true"]) > .ov-titlebar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+}
+.overlay[data-edit="true"] > .ov-titlebar {
+  -webkit-app-region: drag;
+}
+
+/* Opacity, zoom and --ov-row-opacity are set inline by the host; the edit frame sits outside. */
+.overlay-content {
+  width: 100%;
+  height: 100%;
+}
+
+/* Fills the window; the host briefly sets min-content on it to measure the content's minimum. */
+.overlay-fit {
+  width: 100%;
+  height: 100%;
+}
+
+/* Measured by the table window fit: one `ch` of the table font, outside the zoom wrapper. */
+.ov-metrics-probe {
+  position: absolute;
+  left: 0;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+  display: block;
+  width: 0;
+  overflow: hidden;
+}
+.ov-metrics-ch {
+  display: inline-block;
+  width: 100ch;
+  height: 0;
+}
 
 .panel {
   box-sizing: border-box;
   width: 100%;
   height: 100%;
-  background: rgba(10, 12, 16, 0.72);
-  color: #f2f4f8;
+  background: var(--ov-bg, rgba(10, 12, 16, 0.72));
+  color: var(--ov-text, #f2f4f8);
   border-radius: 6px;
-}
-
-.relative {
-  border-collapse: collapse;
-  font-size: 15px;
-  font-variant-numeric: tabular-nums;
-}
-.relative td {
-  padding: 2px 8px;
-  text-align: right;
-}
-.relative td.name {
-  text-align: left;
-  width: 100%;
-}
-.relative tr.me {
-  background: rgba(255, 196, 0, 0.28);
-}
-
-.inputs {
-  display: flex;
-  gap: 12px;
-  padding: 10px;
-}
-.bar-track {
-  flex: 1;
-  display: flex;
-  align-items: flex-end;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  overflow: hidden;
-}
-.bar {
-  width: 100%;
-  height: 0;
-}
-.bar.throttle {
-  background: #2fd05a;
-}
-.bar.brake {
-  background: #ee3b3b;
 }
 
 .edit-frame {
@@ -74,17 +101,6 @@ body,
   border-radius: 6px;
   background: rgba(255, 196, 0, 0.1);
   -webkit-app-region: drag;
-}
-.edit-name {
-  position: absolute;
-  top: 4px;
-  left: 8px;
-  padding: 1px 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #111;
-  background: #ffc400;
-  border-radius: 3px;
 }
 .edit-grip {
   position: absolute;
@@ -97,11 +113,6 @@ body,
   -webkit-app-region: no-drag;
 }
 
-.relative td.car-number {
-  border-left: 4px solid transparent;
-  text-align: center;
-}
-
 .notice {
   display: flex;
   align-items: center;
@@ -109,46 +120,5 @@ body,
   padding: 8px;
   font-size: 14px;
   text-align: center;
-  color: #c4c9d2;
-}
-
-.bar.clutch {
-  background: #3b8cee;
-}
-.clutch-track {
-  flex: 0.5;
-}
-.readout {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  min-width: 0;
-  font-variant-numeric: tabular-nums;
-}
-.gear {
-  font-size: 44px;
-  font-weight: 700;
-  line-height: 1;
-}
-.speed {
-  font-size: 14px;
-  color: #c4c9d2;
-}
-.steer-track {
-  position: relative;
-  width: 100%;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-}
-.steer-mark {
-  position: absolute;
-  top: -2px;
-  width: 4px;
-  height: 12px;
-  margin-left: -2px;
-  background: #ffc400;
-  border-radius: 2px;
+  color: var(--ov-text-muted, #c4c9d2);
 }

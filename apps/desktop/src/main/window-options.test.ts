@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   OPACITY_WORKAROUND_VALUE,
   buildOverlayWindowOptions,
-  buildSettingsWindowOptions,
+  buildMainWindowOptions,
 } from "./window-options";
 
 describe("buildOverlayWindowOptions", () => {
@@ -38,9 +38,29 @@ describe("buildOverlayWindowOptions", () => {
   });
 });
 
-describe("buildSettingsWindowOptions", () => {
+describe("buildMainWindowOptions", () => {
+  it("is a resizable 1280x820 window titled Overlay with a 1000x680 minimum", () => {
+    const options = buildMainWindowOptions("/p/index.cjs");
+    expect(options).toMatchObject({
+      width: 1280,
+      height: 820,
+      minWidth: 1000,
+      minHeight: 680,
+      resizable: true,
+      title: "Overlay",
+      show: false,
+    });
+    expect(options).not.toHaveProperty("x");
+  });
+
+  it("uses a saved position and size", () => {
+    expect(
+      buildMainWindowOptions("/p/index.cjs", { x: 5, y: 6, width: 1100, height: 700 }),
+    ).toMatchObject({ x: 5, y: 6, width: 1100, height: 700 });
+  });
+
   it("is sandboxed and isolated", () => {
-    expect(buildSettingsWindowOptions("/p/index.cjs").webPreferences).toMatchObject({
+    expect(buildMainWindowOptions("/p/index.cjs").webPreferences).toMatchObject({
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,

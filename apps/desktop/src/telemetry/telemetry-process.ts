@@ -21,6 +21,9 @@ import type { PortLike } from "./publisher";
 import { ReplayTelemetrySource } from "./replay";
 import { TelemetryService } from "./service";
 import { WorkerSessionParser, type WorkerLike } from "./session-parser";
+import { FileBestLapStore, bestLapFile } from "./best-lap-store";
+import { FileFuelHistoryStore, fuelHistoryFile } from "./fuel-history-store";
+import { FilePitExitStore, pitExitFile } from "./pit-exit-store";
 import { FileTrackOutlineStore, parseUserDataArg, trackOutlineDir } from "./track-store";
 
 const parentPort = process.parentPort;
@@ -61,13 +64,23 @@ async function main(): Promise<void> {
   // Main passes the userData path and retention in the fork arguments: this process has no `app`.
   const recorder = createRecorder(parseRecorderArgs(process.argv.slice(1)));
 
-  // Without a folder from the main process (`--user-data=`) outlines are kept in memory only.
+  // Without a folder from the main process (`--user-data=`) outlines are kept in memory only and
+  // fuel use of earlier sessions is neither kept nor used.
   const userData = parseUserDataArg(process.argv);
   const deriver = new Deriver(
     userData === null
       ? {}
       : {
           trackOutlines: new FileTrackOutlineStore(trackOutlineDir(userData), (message) =>
+            console.error(message),
+          ),
+          pitExits: new FilePitExitStore(pitExitFile(userData), (message) =>
+            console.error(message),
+          ),
+          fuelHistory: new FileFuelHistoryStore(fuelHistoryFile(userData), (message) =>
+            console.error(message),
+          ),
+          bestLaps: new FileBestLapStore(bestLapFile(userData), (message) =>
             console.error(message),
           ),
         },

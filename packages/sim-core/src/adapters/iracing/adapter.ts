@@ -5,9 +5,13 @@ import {
   type Car,
   type CarLeftRight,
   type Flags,
+  type LapDeltaChannel,
+  type PlayerLap,
   type SessionPhase,
   type SessionTiming,
+  type ShiftLightRpm,
   type SimState,
+  type TrackSurface,
   type TyreCorner,
   type TyreSet,
   type Vec3,
@@ -18,6 +22,7 @@ import type { IracingDriver, IracingSessionEntry, IracingSessionInfo } from "./s
 /** iRacing's "no limit" markers. */
 const LAPS_UNLIMITED = 32767;
 const TIME_UNLIMITED_S = 604800;
+const SECONDS_PER_DAY = 86400;
 
 /** irsdk_Flags bits we show. */
 const FLAG_CHECKERED = 0x1;
@@ -27,15 +32,28 @@ const FLAG_YELLOW = 0x8 | 0x100;
 const FLAG_RED = 0x10;
 const FLAG_BLUE = 0x20;
 const FLAG_CAUTION = 0x4000 | 0x8000;
-// Not mapped, SimState has no slot: furled black (0x80000, a warning), repair/meatball
-// (0x100000) and debris (0x80).
-const FLAG_BLACK = 0x10000 | 0x20000;
+const FLAG_DISQUALIFY = 0x20000;
+const FLAG_BLACK = 0x10000 | FLAG_DISQUALIFY;
+/** Furled black: a warning. */
+const FLAG_FURLED = 0x80000;
+/** Meatball: repair required. */
+const FLAG_REPAIR = 0x100000;
+// Not mapped, SimState has no slot: debris (0x40), crossed (0x80).
 
 /** irsdk_EngineWarnings: pit speed limiter. */
 const ENGINE_PIT_LIMITER = 0x10;
 
 const TRACK_SURFACE_NOT_IN_WORLD = -1;
 const TRACK_SURFACE_IN_PIT_STALL = 1;
+
+/** irsdk_TrkLoc to {@link TrackSurface}; anything else is unknown. */
+const TRACK_SURFACES: Record<number, TrackSurface> = {
+  [-1]: "notInWorld",
+  0: "offTrack",
+  1: "inPitStall",
+  2: "approachingPits",
+  3: "onTrack",
+};
 
 const PHASES: Record<number, SessionPhase> = {
   1: "garage",
@@ -79,9 +97,12 @@ export class IracingAdapter {
     state.focusCarIdx = validIndex(r.number("CamCarIdx"));
     fillSession(state, r, info);
     state.conditions = {
+      ...state.conditions,
       airTempC: r.number("AirTemp"),
       trackTempC: r.number("TrackTempCrew"),
       wetness: wetness(r.number("TrackWetness")),
+      ...weather(r),
+      declaredWet: r.bool("WeatherDeclaredWet"),
     };
     state.flags = flags(r.number("SessionFlags"));
     state.cars = buildCars(r, info, state.playerCarIdx);
@@ -113,6 +134,11 @@ function fillSession(state: SimState, r: VarReader, info: IracingSessionInfo | n
   s.trackConfig = info?.trackConfig ?? null;
   s.trackLengthM = info?.trackLengthM ?? null;
   s.pitSpeedLimitMps = info?.pitSpeedLimitMps ?? null;
+  s.incidentLimit = info?.incidentLimit ?? null;
+  s.timeOfDayS = nonNegativeBelow(r.number("SessionTimeOfDay"), SECONDS_PER_DAY + 1);
+  s.typeName = entry?.typeName ?? null;
+  s.trackUsage = entry?.trackRubberState ?? null;
+  s.sectorStartPcts = info?.sectorStartPcts ?? null;
 }
 
 function findSession(
@@ -137,6 +163,37 @@ function wetness(value: number | null): number | null {
   return (value - 1) / 6;
 }
 
+/**
+ * Weather at the start/finish line. The var headers label precipitation, humidity and fog "%"
+ * but the recordings show 0..1 (humidity 0.71..0.84, precipitation and fog 0 on dry days), so
+ * they are only clamped. WindDir is in radians and drifts outside 0..2pi in recordings (6.06 to
+ * 7.26), so it is wrapped. The header text ("Wind direction at start/finish line") does not say
+ * whether it is where the wind comes from; we follow the SimState contract (from, clockwise
+ * from north) without a way to prove it from a recording.
+ */
+function weather(
+  r: VarReader,
+): Pick<
+  SimState["conditions"],
+  "precipitation" | "humidity" | "fogLevel" | "windSpeedMps" | "windDirRad"
+> {
+  const wind = r.number("WindVel");
+  const dir = r.number("WindDir");
+  return {
+    precipitation: unit(r.number("Precipitation")),
+    humidity: unit(r.number("RelativeHumidity")),
+    fogLevel: unit(r.number("FogLevel")),
+    windSpeedMps: wind === null || wind < 0 ? null : wind,
+    windDirRad: dir === null ? null : wrapRadians(dir),
+  };
+}
+
+function wrapRadians(value: number): number {
+  const full = 2 * Math.PI;
+  const wrapped = value % full;
+  return wrapped < 0 ? wrapped + full : wrapped;
+}
+
 function flags(bits: number | null): Flags | null {
   if (bits === null) return null;
   const f = emptyFlags();
@@ -148,6 +205,9 @@ function flags(bits: number | null): Flags | null {
   f.blue = (bits & FLAG_BLUE) !== 0;
   f.fullCourseYellow = (bits & FLAG_CAUTION) !== 0;
   f.black = (bits & FLAG_BLACK) !== 0;
+  f.disqualified = (bits & FLAG_DISQUALIFY) !== 0;
+  f.repair = (bits & FLAG_REPAIR) !== 0;
+  f.furled = (bits & FLAG_FURLED) !== 0;
   return f;
 }
 
@@ -195,6 +255,7 @@ function buildCar(
     car.iRating = driver.iRating;
     car.license = driver.license;
     car.isPaceCar = driver.isPaceCar;
+    car.teamName = driver.teamName;
   }
   car.position = atLeast(r.number("CarIdxPosition", carIdx), 1);
   car.classPosition = atLeast(r.number("CarIdxClassPosition", carIdx), 1);
@@ -213,6 +274,11 @@ function buildCar(
   // drives), so a car counts as connected while it is in the world; a driver sitting in the
   // garage reads as not connected.
   car.connected = inWorld;
+  car.flags = flags(r.number("CarIdxSessionFlags", carIdx));
+  const p2p = r.number("CarIdxP2P_Count", carIdx);
+  car.p2pCount = p2p === null || p2p < 0 ? null : p2p;
+  car.p2pActive = r.bool("CarIdxP2P_Status", carIdx);
+  car.trackSurface = trackSurface(surface);
   return car;
 }
 
@@ -244,6 +310,63 @@ function fillPlayer(state: SimState, r: VarReader, info: IracingSessionInfo | nu
   p.carLeftRight = !driving || lr === null ? null : (CAR_LEFT_RIGHT[lr] ?? null);
   p.yawRad = live(r.number("YawNorth"));
   p.velocityMps = live(velocity(r));
+  p.pitStallLapDistPct = info?.pitStallLapDistPct ?? null;
+  p.brakeBias = live(brakeBias(r.number("dcBrakeBias")));
+  p.lap = driving ? lap(r) : null;
+  p.absActive = live(r.bool("BrakeABSactive"));
+  p.trackSurface = trackSurface(r.number("PlayerTrackSurface"));
+  p.isOnTrack = r.bool("IsOnTrack");
+  p.steerMaxRad = positive(r.number("SteeringWheelAngleMax"));
+  p.redlineRpm = info?.redlineRpm ?? null;
+  p.shiftLights = shiftLights(r) ?? info?.shiftLightRpm ?? null;
+}
+
+function trackSurface(value: number | null): TrackSurface | null {
+  return value === null ? null : (TRACK_SURFACES[value] ?? null);
+}
+
+function lap(r: VarReader): PlayerLap {
+  return {
+    currentLapS: atLeast(r.number("LapCurrentLapTime"), 0),
+    lastLapS: positive(r.number("LapLastLapTime")),
+    bestLapS: positive(r.number("LapBestLapTime")),
+    delta: {
+      best: deltaChannel(r, "LapDeltaToBestLap"),
+      sessionBest: deltaChannel(r, "LapDeltaToSessionBestLap"),
+      // The sim spells this one "Lastl".
+      sessionLast: deltaChannel(r, "LapDeltaToSessionLastlLap"),
+    },
+  };
+}
+
+function deltaChannel(r: VarReader, name: string): LapDeltaChannel | null {
+  const s = r.number(name);
+  if (s === null) return null;
+  return { s, ok: r.bool(`${name}_OK`) === true, rate: r.number(`${name}_DD`) };
+}
+
+/** The live points follow the current gear; all of first/shift/last must be set to count. */
+function shiftLights(r: VarReader): ShiftLightRpm | null {
+  const first = r.number("PlayerCarSLFirstRPM");
+  const shift = r.number("PlayerCarSLShiftRPM");
+  const last = r.number("PlayerCarSLLastRPM");
+  if (first === null || shift === null || last === null) return null;
+  if (first <= 0 || shift <= 0 || last <= 0) return null;
+  return {
+    firstRpm: first,
+    shiftRpm: shift,
+    lastRpm: last,
+    blinkRpm: positive(r.number("PlayerCarSLBlinkRPM")),
+  };
+}
+
+/**
+ * dcBrakeBias is the front share in percent on most cars (55.96 in the recordings; 0 while the
+ * car is not driving). Some cars report an offset or a step instead, which cannot be read as a
+ * share, so anything outside 30..80 is unknown.
+ */
+function brakeBias(value: number | null): number | null {
+  return value === null || value < 30 || value > 80 ? null : value / 100;
 }
 
 /** Car-frame velocity: X forward, Y to the left, Z up (checked against Speed in recordings). */
