@@ -6,7 +6,7 @@ export interface HeadToHeadCar {
   classColour: string | null;
   carNumber: string | null;
   name: string;
-  /** "-1.2" ahead / "+0.9" behind, "1L" in laps, "--" unknown. */
+  /** Gap at the timing line: "-1.2" ahead / "+0.9" behind, "1L" in laps, "--" unknown. */
   gapText: string;
   /** Their last lap minus yours; positive = you were faster (gain). */
   lastLapDiffS: number | null;
@@ -87,8 +87,10 @@ export function headToHead(
   const ahead = find(myPos - 1);
   const behind = find(myPos + 1);
   const result: HeadToHead = {
-    ahead: build(ahead, myPos - 1, gapText(me.interval, "-")),
-    behind: build(behind, myPos + 1, gapText(behind?.entry.interval ?? null, "+")),
+    // Gaps as they stood at the timing line (yours to the car ahead when you last crossed it, the
+    // car behind's to you when it last did), so the tiles change once a lap, not continuously.
+    ahead: build(ahead, myPos - 1, gapText(me.lineInterval ?? null, "-")),
+    behind: build(behind, myPos + 1, gapText(behind?.entry.lineInterval ?? null, "+")),
   };
   return result.ahead === null && result.behind === null ? null : result;
 }

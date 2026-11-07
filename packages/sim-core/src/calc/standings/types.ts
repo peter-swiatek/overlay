@@ -22,6 +22,12 @@ export interface StandingsEntry {
   gapToClassLeader: StandingsGap | null;
   /** To the car one live place ahead in the same class; null for the class leader. */
   interval: StandingsGap | null;
+  /**
+   * Races only: the interval as it stood when this car last crossed the timing line, i.e. the time
+   * between the car ahead in the class and this car crossing the line on this car's last
+   * completed lap. Only changes at the line. Whole laps when lapped; null when unknown.
+   */
+  lineInterval: StandingsGap | null;
   /** Rolling average of the last 5 clean laps (the reference average lap). */
   avgLapS: number | null;
   /** This car's best lap is the fastest overall / in its class this session. */

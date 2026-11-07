@@ -51,11 +51,26 @@ function field(opts: { type?: "race" | "practice"; livePos?: boolean } = {}) {
       },
     ],
     standings: [
-      { carIdx: 1, liveClassPosition: 1, classPosition: 1, interval: null },
-      { carIdx: 2, liveClassPosition: 2, classPosition: 3, interval: { laps: 0, seconds: 2.5 } },
-      { carIdx: 3, liveClassPosition: 3, classPosition: 2, interval: { laps: 0, seconds: 1.24 } },
-      { carIdx: 4, liveClassPosition: 4, classPosition: 4, interval: { laps: 0, seconds: 0.86 } },
-      { carIdx: 5, liveClassPosition: 1, classPosition: 1, interval: null },
+      { carIdx: 1, liveClassPosition: 1, classPosition: 1, lineInterval: null },
+      {
+        carIdx: 2,
+        liveClassPosition: 2,
+        classPosition: 3,
+        lineInterval: { laps: 0, seconds: 2.5 },
+      },
+      {
+        carIdx: 3,
+        liveClassPosition: 3,
+        classPosition: 2,
+        lineInterval: { laps: 0, seconds: 1.24 },
+      },
+      {
+        carIdx: 4,
+        liveClassPosition: 4,
+        classPosition: 4,
+        lineInterval: { laps: 0, seconds: 0.86 },
+      },
+      { carIdx: 5, liveClassPosition: 1, classPosition: 1, lineInterval: null },
     ],
   });
 }
@@ -97,8 +112,8 @@ describe("headToHead", () => {
     const entries = f.derived.standings?.entries ?? [];
     const me = entries.find((e) => e.carIdx === 3);
     const behind = entries.find((e) => e.carIdx === 4);
-    if (me) me.interval = { laps: 1, seconds: 3 };
-    if (behind) behind.interval = { laps: 2, seconds: null };
+    if (me) me.lineInterval = { laps: 1, seconds: 3 };
+    if (behind) behind.lineInterval = { laps: 2, seconds: null };
     const h = headToHead(f.state, f.derived.standings, 5, true);
     expect(h?.ahead?.gapText).toBe("1L");
     expect(h?.behind?.gapText).toBe("2L");
@@ -154,5 +169,15 @@ describe("gapText", () => {
     expect(gapText({ laps: 3, seconds: null }, "+")).toBe("3L");
     expect(gapText({ laps: 0, seconds: null }, "+")).toBe("--");
     expect(gapText(null, "-")).toBe("--");
+  });
+});
+
+describe("headToHead gaps at the line", () => {
+  it("uses the gap from the timing line, not the live interval", () => {
+    const f = field();
+    const me = f.derived.standings?.entries.find((e) => e.carIdx === 3);
+    if (me) me.interval = { laps: 0, seconds: 0.4 };
+    const h = headToHead(f.state, f.derived.standings, 5, true);
+    expect(h?.ahead?.gapText).toBe("-1.2");
   });
 });

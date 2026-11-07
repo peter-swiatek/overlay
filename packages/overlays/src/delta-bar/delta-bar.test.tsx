@@ -53,7 +53,7 @@ function raceFrame(): TelemetryFrame {
       },
     ],
     standings: [
-      { carIdx: 1, liveClassPosition: 2, interval: { laps: 0, seconds: 1.3 } },
+      { carIdx: 1, liveClassPosition: 2, lineInterval: { laps: 0, seconds: 1.3 } },
       { carIdx: 2, liveClassPosition: 1 },
     ],
   });

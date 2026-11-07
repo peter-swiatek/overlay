@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { SimState } from "../../model";
 import { StandingsTracker, strengthOfField } from "./index";
 import { newPitHistory, stepPit } from "./pit";
 import { linearReference, mkInputs, mkState, type CarSpec } from "./testHelpers";
@@ -534,5 +535,50 @@ describe("projected iRating change", () => {
       { carIdx: 2, iRating: 2000, classId: "b", lapDistPct: 0.5 },
     ]);
     expect(s.entries.every((e) => e.iRatingChange === null)).toBe(true);
+  });
+});
+
+describe("line interval", () => {
+  // Car 1 leads car 2 by 2.5 s; 100 s laps at constant speed, one frame every 0.1 s.
+  const frame = (t: number): SimState => {
+    const at = (startS: number) => {
+      const run = Math.max(0, t - startS) / 100;
+      return { lapsCompleted: Math.floor(run), lapDistPct: run - Math.floor(run) };
+    };
+    const s = mkState([
+      { carIdx: 1, classId: "A", ...at(0) },
+      { carIdx: 2, classId: "A", ...at(2.5) },
+    ]);
+    s.tickTimeS = t;
+    return s;
+  };
+  const run = (tracker: StandingsTracker, fromS: number, toS: number) => {
+    let out = null as ReturnType<StandingsTracker["next"]>;
+    for (let t = fromS; t <= toS + 1e-9; t += 0.1) out = tracker.next(frame(t), mkInputs());
+    return out;
+  };
+  const entry = (s: ReturnType<StandingsTracker["next"]>, idx: number) =>
+    s?.entries.find((e) => e.carIdx === idx);
+
+  it("is the gap at the line on the car's last completed lap and holds until the next crossing", () => {
+    const tracker = new StandingsTracker();
+    let s = run(tracker, 50, 101);
+    // car 1 has crossed, car 2 not yet: no matching crossing for car 2's lap
+    expect(entry(s, 2)?.lineInterval).toBeNull();
+    s = run(tracker, 101.1, 103);
+    expect(entry(s, 2)?.lineInterval?.laps).toBe(0);
+    expect(entry(s, 2)?.lineInterval?.seconds).toBeCloseTo(2.5, 3);
+    expect(entry(s, 1)?.lineInterval).toBeNull();
+    // mid-lap the live interval moves with the reference, the line interval stays put
+    s = run(tracker, 103.1, 160);
+    expect(entry(s, 2)?.lineInterval?.seconds).toBeCloseTo(2.5, 3);
+  });
+
+  it("is cleared by reset", () => {
+    const tracker = new StandingsTracker();
+    run(tracker, 50, 103);
+    tracker.reset();
+    const s = tracker.next(frame(150), mkInputs());
+    expect(entry(s, 2)?.lineInterval).toBeNull();
   });
 });

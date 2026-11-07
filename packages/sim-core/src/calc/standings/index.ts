@@ -40,6 +40,9 @@ function positiveOrNull(value: number | null | undefined): number | null {
     : null;
 }
 
+/** Crossings kept per car beyond the latest, so a car behind can still be matched. */
+const LINE_LAPS_KEPT = 3;
+
 interface ClassAcc {
   leader: number;
   prev: number;
@@ -67,6 +70,11 @@ export class StandingsTracker {
   private leaderFinished = false;
   private startPositions = new Map<number, number>();
   private startRecorded = false;
+  /** Session time of each car's recent timing-line crossings, keyed by the lap count completed. */
+  private crossings = new Map<number, Map<number, number>>();
+  /** Lap fraction and session time of each car in the previous frame, to time a crossing. */
+  private prevPct = new Map<number, number>();
+  private prevTickS: number | null = null;
 
   reset(): void {
     this.pit.clear();
@@ -78,6 +86,9 @@ export class StandingsTracker {
     this.leaderFinished = false;
     this.startPositions.clear();
     this.startRecorded = false;
+    this.crossings.clear();
+    this.prevPct.clear();
+    this.prevTickS = null;
   }
 
   /**
@@ -117,6 +128,42 @@ export class StandingsTracker {
     this.finishProgress.set(car.carIdx, car.lapsCompleted as number);
   }
 
+  /**
+   * Stores when the car crossed the line, interpolated between the previous frame and this one by
+   * lap fraction (the line sits between the old fraction near 1 and the new one near 0).
+   */
+  private recordCrossing(car: Car, nowS: number): void {
+    const lap = car.lapsCompleted as number;
+    let atS = nowS;
+    const p0 = this.prevPct.get(car.carIdx);
+    const p1 = car.lapDistPct;
+    const t0 = this.prevTickS;
+    if (p0 !== undefined && p1 !== null && t0 !== null && nowS > t0) {
+      const before = 1 - p0;
+      const span = before + p1;
+      if (before >= 0 && p1 >= 0 && span > 0 && span < 0.5)
+        atS = t0 + ((nowS - t0) * before) / span;
+    }
+    let laps = this.crossings.get(car.carIdx);
+    if (!laps) this.crossings.set(car.carIdx, (laps = new Map<number, number>()));
+    laps.set(lap, atS);
+    for (const k of laps.keys()) if (k < lap - LINE_LAPS_KEPT) laps.delete(k);
+  }
+
+  /**
+   * The gap between `ahead` and `car` at the line on `car`'s last completed lap. Whole laps (from
+   * the live interval) when lapped; null until both crossings of that lap are known.
+   */
+  private lineGap(ahead: Car, car: Car, live: StandingsGap | null): StandingsGap | null {
+    if (live !== null && live.laps >= 1) return { laps: live.laps, seconds: null };
+    const lap = car.lapsCompleted;
+    if (lap === null) return null;
+    const mine = this.crossings.get(car.carIdx)?.get(lap);
+    const theirs = this.crossings.get(ahead.carIdx)?.get(lap);
+    if (mine === undefined || theirs === undefined || mine < theirs) return null;
+    return { laps: 0, seconds: mine - theirs };
+  }
+
   next(state: SimState, inputs: StandingsInputs): Standings | null {
     if (!state.connected) return null;
     const cars: Car[] = [];
@@ -147,8 +194,18 @@ export class StandingsTracker {
       ) {
         crossed.push(i);
       }
+      if (
+        car.lapsCompleted !== null &&
+        prev !== undefined &&
+        car.lapsCompleted === prev + 1 &&
+        state.tickTimeS !== null
+      ) {
+        this.recordCrossing(car, state.tickTimeS);
+      }
       if (car.lapsCompleted !== null) this.prevLaps.set(car.carIdx, car.lapsCompleted);
+      if (car.lapDistPct !== null) this.prevPct.set(car.carIdx, car.lapDistPct);
     }
+    this.prevTickS = state.tickTimeS;
     if (finishing) this.acceptFinishers(cars, crossed, progress);
     // A finisher's distance is what it had at the line, whatever the sim reports afterwards (the
     // lap counter resets and the car leaves the world).
@@ -243,6 +300,7 @@ export class StandingsTracker {
         gapToLeader: null,
         gapToClassLeader: null,
         interval: null,
+        lineInterval: null,
         avgLapS: positiveOrNull(inputs.averageLapS(car.carIdx)),
         sessionBest: carBest !== null && carBest === sessionBest,
         classBest: carBest !== null && carBest === (classBestLapS[car.classId ?? ""] ?? null),
@@ -305,6 +363,7 @@ export class StandingsTracker {
       } else {
         e.gapToClassLeader = gap(acc.leader, i);
         e.interval = gap(acc.prev, i);
+        if (race) e.lineInterval = this.lineGap(cars[acc.prev] as Car, car, e.interval);
       }
       acc.prev = i;
       if (recordStart) {
