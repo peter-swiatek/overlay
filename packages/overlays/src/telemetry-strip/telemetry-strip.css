@@ -6,6 +6,7 @@
   height: 136px;
   color: var(--ov-text);
   font-family: var(--ov-font-family);
+  font-size: var(--ov-font-size, 14px);
   font-weight: var(--ov-font-weight, 500);
   font-variant-numeric: tabular-nums;
   user-select: none;

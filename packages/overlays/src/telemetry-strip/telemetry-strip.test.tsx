@@ -170,3 +170,13 @@ describe("TelemetryStripOverlay", () => {
     expect(css).toMatch(/:root\[data-tone="light"\] \.ts-root \{[^}]*--gear-bg: #fff/);
   });
 });
+
+describe("Telemetry Strip text size", () => {
+  it("sizes its text from the theme font size", () => {
+    const css = readFileSync(new URL("./telemetry-strip.css", import.meta.url), "utf8");
+    const start = css.indexOf(".ts-root {");
+    expect(css.slice(start, css.indexOf("}", start))).toContain(
+      "font-size: var(--ov-font-size, 14px);",
+    );
+  });
+});
