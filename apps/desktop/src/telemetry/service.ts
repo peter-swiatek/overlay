@@ -1,4 +1,4 @@
-import { Deriver } from "@overlay/sim-core";
+import { cornersFor, Deriver } from "@overlay/sim-core";
 import type {
   TelemetryCommand,
   TelemetryEvent,
@@ -76,10 +76,12 @@ export class TelemetryService {
     const validId = typeof requestId === "number" || typeof requestId === "string";
     const outline = this.deriver.trackOutline;
     const wanted = trackKey === undefined || trackKey === this.deriver.trackKey;
+    const sent = validId && wanted ? outline : null;
     const answer: TrackOutlineReply = {
       type: "trackOutline",
       requestId: validId ? requestId : null,
-      outline: validId && wanted ? outline : null,
+      outline: sent,
+      corners: sent === null ? null : (cornersFor(this.deriver.trackKey)?.corners ?? null),
     };
     reply(answer);
   }

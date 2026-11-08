@@ -3,6 +3,7 @@ import { OverlayRuntimeContext, type OverlayModule, type OverlayRuntime } from "
 import type { TelemetrySelector } from "@overlay/overlays";
 import { displayPrefsOf, type AppSettings } from "../../shared/app-settings-types";
 import { useTelemetry } from "../telemetry/useTelemetry";
+import { useTrackOutline } from "../telemetry/useTrackOutline";
 import { useApplyTheme } from "../theme/useApplyTheme";
 import { OverlayContent } from "./OverlayContent";
 import { cappedRateHz, hostView } from "./visibility";
@@ -26,6 +27,7 @@ function runtimeOf(app: AppSettings, module: OverlayModule, editing: boolean): O
     reduceVisualEffects: app.performance.reduceVisualEffects,
     combinedLicencePill: app.appearance.combinedLicencePill,
     editing,
+    useTrackOutline,
   };
 }
 

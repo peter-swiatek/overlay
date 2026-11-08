@@ -18,7 +18,7 @@
  * Telemetry process -> main (`process.parentPort`): `TelemetryEvent`.
  */
 
-import type { TrackOutline } from "@overlay/sim-core";
+import type { Corner, TrackOutline } from "@overlay/sim-core";
 
 export type TelemetrySourceChoice = "auto" | "iracing" | "lmu" | "replay" | "mock";
 
@@ -65,11 +65,14 @@ export interface TrackOutlineRequest {
 /**
  * The answer: the cached outline, or null when none is known yet (see `derived.track`) or the
  * request's `trackKey` is not the current track. `requestId` is null when the request had none.
+ * `corners` is our corner list for that track, sent with the outline; null without an outline or
+ * when we have no list for the track.
  */
 export interface TrackOutlineReply {
   type: "trackOutline";
   requestId: number | string | null;
   outline: TrackOutline | null;
+  corners: Corner[] | null;
 }
 
 /** Telemetry process to main: what the process is doing, for the settings UI and the tray. */

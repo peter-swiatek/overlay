@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Deriver, isSimState, type TrackOutline, type TrackOutlineStore } from "@overlay/sim-core";
+import {
+  cornersFor,
+  Deriver,
+  isSimState,
+  type TrackOutline,
+  type TrackOutlineStore,
+} from "@overlay/sim-core";
 import type { TelemetryEvent } from "../shared/telemetry-types";
 import { MockTelemetrySource } from "./mock";
 import { ReplayTelemetrySource } from "./replay";
@@ -124,6 +130,7 @@ describe("TelemetryService", () => {
 
   describe("track outlines", () => {
     const KEY = "iracing_virginia-international-raceway_full-course";
+    const virCorners = cornersFor(KEY)?.corners ?? [];
 
     function serviceWithStore(stored: TrackOutline | null) {
       const store: TrackOutlineStore = {
@@ -169,12 +176,14 @@ describe("TelemetryService", () => {
       service.handle({ type: "stop" }, []);
 
       expect(replies(port)).toEqual([
-        { type: "trackOutline", requestId: 1, outline: null },
-        { type: "trackOutline", requestId: "two", outline: stored },
-        { type: "trackOutline", requestId: null, outline: null },
-        { type: "trackOutline", requestId: 4, outline: null },
-        { type: "trackOutline", requestId: 5, outline: stored },
+        { type: "trackOutline", requestId: 1, outline: null, corners: null },
+        { type: "trackOutline", requestId: "two", outline: stored, corners: virCorners },
+        { type: "trackOutline", requestId: null, outline: null, corners: null },
+        { type: "trackOutline", requestId: 4, outline: null, corners: null },
+        { type: "trackOutline", requestId: 5, outline: stored, corners: virCorners },
       ]);
+      // The corner list rides along with the outline.
+      expect(virCorners.length).toBeGreaterThan(0);
       // Frames carry the key and the flag, never the outline.
       const frames = port.sent.filter((m) => (m as { seq?: unknown }).seq !== undefined);
       const last = frames[frames.length - 1];
@@ -199,7 +208,9 @@ describe("TelemetryService", () => {
       await new Promise((r) => setTimeout(r, 800));
       port.raw({ type: "getTrackOutline", requestId: 9 });
       service.handle({ type: "stop" }, []);
-      expect(replies(port)).toEqual([{ type: "trackOutline", requestId: 9, outline: null }]);
+      expect(replies(port)).toEqual([
+        { type: "trackOutline", requestId: 9, outline: null, corners: null },
+      ]);
       const frames = port.sent.filter((m) => (m as { seq?: unknown }).seq !== undefined);
       expect(frames[frames.length - 1]?.derived.track).toEqual({
         trackKey: KEY,

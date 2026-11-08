@@ -1,9 +1,21 @@
 import { createContext, useContext } from "react";
-import type { TelemetryFrame } from "@overlay/sim-core/types";
+import type { Corner, TelemetryFrame, TrackOutline } from "@overlay/sim-core/types";
 import { DEFAULT_DISPLAY_PREFS, type DisplayPrefs } from "@overlay/ui/types";
 
 /** Gets the newest frame (null before the first) and whether the stream went stale. */
 export type TelemetrySelector<T> = (frame: TelemetryFrame | null, stale: boolean) => T;
+
+/** The shape of the track being driven and our corner list for it (empty when we have none). */
+export interface TrackMapData {
+  outline: TrackOutline;
+  corners: readonly Corner[];
+}
+
+/**
+ * Fetches the outline of `trackKey` while `ready` (from `derived.track`); null until it arrives,
+ * when there is none, or when the key changes. Frames do not carry the outline: it is large.
+ */
+export type UseTrackOutline = (trackKey: string | null, ready: boolean) => TrackMapData | null;
 
 /** What the host gives every overlay component. The desktop host and tests provide one. */
 export interface OverlayRuntime {
@@ -17,6 +29,11 @@ export interface OverlayRuntime {
   combinedLicencePill: boolean;
   /** Edit mode (overlays unlocked). */
   editing: boolean;
+  /**
+   * Absent in hosts that cannot fetch outlines (the settings preview): the Track Map then draws
+   * its built-in sample track.
+   */
+  useTrackOutline?: UseTrackOutline;
 }
 
 export const OverlayRuntimeContext = createContext<OverlayRuntime | null>(null);
@@ -29,13 +46,18 @@ export function useOverlayRuntime(): OverlayRuntime {
   return runtime;
 }
 
-/** Test helper: a runtime whose useTelemetry returns selector(frame, false). */
+/**
+ * Test helper: a runtime whose useTelemetry returns selector(frame, false) and whose
+ * useTrackOutline returns `track` when `ready` (null by default).
+ */
 export function staticRuntime(
   frame: TelemetryFrame | null,
   overrides: Partial<OverlayRuntime> = {},
+  track: TrackMapData | null = null,
 ): OverlayRuntime {
   return {
     useTelemetry: (selector) => selector(frame, false),
+    useTrackOutline: (_key, ready) => (ready ? track : null),
     prefs: DEFAULT_DISPLAY_PREFS,
     livePositions: true,
     reduceVisualEffects: false,

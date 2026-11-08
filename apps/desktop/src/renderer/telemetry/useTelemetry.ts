@@ -5,7 +5,7 @@ import { TelemetryClient, type ClientPort, type Selector } from "./client";
 let shared: TelemetryClient | undefined;
 
 /** The window's single client; created on first use (which also starts listening for the port). */
-function getClient(): TelemetryClient {
+export function getClient(): TelemetryClient {
   shared ??= new TelemetryClient({
     self: window,
     listen: (handler) => {
