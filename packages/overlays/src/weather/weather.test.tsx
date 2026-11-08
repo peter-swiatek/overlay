@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { emptySimState, type TelemetryFrame } from "@overlay/sim-core";
 import type { DisplayPrefs } from "@overlay/ui/types";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -66,8 +68,8 @@ describe("WeatherOverlay", () => {
 
   it("shows the live values with units", () => {
     const html = render(frame());
-    expect(html).toContain("31 °C");
-    expect(html).toContain("20 °C");
+    expect(html).toContain("31.4 °C");
+    expect(html).toContain("20.0 °C");
     expect(html).toContain("18 km/h");
     expect(html).toContain("46 %");
     expect(html).toContain("10 %");
@@ -117,15 +119,25 @@ describe("WeatherOverlay", () => {
   it("shows -- values without live data, and the sample only while editing", () => {
     const empty = render(null);
     expect(empty).toContain("--");
-    expect(empty).not.toContain("28 °C");
+    expect(empty).not.toContain("28.0 °C");
     const edit = render(null, { editing: true });
-    expect(edit).toContain("28 °C");
+    expect(edit).toContain("28.0 °C");
     expect(edit).toContain("12 km/h");
     expect(edit).toContain("Moderate");
     expect(edit).toContain("Dry");
   });
 
   it("prefers live data over the sample while editing", () => {
-    expect(render(frame(), { editing: true })).toContain("31 °C");
+    expect(render(frame(), { editing: true })).toContain("31.4 °C");
+  });
+});
+
+describe("Weather CSS", () => {
+  it("uses the theme text size and the panel outline", () => {
+    const css = readFileSync(join(__dirname, "weather.css"), "utf8");
+    const start = css.indexOf(".wx-panel {");
+    const rule = css.slice(start, css.indexOf("}", start));
+    expect(rule).toContain("font-size: var(--ov-font-size, 14px);");
+    expect(rule).toContain("box-shadow: inset 0 0 0 1px var(--ov-border);");
   });
 });

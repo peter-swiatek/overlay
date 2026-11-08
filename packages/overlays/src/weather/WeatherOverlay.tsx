@@ -136,8 +136,9 @@ export function WeatherOverlay({ settings }: OverlayProps) {
   // A live frame without heading (LMU) has no compass; no data at all keeps the empty dial.
   const showCompass = ids.has("compass") && (!v.live || v.dialDeg !== null);
   const wind = formatSpeed(v.windSpeedMps, prefs, 0);
-  const track = formatTemperature(v.trackTempC, prefs, 0);
-  const air = formatTemperature(v.airTempC, prefs, 0);
+  // One decimal, as designed.
+  const track = formatTemperature(v.trackTempC, prefs, 1);
+  const air = formatTemperature(v.airTempC, prefs, 1);
   const windLabel = `Wind ${wind.value} ${wind.unit}${v.windFrom === null ? "" : ` from ${v.windFrom}`}`;
 
   const rowValue = (id: string): string => {
