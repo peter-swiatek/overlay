@@ -11,11 +11,12 @@ export const pitSpeedManifest: OverlayManifest = {
   table: false,
   // The reference lists only "Pit stop info"; the other three let the user trim the widget.
   // The distance part of "pit-stop-info" is iRacing only, so the field keeps both sims.
+  // Default order and visibility follow the design: limit sign, speed with its bar, limiter badge.
   fields: [
-    { id: "speed", label: "Speed", defaultVisible: true },
     { id: "limit", label: "Limit", defaultVisible: true },
+    { id: "speed", label: "Speed", defaultVisible: true },
     { id: "limiter", label: "Limiter", defaultVisible: true },
-    { id: "pit-stop-info", label: "Pit stop info", defaultVisible: true },
+    { id: "pit-stop-info", label: "Pit stop info", defaultVisible: false },
   ],
   settings: [],
   rateHz: 20,

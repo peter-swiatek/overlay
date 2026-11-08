@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 // Tests may use the sim-core entry for fixtures; overlay code itself must not.
 import { emptyCar, emptySimState, type TelemetryFrame } from "@overlay/sim-core";
 import type { DisplayPrefs } from "@overlay/ui/types";
@@ -188,13 +190,26 @@ describe("PitSpeedOverlay", () => {
     expect(none).not.toContain("ps-over");
   });
 
-  it("shows the box distance and the in-stall state", () => {
+  it("matches the design by default: limit, speed, limiter, no box distance", () => {
     const f = frame();
     f.state.player.pitStallLapDistPct = 0.03;
-    expect(render(f)).toContain("Box 200 m");
-    expect(render(f, { prefs: imperial })).toContain("ft");
+    const html = render(f);
+    expect(html).not.toContain("Box ");
+    expect(html.indexOf("ps-sign")).toBeLessThan(html.indexOf("ps-speed"));
+    expect(html.indexOf("ps-speed")).toBeLessThan(html.indexOf("ps-pill"));
+  });
+
+  it("shows the box distance and the in-stall state when turned on", () => {
+    const s = settings();
+    s.common.fields = s.common.fields.map((x) =>
+      x.id === "pit-stop-info" ? { ...x, visible: true } : x,
+    );
+    const f = frame();
+    f.state.player.pitStallLapDistPct = 0.03;
+    expect(render(f, {}, s)).toContain("Box 200 m");
+    expect(render(f, { prefs: imperial }, s)).toContain("ft");
     f.state.cars[0]!.inPitStall = true;
-    expect(render(f)).toContain("Stall");
+    expect(render(f, {}, s)).toContain("Stall");
   });
 
   it("leaves out hidden fields and follows the configured order", () => {
@@ -223,5 +238,15 @@ describe("PitSpeedOverlay", () => {
     expect(html).toContain("ps-sign");
     expect(EDIT_SAMPLE.active).toBe(true);
     expect(EDIT_SAMPLE.fillFraction).toBeCloseTo(0.98, 2);
+  });
+});
+
+describe("Pit Speed CSS", () => {
+  it("uses the theme text size and the panel outline", () => {
+    const css = readFileSync(join(__dirname, "pit-speed.css"), "utf8");
+    const start = css.indexOf(".ps-panel {");
+    const rule = css.slice(start, css.indexOf("}", start));
+    expect(rule).toContain("font-size: var(--ov-font-size, 14px);");
+    expect(rule).toContain("box-shadow: inset 0 0 0 1px var(--ov-border);");
   });
 });
