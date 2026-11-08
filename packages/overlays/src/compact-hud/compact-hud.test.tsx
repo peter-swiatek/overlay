@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { Player, TelemetryFrame } from "@overlay/sim-core/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -267,5 +269,15 @@ describe("CompactHudOverlay activity", () => {
   it("shows live data while editing and active", () => {
     const html = render(scene({ player: { speedMps: 20 } }), { editing: true });
     expect(html).toContain(">72<");
+  });
+});
+
+describe("Compact HUD CSS", () => {
+  it("draws speed and RPM in the muted text colour so the gear leads", () => {
+    const css = readFileSync(join(__dirname, "compact-hud.css"), "utf8");
+    const start = css.indexOf(".hud-num b {");
+    const rule = css.slice(start, css.indexOf("}", start));
+    expect(rule).toContain("color: var(--ov-text-muted);");
+    expect(rule).toContain("font-weight: 600;");
   });
 });

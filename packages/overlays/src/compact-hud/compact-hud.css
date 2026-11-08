@@ -200,10 +200,12 @@
 .hud-num--rpm {
   left: 200px;
 }
+/* Speed and RPM sit back in the muted text colour so the gear leads, as designed. */
 .hud-num b {
   font-size: 1.72em;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.01em;
+  color: var(--ov-text-muted);
 }
 .hud-num span {
   margin-top: 3px;
