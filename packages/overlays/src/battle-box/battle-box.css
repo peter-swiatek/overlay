@@ -95,3 +95,9 @@
 .ov-bb-fastest {
   color: var(--ov-locked-fastest);
 }
+
+/* Narrower car-number chip than the shared default. */
+.ov-bb .ov-car-num {
+  min-width: 1.6em;
+  padding: 0 0.22em;
+}
