@@ -11,6 +11,7 @@ import { telemetryStripModule } from "./telemetry-strip";
 import { weatherModule } from "./weather";
 import { inputsModule } from "./inputs";
 import { trackMapModule } from "./track-map";
+import { lapTimesModule } from "./lap-times";
 
 export const OVERLAY_MODULES: readonly OverlayModule[] = [
   relativeModule,
@@ -25,6 +26,7 @@ export const OVERLAY_MODULES: readonly OverlayModule[] = [
   weatherModule,
   inputsModule,
   trackMapModule,
+  lapTimesModule,
 ];
 
 export function moduleById(id: string): OverlayModule | undefined {

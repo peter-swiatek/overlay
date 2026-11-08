@@ -5,3 +5,4 @@ export { spotterView, newSpotterMemory } from "./spotter/view";
 export { pitSpeedView } from "./pit-speed/view";
 export { fuelView } from "./fuel/view";
 export { battleView } from "./battle-box/view";
+export { lapTimesView } from "./lap-times/view";
