@@ -137,7 +137,7 @@ describe("Weather CSS", () => {
     const css = readFileSync(join(__dirname, "weather.css"), "utf8");
     const start = css.indexOf(".wx-panel {");
     const rule = css.slice(start, css.indexOf("}", start));
-    expect(rule).toContain("font-size: var(--ov-font-size, 14px);");
+    expect(rule).toContain("font-size: calc(var(--ov-font-size, 14px) * 0.88);");
     expect(rule).toContain("box-shadow: inset 0 0 0 1px var(--ov-border);");
   });
 });

@@ -3,8 +3,8 @@
   display: flex;
   flex-direction: column;
   font-family: var(--ov-font-family);
-  /* The theme's text size (14 px, 12 px compact) and the panel outline, as designed. */
-  font-size: var(--ov-font-size, 14px);
+  /* Slightly smaller than the theme's text size (14 px, 12 px compact), plus the panel outline. */
+  font-size: calc(var(--ov-font-size, 14px) * 0.88);
   box-shadow: inset 0 0 0 1px var(--ov-border);
   color: var(--ov-text);
 }

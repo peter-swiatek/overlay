@@ -86,7 +86,10 @@ const RETIRED_DEFAULT_SIZES: Readonly<
 > = {
   "compact-hud": [{ size: { width: 340, height: 172 }, anchorBottom: true }],
   "delta-bar": [{ size: { width: 560, height: 131 }, anchorBottom: false }],
-  weather: [{ size: { width: 240, height: 352 }, anchorBottom: false }],
+  weather: [
+    { size: { width: 240, height: 352 }, anchorBottom: false },
+    { size: { width: 200, height: 352 }, anchorBottom: false },
+  ],
 };
 
 function migrateRetiredSize(bounds: StoredBounds, manifest: OverlayManifest): StoredBounds {

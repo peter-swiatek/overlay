@@ -4,8 +4,8 @@ import { weatherManifest as m } from "./manifest";
 
 describe("weather manifest", () => {
   it("has the defaults of the plan and the framework visibility defaults", () => {
-    expect(m.defaultSize).toEqual({ width: 200, height: 352 });
-    expect(m.minSize).toEqual({ width: 180, height: 120 });
+    expect(m.defaultSize).toEqual({ width: 176, height: 338 });
+    expect(m.minSize).toEqual({ width: 160, height: 120 });
     expect(m.sims).toEqual(["iracing", "lmu"]);
     expect(m.rateHz).toBe(10);
     expect(m.settings).toEqual([]);
