@@ -180,3 +180,13 @@ describe("Telemetry Strip text size", () => {
     );
   });
 });
+
+describe("Telemetry Strip position group", () => {
+  it("keeps the stats in place whether or not the places badge shows", () => {
+    const css = readFileSync(new URL("./telemetry-strip.css", import.meta.url), "utf8");
+    const start = css.indexOf(".ts-posgroup {");
+    const rule = css.slice(start, css.indexOf("}", start));
+    expect(rule).toContain("width: 5.5em;");
+    expect(rule).toContain("flex: none;");
+  });
+});

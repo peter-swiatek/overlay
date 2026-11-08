@@ -125,6 +125,15 @@
   -webkit-mask-image: radial-gradient(circle 82px at -32px -1px, transparent 81.5px, #000 82.5px);
   mask-image: radial-gradient(circle 82px at -32px -1px, transparent 81.5px, #000 82.5px);
 }
+.ts-posgroup {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 14px;
+  /* Room for "P14" and a "-6" badge, as on the board. */
+  width: 5.5em;
+  white-space: nowrap;
+}
 .ts-pos {
   font-size: 1.36em;
   font-weight: 700;

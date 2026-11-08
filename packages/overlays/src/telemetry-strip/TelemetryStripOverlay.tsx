@@ -89,14 +89,15 @@ export function TelemetryStripOverlay({ settings }: OverlayProps) {
         </div>
         <div className="ts-band ts-band-cut">
           {shown.has("position") && (
-            <>
+            // A fixed-width group, so FUEL, LAST and TRK never move when the places badge comes or goes.
+            <div className="ts-posgroup">
               <span className="ts-pos">{v.position === null ? NO_VALUE : `P${v.position}`}</span>
               {gained !== null && gained !== 0 && (
                 <span className={gained > 0 ? "ts-chip ts-chip-gain" : "ts-chip ts-chip-loss"}>
                   {gained > 0 ? `+${gained}` : `-${-gained}`}
                 </span>
               )}
-            </>
+            </div>
           )}
           {shown.has("fuel") && (
             <div className="ts-stat">
