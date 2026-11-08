@@ -1,6 +1,7 @@
 import type { OverlayManifest } from "./contract";
 import { relativeManifest } from "./relative/manifest";
 import { leaderboardManifest } from "./leaderboard/manifest";
+import { battleBoxManifest } from "./battle-box/manifest";
 import { spotterManifest } from "./spotter/manifest";
 import { pitSpeedManifest } from "./pit-speed/manifest";
 import { fuelManifest } from "./fuel/manifest";
@@ -14,6 +15,7 @@ import { trackMapManifest } from "./track-map/manifest";
 export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   relativeManifest,
   leaderboardManifest,
+  battleBoxManifest,
   spotterManifest,
   pitSpeedManifest,
   fuelManifest,

@@ -228,6 +228,26 @@ describe("DataTable markup", () => {
     expect(html).toContain("ov-table--auto");
     expect(html).toContain("Max Example");
   });
+
+  it("draws rowAfter content across the grid after its row, and nothing for null", () => {
+    const html = renderToStaticMarkup(
+      <DataTable
+        columns={COLUMNS}
+        config={CONFIG}
+        rows={rows}
+        rowKey={(r) => r.id}
+        widthMode="auto"
+        showHeader={false}
+        rowAfter={(r, index) => (index < rows.length - 1 ? <b>strip after {r.pos}</b> : null)}
+      />,
+    );
+    expect(html.match(/class="ov-row-after"/g)).toHaveLength(2);
+    expect(html.indexOf("strip after 1")).toBeGreaterThan(html.indexOf("Max Example"));
+    expect(html.indexOf("strip after 1")).toBeLessThan(html.indexOf("José María Pérez"));
+    expect(html).not.toContain("strip after 3");
+    const css = readFileSync(join(__dirname, "table.css"), "utf8");
+    expect(css).toMatch(/\.ov-row-after \{[^}]*grid-column: 1 \/ -1;/);
+  });
 });
 
 describe("columnFloorPct", () => {

@@ -206,6 +206,14 @@
     var(--row-base-bg) !important;
 }
 
+/* Full-width content after a body row (DataTable rowAfter), e.g. a strip between two rows. */
+.ov-row-after {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
 /* Class band: replaces the old section bar. */
 .ov-class-band {
   grid-column: 1 / -1;

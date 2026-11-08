@@ -1,4 +1,4 @@
-import { memo, useMemo, type CSSProperties, type ReactNode } from "react";
+import { Fragment, memo, useMemo, type CSSProperties, type ReactNode } from "react";
 import type { ColumnWidthMode, FieldConfig } from "../types";
 import { gridTemplate, orderedColumns, type TableColumn } from "./grid";
 import "./table.css";
@@ -33,6 +33,11 @@ export interface DataTableProps<Row> {
   rowClassName?(row: Row): string | undefined;
   /** Inline style for the row element, e.g. CSS custom properties such as a class colour. */
   rowStyle?(row: Row): CSSProperties | undefined;
+  /**
+   * Content drawn after a body row, across every column (e.g. a strip between two rows). It is
+   * placed in an `.ov-row-after` element spanning the grid; null draws nothing.
+   */
+  rowAfter?(row: Row, index: number): ReactNode;
 }
 
 function alignClass(align: TableColumn<unknown>["align"]): string {
@@ -119,26 +124,47 @@ const RowView = memo(RowViewInner, sameRowView) as typeof RowViewInner;
  * across rows and the cells carry the row backgrounds.
  */
 export function DataTable<Row>(props: DataTableProps<Row>): JSX.Element {
-  const { config, widthMode, showHeader, rowKey, isOwnRow, isYellowRow, rowClassName, rowStyle } =
-    props;
+  const {
+    config,
+    widthMode,
+    showHeader,
+    rowKey,
+    isOwnRow,
+    isYellowRow,
+    rowClassName,
+    rowStyle,
+    rowAfter,
+  } = props;
   const columns = useMemo(() => orderedColumns(props.columns, config), [props.columns, config]);
   const style: CSSProperties = {
     gridTemplateColumns: gridTemplate(props.columns, config, widthMode, props.widthScalePct ?? 100),
   };
 
   const renderRows = (rows: readonly Row[]): JSX.Element[] =>
-    rows.map((row, index) => (
-      <RowView
-        key={rowKey(row)}
-        row={row}
-        columns={columns}
-        alt={index % 2 === 1}
-        own={isOwnRow?.(row) ?? false}
-        yellow={isYellowRow?.(row) ?? false}
-        className={rowClassName?.(row)}
-        style={rowStyle?.(row)}
-      />
-    ));
+    rows.map((row, index) => {
+      const view = (
+        <RowView
+          key={rowKey(row)}
+          row={row}
+          columns={columns}
+          alt={index % 2 === 1}
+          own={isOwnRow?.(row) ?? false}
+          yellow={isYellowRow?.(row) ?? false}
+          className={rowClassName?.(row)}
+          style={rowStyle?.(row)}
+        />
+      );
+      const after = rowAfter?.(row, index) ?? null;
+      if (after === null || after === undefined || after === false) return view;
+      return (
+        <Fragment key={rowKey(row)}>
+          {view}
+          <div className="ov-row-after" role="row">
+            {after}
+          </div>
+        </Fragment>
+      );
+    });
 
   return (
     <div className={`ov-table ov-table--${widthMode}`} style={style} role="table">

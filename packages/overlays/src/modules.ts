@@ -1,6 +1,7 @@
 import type { OverlayModule } from "./module";
 import { relativeModule } from "./relative";
 import { leaderboardModule } from "./leaderboard";
+import { battleBoxModule } from "./battle-box";
 import { spotterModule } from "./spotter";
 import { pitSpeedModule } from "./pit-speed";
 import { fuelModule } from "./fuel";
@@ -14,6 +15,7 @@ import { trackMapModule } from "./track-map";
 export const OVERLAY_MODULES: readonly OverlayModule[] = [
   relativeModule,
   leaderboardModule,
+  battleBoxModule,
   spotterModule,
   pitSpeedModule,
   fuelModule,

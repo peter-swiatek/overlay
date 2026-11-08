@@ -37,12 +37,17 @@ export interface RelativeView {
 const RED_WITHIN_S = 1.0;
 const YELLOW_WITHIN_S = 2.0;
 
+/** The threat colour of a car behind by `gapS` seconds (the gap as shown, already rounded). */
+export function threatLevel(gapS: number): ThreatLevel {
+  if (gapS <= RED_WITHIN_S) return "red";
+  if (gapS <= YELLOW_WITHIN_S) return "yellow";
+  return null;
+}
+
 /** Only for a car behind (raw gap >= 0; the view puts exactly 0 behind), , judged on the rounded gap shown in the row. */
 export function gapThreat(row: DriverRow, rawGapS: number | null): ThreatLevel {
   if (rawGapS === null || rawGapS < 0 || row.relativeGapS === null) return null;
-  if (row.relativeGapS <= RED_WITHIN_S) return "red";
-  if (row.relativeGapS <= YELLOW_WITHIN_S) return "yellow";
-  return null;
+  return threatLevel(row.relativeGapS);
 }
 
 interface Candidate {
