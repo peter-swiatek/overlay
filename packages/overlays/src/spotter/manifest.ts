@@ -38,7 +38,7 @@ export const spotterManifest: OverlayManifest = {
       key: "bar-width",
       label: "Bar width",
       kind: "number",
-      default: 26,
+      default: 34,
       min: 8,
       max: 60,
       step: 2,

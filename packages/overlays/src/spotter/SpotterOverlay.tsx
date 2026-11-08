@@ -34,7 +34,12 @@ function Bar({ side, editing, length, width }: BarProps) {
         {block !== null && (
           <div
             className={`spotter-block spotter-block--from-${block.anchor}${side.double ? " spotter-block--double" : ""}`}
-            style={{ height: `${Math.round(block.height * 100)}%` }}
+            style={
+              {
+                height: `${Math.round(block.height * 100)}%`,
+                "--spotter-fill": Math.max(0.01, block.height),
+              } as CSSProperties
+            }
           />
         )}
         <div className="spotter-midpoint" />

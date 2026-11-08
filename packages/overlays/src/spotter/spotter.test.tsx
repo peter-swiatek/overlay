@@ -161,10 +161,10 @@ function render(f: TelemetryFrame | null, editing = false, options: Record<strin
 const count = (html: string, s: string) => html.split(s).length - 1;
 
 describe("SpotterOverlay", () => {
-  it("defaults to the board's orange, 26 px bars and a 246 px centre gap", () => {
+  it("defaults to the board's orange, 34 px bars and a 246 px centre gap", () => {
     const o = defaultInstanceSettings(spotterManifest).options;
     expect(o["bar-colour"]).toBe("#ff9f0a");
-    expect(o["bar-width"]).toBe(26);
+    expect(o["bar-width"]).toBe(34);
     expect(o["bar-gap"]).toBe(246);
     expect(spotterManifest.defaultSize).toEqual({ width: 360, height: 160 });
   });
@@ -220,5 +220,14 @@ describe("SpotterOverlay", () => {
     expect(css).toContain(':root:not([data-reduced-effects="true"])');
     const t = css.indexOf("transition:");
     expect(css.lastIndexOf(":root:not", t)).toBeGreaterThan(css.lastIndexOf("}", t));
+  });
+});
+
+describe("spotter gradient", () => {
+  it("pins the gradient to the whole bar so a part-filled block shows its slice", () => {
+    const css = readFileSync(new URL("./spotter.css", import.meta.url), "utf8");
+    expect(css).toContain("background-size: 100% calc(100% / var(--spotter-fill, 1));");
+    const html = render(frame({ left: null, right: -0.6 }));
+    expect(html).toMatch(/--spotter-fill:0\.\d+/);
   });
 });
