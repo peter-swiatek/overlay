@@ -582,3 +582,90 @@ describe("line interval", () => {
     expect(entry(s, 2)?.lineInterval).toBeNull();
   });
 });
+
+describe("sector times", () => {
+  const STARTS = [0, 0.25, 0.6];
+  // Car 1 laps in 100 s at constant speed; car 2 in 110 s. One frame every 0.1 s.
+  const frame = (t: number, starts: number[] | null = STARTS): SimState => {
+    const at = (lapS: number) => {
+      const run = t / lapS;
+      return { lapsCompleted: Math.floor(run), lapDistPct: run - Math.floor(run) };
+    };
+    const s = mkState(
+      [
+        { carIdx: 1, classId: "A", ...at(100) },
+        { carIdx: 2, classId: "A", ...at(110) },
+      ],
+      { sectorStartPcts: starts },
+    );
+    s.tickTimeS = t;
+    return s;
+  };
+  const run = (tracker: StandingsTracker, fromS: number, toS: number, starts?: number[] | null) => {
+    let out = null as ReturnType<StandingsTracker["next"]>;
+    for (let t = fromS; t <= toS + 1e-9; t += 0.1) out = tracker.next(frame(t, starts), mkInputs());
+    return out;
+  };
+  const times = (s: ReturnType<StandingsTracker["next"]>, idx: number) =>
+    s?.entries.find((e) => e.carIdx === idx)?.sectorTimes;
+
+  it("is null without sector data", () => {
+    const s = run(new StandingsTracker(), 0, 5, null);
+    expect(times(s, 1)).toBeNull();
+  });
+
+  it("is empty until a sector has been driven from boundary to boundary", () => {
+    const tracker = new StandingsTracker();
+    // Joined mid-sector 1: the first boundary only opens sector 2.
+    let s = run(tracker, 10, 30);
+    expect(times(s, 1)).toEqual([null, null, null]);
+    s = run(tracker, 30.1, 61);
+    const t = times(s, 1) ?? [];
+    expect(t[0]).toBeNull();
+    expect(t[1]).toBeCloseTo(35, 3);
+    expect(t[2]).toBeNull();
+  });
+
+  it("times every sector, including the last one across the line, interpolated by lap fraction", () => {
+    const tracker = new StandingsTracker();
+    const s = run(tracker, 0.1, 230);
+    const one = times(s, 1) ?? [];
+    expect(one[0]).toBeCloseTo(25, 3);
+    expect(one[1]).toBeCloseTo(35, 3);
+    expect(one[2]).toBeCloseTo(40, 3);
+    const two = times(s, 2) ?? [];
+    expect(two[0]).toBeCloseTo(27.5, 3);
+    expect(two[1]).toBeCloseTo(38.5, 3);
+    expect(two[2]).toBeCloseTo(44, 3);
+  });
+
+  it("only changes when a sector is completed, keeping the list's identity in between", () => {
+    const tracker = new StandingsTracker();
+    const a = times(run(tracker, 0.1, 140), 1);
+    const b = times(run(tracker, 140.1, 150), 1);
+    expect(b).toBe(a);
+    const c = times(run(tracker, 150.1, 161), 1);
+    expect(c).not.toBe(a);
+  });
+
+  it("forgets the open sector after a jump", () => {
+    const tracker = new StandingsTracker();
+    run(tracker, 0.1, 130);
+    const before = times(tracker.next(frame(130), mkInputs()), 1);
+    // A tow from 30 % to 70 %: sector 2 (25..60 %) must not be timed from the stale crossing.
+    tracker.next(frame(170), mkInputs());
+    const s = run(tracker, 170.1, 180);
+    expect(times(s, 1)?.[1]).toBe(before?.[1]);
+  });
+
+  it("forgets everything when the sector starts change or on reset", () => {
+    const tracker = new StandingsTracker();
+    run(tracker, 0.1, 230);
+    let s = tracker.next(frame(230.1, [0, 0.5]), mkInputs());
+    expect(times(s, 1)).toEqual([null, null]);
+    run(tracker, 230.2, 400, [0, 0.5]);
+    tracker.reset();
+    s = tracker.next(frame(400.1, [0, 0.5]), mkInputs());
+    expect(times(s, 1)).toEqual([null, null]);
+  });
+});

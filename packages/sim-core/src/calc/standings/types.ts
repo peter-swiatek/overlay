@@ -28,6 +28,13 @@ export interface StandingsEntry {
    * completed lap. Only changes at the line. Whole laps when lapped; null when unknown.
    */
   lineInterval: StandingsGap | null;
+  /**
+   * The car's most recent completed time of each official sector, seconds (index = sector).
+   * Taken from interpolated sector-boundary crossings, so a value only changes when the car
+   * completes that sector. An entry is null until the car has driven the whole sector without a
+   * jump; the field is null when the track has no sector data.
+   */
+  sectorTimes: readonly (number | null)[] | null;
   /** Rolling average of the last 5 clean laps (the reference average lap). */
   avgLapS: number | null;
   /** This car's best lap is the fastest overall / in its class this session. */

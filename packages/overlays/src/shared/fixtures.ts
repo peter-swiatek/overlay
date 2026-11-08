@@ -73,6 +73,7 @@ function baseEntry(carIdx: number): StandingsEntry {
     gapToClassLeader: null,
     interval: null,
     lineInterval: null,
+    sectorTimes: null,
     avgLapS: null,
     sessionBest: false,
     classBest: false,

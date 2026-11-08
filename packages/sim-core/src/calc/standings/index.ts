@@ -1,4 +1,5 @@
 import type { Car, SimState } from "../../model";
+import { validSectorStarts } from "../delta/sectors";
 import type { GapReferenceLap } from "../gaps";
 import { bestLapGap, lapTimeChain, raceGap } from "./gap";
 import { hasOfficialOrder, officialOrder, raceOrder, type OrderCar } from "./order";
@@ -42,6 +43,16 @@ function positiveOrNull(value: number | null | undefined): number | null {
 
 /** Crossings kept per car beyond the latest, so a car behind can still be matched. */
 const LINE_LAPS_KEPT = 3;
+/** A frame-to-frame step in lap fraction beyond this (either way) is a jump (tow, reset, replay seek). */
+const MAX_SECTOR_STEP = 0.25;
+
+/** Per car: when it last passed each sector start, and its latest completed sector times. */
+interface SectorLog {
+  /** Session time at each sector start (index 0 = the line); null when not seen since a jump. */
+  passed: (number | null)[];
+  /** Replaced, never mutated, so an unchanged list keeps its identity between frames. */
+  times: readonly (number | null)[];
+}
 
 interface ClassAcc {
   leader: number;
@@ -75,6 +86,9 @@ export class StandingsTracker {
   /** Lap fraction and session time of each car in the previous frame, to time a crossing. */
   private prevPct = new Map<number, number>();
   private prevTickS: number | null = null;
+  /** The track's sector starts (validated); null without sector data. */
+  private sectorStarts: number[] | null = null;
+  private sectorLogs = new Map<number, SectorLog>();
 
   reset(): void {
     this.pit.clear();
@@ -89,6 +103,81 @@ export class StandingsTracker {
     this.crossings.clear();
     this.prevPct.clear();
     this.prevTickS = null;
+    this.sectorStarts = null;
+    this.sectorLogs.clear();
+  }
+
+  /** New sector starts forget every car's sector log. */
+  private setSectorStarts(starts: readonly number[] | null): void {
+    const valid = validSectorStarts(starts);
+    const same =
+      valid === null || this.sectorStarts === null
+        ? valid === this.sectorStarts
+        : valid.length === this.sectorStarts.length &&
+          valid.every((v, i) => v === this.sectorStarts?.[i]);
+    if (same) return;
+    this.sectorStarts = valid;
+    this.sectorLogs.clear();
+  }
+
+  /**
+   * Times the sector boundaries the car passed since the previous frame, each interpolated by lap
+   * fraction between the two frames (like the line crossing), and completes the sector that ends
+   * at each one. A step back, a big jump or a car leaving the world forgets the open crossings.
+   */
+  private recordSectors(car: Car, nowS: number | null): void {
+    const starts = this.sectorStarts;
+    if (starts === null) return;
+    const n = starts.length;
+    let log = this.sectorLogs.get(car.carIdx);
+    if (!log) {
+      log = { passed: new Array<number | null>(n).fill(null), times: new Array(n).fill(null) };
+      this.sectorLogs.set(car.carIdx, log);
+    }
+    const p0 = this.prevPct.get(car.carIdx);
+    const p1 = car.lapDistPct;
+    const t0 = this.prevTickS;
+    const valid =
+      car.connected && p1 !== null && Number.isFinite(p1) && p1 >= 0 && p1 < 1 && nowS !== null;
+    if (!valid || p0 === undefined || t0 === null || !(nowS > t0)) {
+      if (!valid) log.passed.fill(null);
+      return;
+    }
+    // Forward distance covered, across the line when the fraction wrapped.
+    const wrapped = p1 < p0 && p0 - p1 > 0.5;
+    const span = wrapped ? 1 - p0 + p1 : p1 - p0;
+    if (span <= 0) {
+      if (span < 0) log.passed.fill(null);
+      return;
+    }
+    if (span > MAX_SECTOR_STEP) {
+      log.passed.fill(null);
+      return;
+    }
+    const pass = (j: number, at: number): void => {
+      const atS = t0 + ((nowS - t0) * (at - p0)) / span;
+      const prev = (j + n - 1) % n;
+      const from = log.passed[prev] ?? null;
+      if (from !== null && atS > from) {
+        const times = [...log.times];
+        times[prev] = atS - from;
+        log.times = times;
+      }
+      log.passed[prev] = null;
+      log.passed[j] = atS;
+    };
+    // Boundaries in the order they were passed; positions are measured from p0 along the lap.
+    for (let j = 1; j < n; j++) {
+      const b = starts[j] as number;
+      if (b > p0 && (wrapped || b <= p1)) pass(j, b);
+    }
+    if (wrapped) {
+      pass(0, 1);
+      for (let j = 1; j < n; j++) {
+        const b = starts[j] as number;
+        if (b <= p1) pass(j, 1 + b);
+      }
+    }
   }
 
   /**
@@ -170,6 +259,7 @@ export class StandingsTracker {
     for (const car of state.cars) if (car.isPaceCar !== true) cars.push(car);
     const n = cars.length;
     if (n === 0) return null;
+    this.setSectorStarts(state.session.sectorStartPcts);
 
     const phase = state.session.phase;
     const race = state.session.type === "race" && isRacePhase(phase);
@@ -202,6 +292,7 @@ export class StandingsTracker {
       ) {
         this.recordCrossing(car, state.tickTimeS);
       }
+      this.recordSectors(car, state.tickTimeS);
       if (car.lapsCompleted !== null) this.prevLaps.set(car.carIdx, car.lapsCompleted);
       if (car.lapDistPct !== null) this.prevPct.set(car.carIdx, car.lapDistPct);
     }
@@ -301,6 +392,8 @@ export class StandingsTracker {
         gapToClassLeader: null,
         interval: null,
         lineInterval: null,
+        sectorTimes:
+          this.sectorStarts === null ? null : (this.sectorLogs.get(car.carIdx)?.times ?? null),
         avgLapS: positiveOrNull(inputs.averageLapS(car.carIdx)),
         sessionBest: carBest !== null && carBest === sessionBest,
         classBest: carBest !== null && carBest === (classBestLapS[car.classId ?? ""] ?? null),
