@@ -24,6 +24,7 @@ function frame(): TelemetryFrame {
       proximity: null,
       delta: null,
       slowCar: null,
+      laps: null,
       gaps: [],
     },
   };

@@ -30,5 +30,6 @@ export type {
   SectorTiming,
 } from "./calc/delta/types";
 export type { SlowCarAhead } from "./calc/slow-car/types";
+export type { LapHistory, LapRecord } from "./calc/laps/types";
 export type { TrackOutline } from "./track/types";
 export type { Corner } from "./track/corners/schema";

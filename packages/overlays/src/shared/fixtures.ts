@@ -213,6 +213,7 @@ export function fixtureFrame(input: {
       proximity: null,
       delta: null,
       slowCar: null,
+      laps: null,
     },
   };
 }

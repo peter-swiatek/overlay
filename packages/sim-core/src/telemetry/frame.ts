@@ -1,6 +1,7 @@
 import type { DeltaOutputs } from "../calc/delta";
 import type { FuelOutputs } from "../calc/fuel";
 import type { GapResult } from "../calc/gaps";
+import type { LapHistory } from "../calc/laps";
 import type { Proximity } from "../calc/proximity";
 import type { SlowCarAhead } from "../calc/slow-car";
 import type { Standings } from "../calc/standings";
@@ -36,6 +37,8 @@ export interface Derived {
   delta: DeltaOutputs | null;
   /** Nearest slow or stopped car ahead; null when there is none or it is unknown. */
   slowCar: SlowCarAhead | null;
+  /** Recent completed laps of the focus car (player, else camera car); null without one. */
+  laps: LapHistory | null;
 }
 
 /** What the telemetry process publishes to overlay renderers. Plain structured-cloneable data. */
@@ -59,5 +62,6 @@ export function emptyDerived(): Derived {
     energy: null,
     delta: null,
     slowCar: null,
+    laps: null,
   };
 }

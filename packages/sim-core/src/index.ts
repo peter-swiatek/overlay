@@ -10,6 +10,7 @@ export * from "./calc/standings";
 export * from "./calc/proximity";
 export * from "./calc/delta";
 export * from "./calc/slow-car";
+export * from "./calc/laps";
 export * as iracing from "./adapters/iracing";
 export * as lmu from "./adapters/lmu";
 

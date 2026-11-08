@@ -33,6 +33,7 @@ function liveFrame(): TelemetryFrame {
       proximity: null,
       delta: null,
       slowCar: null,
+      laps: null,
       gaps: [],
     },
   };

@@ -24,6 +24,8 @@ const FUEL_CAPACITY_L = 60;
 const FUEL_PER_LAP_L = 2.4;
 const REFUEL_BELOW_L = 4;
 const RACE_LAPS = 40;
+/** Period of the demo track temperature drift, seconds. */
+const TRACK_TEMP_PERIOD_S = 1800;
 /** Delta channels report `ok: false` for this long at the start of each lap, seconds. */
 const DELTA_SETTLE_S = 2;
 /** Brake pedal level above which the demo ABS cuts in. */
@@ -163,7 +165,7 @@ export class MockSource {
     state.conditions = {
       ...state.conditions,
       airTempC: 22,
-      trackTempC: 31,
+      trackTempC: trackTempAt(this.timeS),
       wetness: 0,
       humidity: 0.55,
       windSpeedMps: 4.5,
@@ -465,6 +467,11 @@ function classOf(index: number): typeof GT3 {
 function lapTimeOf(index: number): number {
   if (index === RIVAL_CAR) return NOMINAL_LAP_S;
   return classOf(index).lapS * (1 + (index % 7) * 0.004);
+}
+
+/** Track temperature: 31 °C drifting slowly up and back by up to 0.8 °C over half an hour. */
+function trackTempAt(timeS: number): number {
+  return Math.round((31 + 0.8 * Math.sin((2 * Math.PI * timeS) / TRACK_TEMP_PERIOD_S)) * 10) / 10;
 }
 
 /** Fuel after `laps` laps from a full-ish start, topped up whenever it would fall below the floor. */

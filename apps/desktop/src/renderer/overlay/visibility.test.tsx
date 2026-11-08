@@ -120,6 +120,7 @@ function frame(status: TelemetryFrame["status"], onTrack: boolean | null): Telem
       proximity: null,
       delta: null,
       slowCar: null,
+      laps: null,
       gaps: [],
     },
   };

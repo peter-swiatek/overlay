@@ -40,6 +40,7 @@ function frame(sim: "iracing" | "lmu" = "iracing"): TelemetryFrame {
       proximity: null,
       delta: null,
       slowCar: null,
+      laps: null,
       gaps: [],
     },
   };

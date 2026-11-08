@@ -10,6 +10,7 @@ import {
   type FuelTrackerOptions,
 } from "../calc/fuel";
 import { DeltaTracker, deltaInput, type BestLapStore } from "../calc/delta";
+import { LapHistoryTracker, lapHistoryInput } from "../calc/laps";
 import { MiniSectorRecorder, RollingLapTimes, relativeGap, type GapCarTick } from "../calc/gaps";
 import { ProximityTracker } from "../calc/proximity";
 import { SlowCarDetector } from "../calc/slow-car";
@@ -57,6 +58,7 @@ export class Deriver {
   private readonly proximity = new ProximityTracker();
   private readonly slowCars = new SlowCarDetector();
   private readonly delta: DeltaTracker;
+  private readonly lapHistory = new LapHistoryTracker();
 
   private readonly classIndices = new Map<string, number>();
 
@@ -85,6 +87,7 @@ export class Deriver {
     this.proximity.reset();
     this.slowCars.reset();
     this.delta.reset();
+    this.lapHistory.reset();
     this.track.reset();
     this.classIndices.clear();
   }
@@ -131,15 +134,20 @@ export class Deriver {
     const tickS = state.tickTimeS;
     const player = findPlayer(state);
     if (tickS !== null) this.recordCars(state, tickS);
+    const fuel = this.updateFuel(state, player, tickS);
+    const standings = this.standings.next(state, this.standingsInputs());
     return {
-      fuel: this.updateFuel(state, player, tickS),
+      fuel,
       gaps: this.gaps(state, player),
       track: this.track.update(state, player),
-      standings: this.standings.next(state, this.standingsInputs()),
+      standings,
       proximity: this.proximity.next(state),
       delta: this.delta.next(deltaInput(state, player)),
       slowCar: this.slowCars.next(state),
       energy: this.updateEnergy(state, player, tickS),
+      laps: this.lapHistory.next(
+        lapHistoryInput(state, standings, player === null ? null : this.fuel.lapRecords),
+      ),
     };
   }
 
