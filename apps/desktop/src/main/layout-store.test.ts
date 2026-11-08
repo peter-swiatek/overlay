@@ -162,6 +162,14 @@ describe("parseLayout", () => {
     expect(layout["delta-bar"]).toEqual({ x: 10, y: 20, width: 480, height: 108, scalePct: 100 });
   });
 
+  it("moves a Weather window at the old 240 px default to the narrower 200 px", () => {
+    const layout = parseLayout(
+      { weather: { x: 5, y: 6, width: 240, height: 352, scalePct: 100 } },
+      OVERLAY_MANIFESTS,
+    );
+    expect(layout["weather"]).toEqual({ x: 5, y: 6, width: 200, height: 352, scalePct: 100 });
+  });
+
   it("keeps a window the user resized away from an old default", () => {
     const layout = parseLayout(
       { "compact-hud": { x: 1, y: 2, width: 360, height: 180, scalePct: 100 } },
