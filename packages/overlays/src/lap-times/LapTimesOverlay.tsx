@@ -144,6 +144,23 @@ function LapTable({ view, shown }: { view: LapTimesView; shown: readonly Column[
   );
 }
 
+function SessionBest({ view }: { view: LapTimesView }) {
+  return (
+    <div className="lt-session-best">
+      <div className="lt-sb-main">
+        <span className="lt-sb-label">SESSION BEST</span>
+        <span className="lt-sb-time">{formatLapTime(view.bestLapS, LAP_DECIMALS)}</span>
+      </div>
+      <div className="lt-sb-side">
+        <span className="lt-sb-label">LAP</span>
+        <span className="lt-sb-lap">
+          {view.bestLapNumber === null ? NO_VALUE : String(view.bestLapNumber)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function Item({ label, value, fastest }: { label: string; value: string; fastest?: boolean }) {
   return (
     <span className="lt-item">
@@ -184,6 +201,7 @@ export function LapTimesOverlay({ settings }: OverlayProps) {
           <Item label="Stint" value={stint} />
         </div>
       ) : null}
+      {optionBoolean(settings, "show-session-best") ? <SessionBest view={view} /> : null}
       <LapTable view={view} shown={shown} />
       {optionBoolean(settings, "show-footer") ? (
         <div className="lt-strip lt-strip--footer">

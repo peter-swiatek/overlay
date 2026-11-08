@@ -36,6 +36,8 @@ export interface LapTimesView {
   /** Newest first. */
   rows: LapRow[];
   bestLapS: number | null;
+  /** Lap number of the focus car's best valid lap. */
+  bestLapNumber: number | null;
   /** Mean of the last (up to) 5 valid laps. */
   avgLapS: number | null;
   optimalLapS: number | null;
@@ -112,6 +114,7 @@ export function lapTimesView(
     stintLaps: entry?.stintLaps ?? null,
     rows: lapRows(laps, bestLapNumber, options.rows),
     bestLapS: history?.bestLapS ?? null,
+    bestLapNumber,
     avgLapS: averageLap(laps),
     optimalLapS: history?.optimalLapS ?? null,
   };
@@ -141,6 +144,7 @@ export const SAMPLE_LAP_TIMES_VIEW: LapTimesView = (() => {
     stintLaps: 15,
     rows: lapRows(laps, 13, 5),
     bestLapS: 99.82,
+    bestLapNumber: 13,
     avgLapS: averageLap(laps),
     optimalLapS: 99.64,
   };

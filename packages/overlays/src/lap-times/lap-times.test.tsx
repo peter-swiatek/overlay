@@ -72,7 +72,7 @@ describe("lap times manifest", () => {
     expect(moduleById("lap-times")?.Component).toBe(LapTimesOverlay);
     expect(lapTimesManifest).toMatchObject({
       sims: ["iracing", "lmu"],
-      defaultSize: { width: 360, height: 188 },
+      defaultSize: { width: 360, height: 250 },
       defaultEnabled: false,
       table: false,
     });
@@ -121,6 +121,15 @@ describe("LapTimesOverlay", () => {
     const html = render(frame());
     expect(html).toContain("30.8°");
     expect(html).toContain("2.40 L");
+  });
+
+  it("shows the session best box with its lap", () => {
+    const html = render(frame());
+    expect(html).toContain(
+      '<span class="lt-sb-label">SESSION BEST</span><span class="lt-sb-time">1:39.820</span>',
+    );
+    expect(html).toContain('<span class="lt-sb-lap">13</span>');
+    expect(render(frame(), { "show-session-best": false })).not.toContain("SESSION BEST");
   });
 
   it("has no pace trend", () => {

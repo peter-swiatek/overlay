@@ -164,3 +164,54 @@
 .lt-empty {
   color: var(--ov-text-muted);
 }
+
+/* Session best: green gain gradient box above the laps. */
+.lt-session-best {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.86em;
+  box-sizing: border-box;
+  height: 4.4em;
+  padding: 0 0.86em;
+  border-bottom: 1px solid color-mix(in srgb, var(--ov-locked-gain) 50%, transparent);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--ov-locked-gain) 30%, transparent),
+    transparent
+  );
+}
+
+.lt-sb-main,
+.lt-sb-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.14em;
+  min-width: 0;
+}
+
+.lt-sb-side {
+  align-items: flex-end;
+}
+
+.lt-sb-label {
+  color: var(--ov-text-muted);
+  font-size: 0.74em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.lt-sb-time {
+  color: var(--ov-text);
+  font-size: 1.71em;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.lt-sb-lap {
+  color: var(--ov-text);
+  font-size: 1.29em;
+  font-weight: 700;
+  line-height: 1.1;
+}

@@ -15,7 +15,7 @@ export const lapTimesManifest: OverlayManifest = {
   description:
     "Your recent laps with lap time, delta to the lap before, track temperature and fuel used, and best / average / optimal times.",
   sims: ["iracing", "lmu"],
-  defaultSize: { width: 360, height: 188 },
+  defaultSize: { width: 360, height: 250 },
   minSize: { width: 220, height: 100 },
   defaultPosition: { x: 1360, y: 200 },
   table: false,
@@ -26,6 +26,12 @@ export const lapTimesManifest: OverlayManifest = {
       "Driver and stint",
       "Layout",
       "Top bar: car number, driver and stint laps.",
+    ),
+    toggle(
+      "show-session-best",
+      "Session best",
+      "Layout",
+      "Box above the laps with your best valid lap this session.",
     ),
     toggle("show-footer", "Best, average and optimal", "Layout"),
     {
