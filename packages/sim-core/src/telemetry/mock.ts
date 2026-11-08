@@ -5,6 +5,7 @@ import {
   type Car,
   type CarLeftRight,
   type SimState,
+  type Vec3,
 } from "../model";
 
 export interface MockSourceOptions {
@@ -188,6 +189,8 @@ export class MockSource {
     p.incidentCount =
       playerLaps > 2 || (playerLaps === 2 && playerFraction >= 0.5) ? UNCLEAN_LAP_INCIDENTS : 0;
     p.yawRad = 2 * Math.PI * playerFraction;
+    // A world position, so the track tracker can build an outline of the demo track.
+    p.worldPos = worldPosAt(playerFraction);
     p.pitStallLapDistPct = PIT_STALL_LAP_DIST_PCT;
     const approachingPits =
       playerFraction >= PIT_APPROACH_FROM && playerFraction < PIT_STALL_LAP_DIST_PCT;
@@ -262,6 +265,52 @@ function shapeAt(f: number): number {
     if (x < half) dip += depth * 0.5 * (1 + Math.cos((Math.PI * x) / half));
   }
   return 1 - dip;
+}
+
+/** Shape of the demo track on the ground plane, as a closed curve over t in 0..2pi (unitless). */
+function worldShape(t: number): [number, number] {
+  return [
+    Math.cos(t) - 0.22 * Math.cos(2 * t) + 0.06 * Math.sin(3 * t) + 0.05 * Math.cos(5 * t),
+    0.62 * Math.sin(t) + 0.16 * Math.sin(2 * t) - 0.07 * Math.cos(3 * t) + 0.06 * Math.sin(4 * t),
+  ];
+}
+
+const WORLD_BINS = 2000;
+
+/** The shape walked at equal steps of distance and scaled to TRACK_LENGTH_M: bin k at lap k/bins. */
+const WORLD_PATH: readonly (readonly [number, number])[] = (() => {
+  const dense = Array.from({ length: WORLD_BINS * 4 }, (_, i) =>
+    worldShape((2 * Math.PI * i) / (WORLD_BINS * 4)),
+  );
+  const cum = [0];
+  for (let i = 1; i <= dense.length; i++) {
+    const a = dense[i - 1]!;
+    const b = dense[i % dense.length]!;
+    cum.push(cum[i - 1]! + Math.hypot(b[0] - a[0], b[1] - a[1]));
+  }
+  const total = cum[dense.length]!;
+  const scale = TRACK_LENGTH_M / total;
+  const out: [number, number][] = [];
+  let j = 0;
+  for (let k = 0; k < WORLD_BINS; k++) {
+    const d = (k / WORLD_BINS) * total;
+    while (cum[j + 1]! < d) j++;
+    const a = dense[j]!;
+    const b = dense[(j + 1) % dense.length]!;
+    const f = (d - cum[j]!) / (cum[j + 1]! - cum[j]! || 1);
+    out.push([(a[0] + (b[0] - a[0]) * f) * scale, (a[1] + (b[1] - a[1]) * f) * scale]);
+  }
+  return out;
+})();
+
+/** World position (x, z on the ground, metres) at a lap fraction of the demo track. */
+function worldPosAt(fraction: number): Vec3 {
+  const at = (((fraction % 1) + 1) % 1) * WORLD_BINS;
+  const i = Math.min(Math.floor(at), WORLD_BINS - 1);
+  const f = at - i;
+  const a = WORLD_PATH[i]!;
+  const b = WORLD_PATH[(i + 1) % WORLD_BINS]!;
+  return { x: a[0] + (b[0] - a[0]) * f, y: 0, z: a[1] + (b[1] - a[1]) * f };
 }
 
 /** Steering demand: each corner turns the wheel, alternating left and right. */

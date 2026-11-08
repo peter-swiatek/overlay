@@ -108,6 +108,10 @@ describe("trackKeyOf", () => {
     expect(trackKeyOf(s)).toBe("iracing_ring");
     s.sim = null;
     expect(trackKeyOf(s)).toBeNull();
+    // The mock source names no sim; "mock" stands in for it.
+    const m = emptySimState("mock");
+    m.session.trackName = "Mock Raceway";
+    expect(trackKeyOf(m)).toBe("mock_mock-raceway");
   });
 });
 

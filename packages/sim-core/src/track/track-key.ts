@@ -5,16 +5,17 @@ import type { SimState } from "../model";
  * hyphens, the three parts joined by underscores. It is safe as a file name on every OS.
  * When the sim names no layout (LMU) the track length in metres, rounded to 10 m, stands in for it,
  * so that two layouts of one track do not share a file. Null while the sim or the track name is
- * not known yet.
+ * not known yet. The mock source names no sim and uses "mock" in its place.
  */
 export function trackKeyOf(state: SimState): string | null {
   const name = slug(state.session.trackName);
-  if (state.sim === null || name === "") return null;
+  const sim = state.sim ?? (state.source === "mock" ? "mock" : null);
+  if (sim === null || name === "") return null;
   const config = slug(state.session.trackConfig);
-  if (config !== "") return `${state.sim}_${name}_${config}`;
+  if (config !== "") return `${sim}_${name}_${config}`;
   const length = state.session.trackLengthM;
   const suffix = length !== null && length > 0 ? `_${Math.round(length / 10) * 10}m` : "";
-  return `${state.sim}_${name}${suffix}`;
+  return `${sim}_${name}${suffix}`;
 }
 
 /** Keys that differ only in the rounded length (by up to this many metres) are one track. */

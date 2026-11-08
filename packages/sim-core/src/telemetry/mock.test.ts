@@ -4,6 +4,26 @@ import { Deriver } from "./derive";
 import { MockSource } from "./mock";
 
 describe("MockSource", () => {
+  it("drives a world position the track tracker turns into an outline after a clean lap", () => {
+    const mock = new MockSource();
+    const deriver = new Deriver();
+    let readyAtS: number | null = null;
+    for (let i = 0; i < 2400 && readyAtS === null; i++) {
+      const s = mock.step(0.1);
+      expect(s.player.worldPos).not.toBeNull();
+      const out = deriver.next(s);
+      expect(out.track.trackKey).toBe("mock_mock-raceway_5000m");
+      if (out.track.outlineReady) readyAtS = s.tickTimeS;
+    }
+    // The first full lap starts at the line about 78 s in and takes about 100 s.
+    expect(readyAtS).not.toBeNull();
+    expect(readyAtS!).toBeLessThan(200);
+    const outline = deriver.trackOutline!;
+    expect(outline.source).toBe("world");
+    expect(outline.lengthM).toBeGreaterThan(4850);
+    expect(outline.lengthM).toBeLessThan(5150);
+  });
+
   it("produces valid SimState frames with two classes and a fuel-burning player", () => {
     const mock = new MockSource();
     const first = mock.state();
