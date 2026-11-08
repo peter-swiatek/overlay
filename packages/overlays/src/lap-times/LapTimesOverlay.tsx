@@ -4,13 +4,7 @@ import type { OverlayProps } from "../module";
 import { useOverlayRuntime } from "../runtime";
 import { optionBoolean, optionNumber, optionString } from "../settings";
 import "./lap-times.css";
-import {
-  lapTimesView,
-  SAMPLE_LAP_TIMES_VIEW,
-  type LapRow,
-  type LapTimesView,
-  type TrendBar,
-} from "./view";
+import { lapTimesView, SAMPLE_LAP_TIMES_VIEW, type LapRow, type LapTimesView } from "./view";
 
 const NO_VALUE = "--";
 /** Lap times use three decimals (owner preference; the design shows two). */
@@ -150,31 +144,6 @@ function LapTable({ view, shown }: { view: LapTimesView; shown: readonly Column[
   );
 }
 
-function PaceTrend({ bars }: { bars: readonly TrendBar[] }) {
-  const first = bars[0];
-  const last = bars[bars.length - 1];
-  const range =
-    first === undefined || last === undefined ? "" : ` (L${first.lapNumber} – L${last.lapNumber})`;
-  return (
-    <div className="lt-trend">
-      <div className="lt-trend-head">
-        <span>PACE TREND{range}</span>
-        <span>Green = Faster · Purple = Best</span>
-      </div>
-      <div className="lt-trend-bars">
-        {bars.map((bar) => (
-          <div
-            key={bar.lapNumber}
-            className={`lt-bar lt-bar--${bar.tone}`}
-            style={{ height: `${bar.heightPct}%` }}
-            title={`L${bar.lapNumber}: ${formatLapTime(bar.lapTimeS, LAP_DECIMALS)}`}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function Item({ label, value, fastest }: { label: string; value: string; fastest?: boolean }) {
   return (
     <span className="lt-item">
@@ -187,8 +156,7 @@ function Item({ label, value, fastest }: { label: string; value: string; fastest
 export function LapTimesOverlay({ settings }: OverlayProps) {
   const { useTelemetry, prefs, editing } = useOverlayRuntime();
   const rows = optionNumber(settings, "rows");
-  const trendLaps = optionNumber(settings, "trend-laps");
-  const live = useTelemetry((frame) => lapTimesView(frame, { rows, trendLaps }), 5);
+  const live = useTelemetry((frame) => lapTimesView(frame, { rows }), 5);
   const view = live ?? (editing ? SAMPLE_LAP_TIMES_VIEW : null);
 
   if (view === null) {
@@ -217,7 +185,6 @@ export function LapTimesOverlay({ settings }: OverlayProps) {
         </div>
       ) : null}
       <LapTable view={view} shown={shown} />
-      {optionBoolean(settings, "show-pace-trend") ? <PaceTrend bars={view.trend} /> : null}
       {optionBoolean(settings, "show-footer") ? (
         <div className="lt-strip lt-strip--footer">
           <Item

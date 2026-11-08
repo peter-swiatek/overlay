@@ -5,16 +5,13 @@ import { focusCarIdx } from "../shared/rows";
  * Lap Times view model. Every lap comes from sim-core's lap history (Derived.laps) of the focus
  * car. Laps that are not valid (off track, incidents, pit road, no lap time, joined part way)
  * are listed but muted, and never count for the best, the average, the optimal lap or a delta
- * colour; in the pace trend they are short muted bars.
+ * colour.
  */
 
 export type DeltaTone = "gain" | "loss" | null;
-/** "none": a valid lap without a valid lap before it to compare with. */
-export type TrendTone = "faster" | "slower" | "best" | "none" | "invalid";
 
 export interface LapTimesOptions {
   rows: number;
-  trendLaps: number;
 }
 
 export interface LapRow {
@@ -32,22 +29,12 @@ export interface LapRow {
   pit: boolean;
 }
 
-export interface TrendBar {
-  lapNumber: number;
-  lapTimeS: number | null;
-  tone: TrendTone;
-  /** Bar height, % of the trend area: faster laps are taller. */
-  heightPct: number;
-}
-
 export interface LapTimesView {
   carNumber: string | null;
   driverName: string | null;
   stintLaps: number | null;
   /** Newest first. */
   rows: LapRow[];
-  /** Oldest first. */
-  trend: TrendBar[];
   bestLapS: number | null;
   /** Mean of the last (up to) 5 valid laps. */
   avgLapS: number | null;
@@ -56,12 +43,6 @@ export interface LapTimesView {
 
 /** Valid laps averaged in the footer. */
 export const AVG_LAPS = 5;
-/** Height of the slowest valid bar, and of a muted (invalid) bar, % of the trend area. */
-const MIN_BAR_PCT = 60;
-const INVALID_BAR_PCT = 35;
-/** Lap-time spread (s) that maps to the full height range; a smaller spread is not exaggerated. */
-const MIN_SPREAD_S = 0.6;
-
 const round2 = (v: number): number => Math.round(v * 100) / 100 + 0;
 
 function timed(lap: LapRecord | undefined): lap is LapRecord & { lapTimeS: number } {
@@ -104,44 +85,6 @@ export function lapRows(
   });
 }
 
-/** The last `count` laps oldest first, coloured against the lap before each. */
-export function trendBars(
-  laps: readonly LapRecord[],
-  bestLapNumber: number | null,
-  count: number,
-): TrendBar[] {
-  const n = Math.min(laps.length, Math.max(0, count));
-  const valid = laps.slice(0, n).filter(counts);
-  const fastest = Math.min(...valid.map((l) => l.lapTimeS));
-  const slowest = Math.max(...valid.map((l) => l.lapTimeS));
-  const spread = Math.max(MIN_SPREAD_S, slowest - fastest);
-  const bars: TrendBar[] = [];
-  for (let i = n - 1; i >= 0; i--) {
-    const lap = laps[i]!;
-    if (!counts(lap)) {
-      bars.push({
-        lapNumber: lap.lapNumber,
-        lapTimeS: lap.lapTimeS,
-        tone: "invalid",
-        heightPct: INVALID_BAR_PCT,
-      });
-      continue;
-    }
-    const prev = before(laps, i);
-    let tone: TrendTone = "none";
-    if (lap.lapNumber === bestLapNumber) tone = "best";
-    else if (counts(prev)) tone = lap.lapTimeS <= prev.lapTimeS ? "faster" : "slower";
-    const share = Math.min(1, (lap.lapTimeS - fastest) / spread);
-    bars.push({
-      lapNumber: lap.lapNumber,
-      lapTimeS: lap.lapTimeS,
-      tone,
-      heightPct: Math.round(100 - share * (100 - MIN_BAR_PCT)),
-    });
-  }
-  return bars;
-}
-
 export function averageLap(laps: readonly LapRecord[], count = AVG_LAPS): number | null {
   const times = laps
     .filter(counts)
@@ -168,7 +111,6 @@ export function lapTimesView(
     driverName: car?.driverName ?? null,
     stintLaps: entry?.stintLaps ?? null,
     rows: lapRows(laps, bestLapNumber, options.rows),
-    trend: trendBars(laps, bestLapNumber, options.trendLaps),
     bestLapS: history?.bestLapS ?? null,
     avgLapS: averageLap(laps),
     optimalLapS: history?.optimalLapS ?? null,
@@ -198,7 +140,6 @@ export const SAMPLE_LAP_TIMES_VIEW: LapTimesView = (() => {
     driverName: "Alex Marlow",
     stintLaps: 15,
     rows: lapRows(laps, 13, 5),
-    trend: trendBars(laps, 13, 8),
     bestLapS: 99.82,
     avgLapS: averageLap(laps),
     optimalLapS: 99.64,

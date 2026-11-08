@@ -72,16 +72,16 @@ describe("lap times manifest", () => {
     expect(moduleById("lap-times")?.Component).toBe(LapTimesOverlay);
     expect(lapTimesManifest).toMatchObject({
       sims: ["iracing", "lmu"],
-      defaultSize: { width: 360, height: 260 },
+      defaultSize: { width: 360, height: 188 },
       defaultEnabled: false,
       table: false,
     });
   });
 
-  it("lists five laps and eight trend bars by default", () => {
+  it("lists five laps by default", () => {
     const s = defaultInstanceSettings(lapTimesManifest);
     expect(s.options.rows).toBe(5);
-    expect(s.options["trend-laps"]).toBe(8);
+    expect(s.options["trend-laps"]).toBeUndefined();
   });
 });
 
@@ -123,12 +123,10 @@ describe("LapTimesOverlay", () => {
     expect(html).toContain("2.40 L");
   });
 
-  it("draws the pace trend with its lap range", () => {
+  it("has no pace trend", () => {
     const html = render(frame());
-    expect(html).toContain("PACE TREND (L11 – L15)");
-    expect(html).toContain("Green = Faster · Purple = Best");
-    expect(html).toContain("lt-bar lt-bar--best");
-    expect(html).toContain("lt-bar lt-bar--invalid");
+    expect(html).not.toContain("PACE TREND");
+    expect(html).not.toContain("lt-bar");
   });
 
   it("has best, average and an empty optimal in the footer", () => {
@@ -143,21 +141,18 @@ describe("LapTimesOverlay", () => {
       "col-fuel": false,
       "col-track": false,
       "show-top-bar": false,
-      "show-pace-trend": false,
       "show-footer": false,
     });
     expect(html).not.toContain("2.40 L");
     expect(html).not.toContain(">Track<");
     expect(html).not.toContain("Driver");
-    expect(html).not.toContain("PACE TREND");
     expect(html).not.toContain("Avg (5L)");
     expect(html).toContain("grid-template-columns:3.1em minmax(5.6em, 1fr) 4.6em");
   });
 
-  it("follows the rows and trend-laps settings", () => {
-    const html = render(frame(), { rows: 2, "trend-laps": 3 });
+  it("follows the rows setting", () => {
+    const html = render(frame(), { rows: 2 });
     expect([...html.matchAll(/data-lap=/g)]).toHaveLength(2);
-    expect(html).toContain("PACE TREND (L13 – L15)");
   });
 
   it("says so before the first lap", () => {
@@ -172,7 +167,8 @@ describe("LapTimesOverlay", () => {
     expect(render(null)).toContain("Waiting for laps");
     const html = render(null, {}, { editing: true });
     expect(html).toContain("1 A. Marlow");
-    expect(html).toContain("PACE TREND (L8 – L15)");
+    expect(html).toContain("1:40.000");
+    expect(html).not.toContain("PACE TREND");
   });
 });
 
