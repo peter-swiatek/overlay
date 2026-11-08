@@ -31,6 +31,13 @@ const ABS_BRAKE_LEVEL = 0.8;
 /** Car that is periodically under a local yellow, and the car that needs repair. */
 const YELLOW_CAR = 3;
 const REPAIR_CAR = 7;
+/**
+ * A car in the player's class that starts this far (laps) ahead of the player's start and runs
+ * the player's nominal lap time, so the player always has a class rival ahead with a gap that
+ * moves a little lap to lap (Battle Box, Delta Bar head-to-head).
+ */
+const RIVAL_CAR = 1;
+const RIVAL_LEAD_LAPS = 0.03;
 /** Car that runs wide once per lap, and the lap fraction range it is off track. */
 const OFF_TRACK_CAR = 5;
 const OFF_TRACK_FROM = 0.3;
@@ -216,7 +223,10 @@ export class MockSource {
 
   private distance(index: number): number {
     // Cars start staggered behind the line, faster cars catch the slower ones in time.
-    const offset = (this.carCount - index) * 0.012;
+    const offset =
+      index === RIVAL_CAR
+        ? this.carCount * 0.012 + RIVAL_LEAD_LAPS
+        : (this.carCount - index) * 0.012;
     return offset + this.timeS / lapTimeOf(index);
   }
 
@@ -453,6 +463,7 @@ function classOf(index: number): typeof GT3 {
 }
 
 function lapTimeOf(index: number): number {
+  if (index === RIVAL_CAR) return NOMINAL_LAP_S;
   return classOf(index).lapS * (1 + (index % 7) * 0.004);
 }
 

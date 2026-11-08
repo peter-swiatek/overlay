@@ -4,6 +4,29 @@ import { Deriver } from "./derive";
 import { MockSource } from "./mock";
 
 describe("MockSource", () => {
+  it("gives the player a class rival ahead and behind with line gaps and sector times", () => {
+    const mock = new MockSource();
+    const deriver = new Deriver();
+    let out = deriver.next(mock.step(0.1));
+    for (let i = 0; i < 2600; i++) out = deriver.next(mock.step(0.1));
+    const entries = out.standings?.entries ?? [];
+    const me = entries.find((e) => e.carIdx === 0);
+    const myPos = me?.liveClassPosition ?? 0;
+    expect(myPos).toBeGreaterThan(1);
+    const classOf = (idx: number) => mock.state().cars.find((c) => c.carIdx === idx)?.classId;
+    const at = (pos: number) =>
+      entries.find((e) => e.liveClassPosition === pos && classOf(e.carIdx) === classOf(0));
+    const behind = at(myPos + 1);
+    expect(at(myPos - 1)).toBeDefined();
+    expect(behind).toBeDefined();
+    expect(me?.lineInterval?.seconds).toBeGreaterThan(0);
+    expect(behind?.lineInterval?.seconds).toBeGreaterThan(0);
+    for (const e of [me, at(myPos - 1), behind]) {
+      expect(e?.sectorTimes).toHaveLength(4);
+      expect(e?.sectorTimes?.every((t) => t !== null && t > 0)).toBe(true);
+    }
+  });
+
   it("drives a world position the track tracker turns into an outline after a clean lap", () => {
     const mock = new MockSource();
     const deriver = new Deriver();
