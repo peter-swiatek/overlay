@@ -9,6 +9,7 @@ import { deltaBarManifest } from "./delta-bar/manifest";
 import { telemetryStripManifest } from "./telemetry-strip/manifest";
 import { weatherManifest } from "./weather/manifest";
 import { inputsManifest } from "./inputs/manifest";
+import { trackMapManifest } from "./track-map/manifest";
 
 export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   relativeManifest,
@@ -21,6 +22,7 @@ export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   telemetryStripManifest,
   weatherManifest,
   inputsManifest,
+  trackMapManifest,
 ];
 
 export function manifestById(id: string): OverlayManifest | undefined {

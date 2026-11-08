@@ -9,6 +9,7 @@ import { deltaBarModule } from "./delta-bar";
 import { telemetryStripModule } from "./telemetry-strip";
 import { weatherModule } from "./weather";
 import { inputsModule } from "./inputs";
+import { trackMapModule } from "./track-map";
 
 export const OVERLAY_MODULES: readonly OverlayModule[] = [
   relativeModule,
@@ -21,6 +22,7 @@ export const OVERLAY_MODULES: readonly OverlayModule[] = [
   telemetryStripModule,
   weatherModule,
   inputsModule,
+  trackMapModule,
 ];
 
 export function moduleById(id: string): OverlayModule | undefined {
