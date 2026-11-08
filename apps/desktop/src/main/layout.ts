@@ -89,6 +89,7 @@ const RETIRED_DEFAULT_SIZES: Readonly<
   weather: [
     { size: { width: 240, height: 352 }, anchorBottom: false },
     { size: { width: 200, height: 352 }, anchorBottom: false },
+    { size: { width: 176, height: 338 }, anchorBottom: false },
   ],
 };
 

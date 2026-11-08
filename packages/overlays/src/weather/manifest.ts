@@ -5,7 +5,7 @@ export const weatherManifest: OverlayManifest = {
   title: "Weather",
   description: "Heading-up wind compass, temperatures, humidity, rain, track usage and wetness.",
   sims: ["iracing", "lmu"],
-  defaultSize: { width: 176, height: 338 },
+  defaultSize: { width: 176, height: 328 },
   minSize: { width: 160, height: 120 },
   defaultPosition: { x: 1640, y: 200 },
   table: false,

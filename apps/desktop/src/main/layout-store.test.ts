@@ -162,13 +162,17 @@ describe("parseLayout", () => {
     expect(layout["delta-bar"]).toEqual({ x: 10, y: 20, width: 480, height: 108, scalePct: 100 });
   });
 
-  it("moves a Weather window at an old default to the new 176 x 338", () => {
-    for (const width of [240, 200]) {
+  it("moves a Weather window at an old default to the new 176 x 328", () => {
+    for (const [width, height] of [
+      [240, 352],
+      [200, 352],
+      [176, 338],
+    ] as const) {
       const layout = parseLayout(
-        { weather: { x: 5, y: 6, width, height: 352, scalePct: 100 } },
+        { weather: { x: 5, y: 6, width, height, scalePct: 100 } },
         OVERLAY_MANIFESTS,
       );
-      expect(layout["weather"]).toEqual({ x: 5, y: 6, width: 176, height: 338, scalePct: 100 });
+      expect(layout["weather"]).toEqual({ x: 5, y: 6, width: 176, height: 328, scalePct: 100 });
     }
   });
 

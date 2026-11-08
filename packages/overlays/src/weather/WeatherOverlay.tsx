@@ -79,7 +79,7 @@ function availableIn(id: string, sim: SimName | null): boolean {
 
 function Compass({ v, label }: { v: WeatherView; label: string }) {
   return (
-    <svg width="104" height="104" viewBox="-52 -52 104 104" role="img" aria-label={label}>
+    <svg width="94" height="94" viewBox="-52 -52 104 104" role="img" aria-label={label}>
       <circle r="46" className="wx-compass-disc" />
       <circle r="34" className="wx-compass-ring" />
       <g style={{ transform: `rotate(${v.dialDeg ?? 0}deg)` }}>
