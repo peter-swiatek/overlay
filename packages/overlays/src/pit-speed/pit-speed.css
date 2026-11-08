@@ -39,6 +39,7 @@
 }
 .ps-speed-row {
   display: flex;
+  justify-content: center;
   align-items: baseline;
   gap: 0.29em;
   color: var(--ov-text);

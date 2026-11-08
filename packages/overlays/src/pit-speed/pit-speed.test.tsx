@@ -248,5 +248,7 @@ describe("Pit Speed CSS", () => {
     const rule = css.slice(start, css.indexOf("}", start));
     expect(rule).toContain("font-size: var(--ov-font-size, 14px);");
     expect(rule).toContain("box-shadow: inset 0 0 0 1px var(--ov-border);");
+    const row = css.slice(css.indexOf(".ps-speed-row {"));
+    expect(row.slice(0, row.indexOf("}"))).toContain("justify-content: center;");
   });
 });
