@@ -273,11 +273,11 @@ describe("CompactHudOverlay activity", () => {
 });
 
 describe("Compact HUD CSS", () => {
-  it("draws speed and RPM in the muted text colour so the gear leads", () => {
+  it("draws speed and RPM in white at the design size", () => {
     const css = readFileSync(join(__dirname, "compact-hud.css"), "utf8");
     const start = css.indexOf(".hud-num b {");
     const rule = css.slice(start, css.indexOf("}", start));
-    expect(rule).toContain("color: var(--ov-text-muted);");
-    expect(rule).toContain("font-weight: 600;");
+    expect(rule).toContain("color: var(--ov-text);");
+    expect(rule).toContain("font-size: 1.38em;");
   });
 });
