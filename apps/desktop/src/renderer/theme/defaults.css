@@ -38,6 +38,7 @@
   --ov-locked-pit-box: #38bdf8;
   --ov-locked-pit-exit: #e879f9;
   --ov-locked-sector-slower: #facc15;
+  --ov-locked-tyre-cold: #38bdf8;
 }
 
 :root[data-compact="true"] {

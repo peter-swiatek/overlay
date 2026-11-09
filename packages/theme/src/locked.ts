@@ -26,4 +26,6 @@ export const LOCKED_COLOURS: Readonly<Record<LockedColourKey, string>> = Object.
   pitExit: "#e879f9",
   /** Delta Bar sector slower than the reference: yellow, so red stays for real losses elsewhere. */
   sectorSlower: "#facc15",
+  /** Tyres overlay: a tyre below its temperature window. */
+  tyreCold: "#38bdf8",
 });

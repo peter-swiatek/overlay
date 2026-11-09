@@ -60,6 +60,10 @@ export const LOCKED_GROUPS: readonly {
       ["pitExit", "Pit exit"],
     ],
   },
+  {
+    title: "Tyres",
+    items: [["tyreCold", "Tyre cold"]],
+  },
 ];
 
 /** Read-only legend: there is deliberately no input for a locked colour. */
