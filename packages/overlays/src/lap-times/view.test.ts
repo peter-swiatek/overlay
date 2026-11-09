@@ -30,15 +30,21 @@ function history(first: number, times: (number | null)[]): LapRecord[] {
 }
 
 describe("lapRows", () => {
-  it("lists the newest laps first with the delta to the lap before", () => {
-    // The design: 1:40.15 then 1:40.00 is -0.15.
-    const rows = lapRows(history(13, [99.82, 100.15, 100.0]), 13, 5);
+  it("gives each lap's delta to the session best before it, newest first", () => {
+    // 1:40.15 (best), 1:40.00 (new best), 1:40.30, 1:39.82 (new best).
+    const rows = lapRows(history(12, [100.15, 100.0, 100.3, 99.82]), 15, 5, 99.82);
     expect(rows.map((r) => [r.lapNumber, r.deltaS, r.deltaTone])).toEqual([
-      [15, -0.15, "gain"],
-      [14, 0.33, "loss"],
-      [13, null, null],
+      [15, -0.18, "gain"],
+      [14, 0.3, "loss"],
+      [13, -0.15, "gain"],
+      [12, null, null],
     ]);
-    expect(rows.map((r) => r.best)).toEqual([false, false, true]);
+    expect(rows.map((r) => r.best)).toEqual([true, false, false, false]);
+  });
+
+  it("uses an older overall best that has left the kept history", () => {
+    const rows = lapRows(history(20, [100.5]), 3, 5, 99.9);
+    expect(rows[0]).toMatchObject({ deltaS: 0.6, deltaTone: "loss" });
   });
 
   it("shows at most the rows asked for", () => {
@@ -47,18 +53,17 @@ describe("lapRows", () => {
     ]);
   });
 
-  it("does not colour a delta against or of a lap that does not count", () => {
-    const laps = history(1, [100, 130, 100.5]);
+  it("ignores laps that do not count as a best, and leaves their own delta uncoloured", () => {
+    const laps = history(1, [100, 90, 100.5]);
     laps[1] = { ...laps[1]!, valid: false, pit: true };
-    const rows = lapRows(laps, 1, 5);
-    expect(rows[0]).toMatchObject({ deltaS: -29.5, deltaTone: null });
-    expect(rows[1]).toMatchObject({ deltaS: 30, deltaTone: null, valid: false, pit: true });
+    const rows = lapRows(laps, 1, 5, 100);
+    expect(rows[0]).toMatchObject({ deltaS: 0.5, deltaTone: "loss" });
+    expect(rows[1]).toMatchObject({ deltaS: -10, deltaTone: null, valid: false, pit: true });
   });
 
-  it("has no delta across a gap in the lap numbers or without a time", () => {
-    const laps = [lap(5, 100), lap(3, 101)];
-    expect(lapRows(laps, null, 5)[0]?.deltaS).toBeNull();
-    expect(lapRows(history(1, [null, 100]), null, 5)[0]?.deltaS).toBeNull();
+  it("has no delta without a time or an earlier best", () => {
+    expect(lapRows(history(1, [100]), 1, 5, 100)[0]?.deltaS).toBeNull();
+    expect(lapRows(history(1, [100, null]), 1, 5, 100)[0]?.deltaS).toBeNull();
   });
 
   it("leaves a rounded-to-zero delta uncoloured", () => {
@@ -75,6 +80,12 @@ describe("averageLap", () => {
     laps[0] = { ...laps[0]!, valid: false };
     expect(averageLap(laps)).toBeCloseTo((90 + 400) / 5, 9);
     expect(averageLap([])).toBeNull();
+  });
+
+  it("averages up to ten valid laps for the long average", () => {
+    const laps = history(1, [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111]);
+    // Newest first: the ten newest are 111 down to 102.
+    expect(averageLap(laps, 10)).toBeCloseTo(106.5, 9);
   });
 });
 
@@ -107,6 +118,7 @@ describe("lapTimesView", () => {
     });
     expect(view.rows.map((r) => r.lapNumber)).toEqual([3, 2, 1]);
     expect(view.avgLapS).toBeCloseTo((100.3 + 99.8 + 99.5) / 3, 9);
+    expect(view.avg10LapS).toBeCloseTo((100.3 + 99.8 + 99.5) / 3, 9);
   });
 
   it("has an empty list before the first lap", () => {
@@ -132,7 +144,7 @@ describe("SAMPLE_LAP_TIMES_VIEW", () => {
   it("matches the design hand-off", () => {
     const v = SAMPLE_LAP_TIMES_VIEW;
     expect(v.rows.map((r) => r.lapNumber)).toEqual([15, 14, 13, 12, 11]);
-    expect(v.rows.map((r) => r.deltaS)).toEqual([-0.15, 0.33, -0.4, -0.13, 0.17]);
+    expect(v.rows.map((r) => r.deltaS)).toEqual([0.18, 0.33, -0.36, 0.04, 0.17]);
     expect(v.avgLapS).toBeCloseTo(100.108, 3);
   });
 });

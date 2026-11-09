@@ -17,9 +17,12 @@ export interface LapTimesOptions {
 export interface LapRow {
   lapNumber: number;
   lapTimeS: number | null;
-  /** This lap minus the lap before, rounded to 0.01 s; null without both times. */
+  /**
+   * This lap minus the session best as it stood before this lap, rounded to 0.01 s: negative is
+   * a new best (time gained), positive is time lost. Null without a time or an earlier best.
+   */
   deltaS: number | null;
-  /** Coloured only when both laps are valid and the rounded delta is not zero. */
+  /** Coloured only when this lap is valid and the rounded delta is not zero. */
   deltaTone: DeltaTone;
   trackTempC: number | null;
   fuelUsedL: number | null;
@@ -40,11 +43,14 @@ export interface LapTimesView {
   bestLapNumber: number | null;
   /** Mean of the last (up to) 5 valid laps. */
   avgLapS: number | null;
+  /** Mean of the last (up to) 10 valid laps. */
+  avg10LapS: number | null;
   optimalLapS: number | null;
 }
 
-/** Valid laps averaged in the footer. */
+/** Valid laps averaged in the footer: a short and a long average. */
 export const AVG_LAPS = 5;
+export const AVG_LONG_LAPS = 10;
 const round2 = (v: number): number => Math.round(v * 100) / 100 + 0;
 
 function timed(lap: LapRecord | undefined): lap is LapRecord & { lapTimeS: number } {
@@ -55,24 +61,39 @@ function counts(lap: LapRecord | undefined): lap is LapRecord & { lapTimeS: numb
   return timed(lap) && lap.valid;
 }
 
-/** The lap right before `lap` in the history (newest first), when it is the previous lap number. */
-function before(laps: readonly LapRecord[], index: number): LapRecord | undefined {
+/**
+ * The session best as it stood before the lap at `index` (history newest first): the fastest
+ * valid lap older than it. The overall best also counts when it is older and has already left
+ * the kept history.
+ */
+function bestBefore(
+  laps: readonly LapRecord[],
+  index: number,
+  best: { lapNumber: number | null; lapTimeS: number | null },
+): number | null {
   const lap = laps[index];
-  const prev = laps[index + 1];
-  return lap !== undefined && prev !== undefined && prev.lapNumber === lap.lapNumber - 1
-    ? prev
-    : undefined;
+  if (lap === undefined) return null;
+  let t: number | null =
+    best.lapTimeS !== null && best.lapNumber !== null && best.lapNumber < lap.lapNumber
+      ? best.lapTimeS
+      : null;
+  for (const older of laps.slice(index + 1)) {
+    if (counts(older) && (t === null || older.lapTimeS < t)) t = older.lapTimeS;
+  }
+  return t;
 }
 
 export function lapRows(
   laps: readonly LapRecord[],
   bestLapNumber: number | null,
   count: number,
+  bestLapS: number | null = null,
 ): LapRow[] {
+  const best = { lapNumber: bestLapNumber, lapTimeS: bestLapS };
   return laps.slice(0, Math.max(0, count)).map((lap, i) => {
-    const prev = before(laps, i);
-    const deltaS = timed(lap) && timed(prev) ? round2(lap.lapTimeS - prev.lapTimeS) : null;
-    const coloured = deltaS !== null && deltaS !== 0 && counts(lap) && counts(prev);
+    const ref = bestBefore(laps, i, best);
+    const deltaS = timed(lap) && ref !== null ? round2(lap.lapTimeS - ref) : null;
+    const coloured = deltaS !== null && deltaS !== 0 && counts(lap);
     return {
       lapNumber: lap.lapNumber,
       lapTimeS: lap.lapTimeS,
@@ -112,10 +133,11 @@ export function lapTimesView(
     carNumber: car?.carNumber ?? null,
     driverName: car?.driverName ?? null,
     stintLaps: entry?.stintLaps ?? null,
-    rows: lapRows(laps, bestLapNumber, options.rows),
+    rows: lapRows(laps, bestLapNumber, options.rows, history?.bestLapS ?? null),
     bestLapS: history?.bestLapS ?? null,
     bestLapNumber,
     avgLapS: averageLap(laps),
+    avg10LapS: averageLap(laps, AVG_LONG_LAPS),
     optimalLapS: history?.optimalLapS ?? null,
   };
 }
@@ -142,10 +164,11 @@ export const SAMPLE_LAP_TIMES_VIEW: LapTimesView = (() => {
     carNumber: "1",
     driverName: "Alex Marlow",
     stintLaps: 15,
-    rows: lapRows(laps, 13, 5),
+    rows: lapRows(laps, 13, 5, 99.82),
     bestLapS: 99.82,
     bestLapNumber: 13,
     avgLapS: averageLap(laps),
+    avg10LapS: averageLap(laps, AVG_LONG_LAPS),
     optimalLapS: 99.64,
   };
 })();

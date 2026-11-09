@@ -205,12 +205,8 @@ export function LapTimesOverlay({ settings }: OverlayProps) {
       <LapTable view={view} shown={shown} />
       {optionBoolean(settings, "show-footer") ? (
         <div className="lt-strip lt-strip--footer">
-          <Item
-            label="Best"
-            value={formatLapTime(view.bestLapS, LAP_DECIMALS)}
-            fastest={view.bestLapS !== null}
-          />
           <Item label="Avg (5L)" value={formatLapTime(view.avgLapS, LAP_DECIMALS)} />
+          <Item label="Avg (10L)" value={formatLapTime(view.avg10LapS, LAP_DECIMALS)} />
           <Item label="Opt" value={formatLapTime(view.optimalLapS, LAP_DECIMALS)} />
         </div>
       ) : null}

@@ -13,7 +13,7 @@ export const lapTimesManifest: OverlayManifest = {
   id: "lap-times",
   title: "Lap Times",
   description:
-    "Your recent laps with lap time, delta to the lap before, track temperature and fuel used, and best / average / optimal times.",
+    "Your recent laps with lap time, delta to your session best, track temperature and fuel used, and best / average / optimal times.",
   sims: ["iracing", "lmu"],
   defaultSize: { width: 360, height: 250 },
   minSize: { width: 220, height: 100 },
@@ -33,7 +33,7 @@ export const lapTimesManifest: OverlayManifest = {
       "Layout",
       "Box above the laps with your best valid lap this session.",
     ),
-    toggle("show-footer", "Best, average and optimal", "Layout"),
+    toggle("show-footer", "Averages and optimal", "Layout"),
     {
       key: "rows",
       label: "Laps listed",
@@ -47,7 +47,12 @@ export const lapTimesManifest: OverlayManifest = {
     },
     toggle("col-lap", "Lap", "Columns"),
     toggle("col-lap-time", "Lap time", "Columns"),
-    toggle("col-delta", "Delta", "Columns", "This lap minus the lap before."),
+    toggle(
+      "col-delta",
+      "Delta",
+      "Columns",
+      "This lap against your session best before it: green is a new best, red is time lost.",
+    ),
     toggle("col-track", "Track temperature", "Columns", "Track temperature when the lap ended."),
     toggle(
       "col-fuel",

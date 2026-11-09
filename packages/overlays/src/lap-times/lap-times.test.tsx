@@ -109,10 +109,12 @@ describe("LapTimesOverlay", () => {
     expect(html).not.toContain("ov-row--own");
   });
 
-  it("colours deltas and mutes the pit lap", () => {
+  it("colours deltas against the session best and mutes the pit lap", () => {
     const html = render(frame());
-    expect(html).toContain('<span class="lt-gain">-0.15</span>');
+    // Lap 13 beat the best before it (lap 11, 1:40.350); laps 14 and 15 lost time to lap 13.
+    expect(html).toContain('<span class="lt-gain">-0.53</span>');
     expect(html).toContain('<span class="lt-loss">+0.33</span>');
+    expect(html).toContain('<span class="lt-loss">+0.18</span>');
     expect(html).toContain('class="lt-row lt-row--invalid" data-lap="12"');
     expect(html).toContain('<span class="lt-tag">PIT</span>');
   });
@@ -138,10 +140,11 @@ describe("LapTimesOverlay", () => {
     expect(html).not.toContain("lt-bar");
   });
 
-  it("has best, average and an empty optimal in the footer", () => {
+  it("has the 5- and 10-lap averages and an empty optimal in the footer, no best", () => {
     const html = render(frame());
-    expect(html).toContain('Best</span><span class="lt-value lt-fastest">1:39.820</span>');
+    expect(html).not.toContain("Best</span>");
     expect(html).toContain("Avg (5L)");
+    expect(html).toContain("Avg (10L)");
     expect(html).toContain('Opt</span><span class="lt-value">--</span>');
   });
 
@@ -169,7 +172,7 @@ describe("LapTimesOverlay", () => {
     f.derived.laps = null;
     const html = render(f);
     expect(html).toContain("No completed laps yet");
-    expect(html).toContain('Best</span><span class="lt-value">--</span>');
+    expect(html).toContain('Avg (10L)</span><span class="lt-value">--</span>');
   });
 
   it("waits without data, and shows the design's sample while editing", () => {
