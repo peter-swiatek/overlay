@@ -1,0 +1,190 @@
+.ty {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 0.57em 0.71em;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--ov-bg);
+  color: var(--ov-text);
+  font-family: var(--ov-font-family, inherit);
+  font-weight: var(--ov-font-weight, 500);
+  font-size: var(--ov-font-size, 14px);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 1 px inset border, like the kit panel. */
+.ty::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  pointer-events: none;
+}
+
+.ty-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.43em;
+  min-height: 1.3em;
+  padding-bottom: 0.29em;
+  border-bottom: 1px solid var(--ov-border);
+}
+
+.ty-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ov-text-muted);
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.ty-pill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  box-sizing: border-box;
+  height: 1.42em;
+  padding: 0 0.58em;
+  border-radius: 999px;
+  font-size: 0.82em;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Compound families in locked colours: soft red, medium yellow, hard white, inter green, wet blue. */
+.ty-pill--soft {
+  color: var(--ov-locked-flag-white);
+  background: var(--ov-locked-flag-red);
+}
+
+.ty-pill--medium {
+  color: var(--ov-locked-flag-black);
+  background: var(--ov-locked-flag-yellow);
+}
+
+.ty-pill--hard {
+  color: var(--ov-locked-flag-black);
+  background: var(--ov-locked-flag-white);
+}
+
+.ty-pill--inter {
+  color: var(--ov-locked-flag-white);
+  background: var(--ov-locked-flag-green);
+}
+
+.ty-pill--wet {
+  color: var(--ov-locked-flag-white);
+  background: var(--ov-locked-flag-blue);
+}
+
+.ty-pill--other {
+  color: var(--ov-text);
+  background: var(--ov-header);
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+}
+
+.ty-grid {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 0.57em;
+  min-height: 0;
+  padding-top: 0.57em;
+}
+
+.ty-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.36em 0.5em;
+  overflow: hidden;
+  border: 1px solid var(--ov-border);
+  border-radius: 4px;
+  background: var(--ov-header);
+}
+
+.ty-card-head,
+.ty-card-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.3em;
+}
+
+.ty-card-head {
+  font-size: 0.78em;
+}
+
+.ty-corner {
+  font-weight: 700;
+}
+
+.ty-tread {
+  font-weight: 700;
+}
+
+.ty-tread--ok {
+  color: var(--ov-locked-gain);
+}
+
+.ty-tread--warn {
+  color: var(--ov-locked-flag-yellow);
+}
+
+.ty-tread--critical {
+  color: var(--ov-locked-loss);
+}
+
+.ty-tread--unknown {
+  color: var(--ov-text-muted);
+}
+
+/* Outer / middle / inner as the tyre sits on the car, tinted by the temperature band. */
+.ty-temps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.14em;
+  padding: 0.14em 0;
+  border-radius: 3px;
+  font-size: 0.76em;
+  font-weight: 700;
+  text-align: center;
+}
+
+.ty-temps--ok {
+  background: color-mix(in srgb, var(--ov-locked-gain) 22%, transparent);
+}
+
+.ty-temps--hot {
+  background: color-mix(in srgb, var(--ov-locked-flag-yellow) 25%, transparent);
+}
+
+.ty-temps--overheat {
+  background: color-mix(in srgb, var(--ov-locked-loss) 32%, transparent);
+}
+
+.ty-temps--cold {
+  background: color-mix(in srgb, var(--ov-locked-tyre-cold) 25%, transparent);
+}
+
+.ty-temps--unknown {
+  background: color-mix(in srgb, var(--ov-text) 8%, transparent);
+  color: var(--ov-text-muted);
+}
+
+.ty-card-foot {
+  color: var(--ov-text-muted);
+  font-size: 0.74em;
+}
