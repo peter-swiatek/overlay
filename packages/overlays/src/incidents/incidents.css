@@ -1,0 +1,165 @@
+.inc {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 0.64em 0.71em 0.57em;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--ov-bg);
+  color: var(--ov-text);
+  font-family: var(--ov-font-family, inherit);
+  font-weight: var(--ov-font-weight, 500);
+  /* The theme's text size (14 px, 12 px compact). */
+  font-size: var(--ov-font-size, 14px);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 1 px inset border, like the kit panel. */
+.inc::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  pointer-events: none;
+}
+
+.inc-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.43em;
+}
+
+.inc-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ov-text-muted);
+  font-size: 0.71em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.inc-pill {
+  flex: none;
+  padding: 0.18em 0.6em;
+  border-radius: 999px;
+  font-size: 0.79em;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+}
+
+.inc-pill--clean {
+  color: var(--ov-locked-gain);
+  background: color-mix(in srgb, var(--ov-locked-gain) 20%, transparent);
+}
+
+.inc-pill--caution {
+  color: var(--ov-locked-flag-yellow);
+  background: color-mix(in srgb, var(--ov-locked-flag-yellow) 20%, transparent);
+}
+
+.inc-pill--penalty {
+  color: var(--ov-locked-loss);
+  background: color-mix(in srgb, var(--ov-locked-loss) 22%, transparent);
+}
+
+.inc-pill--dq {
+  color: var(--ov-text);
+  background: var(--ov-locked-loss);
+}
+
+.inc-body {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.43em;
+  min-height: 0;
+}
+
+.inc-count {
+  display: inline-flex;
+  align-items: baseline;
+  line-height: 1;
+}
+
+.inc-num {
+  font-size: 2.43em;
+  font-weight: 800;
+}
+
+.inc-x {
+  margin-left: 0.05em;
+  font-size: 1em;
+  font-weight: 700;
+}
+
+.inc-limits {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding-top: 0.86em;
+  font-size: 0.79em;
+  line-height: 1.25;
+}
+
+.inc-limit-label {
+  color: var(--ov-text-muted);
+}
+
+.inc-limit-value {
+  font-weight: 700;
+}
+
+.inc-limit-value--dq {
+  color: var(--ov-locked-loss);
+}
+
+/* Progress bar: 0 to the penalty limit, then the penalty to the DQ limit. */
+.inc-bar {
+  display: flex;
+  flex: none;
+  gap: 0.29em;
+  height: 0.36em;
+}
+
+.inc-track {
+  flex-basis: 0;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 2px;
+}
+
+.inc-track--pen {
+  background: color-mix(in srgb, var(--ov-text) 16%, transparent);
+}
+
+.inc-track--dq {
+  background: color-mix(in srgb, var(--ov-locked-loss) 32%, transparent);
+}
+
+.inc-fill {
+  height: 100%;
+  border-radius: 2px;
+}
+
+.inc-track--pen .inc-fill {
+  /* A stub at 0x marks where the count starts. */
+  min-width: 0.21em;
+  background: var(--ov-locked-gain);
+}
+
+.inc-track--dq .inc-fill {
+  background: var(--ov-locked-loss);
+}
+
+:root:not([data-reduced-effects="true"]) .inc-fill {
+  transition: width 200ms linear;
+}

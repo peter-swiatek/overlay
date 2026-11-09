@@ -12,6 +12,7 @@ import { weatherManifest } from "./weather/manifest";
 import { inputsManifest } from "./inputs/manifest";
 import { trackMapManifest } from "./track-map/manifest";
 import { lapTimesManifest } from "./lap-times/manifest";
+import { incidentsManifest } from "./incidents/manifest";
 
 export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   relativeManifest,
@@ -27,6 +28,7 @@ export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   inputsManifest,
   trackMapManifest,
   lapTimesManifest,
+  incidentsManifest,
 ];
 
 export function manifestById(id: string): OverlayManifest | undefined {
