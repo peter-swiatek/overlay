@@ -151,6 +151,13 @@
   color: var(--ov-text-muted);
 }
 
+/* The invalid lap's own time stands out: locked loss red with a strike-through. */
+.lt-row--invalid .lt-time {
+  color: var(--ov-locked-loss);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
 .lt-tag {
   padding: 0 0.3em;
   border: 1px solid var(--ov-border);

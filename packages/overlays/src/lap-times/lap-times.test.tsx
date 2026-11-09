@@ -134,6 +134,12 @@ describe("LapTimesOverlay", () => {
     expect(render(frame(), { "show-session-best": false })).not.toContain("SESSION BEST");
   });
 
+  it("strikes through an invalid lap's time in the loss colour", () => {
+    expect(css).toMatch(
+      /\.lt-row--invalid \.lt-time \{[^}]*color: var\(--ov-locked-loss\);[^}]*text-decoration: line-through;/,
+    );
+  });
+
   it("has no pace trend", () => {
     const html = render(frame());
     expect(html).not.toContain("PACE TREND");
