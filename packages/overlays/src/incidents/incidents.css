@@ -12,8 +12,8 @@
   color: var(--ov-text);
   font-family: var(--ov-font-family, inherit);
   font-weight: var(--ov-font-weight, 500);
-  /* The theme's text size (14 px, 12 px compact). */
-  font-size: var(--ov-font-size, 14px);
+  /* 80 % of the theme text size (14 px, 12 px compact): a compact counter. */
+  font-size: calc(var(--ov-font-size, 14px) * 0.8);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }

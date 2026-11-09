@@ -6,8 +6,8 @@ export const incidentsManifest: OverlayManifest = {
   description:
     "Your incident count against the session's penalty and disqualification limits, with a status pill and a progress bar.",
   sims: ["iracing"],
-  defaultSize: { width: 150, height: 96 },
-  minSize: { width: 120, height: 64 },
+  defaultSize: { width: 120, height: 77 },
+  minSize: { width: 96, height: 52 },
   defaultPosition: { x: 1640, y: 560 },
   table: false,
   fields: [],

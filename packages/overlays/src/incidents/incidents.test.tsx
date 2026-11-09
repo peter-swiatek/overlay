@@ -35,11 +35,11 @@ function frame(own: number, pen: number | null = 17, dq: number | null = 25): Te
 }
 
 describe("incidents manifest", () => {
-  it("is an iRacing-only 150 x 96 panel, off by default, and registered", () => {
+  it("is an iRacing-only 120 x 77 panel, off by default, and registered", () => {
     const m = incidentsManifest;
     expect(m.id).toBe("incidents");
     expect(m.sims).toEqual(["iracing"]);
-    expect(m.defaultSize).toEqual({ width: 150, height: 96 });
+    expect(m.defaultSize).toEqual({ width: 120, height: 77 });
     expect(m.defaultEnabled).toBe(false);
     expect(defaultInstanceSettings(m).enabled).toBe(false);
     expect(manifestById("incidents")).toBe(m);
@@ -123,7 +123,7 @@ describe("Incidents CSS", () => {
   };
 
   it("uses the theme text size and the panel outline", () => {
-    expect(rule(".inc")).toContain("font-size: var(--ov-font-size, 14px);");
+    expect(rule(".inc")).toContain("font-size: calc(var(--ov-font-size, 14px) * 0.8);");
     expect(rule(".inc::after")).toContain("box-shadow: inset 0 0 0 1px var(--ov-border);");
   });
 
