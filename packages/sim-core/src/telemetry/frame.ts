@@ -5,6 +5,7 @@ import type { LapHistory } from "../calc/laps";
 import type { Proximity } from "../calc/proximity";
 import type { SlowCarAhead } from "../calc/slow-car";
 import type { Standings } from "../calc/standings";
+import type { TyreStint } from "../calc/tyres";
 import type { SimSource, SimState } from "../model";
 import { emptyDerivedTrack, type DerivedTrack } from "../track/tracker";
 
@@ -39,6 +40,8 @@ export interface Derived {
   slowCar: SlowCarAhead | null;
   /** Recent completed laps of the focus car (player, else camera car); null without one. */
   laps: LapHistory | null;
+  /** Laps on the player's tyres; null without tyre data or a lap count. */
+  tyreStint: TyreStint | null;
 }
 
 /** What the telemetry process publishes to overlay renderers. Plain structured-cloneable data. */
@@ -63,5 +66,6 @@ export function emptyDerived(): Derived {
     delta: null,
     slowCar: null,
     laps: null,
+    tyreStint: null,
   };
 }

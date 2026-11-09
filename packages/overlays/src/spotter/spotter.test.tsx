@@ -31,6 +31,7 @@ function frame(prox: Partial<Prox> | null, status: TelemetryFrame["status"] = "l
       delta: null,
       slowCar: null,
       laps: null,
+      tyreStint: null,
       track: {
         trackKey: null,
         outlineReady: false,

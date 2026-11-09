@@ -217,6 +217,7 @@ export function fixtureFrame(input: {
       delta: null,
       slowCar: null,
       laps: null,
+      tyreStint: null,
     },
   };
 }

@@ -15,6 +15,7 @@ import { MiniSectorRecorder, RollingLapTimes, relativeGap, type GapCarTick } fro
 import { ProximityTracker } from "../calc/proximity";
 import { SlowCarDetector } from "../calc/slow-car";
 import { StandingsTracker, type StandingsInputs } from "../calc/standings";
+import { TyreStintTracker, tyreStintInput } from "../calc/tyres";
 import type { Car, SessionPhase, SessionType, SimState } from "../model";
 import {
   TrackTracker,
@@ -59,6 +60,7 @@ export class Deriver {
   private readonly slowCars = new SlowCarDetector();
   private readonly delta: DeltaTracker;
   private readonly lapHistory = new LapHistoryTracker();
+  private readonly tyreStint = new TyreStintTracker();
 
   private readonly classIndices = new Map<string, number>();
 
@@ -88,6 +90,7 @@ export class Deriver {
     this.slowCars.reset();
     this.delta.reset();
     this.lapHistory.reset();
+    this.tyreStint.reset();
     this.track.reset();
     this.classIndices.clear();
   }
@@ -148,6 +151,7 @@ export class Deriver {
       laps: this.lapHistory.next(
         lapHistoryInput(state, standings, player === null ? null : this.fuel.lapRecords),
       ),
+      tyreStint: this.tyreStint.next(tyreStintInput(state)),
     };
   }
 

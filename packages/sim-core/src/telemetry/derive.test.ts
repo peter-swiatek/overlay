@@ -49,6 +49,7 @@ describe("Deriver", () => {
       slowCar: null,
       energy: null,
       laps: null,
+      tyreStint: null,
     });
   });
 

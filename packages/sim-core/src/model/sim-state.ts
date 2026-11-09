@@ -181,7 +181,17 @@ export interface TyreTemps {
 }
 
 export interface TyreCorner {
+  /** Surface (tread) temperatures. */
   temps: TyreTemps;
+  /**
+   * Temperatures of the rubber layer under the tread, across the tyre like `temps`; slower than
+   * the surface. LMU only; null when the sim gives none. Absent in states recorded before it.
+   */
+  innerLayerTemps?: TyreTemps | null;
+  /** Carcass temperature, degrees Celsius; one value per tyre. LMU only. */
+  carcassTempC?: number | null;
+  /** Brake disc temperature, degrees Celsius. LMU only. */
+  brakeTempC?: number | null;
   /** Hot pressure in kPa. */
   pressureKpa: number | null;
   /** 0 = new, 1 = fully worn. */
@@ -193,6 +203,10 @@ export interface TyreSet {
   fr: TyreCorner;
   rl: TyreCorner;
   rr: TyreCorner;
+  /** The sim's name of the fitted front compound, e.g. "Medium" (LMU). Absent in older states. */
+  frontCompound?: string | null;
+  /** The sim's name of the fitted rear compound (LMU). */
+  rearCompound?: string | null;
 }
 
 /** Spotter state: which sides have a car alongside. */

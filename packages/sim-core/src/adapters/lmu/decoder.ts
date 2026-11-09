@@ -630,15 +630,46 @@ function readTyres(f: Frame, row: number): TyreSet | null {
     const middle = f.f64(wo + WHEEL.surfaceTempK + 8) - KELVIN;
     const right = f.f64(wo + WHEEL.surfaceTempK + 16) - KELVIN;
     const isLeftWheel = w % 2 === 0;
+    const across = (l: number, m: number, r: number) =>
+      isLeftWheel ? { inner: r, middle: m, outer: l } : { inner: l, middle: m, outer: r };
+    const layer = WHEEL.innerLayerTempK;
+    const layerL = kelvinToC(f.f64(wo + layer));
+    const layerM = kelvinToC(f.f64(wo + layer + 8));
+    const layerR = kelvinToC(f.f64(wo + layer + 16));
     corners.push({
-      temps: isLeftWheel
-        ? { inner: right, middle, outer: left }
-        : { inner: left, middle, outer: right },
+      temps: across(left, middle, right),
+      innerLayerTemps:
+        layerL === null || layerM === null || layerR === null
+          ? null
+          : across(layerL, layerM, layerR),
+      carcassTempC: kelvinToC(f.f64(wo + WHEEL.carcassTempK)),
+      brakeTempC: kelvinToC(f.f64(wo + WHEEL.brakeTempK), BRAKE_K),
       pressureKpa: f.f64(wo + WHEEL.pressureKpa),
       // The sim reports remaining tread (1 = new); SimState wants wear (0 = new).
       wear: clamp01(1 - f.f64(wo + WHEEL.treadRemaining)),
     });
   }
   const [fl, fr, rl, rr] = corners;
-  return fl && fr && rl && rr ? { fl, fr, rl, rr } : null;
+  if (!fl || !fr || !rl || !rr) return null;
+  return {
+    fl,
+    fr,
+    rl,
+    rr,
+    frontCompound: compound(f, row + TELEM.frontCompound.offset, TELEM.frontCompound.length),
+    rearCompound: compound(f, row + TELEM.rearCompound.offset, TELEM.rearCompound.length),
+  };
+}
+
+function compound(f: Frame, o: number, length: number): string | null {
+  const name = f.text(o, length).trim();
+  return name === "" ? null : name;
+}
+
+/** Brake discs run far hotter than tyres; this window only rejects garbage. */
+const BRAKE_K: Window = { name: "brake temp K", lo: 200, hi: 2000 };
+
+/** Kelvin to Celsius; null for a value outside the window (zero on a car without the channel). */
+function kelvinToC(k: number, w: Window = W.tyreK): number | null {
+  return outside(w, k) === null ? k - KELVIN : null;
 }

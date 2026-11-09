@@ -154,6 +154,29 @@ describe("MockSource", () => {
     ]);
   }, 20_000);
 
+  it("runs one Medium set that wears with distance and warms into the window", () => {
+    const mock = new MockSource();
+    const start = mock.step(0.1).player.tyres;
+    expect(start?.frontCompound).toBe("Medium");
+    expect(start?.rearCompound).toBe("Medium");
+    expect(start?.fl.wear).toBeLessThan(0.005);
+    expect(start?.fl.temps.middle).toBeLessThan(70);
+    mock.step(1500);
+    const t = mock.state().player.tyres;
+    for (const c of [t?.fl, t?.fr, t?.rl, t?.rr]) {
+      expect(c?.temps.middle).toBeGreaterThan(80);
+      expect(c?.temps.middle).toBeLessThan(105);
+      expect(c?.temps.inner).toBeGreaterThan(c?.temps.outer ?? 0);
+      expect(c?.carcassTempC).toBeLessThan(c?.temps.middle ?? 0);
+      expect(c?.innerLayerTemps?.middle).toBeLessThan(c?.temps.middle ?? 0);
+      expect(c?.brakeTempC).toBeGreaterThan(300);
+      expect(c?.pressureKpa).toBeGreaterThan(160);
+      expect(c?.wear).toBeGreaterThan(0.03);
+      expect(c?.wear).toBeLessThan(0.15);
+    }
+    expect(t?.fr.wear).toBeGreaterThan(t?.rl.wear ?? 1);
+  });
+
   it("derives delta rate from the delta value", () => {
     const mock = new MockSource();
     mock.step(30);

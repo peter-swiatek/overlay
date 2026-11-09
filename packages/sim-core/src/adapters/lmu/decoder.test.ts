@@ -23,6 +23,7 @@ import {
   TELEM,
   TELEMETRY,
   TELEMETRY_BASE,
+  WHEEL,
 } from "./layout";
 
 const dir = fileURLToPath(new URL("../../../../../fixtures/", import.meta.url));
@@ -108,6 +109,51 @@ describe("LmuDecoder on the on-track slice", () => {
         expect(corner?.wear).toBeLessThan(0.05);
       }
     }
+  });
+
+  it("reads the compound, brake, carcass and inner-layer temperatures", () => {
+    const garage = onTrack.rest.find((r) => r.path === "/rest/garage/getPlayerGarageData");
+    const setting = (key: string) =>
+      (garage?.body as Record<string, { stringValue?: string }> | undefined)?.[key]?.stringValue;
+    expect(setting("VM_FRONT_TIRE_COMPOUND")).toBe("Soft");
+    for (const { result } of onTrack.frames) {
+      const t = result.state.player.tyres;
+      expect(t?.frontCompound).toBe(setting("VM_FRONT_TIRE_COMPOUND"));
+      expect(t?.rearCompound).toBe(setting("VM_REAR_TIRE_COMPOUND"));
+      for (const corner of [t?.fl, t?.fr, t?.rl, t?.rr]) {
+        // An early lap: the brakes are still warming up but above the 30 C air.
+        expect(corner?.brakeTempC).toBeGreaterThan(40);
+        expect(corner?.brakeTempC).toBeLessThan(1000);
+        expect(corner?.carcassTempC).toBeGreaterThan(20);
+        expect(corner?.carcassTempC).toBeLessThan(120);
+        const layer = corner?.innerLayerTemps;
+        for (const v of [layer?.inner, layer?.middle, layer?.outer]) {
+          expect(v).toBeGreaterThan(20);
+          expect(v).toBeLessThan(120);
+          expect(Math.abs((v ?? 0) - (corner?.temps.middle ?? 0))).toBeLessThan(40);
+        }
+      }
+      // Fronts carry most of the braking.
+      expect(t?.fl.brakeTempC ?? 0).toBeGreaterThan(t?.rl.brakeTempC ?? 0);
+    }
+  });
+
+  it("orders the inner-layer temperatures like the surface ones", () => {
+    // The car turns both ways in the slice, so compare the sign of the edge difference over it.
+    let agree = 0;
+    let total = 0;
+    for (const { result } of onTrack.frames) {
+      const t = result.state.player.tyres;
+      for (const c of [t?.fl, t?.fr, t?.rl, t?.rr]) {
+        const surface = (c?.temps.inner ?? 0) - (c?.temps.outer ?? 0);
+        const layer = (c?.innerLayerTemps?.inner ?? 0) - (c?.innerLayerTemps?.outer ?? 0);
+        if (Math.abs(surface) < 2) continue;
+        total++;
+        if (Math.sign(surface) === Math.sign(layer)) agree++;
+      }
+    }
+    expect(total).toBeGreaterThan(20);
+    expect(agree / total).toBeGreaterThan(0.8);
   });
 
   it("names the sim and gives the player's world position", () => {
@@ -430,6 +476,36 @@ describe("field data for overlays", () => {
     expect(car.worldPos).toEqual({ x: -142.5, y: 7.25, z: 1155.5 });
     expect(state.session.timeOfDayS).toBe(51_000);
     expect(state.player.brakeBias).toBeCloseTo(0.55, 6);
+  });
+
+  it("decodes synthetic tyre values at the documented offsets", () => {
+    const edited = Buffer.from(raw);
+    const row = playerTelemetryRow(edited);
+    const wheel = (w: number) => row + TELEM.tyresOffset + w * TELEM.tyreStride;
+    edited.fill(0, row + TELEM.frontCompound.offset, row + TELEM.rearCompound.offset + 18);
+    edited.write("Wet", row + TELEM.frontCompound.offset, "latin1");
+    edited.writeDoubleLE(773.15, wheel(1) + WHEEL.brakeTempK);
+    edited.writeDoubleLE(353.15, wheel(1) + WHEEL.carcassTempK);
+    // Front right: the left column is the inner edge.
+    edited.writeDoubleLE(363.15, wheel(1) + WHEEL.innerLayerTempK);
+    edited.writeDoubleLE(358.15, wheel(1) + WHEEL.innerLayerTempK + 8);
+    edited.writeDoubleLE(353.15, wheel(1) + WHEEL.innerLayerTempK + 16);
+    // Front left: the left column is the outer edge.
+    edited.writeDoubleLE(343.15, wheel(0) + WHEEL.innerLayerTempK);
+    // A brake value outside any physical window is dropped, not the frame.
+    edited.writeDoubleLE(0, wheel(2) + WHEEL.brakeTempK);
+    const { state, error } = new LmuDecoder().decode(edited);
+    expect(error).toBeNull();
+    const t = state.player.tyres;
+    expect(t?.frontCompound).toBe("Wet");
+    expect(t?.rearCompound).toBeNull();
+    expect(t?.fr.brakeTempC).toBeCloseTo(500, 6);
+    expect(t?.fr.carcassTempC).toBeCloseTo(80, 6);
+    expect(t?.fr.innerLayerTemps?.inner).toBeCloseTo(90, 6);
+    expect(t?.fr.innerLayerTemps?.middle).toBeCloseTo(85, 6);
+    expect(t?.fr.innerLayerTemps?.outer).toBeCloseTo(80, 6);
+    expect(t?.fl.innerLayerTemps?.outer).toBeCloseTo(70, 6);
+    expect(t?.rl.brakeTempC).toBeNull();
   });
 
   it("wraps a time of day past 24 h and ignores a rear bias outside 0..1", () => {

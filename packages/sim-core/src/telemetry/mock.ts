@@ -5,6 +5,8 @@ import {
   type Car,
   type CarLeftRight,
   type SimState,
+  type TyreCorner,
+  type TyreSet,
   type Vec3,
 } from "../model";
 
@@ -221,6 +223,7 @@ export class MockSource {
     p.shiftLights = { firstRpm: 5200, shiftRpm: 7600, lastRpm: 7400, blinkRpm: 7800 };
     p.redlineRpm = 8000;
     p.steerMaxRad = 7.85;
+    p.tyres = mockTyres(playerDistance, brake);
     return state;
   }
 
@@ -275,6 +278,50 @@ export class MockSource {
     }
     return car;
   }
+}
+
+/**
+ * Per corner [wear per lap, surface middle temp in the window (C), inner-minus-outer spread (C),
+ * cold pressure (kPa)]: the front right works hardest, the rears least.
+ */
+const MOCK_TYRES: Readonly<
+  Record<"fl" | "fr" | "rl" | "rr", readonly [number, number, number, number]>
+> = {
+  fl: [0.0045, 91, 7, 160],
+  fr: [0.006, 93, 7, 162],
+  rl: [0.0035, 88, 5, 158],
+  rr: [0.004, 89, 5, 159],
+};
+
+/**
+ * The player's tyres: one Medium set from the start, wearing with distance and warming into the
+ * window over the first lap; brakes heat with the pedal. Plausible values only, for previews.
+ */
+function mockTyres(distanceLaps: number, brake: number): TyreSet {
+  const warm = 1 - Math.exp(-3 * Math.max(0, distanceLaps));
+  const corner = (key: keyof typeof MOCK_TYRES, front: boolean): TyreCorner => {
+    const [perLap, window, spread, coldKpa] = MOCK_TYRES[key];
+    const middle = 25 + (window - 25) * warm + (front ? 4 : 2) * brake;
+    const inner = middle + (spread / 2) * warm;
+    const outer = middle - (spread / 2) * warm;
+    const layer = { inner: inner - 2, middle: middle - 2, outer: outer - 2 };
+    return {
+      temps: { inner, middle, outer },
+      innerLayerTemps: layer,
+      carcassTempC: middle - 4,
+      brakeTempC: 30 + ((front ? 460 : 390) - 30) * warm + (front ? 220 : 150) * brake,
+      pressureKpa: coldKpa + 0.18 * (middle - 25),
+      wear: Math.min(1, perLap * Math.max(0, distanceLaps)),
+    };
+  };
+  return {
+    fl: corner("fl", true),
+    fr: corner("fr", true),
+    rl: corner("rl", false),
+    rr: corner("rr", false),
+    frontCompound: "Medium",
+    rearCompound: "Medium",
+  };
 }
 
 /** 1 on the straights, dipping through each corner (compact cosine dips). */
