@@ -32,6 +32,9 @@ describe("SimState", () => {
     const state = emptySimState("iracing");
     expect(state.session.typeName).toBeNull();
     expect(state.session.trackUsage).toBeNull();
+    expect(state.session.incidentPenaltyLimit).toBeNull();
+    expect(state.session.teamRacing).toBeNull();
+    expect(state.player.teamIncidentCount).toBeNull();
     expect(state.session.sectorStartPcts).toBeNull();
     expect(state.conditions.declaredWet).toBeNull();
     const p = state.player;

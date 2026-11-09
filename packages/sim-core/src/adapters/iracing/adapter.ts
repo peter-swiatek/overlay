@@ -135,6 +135,8 @@ function fillSession(state: SimState, r: VarReader, info: IracingSessionInfo | n
   s.trackLengthM = info?.trackLengthM ?? null;
   s.pitSpeedLimitMps = info?.pitSpeedLimitMps ?? null;
   s.incidentLimit = info?.incidentLimit ?? null;
+  s.incidentPenaltyLimit = info?.incidentPenaltyLimit ?? null;
+  s.teamRacing = info?.teamRacing ?? null;
   s.timeOfDayS = nonNegativeBelow(r.number("SessionTimeOfDay"), SECONDS_PER_DAY + 1);
   s.typeName = entry?.typeName ?? null;
   s.trackUsage = entry?.trackRubberState ?? null;
@@ -304,6 +306,7 @@ function fillPlayer(state: SimState, r: VarReader, info: IracingSessionInfo | nu
   p.fuelCapacityL = info?.fuelCapacityL ?? null;
   p.tyres = driving ? tyres(r) : null;
   p.incidentCount = r.number("PlayerCarMyIncidentCount");
+  p.teamIncidentCount = r.number("PlayerCarTeamIncidentCount");
   const warnings = r.number("EngineWarnings");
   p.pitLimiter = !driving || warnings === null ? null : (warnings & ENGINE_PIT_LIMITER) !== 0;
   const lr = r.number("CarLeftRight");

@@ -257,6 +257,9 @@ describe("parseSessionYaml redline, shift lights and track usage", () => {
       const slice = await loadSlice(`${FIXTURE_DIR}${f}`);
       const info = parseSessionYaml(slice.yamlTexts[0] ?? "");
       expect(info.redlineRpm).toBe(8000);
+      expect(info.incidentLimit).toBe(25);
+      expect(info.incidentPenaltyLimit).toBe(17);
+      expect(info.teamRacing).toBe(false);
       // The real car lights its last LED (7600) below the shift point (7700).
       expect(info.shiftLightRpm).toEqual({
         firstRpm: 7000,
@@ -287,6 +290,35 @@ describe("parseSessionYaml field data (synthetic)", () => {
     ["", null],
   ])("IncidentLimit %j gives %s", (value, expected) => {
     expect(parseSessionYaml(withOptions([`IncidentLimit: ${value}`])).incidentLimit).toBe(expected);
+  });
+
+  it.each([
+    ["17", 17],
+    ["unlimited", null],
+    ["0", null],
+  ])("IncidentWarningInitialLimit %j gives %s", (value, expected) => {
+    const yaml = withOptions([`IncidentLimit: 25`, `IncidentWarningInitialLimit: ${value}`]);
+    expect(parseSessionYaml(yaml).incidentPenaltyLimit).toBe(expected);
+  });
+
+  it("gives no penalty limit when IncidentWarningInitialLimit is missing", () => {
+    expect(parseSessionYaml(withOptions(["IncidentLimit: 25"])).incidentPenaltyLimit).toBeNull();
+  });
+
+  it.each([
+    ["1", true],
+    ["0", false],
+    ["x", null],
+  ])("TeamRacing %j gives %s", (value, expected) => {
+    const yaml = yamlWithDrivers([]).replace(
+      "WeekendInfo:\n",
+      `WeekendInfo:\n TeamRacing: ${value}\n`,
+    );
+    expect(parseSessionYaml(yaml).teamRacing).toBe(expected);
+  });
+
+  it("gives no team flag when TeamRacing is missing", () => {
+    expect(parseSessionYaml(yamlWithDrivers([])).teamRacing).toBeNull();
   });
 
   it("gives null when WeekendOptions or IncidentLimit is missing", () => {

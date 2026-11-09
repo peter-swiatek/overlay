@@ -178,6 +178,9 @@ describe("S/F crossing slice (lap increments)", async () => {
     );
     expect(states[0]?.session.timeRemainingS).toBeCloseTo(650.8, 0);
     expect(states[0]?.player.incidentCount).toBe(4);
+    // A solo race: the team total is the driver's own count.
+    expect(states[0]?.player.teamIncidentCount).toBe(4);
+    expect(states[0]?.session.incidentPenaltyLimit).toBe(17);
   });
 
   it("increments the player's lap at the line and wraps lapDistPct", () => {
@@ -765,6 +768,8 @@ describe("IracingAdapter field data (synthetic)", () => {
     { name: "FogLevel", type: VarType.Float },
     { name: "Precipitation", type: VarType.Float },
     { name: "dcBrakeBias", type: VarType.Float },
+    { name: "PlayerCarMyIncidentCount", type: VarType.Int },
+    { name: "PlayerCarTeamIncidentCount", type: VarType.Int },
   ];
   const layout = syntheticLayout(vars);
   const adapter = IracingAdapter.fromHeaderBytes(layout.header);
@@ -774,6 +779,8 @@ describe("IracingAdapter field data (synthetic)", () => {
     trackLengthM: null,
     pitSpeedLimitMps: null,
     incidentLimit: 25,
+    incidentPenaltyLimit: 17,
+    teamRacing: true,
     pitStallLapDistPct: 0.955,
     currentSessionNum: 0,
     sessions: [],
@@ -812,6 +819,17 @@ describe("IracingAdapter field data (synthetic)", () => {
     const none = run({}, null);
     expect(none.session.incidentLimit).toBeNull();
     expect(none.player.pitStallLapDistPct).toBeNull();
+  });
+
+  it("copies the penalty limit and team flag and reads the own and team incident counts", () => {
+    const s = run({ PlayerCarMyIncidentCount: 3, PlayerCarTeamIncidentCount: 9 });
+    expect(s.session.incidentPenaltyLimit).toBe(17);
+    expect(s.session.teamRacing).toBe(true);
+    expect(s.player.incidentCount).toBe(3);
+    expect(s.player.teamIncidentCount).toBe(9);
+    const none = run({}, null);
+    expect(none.session.incidentPenaltyLimit).toBeNull();
+    expect(none.session.teamRacing).toBeNull();
   });
 
   it("reads the weather and wraps the wind direction into 0..2pi", () => {

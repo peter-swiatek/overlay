@@ -251,6 +251,10 @@ describe("MockSource", () => {
       const st = mock.step(0.2);
       const d = (st.cars[0]?.lapsCompleted ?? 0) + (st.cars[0]?.lapDistPct ?? 0);
       expect(st.player.incidentCount).toBe(d >= 2.5 ? 2 : 0);
+      expect(st.player.teamIncidentCount).toBe(st.player.incidentCount);
+      expect(st.session.incidentLimit).toBe(25);
+      expect(st.session.incidentPenaltyLimit).toBe(17);
+      expect(st.session.teamRacing).toBe(false);
     }
   });
 

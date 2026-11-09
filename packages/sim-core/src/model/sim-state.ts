@@ -50,6 +50,16 @@ export interface SessionInfo {
   pitSpeedLimitMps: number | null;
   /** iRacing WeekendOptions IncidentLimit; null = unlimited or unknown. */
   incidentLimit: number | null;
+  /**
+   * iRacing WeekendOptions IncidentWarningInitialLimit: the incident count that brings the first
+   * penalty; null = none or unknown.
+   */
+  incidentPenaltyLimit: number | null;
+  /**
+   * iRacing WeekendInfo TeamRacing: true in team events, where the incident limits apply to the
+   * team's total; null when unknown.
+   */
+  teamRacing: boolean | null;
   /** Sim time of day, seconds after midnight. */
   timeOfDayS: number | null;
   /** The sim's own session name, e.g. iRacing "Lone Qualify" / "Offline Testing", LMU "PRACTICE1". */
@@ -250,7 +260,10 @@ export interface Player {
   /** LMU virtual energy, 0..1. */
   energyFraction: number | null;
   tyres: TyreSet | null;
+  /** The player's own incidents (iRacing PlayerCarMyIncidentCount). */
   incidentCount: number | null;
+  /** The player's team's total incidents (iRacing PlayerCarTeamIncidentCount). */
+  teamIncidentCount: number | null;
   pitLimiter: boolean | null;
   carLeftRight: CarLeftRight | null;
   /** Position in the world frame; LMU only (iRacing gives none). Feeds track outlines. */
@@ -368,6 +381,8 @@ export function emptySimState(source: SimSource = "mock"): SimState {
       trackLengthM: null,
       pitSpeedLimitMps: null,
       incidentLimit: null,
+      incidentPenaltyLimit: null,
+      teamRacing: null,
       timeOfDayS: null,
       typeName: null,
       trackUsage: null,
@@ -398,6 +413,7 @@ export function emptySimState(source: SimSource = "mock"): SimState {
       energyFraction: null,
       tyres: null,
       incidentCount: null,
+      teamIncidentCount: null,
       pitLimiter: null,
       carLeftRight: null,
       worldPos: null,

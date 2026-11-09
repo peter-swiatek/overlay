@@ -50,6 +50,10 @@ export interface IracingSessionInfo {
   // Optional so session infos built by hand elsewhere (desktop tests) keep compiling.
   /** WeekendOptions IncidentLimit; null for "unlimited" or missing. */
   incidentLimit?: number | null;
+  /** WeekendOptions IncidentWarningInitialLimit; null for "unlimited", 0 or missing. */
+  incidentPenaltyLimit?: number | null;
+  /** WeekendInfo TeamRacing ("1" in team events); null when missing. */
+  teamRacing?: boolean | null;
   /** DriverInfo DriverPitTrkPct: lap distance (0..1) of the player's pit stall. */
   pitStallLapDistPct?: number | null;
   /** DriverInfo DriverCarRedLine, rpm; null when missing or 0. */
@@ -92,6 +96,10 @@ export function parseSessionYaml(text: string): IracingSessionInfo {
     trackLengthM: lengthToMetres(str(weekend["TrackLength"])),
     pitSpeedLimitMps: speedToMps(str(weekend["TrackPitSpeedLimit"])),
     incidentLimit: incidentLimit(asDict(weekend["WeekendOptions"])["IncidentLimit"]),
+    incidentPenaltyLimit: incidentLimit(
+      asDict(weekend["WeekendOptions"])["IncidentWarningInitialLimit"],
+    ),
+    teamRacing: flag(weekend["TeamRacing"]),
     pitStallLapDistPct: fraction(driver["DriverPitTrkPct"]),
     redlineRpm: positive(driver["DriverCarRedLine"]),
     shiftLightRpm: shiftLights(driver),
@@ -226,6 +234,12 @@ function extractDriver(d: Dict): IracingDriver | null {
 function incidentLimit(value: unknown): number | null {
   const n = int(value);
   return n === null || n <= 0 ? null : n;
+}
+
+/** "1" is true, "0" false; anything else is null. */
+function flag(value: unknown): boolean | null {
+  const n = int(value);
+  return n === 1 ? true : n === 0 ? false : null;
 }
 
 /** A finite number above zero; missing, zero and negative are null. */

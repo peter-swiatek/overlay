@@ -70,6 +70,9 @@ const PROFILE_BINS = 2000;
 const BRAKE_FULL_ACCEL = 4;
 /** The demo's single unclean lap (lap 3) records this many incidents from half way through. */
 const UNCLEAN_LAP_INCIDENTS = 2;
+/** The demo race's incident limits: the first penalty and the disqualification. */
+const INCIDENT_PENALTY_LIMIT = 17;
+const INCIDENT_DQ_LIMIT = 25;
 
 /**
  * A deterministic synthetic race for UI work without a sim: about 20 cars in two classes, the
@@ -161,6 +164,9 @@ export class MockSource {
     s.pitSpeedLimitMps = 22.2;
     s.typeName = "Race";
     s.trackUsage = "moderate usage";
+    s.incidentLimit = INCIDENT_DQ_LIMIT;
+    s.incidentPenaltyLimit = INCIDENT_PENALTY_LIMIT;
+    s.teamRacing = false;
     s.sectorStartPcts = [...MOCK_SECTOR_STARTS];
     state.conditions = {
       ...state.conditions,
@@ -197,6 +203,8 @@ export class MockSource {
     const playerFraction = playerDistance - playerLaps;
     p.incidentCount =
       playerLaps > 2 || (playerLaps === 2 && playerFraction >= 0.5) ? UNCLEAN_LAP_INCIDENTS : 0;
+    // A solo race: the team total is the player's own count.
+    p.teamIncidentCount = p.incidentCount;
     p.yawRad = 2 * Math.PI * playerFraction;
     // A world position, so the track tracker can build an outline of the demo track.
     p.worldPos = worldPosAt(playerFraction);

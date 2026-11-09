@@ -367,6 +367,8 @@ function readSession(
     // No pit speed limit exists in the buffer or the recorded REST bodies (see layout.ts).
     pitSpeedLimitMps: null,
     incidentLimit: null,
+    incidentPenaltyLimit: null,
+    teamRacing: null,
     timeOfDayS: timeOfDay(f.f32(s + SESSION.timeOfDay)),
     typeName: rest.session?.session ?? null,
     trackUsage: null,
