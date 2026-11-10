@@ -15,7 +15,7 @@ export const radarManifest: OverlayManifest = {
       key: "range",
       label: "Range",
       kind: "number",
-      default: 20,
+      default: 10,
       min: 10,
       max: 40,
       step: 1,

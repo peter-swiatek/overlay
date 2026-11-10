@@ -185,7 +185,7 @@ describe("RadarOverlay", () => {
     expect(radarManifest.sims).toEqual(["iracing", "lmu"]);
     const o = defaultInstanceSettings(radarManifest).options;
     expect(o).toEqual({
-      range: 20,
+      range: 10,
       "car-length": 4.5,
       "car-width": 1.9,
       "car-labels": true,
