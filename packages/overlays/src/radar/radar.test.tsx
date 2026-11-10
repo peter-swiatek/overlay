@@ -194,7 +194,7 @@ describe("RadarOverlay", () => {
   });
 
   it("draws three rings, the crosshair and the player in the accent", () => {
-    const html = render(frame({ nearby: [near(2, 12)] }));
+    const html = render(frame({ nearby: [near(2, 8)] }));
     expect(count(html, 'class="radar-ring ')).toBe(3);
     expect(count(html, 'class="radar-cross"')).toBe(2);
     expect(count(html, 'class="radar-player"')).toBe(1);
