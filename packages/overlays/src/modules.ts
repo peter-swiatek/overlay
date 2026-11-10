@@ -14,6 +14,7 @@ import { trackMapModule } from "./track-map";
 import { lapTimesModule } from "./lap-times";
 import { incidentsModule } from "./incidents";
 import { tyresModule } from "./tyres";
+import { radarModule } from "./radar";
 
 export const OVERLAY_MODULES: readonly OverlayModule[] = [
   relativeModule,
@@ -31,6 +32,7 @@ export const OVERLAY_MODULES: readonly OverlayModule[] = [
   lapTimesModule,
   incidentsModule,
   tyresModule,
+  radarModule,
 ];
 
 export function moduleById(id: string): OverlayModule | undefined {
