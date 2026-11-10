@@ -9,7 +9,8 @@ export * from "./types";
  * The reference gives no formula for the spotter, so this and the thresholds below are our choice.
  */
 export const CAR_LENGTH_M = 4.8;
-const NEARBY_M = 20;
+/** Cars this far along the track (either way) are listed in `nearby`; the radar's largest range. */
+export const NEARBY_M = 40;
 /** A car counts as alongside when its centre is closer than this many car lengths along the track. */
 const ALONGSIDE_LENGTHS = 1.5;
 /** LMU: sideways centre distance of a car on a side (closer is a collision, further is a lane away). */
@@ -128,7 +129,9 @@ export class ProximityTracker {
     if (tickS !== null && this.lastTickS !== null && tickS < this.lastTickS) this.memory.clear();
     this.lastTickS = tickS;
 
-    if (state.player.worldPos !== null) {
+    // A sim that makes its own spotter call (iRacing, and the mock, which also has a player
+    // position for the track outline) is followed; positions are used only when it makes none.
+    if (state.player.worldPos !== null && state.player.carLeftRight === null) {
       return this.fromPositions(state, playerIdx, pitRoad, state.player.worldPos);
     }
     return this.fromLapDistance(state, player, player.lapDistPct, pitRoad, tickS);

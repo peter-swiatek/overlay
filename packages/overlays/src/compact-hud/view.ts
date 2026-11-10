@@ -206,7 +206,7 @@ export function compactHudView(frame: TelemetryFrame | null, options: HudOptions
     if (behindIdx >= 0 && behindS < options.gapRangeS) behind = tab(behindS, behindIdx);
   }
 
-  // Proximity lines: the nearest car in front and behind, from the cars within 20 m.
+  // Proximity lines: the nearest car in front and behind, from the nearby cars (shown below 17 m).
   let proximityAhead: ProximityLevel | null = null;
   let proximityBehind: ProximityLevel | null = null;
   if (options.showProximity && !loneQualify && derived.proximity !== null) {

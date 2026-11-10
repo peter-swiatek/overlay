@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyCar, emptySimState } from "../../model";
 import type { Car, CarLeftRight, SimState, Vec3 } from "../../model";
-import { CAR_LENGTH_M, LMU_RIGHT_SIGN, ProximityTracker, headingFromYaw } from "./index";
+import { CAR_LENGTH_M, LMU_RIGHT_SIGN, NEARBY_M, ProximityTracker, headingFromYaw } from "./index";
 
 const TRACK_M = 5000;
 
@@ -59,7 +59,7 @@ describe("iRacing proximity", () => {
         player,
         car(1, { lapDistPct: 0.5 + m(15) }),
         car(2, { lapDistPct: 0.5 - m(3) }),
-        car(3, { lapDistPct: 0.5 + m(30) }),
+        car(3, { lapDistPct: 0.5 + m(45) }),
       ]),
     );
     expect(r?.left).toBeNull();
@@ -67,6 +67,31 @@ describe("iRacing proximity", () => {
     expect(r?.carLengthM).toBe(CAR_LENGTH_M);
     expect(r?.nearby.map((c) => c.carIdx)).toEqual([2, 1]);
     expect(r?.nearby[0]?.longitudinalM).toBeCloseTo(-3, 6);
+    expect(r?.nearby[0]?.lateralM).toBeNull();
+  });
+
+  it("lists cars out to NEARBY_M (40 m) for the radar", () => {
+    expect(NEARBY_M).toBe(40);
+    const t = new ProximityTracker();
+    const r = t.next(
+      iracing("clear", [
+        player,
+        car(1, { lapDistPct: 0.5 - m(39) }),
+        car(2, { lapDistPct: 0.5 + m(41) }),
+      ]),
+    );
+    expect(r?.nearby.map((c) => c.carIdx)).toEqual([1]);
+  });
+
+  it("follows the sim's own call even when the player also has a world position", () => {
+    const t = new ProximityTracker();
+    const s = iracing("right", [player, car(1, { lapDistPct: 0.5 + m(1) })]);
+    s.player.worldPos = { x: 0, y: 0, z: 0 };
+    s.player.yawRad = 0;
+    const r = t.next(s);
+    expect(r?.carLeftRight).toBe("right");
+    expect(r?.right).toBeCloseTo(1 / CAR_LENGTH_M, 6);
+    expect(r?.nearby[0]?.side).toBe("right");
     expect(r?.nearby[0]?.lateralM).toBeNull();
   });
 

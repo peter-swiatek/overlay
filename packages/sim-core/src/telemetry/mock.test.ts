@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ProximityTracker } from "../calc/proximity";
 import { isSimState } from "../model";
 import { Deriver } from "./derive";
 import { MockSource } from "./mock";
@@ -281,6 +282,18 @@ describe("MockSource", () => {
       expect(st.session.incidentPenaltyLimit).toBe(17);
       expect(st.session.teamRacing).toBe(false);
     }
+  });
+
+  it("puts a real car alongside the player in the derived proximity within 40 s", () => {
+    const mock = new MockSource();
+    const tracker = new ProximityTracker();
+    let alongside: number | null = null;
+    for (let i = 0; i < 40 * 60 && alongside === null; i++) {
+      const prox = tracker.next(mock.step(1 / 60));
+      const car = prox?.nearby.find((c) => c.side !== null);
+      if (car !== undefined) alongside = car.carIdx;
+    }
+    expect(alongside).not.toBeNull();
   });
 
   it("gives the spotter left, right and both calls within a minute", () => {

@@ -18,7 +18,7 @@ export interface Proximity {
    */
   left: number | null;
   right: number | null;
-  /** Cars within 20 m along the track, nearest first. */
+  /** Cars within NEARBY_M (40 m) along the track, nearest first. */
   nearby: ProximityCar[];
   carLengthM: number;
 }
