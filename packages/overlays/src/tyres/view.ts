@@ -13,11 +13,11 @@ export interface TyreCornerView {
   innerLayer: TyreTemps | null;
   pressureKpa: number | null;
   brakeC: number | null;
+  /** The sim's name of the compound on this tyre; null when unknown. */
+  compound: string | null;
 }
 
 export interface TyresView {
-  frontCompound: string | null;
-  rearCompound: string | null;
   /** Laps completed on the set; null when unknown. */
   lapsOnSet: number | null;
   corners: Readonly<Record<CornerId, TyreCornerView>>;
@@ -41,7 +41,8 @@ export interface TempWindow {
 const num = (v: number | null | undefined): number | null =>
   v === null || v === undefined || !Number.isFinite(v) ? null : v;
 
-function corner(c: TyreCorner): TyreCornerView {
+/** `axle` is the axle's compound, for states without one per wheel. */
+function corner(c: TyreCorner, axle: string | null | undefined): TyreCornerView {
   const layer = c.innerLayerTemps ?? null;
   return {
     tread:
@@ -53,6 +54,7 @@ function corner(c: TyreCorner): TyreCornerView {
         : { inner: num(layer.inner), middle: num(layer.middle), outer: num(layer.outer) },
     pressureKpa: num(c.pressureKpa),
     brakeC: num(c.brakeTempC),
+    compound: c.compound ?? axle ?? null,
   };
 }
 
@@ -61,11 +63,16 @@ export function tyresView(frame: TelemetryFrame | null): TyresView | null {
   if (frame === null || frame.status !== "live") return null;
   const t = frame.state.player.tyres;
   if (t === null) return null;
+  const front = t.frontCompound;
+  const rear = t.rearCompound;
   return {
-    frontCompound: t.frontCompound ?? null,
-    rearCompound: t.rearCompound ?? null,
     lapsOnSet: frame.derived.tyreStint?.lapsOnSet ?? null,
-    corners: { fl: corner(t.fl), fr: corner(t.fr), rl: corner(t.rl), rr: corner(t.rr) },
+    corners: {
+      fl: corner(t.fl, front),
+      fr: corner(t.fr, front),
+      rl: corner(t.rl, rear),
+      rr: corner(t.rr, rear),
+    },
   };
 }
 
@@ -76,13 +83,11 @@ const sampleCorner = (
   brakeC: number,
 ): TyreCornerView => {
   const temps = { inner, middle, outer };
-  return { tread, surface: temps, innerLayer: temps, pressureKpa, brakeC };
+  return { tread, surface: temps, innerLayer: temps, pressureKpa, brakeC, compound: "Medium" };
 };
 
 /** Shown in edit mode without live data: the design's mid-stint Medium set. */
 export const SAMPLE_TYRES_VIEW: TyresView = {
-  frontCompound: "Medium",
-  rearCompound: "Medium",
   lapsOnSet: 15,
   corners: {
     fl: sampleCorner(0.93, [94, 91, 87], 172, 490),
@@ -134,11 +139,46 @@ export function compoundFamily(name: string | null): CompoundFamily {
   return "other";
 }
 
-/** "MEDIUM · L15", "SOFT / MEDIUM · L3", "MEDIUM", "L4"; null when there is nothing to say. */
-export function compoundText(view: TyresView): string | null {
-  const { frontCompound: f, rearCompound: r, lapsOnSet } = view;
-  const names = f !== null && r !== null && f !== r ? `${f} / ${r}` : (f ?? r);
+/** S, M, H, I or W for the tyre's compound family; "?" for a name in none of them. */
+export function compoundInitial(name: string): string {
+  const initial: Readonly<Record<CompoundFamily, string>> = {
+    soft: "S",
+    medium: "M",
+    hard: "H",
+    inter: "I",
+    wet: "W",
+    other: "?",
+  };
+  return initial[compoundFamily(name)];
+}
+
+export interface CompoundPill {
+  text: string;
+  family: CompoundFamily;
+}
+
+/**
+ * The header pill: "MEDIUM · L15" when all four tyres match, "MIXED · L15" in the neutral colour
+ * when they differ. Without the compound on each tyre (`perTyre` false) a set that differs only
+ * front to rear reads "SOFT / MEDIUM · L3" in the front's colour instead. "L4" alone when no
+ * compound is known; null when there is nothing to say.
+ */
+export function compoundPill(view: TyresView, perTyre: boolean): CompoundPill | null {
+  const { fl, fr, rl, rr } = view.corners;
+  const known = [fl, fr, rl, rr].map((c) => c.compound).filter((n): n is string => n !== null);
+  const distinct = [...new Set(known)];
+  const front = fl.compound ?? fr.compound;
+  const rear = rl.compound ?? rr.compound;
+  const byAxle =
+    !perTyre && fl.compound === fr.compound && rl.compound === rr.compound && front !== rear;
+  let names: string | null = distinct[0] ?? null;
+  let family = compoundFamily(names);
+  if (distinct.length > 1) {
+    names = byAxle ? `${front} / ${rear}` : "Mixed";
+    family = byAxle ? compoundFamily(front) : "other";
+  }
+  const { lapsOnSet } = view;
   const parts = [names?.toUpperCase() ?? null, lapsOnSet === null ? null : `L${lapsOnSet}`];
   const text = parts.filter((p) => p !== null).join(" · ");
-  return text === "" ? null : text;
+  return text === "" ? null : { text, family };
 }

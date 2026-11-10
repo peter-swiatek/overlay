@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { designTyres, tyreCorner, tyresFrame } from "./testing";
 import {
   compoundFamily,
-  compoundText,
+  compoundInitial,
+  compoundPill,
   SAMPLE_TYRES_VIEW,
   tempBand,
   tempsLeftToRight,
@@ -23,8 +24,7 @@ describe("tyresView", () => {
 
   it("gives compound, laps on set, tread left and both temperature layers", () => {
     const v = tyresView(tyresFrame());
-    expect(v?.frontCompound).toBe("Medium");
-    expect(v?.rearCompound).toBe("Medium");
+    for (const c of Object.values(v?.corners ?? {})) expect(c.compound).toBe("Medium");
     expect(v?.lapsOnSet).toBe(15);
     expect(v?.corners.fl.tread).toBeCloseTo(0.93, 6);
     expect(v?.corners.fl.surface).toEqual({ inner: 97, middle: 94, outer: 90 });
@@ -37,6 +37,7 @@ describe("tyresView", () => {
     const t = designTyres();
     delete t.frontCompound;
     delete t.rearCompound;
+    for (const c of [t.fl, t.fr, t.rl, t.rr]) delete c.compound;
     delete t.fl.innerLayerTemps;
     delete t.fl.brakeTempC;
     t.fl.wear = null;
@@ -44,11 +45,32 @@ describe("tyresView", () => {
     // An older frame has no tyre stint either.
     delete (f.derived as { tyreStint?: unknown }).tyreStint;
     const v = tyresView(f);
-    expect(v?.frontCompound).toBeNull();
+    expect(v?.corners.fl.compound).toBeNull();
     expect(v?.lapsOnSet).toBeNull();
     expect(v?.corners.fl.innerLayer).toBeNull();
     expect(v?.corners.fl.brakeC).toBeNull();
     expect(v?.corners.fl.tread).toBeNull();
+  });
+
+  it("gives each tyre its own compound, or its axle's when the state has none per tyre", () => {
+    const t = designTyres();
+    t.fr.compound = "Soft";
+    const mixed = tyresView(tyresFrame(t))?.corners;
+    expect([mixed?.fl, mixed?.fr, mixed?.rl, mixed?.rr].map((c) => c?.compound)).toEqual([
+      "Medium",
+      "Soft",
+      "Medium",
+      "Medium",
+    ]);
+    for (const c of [t.fl, t.fr, t.rl, t.rr]) delete c.compound;
+    t.rearCompound = "Hard";
+    const byAxle = tyresView(tyresFrame(t))?.corners;
+    expect([byAxle?.fl, byAxle?.fr, byAxle?.rl, byAxle?.rr].map((c) => c?.compound)).toEqual([
+      "Medium",
+      "Medium",
+      "Hard",
+      "Hard",
+    ]);
   });
 
   it("drops non-finite numbers", () => {
@@ -125,17 +147,55 @@ describe("compounds", () => {
     expect(compoundFamily(name)).toBe(family);
   });
 
-  it("writes the pill text", () => {
-    const base = { ...SAMPLE_TYRES_VIEW };
-    expect(compoundText(base)).toBe("MEDIUM · L15");
-    expect(compoundText({ ...base, lapsOnSet: null })).toBe("MEDIUM");
-    expect(compoundText({ ...base, rearCompound: "Hard", lapsOnSet: 3 })).toBe(
-      "MEDIUM / HARD · L3",
-    );
-    expect(compoundText({ ...base, frontCompound: null })).toBe("MEDIUM · L15");
-    expect(compoundText({ ...base, frontCompound: null, rearCompound: null })).toBe("L15");
-    expect(
-      compoundText({ ...base, frontCompound: null, rearCompound: null, lapsOnSet: null }),
-    ).toBeNull();
+  it.each([
+    ["Soft", "S"],
+    ["Medium", "M"],
+    ["Hard", "H"],
+    ["Intermediate", "I"],
+    ["Wet", "W"],
+    ["Bias-ply", "?"],
+  ] as const)("%s has the initial %s", (name, initial) => {
+    expect(compoundInitial(name)).toBe(initial);
+  });
+
+  /** The sample with the four tyres' compounds in grid order. */
+  const fitted = (fl: string | null, fr: string | null, rl: string | null, rr: string | null) => {
+    const c = SAMPLE_TYRES_VIEW.corners;
+    return {
+      ...SAMPLE_TYRES_VIEW,
+      corners: {
+        fl: { ...c.fl, compound: fl },
+        fr: { ...c.fr, compound: fr },
+        rl: { ...c.rl, compound: rl },
+        rr: { ...c.rr, compound: rr },
+      },
+    };
+  };
+
+  it("writes the pill: the set's compound, or MIXED in the neutral colour", () => {
+    expect(compoundPill(SAMPLE_TYRES_VIEW, true)).toEqual({
+      text: "MEDIUM · L15",
+      family: "medium",
+    });
+    expect(compoundPill({ ...SAMPLE_TYRES_VIEW, lapsOnSet: null }, true)?.text).toBe("MEDIUM");
+    const leftRight = fitted("Soft", "Medium", "Medium", "Medium");
+    expect(compoundPill(leftRight, true)).toEqual({ text: "MIXED · L15", family: "other" });
+    expect(compoundPill(leftRight, false)).toEqual({ text: "MIXED · L15", family: "other" });
+    const frontRear = { ...fitted("Medium", "Medium", "Hard", "Hard"), lapsOnSet: 3 };
+    expect(compoundPill(frontRear, true)).toEqual({ text: "MIXED · L3", family: "other" });
+    // Without a badge on each tyre, a front/rear split is still spelled out.
+    expect(compoundPill(frontRear, false)).toEqual({
+      text: "MEDIUM / HARD · L3",
+      family: "medium",
+    });
+  });
+
+  it("leaves unknown tyres out of the pill", () => {
+    expect(compoundPill(fitted(null, null, "Soft", "Soft"), true)?.text).toBe("SOFT · L15");
+    expect(compoundPill(fitted(null, null, null, null), true)).toEqual({
+      text: "L15",
+      family: "other",
+    });
+    expect(compoundPill({ ...fitted(null, null, null, null), lapsOnSet: null }, true)).toBeNull();
   });
 });

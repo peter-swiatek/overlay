@@ -8,7 +8,7 @@ import { manifestById } from "../manifests";
 import { moduleById } from "../modules";
 import { OverlayRuntimeContext, staticRuntime, type OverlayRuntime } from "../runtime";
 import { applySettingsPatch, defaultInstanceSettings } from "../settings";
-import { designTyres, tyreCorner, tyresFrame } from "./testing";
+import { designTyres, fitSet, tyreCorner, tyresFrame } from "./testing";
 import { tyresManifest } from "./manifest";
 import { degreesText, pressureText, pressureUnit, TyresOverlay } from "./TyresOverlay";
 
@@ -124,13 +124,56 @@ describe("TyresOverlay", () => {
   });
 
   it("shows the compound alone when the laps on the set are unknown, in its family colour", () => {
-    const t = designTyres();
-    t.frontCompound = "Soft";
-    t.rearCompound = "Soft";
+    const t = fitSet(designTyres(), "Soft");
     expect(render(tyresFrame(t, null))).toContain('ty-pill--soft">SOFT<');
-    t.frontCompound = "Wet";
-    t.rearCompound = "Wet";
+    fitSet(t, "Wet");
     expect(render(tyresFrame(t, 2))).toContain('ty-pill--wet">WET · L2<');
+  });
+
+  it("puts each tyre's compound next to its name, and MIXED on the pill when they differ", () => {
+    const same = render(tyresFrame());
+    for (const corner of ["fl", "fr", "rl", "rr"]) {
+      expect(cardClass(same, corner, "ty-cmp")).toBe("medium");
+    }
+    expect(same).toContain(
+      '<span class="ty-corner">FL<span class="ty-cmp ty-cmp--medium" title="Medium">M</span></span>',
+    );
+    const t = designTyres();
+    t.fl.compound = "Soft";
+    t.fr.compound = "Hard";
+    t.rl.compound = "Wet";
+    t.rr.compound = "Bias-ply";
+    const mixed = render(tyresFrame(t));
+    expect(mixed).toContain('ty-pill--other">MIXED · L15<');
+    expect(cardClass(mixed, "fl", "ty-cmp")).toBe("soft");
+    expect(cardClass(mixed, "fr", "ty-cmp")).toBe("hard");
+    expect(cardClass(mixed, "rl", "ty-cmp")).toBe("wet");
+    expect(cardClass(mixed, "rr", "ty-cmp")).toBe("other");
+    expect(mixed).toContain('title="Soft">S<');
+    expect(mixed).toContain('title="Hard">H<');
+    expect(mixed).toContain('title="Wet">W<');
+    expect(mixed).toContain('title="Bias-ply">?<');
+  });
+
+  it("follows the axle compounds of a state without one per tyre, and hides unknown ones", () => {
+    const t = designTyres();
+    for (const c of [t.fl, t.fr, t.rl, t.rr]) delete c.compound;
+    t.frontCompound = "Soft";
+    t.rearCompound = null;
+    const html = render(tyresFrame(t));
+    expect(cardClass(html, "fr", "ty-cmp")).toBe("soft");
+    expect(html).toContain('<span class="ty-corner">RL</span>');
+    expect(html).toContain('ty-pill--soft">SOFT · L15<');
+  });
+
+  it("hides the badges from the settings, and then spells out a front/rear split", () => {
+    const t = designTyres();
+    t.rl.compound = "Hard";
+    t.rr.compound = "Hard";
+    const html = render(tyresFrame(t), { "show-tyre-compound": false });
+    expect(html).not.toContain("ty-cmp");
+    expect(html).toContain('ty-pill--medium">MEDIUM / HARD · L15<');
+    expect(render(tyresFrame(t))).toContain('ty-pill--other">MIXED · L15<');
   });
 
   it("renders nothing without data, the design sample when editing", () => {
@@ -138,6 +181,7 @@ describe("TyresOverlay", () => {
     expect(render(tyresFrame(null))).toBe("");
     const html = render(null, {}, { editing: true });
     expect(html).toContain("MEDIUM · L15");
+    expect(cardClass(html, "rr", "ty-cmp")).toBe("medium");
     expect(temps(html, "fr")).toEqual(["96°", "93°", "89°"]);
     expect(html).toContain("<span>174 kPa</span><span>Brk 510°</span>");
   });
@@ -176,6 +220,12 @@ describe("Tyres CSS", () => {
     expect(rule(".ty-tread--critical")).toContain("var(--ov-locked-loss)");
     expect(rule(".ty-temps--cold")).toContain("var(--ov-locked-tyre-cold)");
     expect(rule(".ty-pill--medium")).toContain("background: var(--ov-locked-flag-yellow)");
+  });
+
+  it("colours the tyre badges like the pill", () => {
+    for (const family of ["soft", "medium", "hard", "inter", "wet", "other"]) {
+      expect(css).toContain(`.ty-cmp--${family},\n.ty-pill--${family} {`);
+    }
   });
 
   it("draws a faint divider between the three temperatures", () => {

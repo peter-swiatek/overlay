@@ -312,6 +312,7 @@ function mockTyres(distanceLaps: number, brake: number): TyreSet {
       brakeTempC: 30 + ((front ? 460 : 390) - 30) * warm + (front ? 220 : 150) * brake,
       pressureKpa: coldKpa + 0.18 * (middle - 25),
       wear: Math.min(1, perLap * Math.max(0, distanceLaps)),
+      compound: "Medium",
     };
   };
   return {

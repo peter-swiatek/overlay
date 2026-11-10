@@ -120,6 +120,10 @@ describe("LmuDecoder on the on-track slice", () => {
       const t = result.state.player.tyres;
       expect(t?.frontCompound).toBe(setting("VM_FRONT_TIRE_COMPOUND"));
       expect(t?.rearCompound).toBe(setting("VM_REAR_TIRE_COMPOUND"));
+      // One set on all four wheels, as the garage's per-wheel settings say.
+      expect([t?.fl, t?.fr, t?.rl, t?.rr].map((c) => c?.compound)).toEqual(
+        ["FL", "FR", "RL", "RR"].map((w) => setting(`WM_COMPOUND-W_${w}`)),
+      );
       for (const corner of [t?.fl, t?.fr, t?.rl, t?.rr]) {
         // An early lap: the brakes are still warming up but above the 30 C air.
         expect(corner?.brakeTempC).toBeGreaterThan(40);
@@ -506,6 +510,39 @@ describe("field data for overlays", () => {
     expect(t?.fr.innerLayerTemps?.outer).toBeCloseTo(80, 6);
     expect(t?.fl.innerLayerTemps?.outer).toBeCloseTo(70, 6);
     expect(t?.rl.brakeTempC).toBeNull();
+    // Each wheel takes its own axle's name, which the rear no longer has.
+    expect(t?.fl.compound).toBe("Wet");
+    expect(t?.rr.compound).toBeNull();
+  });
+
+  it("names each wheel's compound from its list position, else from its kind", () => {
+    const edited = Buffer.from(raw);
+    const row = playerTelemetryRow(edited);
+    const wheel = (w: number) => row + TELEM.tyresOffset + w * TELEM.tyreStride;
+    const name = (o: number, text: string) => {
+      edited.fill(0, row + o, row + o + 18);
+      edited.write(text, row + o, "latin1");
+    };
+    // Soft fronts (list position 0), Medium rears (1).
+    name(TELEM.frontCompound.offset, "Soft");
+    name(TELEM.rearCompound.offset, "Medium");
+    edited.writeUInt8(0, row + TELEM.frontCompoundIndex);
+    edited.writeUInt8(1, row + TELEM.rearCompoundIndex);
+    const fit = (w: number, index: number, kind: number) => {
+      edited.writeUInt8(index, wheel(w) + WHEEL.compoundIndex);
+      edited.writeUInt8(kind, wheel(w) + WHEEL.compoundKind);
+    };
+    fit(0, 0, 0); // the front's own compound
+    fit(1, 1, 1); // the rear compound on a front wheel
+    fit(2, 2, 2); // neither axle's: named by its kind
+    fit(3, 5, 9); // an unknown kind
+    const t = new LmuDecoder().decode(edited).state.player.tyres;
+    expect([t?.fl, t?.fr, t?.rl, t?.rr].map((c) => c?.compound)).toEqual([
+      "Soft",
+      "Medium",
+      "Hard",
+      null,
+    ]);
   });
 
   it("wraps a time of day past 24 h and ignores a rear bias outside 0..1", () => {

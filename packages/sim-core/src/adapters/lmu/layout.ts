@@ -245,6 +245,8 @@ export const TELEMETRY = {
  * | rearBrakeBias | f64     | rear share of the brake force, 0..1. REST getPlayerGarageData VM_BRAKE_BALANCE stringValue "51.0:49.0" (front:rear) equals 1 - this value on 115 of 115 paired frames; over the recording the value moves between 0.4475 and 0.49, so it includes the live brake migration |
  * | frontCompound | cstr 18 | "Medium" until 155 s, then "Soft": REST getPlayerGarageData VM_FRONT_TIRE_COMPOUND (and every WM_COMPOUND-W_xx) says "Soft" from 155 s on, so the text follows the fitted set |
  * | rearCompound  | cstr 18 | same as the front in the recording; REST VM_REAR_TIRE_COMPOUND "Soft"   |
+ * | frontCompoundIndex | u8 | the fitted front compound's place in the car's compound list: 1 then 0 in the same buffer as the text goes from "Medium" to "Soft" (150.2 s into the recording); over all 37 cars of every buffer one class reads Soft 0, Medium 1, Hard 2 and the other Medium 0, so it is a list position, not a kind |
+ * | rearCompoundIndex  | u8 | the same for the rear; equal to the front on every car in the recordings |
  */
 export const TELEM = {
   slotId: 0,
@@ -265,6 +267,8 @@ export const TELEM = {
   rearBrakeBias: 664,
   frontCompound: { offset: 620, length: 18 },
   rearCompound: { offset: 638, length: 18 },
+  frontCompoundIndex: 606,
+  rearCompoundIndex: 607,
   tyresOffset: 848,
   tyreStride: 260,
 } as const;
@@ -284,6 +288,13 @@ export const TYRE_COUNT = 4;
  * | carcassTempK  | f64    | Kelvin (LOCAL): one value per tyre; follows the surface temperatures slowly (no spikes under braking), 301.15 in the garage like the brakes |
  * | innerLayerTempK | f64 x3 | Kelvin (LOCAL): left, middle, right like the surface; the same edge-to-edge pattern as the surface (e.g. 319.6 / 324.9 / 324.5 against 322.7 / 328.8 / 328.5 on the front left) without the braking spikes |
  *
+ * | compoundIndex  | u8 | the compound on this wheel, as a place in the car's compound list like the row's frontCompoundIndex: equal to its axle's index on every wheel of all 37 cars in every buffer of the four LMU recordings (values 0, 1 and 2), and 1 then 0 on all four wheels in the buffer where the player's set went from Medium to Soft |
+ * | compoundKind   | u8 | the kind of that compound: 0 on Soft, 1 on Medium, 2 on Hard in both classes of the recording (Medium reads 1 also where its list position is 0); other values (wet) were not observed |
+ *
+ * Every set in the recordings is one compound on all four wheels, so a wheel that differs from its
+ * axle was not observed; the per-wheel bytes are read because the sim lets each wheel take its own
+ * compound (REST getPlayerGarageData has WM_COMPOUND-W_FL/FR/RL/RR next to the axle settings).
+ *
  * The 16 bytes at 160 hold the surface name under the tyre ("ROAD", "RACEOLD"); not decoded.
  */
 export const WHEEL = {
@@ -293,4 +304,9 @@ export const WHEEL = {
   treadRemaining: 152,
   carcassTempK: 204,
   innerLayerTempK: 212,
+  compoundIndex: 240,
+  compoundKind: 241,
 } as const;
+
+/** Names for the `compoundKind` values seen in the recordings; other values give no name. */
+export const COMPOUND_KIND_NAMES: readonly string[] = ["Soft", "Medium", "Hard"];

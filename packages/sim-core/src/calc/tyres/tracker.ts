@@ -41,7 +41,8 @@ export class TyreStintTracker {
     const laps = input.lapsCompleted === null ? null : Math.max(0, input.lapsCompleted);
     if (tyres === null || laps === null) return null;
     const wear = corners(tyres);
-    const compounds = `${tyres.frontCompound ?? ""}/${tyres.rearCompound ?? ""}`;
+    const perWheel = [tyres.fl, tyres.fr, tyres.rl, tyres.rr].map((c) => c.compound ?? "");
+    const compounds = [tyres.frontCompound ?? "", tyres.rearCompound ?? "", ...perWheel].join("/");
     if (this.lastWear === null) {
       const fresh = wear.every((w) => w === null || w <= FRESH_SET_WEAR);
       this.fittedAtLap = fresh || laps === 0 ? laps : null;

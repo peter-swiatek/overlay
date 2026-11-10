@@ -60,32 +60,41 @@
   line-height: 1;
 }
 
-/* Compound families in locked colours: soft red, medium yellow, hard white, inter green, wet blue. */
+/*
+ * Compound families in locked colours, on the header pill and each tyre's badge: soft red, medium
+ * yellow, hard white, inter green, wet blue.
+ */
+.ty-cmp--soft,
 .ty-pill--soft {
   color: var(--ov-locked-flag-white);
   background: var(--ov-locked-flag-red);
 }
 
+.ty-cmp--medium,
 .ty-pill--medium {
   color: var(--ov-locked-flag-black);
   background: var(--ov-locked-flag-yellow);
 }
 
+.ty-cmp--hard,
 .ty-pill--hard {
   color: var(--ov-locked-flag-black);
   background: var(--ov-locked-flag-white);
 }
 
+.ty-cmp--inter,
 .ty-pill--inter {
   color: var(--ov-locked-flag-white);
   background: var(--ov-locked-flag-green);
 }
 
+.ty-cmp--wet,
 .ty-pill--wet {
   color: var(--ov-locked-flag-white);
   background: var(--ov-locked-flag-blue);
 }
 
+.ty-cmp--other,
 .ty-pill--other {
   color: var(--ov-text);
   background: var(--ov-header);
@@ -128,7 +137,25 @@
 }
 
 .ty-corner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
   font-weight: 700;
+}
+
+/* The tyre's compound initial, a small round badge next to the corner name. */
+.ty-cmp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 1.3em;
+  height: 1.3em;
+  padding: 0 0.2em;
+  border-radius: 999px;
+  font-size: 0.82em;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .ty-tread {

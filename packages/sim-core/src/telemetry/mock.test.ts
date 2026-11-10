@@ -159,6 +159,8 @@ describe("MockSource", () => {
     const start = mock.step(0.1).player.tyres;
     expect(start?.frontCompound).toBe("Medium");
     expect(start?.rearCompound).toBe("Medium");
+    for (const c of [start?.fl, start?.fr, start?.rl, start?.rr])
+      expect(c?.compound).toBe("Medium");
     expect(start?.fl.wear).toBeLessThan(0.005);
     expect(start?.fl.temps.middle).toBeLessThan(70);
     mock.step(1500);

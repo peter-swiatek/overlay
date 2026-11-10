@@ -196,6 +196,11 @@ export interface TyreCorner {
   pressureKpa: number | null;
   /** 0 = new, 1 = fully worn. */
   wear: number | null;
+  /**
+   * The sim's name of the compound on this wheel, e.g. "Soft" (LMU, which can fit a different
+   * compound per wheel). Null when unknown; absent for iRacing and in older states.
+   */
+  compound?: string | null;
 }
 
 export interface TyreSet {

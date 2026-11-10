@@ -58,6 +58,15 @@ describe("TyreStintTracker", () => {
     expect(t.next(tick(14, [0.02, 0.02, 0.12, 0.12], "Hard"))?.lapsOnSet).toBe(0);
   });
 
+  it("starts a new count when one wheel's own compound changes", () => {
+    const t = new TyreStintTracker();
+    t.next(tick(0, 0));
+    expect(t.next(tick(5, 0.05))?.lapsOnSet).toBe(5);
+    const mixed = set(0.05);
+    mixed.fr.compound = "Soft";
+    expect(t.next({ lapsCompleted: 6, tyres: mixed })?.lapsOnSet).toBe(0);
+  });
+
   it("ignores wear noise below the threshold and unknown corners", () => {
     const t = new TyreStintTracker();
     t.next(tick(0, 0));

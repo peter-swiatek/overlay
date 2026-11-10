@@ -16,6 +16,7 @@ import {
   type Vec3,
 } from "../../model";
 import {
+  COMPOUND_KIND_NAMES,
   HEADER,
   LMU_MAX_VEHICLES,
   LMU_USED_BYTES,
@@ -620,6 +621,12 @@ function readWorldPos(f: Frame, row: number): Vec3 | null {
 }
 
 function readTyres(f: Frame, row: number): TyreSet | null {
+  const frontCompound = compound(f, row + TELEM.frontCompound.offset, TELEM.frontCompound.length);
+  const rearCompound = compound(f, row + TELEM.rearCompound.offset, TELEM.rearCompound.length);
+  const axles = [
+    { index: f.u8(row + TELEM.frontCompoundIndex), name: frontCompound },
+    { index: f.u8(row + TELEM.rearCompoundIndex), name: rearCompound },
+  ] as const;
   const corners: TyreCorner[] = [];
   for (let w = 0; w < TYRE_COUNT; w++) {
     const wo = wheelOffset(row, w);
@@ -647,6 +654,7 @@ function readTyres(f: Frame, row: number): TyreSet | null {
       pressureKpa: f.f64(wo + WHEEL.pressureKpa),
       // The sim reports remaining tread (1 = new); SimState wants wear (0 = new).
       wear: clamp01(1 - f.f64(wo + WHEEL.treadRemaining)),
+      compound: wheelCompound(f, wo, w < 2 ? axles : [axles[1], axles[0]]),
     });
   }
   const [fl, fr, rl, rr] = corners;
@@ -656,9 +664,25 @@ function readTyres(f: Frame, row: number): TyreSet | null {
     fr,
     rl,
     rr,
-    frontCompound: compound(f, row + TELEM.frontCompound.offset, TELEM.frontCompound.length),
-    rearCompound: compound(f, row + TELEM.rearCompound.offset, TELEM.rearCompound.length),
+    frontCompound,
+    rearCompound,
   };
+}
+
+/**
+ * The name of the compound on one wheel. The wheel gives only a list position and a kind, the
+ * row names the front and rear compounds: the name of the axle with the same list position (its
+ * own axle first), otherwise the name of the kind.
+ */
+function wheelCompound(
+  f: Frame,
+  wo: number,
+  axles: readonly { index: number; name: string | null }[],
+): string | null {
+  const index = f.u8(wo + WHEEL.compoundIndex);
+  const axle = axles.find((a) => a.index === index);
+  if (axle) return axle.name;
+  return COMPOUND_KIND_NAMES[f.u8(wo + WHEEL.compoundKind)] ?? null;
 }
 
 function compound(f: Frame, o: number, length: number): string | null {

@@ -6,7 +6,8 @@ import "./tyres.css";
 import {
   CORNERS,
   compoundFamily,
-  compoundText,
+  compoundInitial,
+  compoundPill,
   SAMPLE_TYRES_VIEW,
   tempBand,
   tempsLeftToRight,
@@ -53,7 +54,19 @@ interface CardOptions {
   treadCritical: number;
   pressure: PressureUnit;
   brakes: boolean;
+  /** A compound badge next to the corner label. */
+  compound: boolean;
   prefs: DisplayPrefs;
+}
+
+/** The tyre's compound initial in its family colour; nothing when the compound is unknown. */
+function CompoundBadge({ name }: { name: string | null }) {
+  if (name === null) return null;
+  return (
+    <span className={`ty-cmp ty-cmp--${compoundFamily(name)}`} title={name}>
+      {compoundInitial(name)}
+    </span>
+  );
 }
 
 function Card({ id, c, o }: { id: CornerId; c: TyreCornerView; o: CardOptions }) {
@@ -63,7 +76,10 @@ function Card({ id, c, o }: { id: CornerId; c: TyreCornerView; o: CardOptions })
   return (
     <div className="ty-card" data-corner={id}>
       <div className="ty-card-head">
-        <span className="ty-corner">{LABEL[id]}</span>
+        <span className="ty-corner">
+          {LABEL[id]}
+          {o.compound ? <CompoundBadge name={c.compound} /> : null}
+        </span>
         <span className={`ty-tread ty-tread--${tread}`}>
           {c.tread === null ? NO_VALUE : `${Math.round(c.tread * 100)}%`}
         </span>
@@ -98,16 +114,20 @@ export function TyresOverlay({ settings }: OverlayProps) {
     treadCritical: optionNumber(settings, "tread-critical"),
     pressure: pressureUnit(optionString(settings, "pressure-unit"), prefs),
     brakes: optionBoolean(settings, "show-brakes"),
+    compound: optionBoolean(settings, "show-tyre-compound"),
     prefs,
   };
-  const pill = optionBoolean(settings, "show-compound") ? compoundText(view) : null;
-  const family = compoundFamily(view.frontCompound ?? view.rearCompound);
+  const pill = optionBoolean(settings, "show-compound")
+    ? compoundPill(view, options.compound)
+    : null;
 
   return (
     <div className="ty">
       <div className="ty-head">
         <span className="ty-title">4-CORNER TYRES</span>
-        {pill === null ? null : <span className={`ty-pill ty-pill--${family}`}>{pill}</span>}
+        {pill === null ? null : (
+          <span className={`ty-pill ty-pill--${pill.family}`}>{pill.text}</span>
+        )}
       </div>
       <div className="ty-grid">
         {CORNERS.map((id) => (

@@ -72,6 +72,14 @@ export const tyresManifest: OverlayManifest = {
       default: true,
     },
     {
+      key: "show-tyre-compound",
+      label: "Compound on each tyre",
+      kind: "toggle",
+      section: "Layout",
+      default: true,
+      help: "A badge next to each corner's name: S, M, H, I or W in the compound's colour.",
+    },
+    {
       key: "show-brakes",
       label: "Brake temperature",
       kind: "toggle",
