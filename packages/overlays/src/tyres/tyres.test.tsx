@@ -178,6 +178,10 @@ describe("Tyres CSS", () => {
     expect(rule(".ty-pill--medium")).toContain("background: var(--ov-locked-flag-yellow)");
   });
 
+  it("draws a faint divider between the three temperatures", () => {
+    expect(rule(".ty-temps > span + span")).toContain("border-left: 1px solid");
+  });
+
   it("sizes type in em", () => {
     expect(css.match(/font-size: [\d.]+px/g)).toBeNull();
   });

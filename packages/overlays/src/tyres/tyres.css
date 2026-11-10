@@ -155,12 +155,17 @@
 .ty-temps {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.14em;
+  gap: 0;
   padding: 0.14em 0;
   border-radius: 3px;
   font-size: 0.76em;
   font-weight: 700;
   text-align: center;
+}
+
+/* A faint divider between outer, middle and inner. */
+.ty-temps > span + span {
+  border-left: 1px solid color-mix(in srgb, var(--ov-text) 22%, transparent);
 }
 
 .ty-temps--ok {
