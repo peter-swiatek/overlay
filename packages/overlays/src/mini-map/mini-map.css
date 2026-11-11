@@ -1,0 +1,124 @@
+.mini-map {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--ov-bg);
+  color: var(--ov-text);
+  font-family: var(--ov-font-family, inherit);
+  font-weight: var(--ov-font-weight, 500);
+  font-size: var(--ov-font-size, 14px);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 1 px inset border, like the kit panel. */
+.mini-map::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  pointer-events: none;
+}
+
+.mini-map-header {
+  position: absolute;
+  top: 0.43em;
+  left: 0.57em;
+  font-size: 0.74em;
+  font-weight: 700;
+  color: var(--ov-text-muted);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.mini-map-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.mini-map-ring {
+  stroke-width: 1;
+}
+
+.mini-map-ring--outer {
+  fill: color-mix(in srgb, var(--ov-bg) 45%, transparent);
+  stroke: var(--ov-border);
+}
+
+.mini-map-ring--inner {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ov-text) 6%, transparent);
+  stroke-dasharray: 3 3;
+}
+
+.mini-map-road,
+.mini-map-centre-line {
+  fill: none;
+  stroke-linejoin: round;
+}
+
+/* A wide translucent ribbon with a dashed centre line, as in the design. */
+.mini-map-road {
+  stroke: color-mix(in srgb, var(--ov-text) 14%, transparent);
+  stroke-width: 28;
+  stroke-linecap: round;
+}
+
+.mini-map-centre-line {
+  stroke: var(--ov-text);
+  stroke-width: 2.5;
+  stroke-dasharray: 6 4;
+}
+
+.mini-map-dot {
+  fill: var(--mini-map-class);
+  stroke: #0b0d12;
+  stroke-width: 1.5;
+}
+
+.mini-map-label {
+  fill: var(--mini-map-class);
+  font-size: 0.68em;
+  font-weight: 800;
+  paint-order: stroke;
+  stroke: color-mix(in srgb, var(--ov-bg) 70%, transparent);
+  stroke-width: 2px;
+}
+
+/* Off track or the slow car ahead: flag yellow, dot and label (as the Track Map's slow car). */
+.mini-map-car--flag .mini-map-dot,
+.mini-map-car--flag .mini-map-label {
+  fill: var(--ov-locked-flag-yellow);
+}
+
+/* A car behind within the Relative overlay's red gap-threat window: the label in loss red. */
+.mini-map-car--threat .mini-map-label {
+  fill: var(--ov-locked-loss);
+}
+
+.mini-map-car--pit {
+  opacity: 0.5;
+}
+
+/* The Track Map's player ring (fixed colours named in the design plan). */
+.mini-map-player-ring {
+  fill: rgba(20, 150, 180, 0.35);
+  stroke: #38bdf8;
+  stroke-width: 2;
+}
+
+.mini-map-player-arrow {
+  fill: #ffffff;
+}
+
+.mini-map-note {
+  fill: var(--ov-text-muted);
+  font-size: 0.64em;
+  font-weight: 600;
+  text-anchor: middle;
+}
