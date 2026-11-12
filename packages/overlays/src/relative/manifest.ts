@@ -72,20 +72,12 @@ export const relativeManifest: OverlayManifest = {
       sims: ["iracing"],
     },
     {
-      key: "gap-threat",
-      label: "Gap threat colours",
-      kind: "toggle",
-      section: "Drivers",
-      default: true,
-      help: "Gap of a car behind: red within 1.0 s, yellow within 2.0 s.",
-    },
-    {
       key: "lap-colours",
-      label: "Colour lapped cars",
+      label: "Colour by car status",
       kind: "toggle",
       section: "Drivers",
       default: true,
-      help: "Races only: driver name in red for a car that has lapped you or is lapping you, in blue for a car you have lapped. Same lap stays white.",
+      help: "Driver name and Rel gap in one colour per car: red for a car that has lapped you or is lapping you, blue for a car you have lapped or are lapping, white on the same lap (lap colours in races only), muted while the car is in the pits.",
     },
     {
       key: "weather-header",

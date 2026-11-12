@@ -39,7 +39,6 @@ export function RelativeOverlay({ settings }: OverlayProps) {
   const ahead = optionNumber(settings, "drivers-ahead");
   const behind = optionNumber(settings, "drivers-behind");
   const hideInPits = optionBoolean(settings, "hide-in-pits");
-  const gapThreat = optionBoolean(settings, "gap-threat");
   const lapColours = optionBoolean(settings, "lap-colours");
   const iRatingChange = optionBoolean(settings, "irating-change");
   const previous = useRef<readonly RelativeRow[]>([]);
@@ -54,7 +53,6 @@ export function RelativeOverlay({ settings }: OverlayProps) {
         ahead,
         behind,
         hideInPits,
-        gapThreat,
         lapColours,
         livePositions,
         gapDecimals,
@@ -97,24 +95,14 @@ export function RelativeOverlay({ settings }: OverlayProps) {
       inlinePitBadge,
       pitInLastLap: false,
     });
+    // The status colour goes on the driver name and the Rel gap only (see relative.css).
+    const tag = <C extends { cellClassName?: string }>(column: C, cell: string): C => ({
+      ...column,
+      cellClassName: column.cellClassName ? `${column.cellClassName} ${cell}` : cell,
+    });
     return base.map((column) => {
-      if (column.id === "gap") {
-        return {
-          ...column,
-          label: "Rel",
-          render: (row: DriverRow) => (
-            <span className={threatClass((row as RelativeRow).threat)}>{column.render(row)}</span>
-          ),
-        };
-      }
-      // The lap colour goes on the driver name only (see relative.css).
-      if (column.id === "driver") {
-        const cell = "ov-rel-name";
-        return {
-          ...column,
-          cellClassName: column.cellClassName ? `${column.cellClassName} ${cell}` : cell,
-        };
-      }
+      if (column.id === "gap") return { ...tag(column, "ov-rel-gap"), label: "Rel" };
+      if (column.id === "driver") return tag(column, "ov-rel-name");
       return column;
     });
   }, [
@@ -158,7 +146,7 @@ export function RelativeOverlay({ settings }: OverlayProps) {
           showHeader={rowLabels}
           isOwnRow={(r) => r.isFocus}
           rowStyle={driverRowStyle}
-          rowClassName={lapRowClass}
+          rowClassName={statusRowClass}
           isYellowRow={(r) => r.yellow}
         />
       )}
@@ -167,11 +155,7 @@ export function RelativeOverlay({ settings }: OverlayProps) {
   );
 }
 
-function lapRowClass(row: DriverRow): string | undefined {
-  const mark = (row as RelativeRow).lapMark;
-  return mark === null || mark === undefined ? undefined : `ov-rel-lap--${mark}`;
-}
-
-function threatClass(level: "red" | "yellow" | null | undefined): string | undefined {
-  return level === "red" || level === "yellow" ? `ov-rel-threat--${level}` : undefined;
+function statusRowClass(row: DriverRow): string | undefined {
+  const status = (row as RelativeRow).status;
+  return status === null || status === undefined ? undefined : `ov-rel-status--${status}`;
 }

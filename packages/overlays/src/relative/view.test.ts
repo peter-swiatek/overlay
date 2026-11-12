@@ -1,13 +1,13 @@
 import type { Car, DerivedGap, TelemetryFrame } from "@overlay/sim-core/types";
 import { describe, expect, it } from "vitest";
 import { FIXTURE_NAMES, fixtureFrame, lapStatus } from "../shared";
-import { gapThreat, relativeView, type RelativeOptions } from "./view";
+import { carStatus, relativeView, type RelativeOptions } from "./view";
 
 const OPTIONS: RelativeOptions = {
   ahead: 3,
   behind: 3,
   hideInPits: false,
-  gapThreat: true,
+  lapColours: true,
   livePositions: true,
   gapDecimals: 1,
   lapDecimals: 3,
@@ -66,40 +66,13 @@ describe("relativeView", () => {
     expect(ids(frame)).toEqual([1, 0, 3]);
   });
 
-  it("keeps -0.04 s ahead and uncoloured, and +0.04 s behind and red", () => {
-    const view = relativeView(frameWith({ 1: -0.04, 2: 0.04 }), OPTIONS);
-    expect(view.rows.map((r) => r.carIdx)).toEqual([1, 0, 2]);
-    expect(view.rows.map((r) => r.relativeGapS)).toEqual([0, 0, 0]);
-    expect(view.threats).toEqual({ 2: "red" });
-  });
-
-  it("applies threat thresholds after rounding (decimals 1 and 0)", () => {
-    const gaps = { 1: 1.04, 2: 1.06, 3: 2.04, 4: 2.06 };
-    expect(relativeView(frameWith(gaps), OPTIONS).threats).toEqual({
-      1: "red",
-      2: "yellow",
-      3: "yellow",
-    });
-    // At 0 decimals 1.4 rounds to 1 (red) and 2.4 to 2 (yellow); 2.6 rounds to 3 (none).
-    const coarse = relativeView(frameWith({ 1: 1.4, 2: 2.4, 3: 2.6 }), {
-      ...OPTIONS,
-      gapDecimals: 0,
-    });
-    expect(coarse.threats).toEqual({ 1: "red", 2: "yellow" });
-  });
-
-  it("has no threats when the option is off, and never for cars ahead", () => {
-    const frame = frameWith({ 1: -0.5, 2: 0.5 });
-    expect(relativeView(frame, { ...OPTIONS, gapThreat: false }).threats).toEqual({});
-    expect(relativeView(frame, OPTIONS).threats).toEqual({ 2: "red" });
-  });
-
-  it("gapThreat is null for a car ahead or with an unknown gap", () => {
-    const row = relativeView(frameWith({ 1: 0.5 }), OPTIONS).rows[1];
-    if (row === undefined) throw new Error("missing row");
-    expect(gapThreat(row, -0.5)).toBeNull();
-    expect(gapThreat(row, null)).toBeNull();
-    expect(gapThreat(row, 0.5)).toBe("red");
+  it("keeps -0.04 s ahead and +0.04 s behind, and colours neither by gap", () => {
+    const view = relativeView(frameWith({ 1: -0.04, 2: 0.04, 3: 1.5 }), OPTIONS);
+    expect(view.rows.map((r) => r.carIdx)).toEqual([1, 0, 2, 3]);
+    expect(view.rows.map((r) => r.relativeGapS)).toEqual([0, 0, 0, 1.5]);
+    expect(view.rows.map((r) => r.status)).toEqual([null, null, null, null]);
+    expect(view).not.toHaveProperty("threats");
+    expect(view.rows[2]).not.toHaveProperty("threat");
   });
 
   it("is empty without a focus car, before the first frame and when not live", () => {
@@ -108,22 +81,49 @@ describe("relativeView", () => {
     expect(relativeView({ ...frameWith(many), status: "waiting" }, OPTIONS).rows).toEqual([]);
   });
 
-  describe("lap marks", () => {
-    const lapped = (lapColours: boolean) => {
-      const frame = frameWith({ 1: -1, 2: -0.5, 3: 0.5, 4: 1 });
-      const deltas: Record<number, number | null> = { 1: 2, 2: 1, 3: -1, 4: null };
+  describe("car status", () => {
+    const statuses = (lapColours: boolean, cars: Record<number, Partial<Car>> = {}) => {
+      const frame = frameWith({ 1: -1, 2: -0.5, 3: 0.5, 4: 1, 5: 2 }, cars);
+      const deltas: Record<number, number | null> = { 1: 2, 2: 1, 3: -1, 4: null, 5: 0 };
       for (const g of frame.derived.gaps) g.lapDelta = deltas[g.carIdx] ?? 0;
       return Object.fromEntries(
-        relativeView(frame, { ...OPTIONS, lapColours }).rows.map((r) => [r.carIdx, r.lapMark]),
+        relativeView(frame, { ...OPTIONS, lapColours }).rows.map((r) => [r.carIdx, r.status]),
       );
     };
 
     it("marks cars a lap or more ahead and behind, never the focus car", () => {
-      expect(lapped(true)).toEqual({ 1: "ahead", 2: "ahead", 0: null, 3: "behind", 4: null });
+      expect(statuses(true)).toEqual({
+        1: "ahead",
+        2: "ahead",
+        0: null,
+        3: "behind",
+        4: null,
+        5: null,
+      });
+    });
+
+    it("marks a car in the pits muted, ahead of its lap status", () => {
+      const view = statuses(true, {
+        1: { onPitRoad: true },
+        3: { inPitStall: true },
+        5: { onPitRoad: true },
+        0: { onPitRoad: true },
+      });
+      expect(view).toEqual({ 1: "pit", 2: "ahead", 0: null, 3: "pit", 4: null, 5: "pit" });
     });
 
     it("marks nothing when the option is off", () => {
-      expect(lapped(false)).toEqual({ 1: null, 2: null, 0: null, 3: null, 4: null });
+      const off = statuses(false, { 1: { onPitRoad: true } });
+      expect(off).toEqual({ 1: null, 2: null, 0: null, 3: null, 4: null, 5: null });
+    });
+
+    it("carStatus puts pits before lap status", () => {
+      const row = relativeView(frameWith({ 1: 0.5 }), OPTIONS).rows[1];
+      if (row === undefined) throw new Error("missing row");
+      expect(carStatus(row, "ahead")).toBe("ahead");
+      expect(carStatus(row, null)).toBeNull();
+      expect(carStatus({ ...row, onPitRoad: true }, "behind")).toBe("pit");
+      expect(carStatus({ ...row, inPitStall: true }, null)).toBe("pit");
     });
 
     it("maps lap deltas to marks; unknown or same lap is none", () => {

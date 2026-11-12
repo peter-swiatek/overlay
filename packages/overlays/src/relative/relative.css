@@ -28,22 +28,20 @@
   color: var(--ov-text-muted);
 }
 
-.ov-rel-threat--red {
-  color: var(--ov-locked-loss);
-  font-weight: 700;
+/* One status colour per car, on the driver name and the Rel gap only. In pits (any session) is
+   muted and beats lap status; races only: red for a car that has lapped or is lapping you, blue
+   for one you have lapped or are lapping. Same lap stays in the normal text colour. */
+.ov-rel-status--pit > .ov-rel-name,
+.ov-rel-status--pit > .ov-rel-gap {
+  color: var(--ov-text-muted);
 }
 
-.ov-rel-threat--yellow {
-  color: var(--ov-locked-rejoin-yellow);
-  font-weight: 700;
-}
-
-/* Races only: red for a car that has lapped or is lapping you, blue for one you have lapped or
-   are lapping. The driver name only; same lap stays in the normal text colour. */
-.ov-rel-lap--ahead > .ov-rel-name {
+.ov-rel-status--ahead > .ov-rel-name,
+.ov-rel-status--ahead > .ov-rel-gap {
   color: var(--ov-locked-lap-ahead);
 }
 
-.ov-rel-lap--behind > .ov-rel-name {
+.ov-rel-status--behind > .ov-rel-name,
+.ov-rel-status--behind > .ov-rel-gap {
   color: var(--ov-locked-lap-behind);
 }

@@ -95,7 +95,7 @@
   fill: var(--ov-locked-flag-yellow);
 }
 
-/* A car behind within the Relative overlay's red gap-threat window: the label in loss red. */
+/* A car behind within the shared red gap-threat window (1.0 s): the label in loss red. */
 .mini-map-car--threat .mini-map-label {
   fill: var(--ov-locked-loss);
 }

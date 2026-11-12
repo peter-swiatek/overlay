@@ -37,7 +37,7 @@ export interface MiniCar {
   status: CarStatus | null;
   /** Seconds to the player, rounded to 0.1; negative = ahead. Null when unknown. */
   gapS: number | null;
-  /** Behind and within the Relative overlay's red gap-threat window. */
+  /** Behind and within the shared red gap-threat window (threatLevel). */
   threat: boolean;
 }
 

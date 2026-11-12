@@ -129,60 +129,93 @@ describe("RelativeOverlay", () => {
     expect(render(f).match(/ov-row--yellow/g)).toHaveLength(1);
   });
 
-  it("prints signed gaps and colours only the cars behind", () => {
+  it("prints signed gaps and never colours them by time", () => {
     const html = render(frame());
     expect(html).toContain("-1.2");
     expect(html).toContain("+0.8");
-    expect(html).toContain('<span class="ov-rel-threat--red">+0.8</span>');
-    expect(html).toContain('<span class="ov-rel-threat--yellow">+1.6</span>');
-    expect(html).not.toContain('ov-rel-threat--red">-1.2');
-    expect(render(frame(), { "gap-threat": false })).not.toContain("ov-rel-threat");
-  });
-
-  it("makes the threat colours bold", () => {
+    expect(html).toContain("+1.6");
+    expect(html).not.toContain("threat");
+    expect(html).not.toContain("ov-rel-status--");
     const css = readFileSync(join(__dirname, "relative.css"), "utf8");
-    for (const level of ["red", "yellow"]) {
-      const block = css.match(new RegExp(`\\.ov-rel-threat--${level} \\{[^}]*\\}`));
-      expect(block?.[0]).toContain("font-weight: 700");
-    }
+    expect(css).not.toContain("threat");
+    expect(relativeManifest.settings.map((s) => s.key)).not.toContain("gap-threat");
   });
 
-  describe("lapped cars", () => {
-    const lapped = (): TelemetryFrame => {
+  describe("car status colours", () => {
+    const statused = (pitCar?: number): TelemetryFrame => {
       const f = frame();
       const deltas: Record<number, number> = { 1: 1, 2: -1, 3: 0 };
       for (const g of f.derived.gaps) g.lapDelta = deltas[g.carIdx] ?? null;
+      const car = f.state.cars.find((c) => c.carIdx === pitCar);
+      if (car !== undefined) car.onPitRoad = true;
       return f;
     };
+    const rowOf = (html: string, name: string): string => {
+      const at = html.indexOf(name);
+      const next = html.indexOf('<div class="ov-row', at);
+      return html.slice(html.lastIndexOf('<div class="ov-row', at), next < 0 ? undefined : next);
+    };
 
-    it("is a Drivers toggle, on by default", () => {
+    it("is a Drivers toggle under the old key, on by default", () => {
       expect(relativeManifest.settings.find((s) => s.key === "lap-colours")).toMatchObject({
         kind: "toggle",
-        label: "Colour lapped cars",
+        label: "Colour by car status",
         section: "Drivers",
         default: true,
       });
     });
 
-    it("puts the lap class on the rows of lapped cars and tags the name cell only", () => {
-      const html = render(lapped());
-      expect(html.match(/ov-rel-lap--ahead/g)).toHaveLength(1);
-      expect(html.match(/ov-rel-lap--behind/g)).toHaveLength(1);
-      expect(html).toContain("ov-rel-name");
-      expect(html).not.toContain("ov-rel-num");
-      expect(render(lapped(), { "lap-colours": false })).not.toContain("ov-rel-lap--");
-      expect(render(frame())).not.toContain("ov-rel-lap--");
+    it("puts one status class on each coloured row and tags the name and gap cells", () => {
+      const html = render(statused());
+      expect(html.match(/ov-rel-status--ahead/g)).toHaveLength(1);
+      expect(html.match(/ov-rel-status--behind/g)).toHaveLength(1);
+      expect(rowOf(html, "J. Pérez")).toContain("ov-rel-status--ahead");
+      expect(rowOf(html, "Z. Świątkowska")).toContain("ov-rel-status--behind");
+      expect(rowOf(html, "A. Testova")).not.toContain("ov-rel-status--");
+      for (const name of ["J. Pérez", "Z. Świątkowska", "M. Example"]) {
+        expect(rowOf(html, name)).toContain("ov-rel-name");
+        expect(rowOf(html, name)).toContain("ov-rel-gap");
+      }
     });
 
-    it("colours the driver name with the locked lap colours", () => {
+    it("mutes a car in the pits over its lap status, in any session", () => {
+      const html = render(statused(1));
+      expect(rowOf(html, "J. Pérez")).toContain("ov-rel-status--pit");
+      expect(html).not.toContain("ov-rel-status--ahead");
+      const practice = frame();
+      const car = practice.state.cars.find((c) => c.carIdx === 3);
+      if (car === undefined) throw new Error("fixture");
+      car.onPitRoad = true;
+      expect(rowOf(render(practice), "A. Testova")).toContain("ov-rel-status--pit");
+    });
+
+    it("leaves the own row uncoloured, even in the pits", () => {
+      const f = statused();
+      const own = f.state.cars.find((c) => c.carIdx === 0);
+      if (own === undefined) throw new Error("fixture");
+      own.onPitRoad = true;
+      expect(rowOf(render(f), "M. Example")).not.toContain("ov-rel-status--");
+    });
+
+    it("colours nothing when the setting is off", () => {
+      expect(render(statused(1), { "lap-colours": false })).not.toContain("ov-rel-status--");
+    });
+
+    it("colours the name and gap with the status colours only", () => {
       const css = readFileSync(join(__dirname, "relative.css"), "utf8");
-      expect(css).toMatch(
-        /\.ov-rel-lap--ahead > \.ov-rel-name \{\s*color: var\(--ov-locked-lap-ahead\)/,
-      );
-      expect(css).toMatch(
-        /\.ov-rel-lap--behind > \.ov-rel-name \{\s*color: var\(--ov-locked-lap-behind\)/,
-      );
-      expect(css).not.toContain("ov-car-num");
+      const tokens = {
+        pit: "--ov-text-muted",
+        ahead: "--ov-locked-lap-ahead",
+        behind: "--ov-locked-lap-behind",
+      };
+      for (const [status, token] of Object.entries(tokens)) {
+        expect(css).toMatch(
+          new RegExp(
+            `\\.ov-rel-status--${status} > \\.ov-rel-name,\\s*\\.ov-rel-status--${status} > \\.ov-rel-gap \\{\\s*color: var\\(${token}\\);\\s*\\}`,
+          ),
+        );
+      }
+      expect(css).not.toContain("font-weight");
     });
   });
 

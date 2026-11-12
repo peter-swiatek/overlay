@@ -145,7 +145,7 @@ describe(`overlay view selectors over ${CARS}-car mock frames`, () => {
           ahead: 3,
           behind: 3,
           hideInPits: false,
-          gapThreat: true,
+          lapColours: true,
         };
         let previous = relativeView(null, options).rows;
         for (const f of frames) previous = relativeView(f, options, previous).rows;
