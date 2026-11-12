@@ -120,8 +120,8 @@ export function MiniMapOverlay({ settings }: OverlayProps) {
         />
         {road !== "" && (
           <>
+            <path className="mini-map-road-casing" d={road} />
             <path className="mini-map-road" d={road} />
-            <path className="mini-map-centre-line" d={road} />
           </>
         )}
         {placed.map((car) => (

@@ -240,7 +240,8 @@ describe("MiniMapOverlay", () => {
   it("draws the road, the player ring and labelled cars with their colours", () => {
     const html = render(frame(), TRACK);
     expect(html).toContain('class="mini-map-road"');
-    expect(html).toContain('class="mini-map-centre-line"');
+    expect(html).toContain('class="mini-map-road-casing"');
+    expect(html).not.toContain("centre-line");
     expect(html).toContain('class="mini-map-player-ring"');
     expect(html).toContain("ZOOM 150% · HEADING UP");
     expect(labels(html)).toEqual([

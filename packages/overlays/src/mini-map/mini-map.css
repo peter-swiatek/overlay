@@ -57,22 +57,21 @@
 }
 
 .mini-map-road,
-.mini-map-centre-line {
+.mini-map-road-casing {
   fill: none;
   stroke-linejoin: round;
-}
-
-/* A wide translucent ribbon with a dashed centre line, as in the design. */
-.mini-map-road {
-  stroke: color-mix(in srgb, var(--ov-text) 14%, transparent);
-  stroke-width: 28;
   stroke-linecap: round;
 }
 
-.mini-map-centre-line {
+/* A solid white road on a dark casing, like the Track Map surface; no centre line. */
+.mini-map-road-casing {
+  stroke: color-mix(in srgb, var(--ov-bg) 90%, black);
+  stroke-width: 22;
+}
+
+.mini-map-road {
   stroke: var(--ov-text);
-  stroke-width: 2.5;
-  stroke-dasharray: 6 4;
+  stroke-width: 18;
 }
 
 .mini-map-dot {
