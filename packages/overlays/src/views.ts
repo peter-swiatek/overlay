@@ -10,3 +10,4 @@ export { incidentsView } from "./incidents/view";
 export { tyresView } from "./tyres/view";
 export { radarView, newRadarMemory } from "./radar/view";
 export { miniLive } from "./mini-map/view";
+export { flatLive } from "./flat-track-map/view";
