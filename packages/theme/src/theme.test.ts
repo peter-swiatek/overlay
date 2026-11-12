@@ -122,6 +122,8 @@ describe("locked colours", () => {
         "flagWhite": "#f8fafc",
         "flagYellow": "#facc15",
         "gain": "#22c55e",
+        "lapAhead": "#f87171",
+        "lapBehind": "#60a5fa",
         "lapFaster": "#22c55e",
         "lapSlower": "#ef4444",
         "licenceA": "#2f6fde",
@@ -142,14 +144,16 @@ describe("locked colours", () => {
     `);
   });
 
-  it("has 24 locked keys with the pit colours, sector slower and tyre cold last", () => {
-    expect(LOCKED_COLOUR_KEYS).toHaveLength(24);
-    expect(LOCKED_COLOUR_KEYS.slice(-5)).toEqual([
+  it("has 26 locked keys with the pit colours, sector slower, tyre cold and lapped cars last", () => {
+    expect(LOCKED_COLOUR_KEYS).toHaveLength(26);
+    expect(LOCKED_COLOUR_KEYS.slice(-7)).toEqual([
       "shift",
       "pitBox",
       "pitExit",
       "sectorSlower",
       "tyreCold",
+      "lapAhead",
+      "lapBehind",
     ]);
   });
 
@@ -163,6 +167,8 @@ describe("locked colours", () => {
     expect(Object.keys(vars)).toHaveLength(LOCKED_COLOUR_KEYS.length);
     expect(vars["--ov-locked-licence-pro"]).toBe("#1a1a1a");
     expect(vars["--ov-locked-flag-blue"]).toBe("#2563eb");
+    expect(vars["--ov-locked-lap-ahead"]).toBe("#f87171");
+    expect(vars["--ov-locked-lap-behind"]).toBe("#60a5fa");
     expect(vars["--ov-locked-gain"]).toBe("#22c55e");
     expect(vars["--ov-locked-shift"]).toBe("#38bdf8");
     expect(vars["--ov-locked-pit-box"]).toBe("#38bdf8");

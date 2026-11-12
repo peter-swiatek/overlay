@@ -1,4 +1,5 @@
 import type { Corner, TelemetryFrame, TrackOutline } from "@overlay/sim-core/types";
+import { lapStatuses, type LapStatus } from "../shared/laps";
 
 /** The drawing's coordinate box; the SVG scales it into the window. */
 export const VIEW_W = 320;
@@ -26,6 +27,8 @@ export interface MapCar {
   /** The slow or stopped car the deriver reports ahead of the player. */
   slow: boolean;
   player: boolean;
+  /** Races only: "ahead" = it has lapped or is lapping the player, "behind" = the reverse. */
+  lap: LapStatus;
 }
 
 /** What the overlay reads from each frame. */
@@ -50,6 +53,7 @@ export function mapLive(frame: TelemetryFrame | null): MapLive {
   if (frame === null || frame.status !== "live") return NO_LIVE;
   const { state, derived } = frame;
   const slowIdx = derived.slowCar?.carIdx ?? null;
+  const laps = lapStatuses(frame);
   const cars: MapCar[] = [];
   for (const car of state.cars) {
     if (car.isPaceCar === true || car.lapDistPct === null || !Number.isFinite(car.lapDistPct)) {
@@ -66,6 +70,7 @@ export function mapLive(frame: TelemetryFrame | null): MapLive {
       pit,
       slow: !pit && car.carIdx === slowIdx,
       player: car.carIdx === state.playerCarIdx,
+      lap: car.carIdx === state.playerCarIdx ? null : (laps.get(car.carIdx) ?? null),
     });
   }
   return {

@@ -19,7 +19,15 @@ import {
 
 export const NO_OUTLINE_NOTE = "Track map appears after your first lap";
 
-function CarMark({ car, numbers }: { car: PlacedCar; numbers: boolean }) {
+function CarMark({
+  car,
+  numbers,
+  markLaps,
+}: {
+  car: PlacedCar;
+  numbers: boolean;
+  markLaps: boolean;
+}) {
   const fill = { fill: dotColour(car.colour) };
   const num = numbers ? car.label : null;
   if (car.player) {
@@ -44,8 +52,13 @@ function CarMark({ car, numbers }: { car: PlacedCar; numbers: boolean }) {
       </g>
     );
   }
+  const lap = markLaps ? car.lap : null;
+  const classes = `track-map-car${car.pit ? " track-map-car--pit" : ""}${
+    lap === null ? "" : ` track-map-car--lap-${lap}`
+  }`;
   return (
-    <g className={`track-map-car${car.pit ? " track-map-car--pit" : ""}`}>
+    <g className={classes}>
+      {lap !== null && <circle className="track-map-lap-ring" cx={car.x} cy={car.y} r={7.5} />}
       <circle className="track-map-dot" cx={car.x} cy={car.y} r={5.5} style={fill} />
       {num !== null && (
         <text className="track-map-label" x={car.x} y={car.y - 8.5}>
@@ -72,6 +85,7 @@ export function TrackMapOverlay({ settings }: OverlayProps) {
   );
   const showCorners = optionBoolean(settings, "corner-labels");
   const numbers = optionBoolean(settings, "car-numbers");
+  const markLaps = optionBoolean(settings, "mark-lapped");
   const corners = useMemo(
     () => (showCorners ? cornerLabels(shape, track.corners) : []),
     [shape, track.corners, showCorners],
@@ -110,7 +124,7 @@ export function TrackMapOverlay({ settings }: OverlayProps) {
           </text>
         ))}
         {cars.map((car) => (
-          <CarMark key={car.carIdx} car={car} numbers={numbers} />
+          <CarMark key={car.carIdx} car={car} numbers={numbers} markLaps={markLaps} />
         ))}
         {sample && (
           <text className="track-map-note" x={VIEW_W / 2} y={VIEW_H - 8}>

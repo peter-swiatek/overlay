@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { TelemetryFrame } from "@overlay/sim-core/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -75,6 +77,7 @@ describe("manifest", () => {
       labels: true,
       "sector-ticks": true,
       "player-label": true,
+      "mark-lapped": true,
     });
   });
 });
@@ -90,6 +93,20 @@ describe("flatLive", () => {
     expect(byIdx.get(2)).toMatchObject({ flag: true, pit: false });
     expect(byIdx.get(3)).toMatchObject({ flag: false, pit: true });
     expect(byIdx.get(4)).toMatchObject({ flag: true });
+  });
+
+  it("reads the lap mark from the derived lap delta, never for the player", () => {
+    const f = frame();
+    f.derived.gaps = [
+      { carIdx: 1, gapS: 1, tier: "position", lapDelta: 1 },
+      { carIdx: 2, gapS: 1, tier: "position", lapDelta: -2 },
+      { carIdx: 3, gapS: 1, tier: "position", lapDelta: 0 },
+      { carIdx: 4, gapS: 1, tier: "position", lapDelta: null },
+    ];
+    const marks = Object.fromEntries(flatLive(f).cars.map((c) => [c.carIdx, c.lap]));
+    expect(marks).toEqual({ 0: null, 1: "ahead", 2: "behind", 3: null, 4: null });
+    // A frame without lap deltas (outside a race) marks nothing.
+    expect(flatLive(frame()).cars.every((c) => c.lap === null)).toBe(true);
   });
 
   it("is empty when not live", () => {
@@ -192,6 +209,30 @@ describe("FlatTrackMapOverlay", () => {
     expect(none).not.toContain("flat-track-map-labels");
   });
 
+  it("rings lapped cars and follows the mark-lapped setting", () => {
+    const f = frame();
+    f.derived.gaps = [
+      { carIdx: 1, gapS: 1, tier: "position", lapDelta: 1 },
+      { carIdx: 3, gapS: 1, tier: "position", lapDelta: -1 },
+    ];
+    const html = render(f);
+    expect(count(html, "flat-track-map-car--lap-ahead")).toBe(1);
+    expect(count(html, "flat-track-map-car--lap-behind")).toBe(1);
+    expect(count(html, "flat-track-map-car")).toBe(5);
+    const off = render(f, { options: { "mark-lapped": false } });
+    expect(off).not.toContain("flat-track-map-car--lap-");
+  });
+
+  it("rings in the locked lap colours and dims a car you have lapped", () => {
+    const css = readFileSync(join(__dirname, "flat-track-map.css"), "utf8");
+    expect(css).toMatch(
+      /\.flat-track-map-car--lap-ahead \{\s*box-shadow: 0 0 0 2px var\(--ov-locked-lap-ahead\);/,
+    );
+    expect(css).toMatch(
+      /\.flat-track-map-car--lap-behind \{\s*box-shadow: 0 0 0 2px var\(--ov-locked-lap-behind\);\s*opacity: 0\.6;/,
+    );
+  });
+
   it("shows only S/F without sector boundaries", () => {
     const html = render(frame(null));
     expect(count(html, "flat-track-map-tick--sector")).toBe(0);
@@ -202,6 +243,8 @@ describe("FlatTrackMapOverlay", () => {
     const editing = render(null, { editing: true });
     expect(editing).toContain("flat-track-map--sample");
     expect(labelTexts(editing)).toContain("1 YOU (46%)");
+    expect(count(editing, "flat-track-map-car--lap-ahead")).toBe(1);
+    expect(count(editing, "flat-track-map-car--lap-behind")).toBe(1);
     const idle = render(null);
     expect(idle).not.toContain("flat-track-map--sample");
     expect(count(idle, "flat-track-map-car")).toBe(0);

@@ -100,11 +100,58 @@ describe("Deriver", () => {
     expect(gaps[1]?.gapS).toBeGreaterThan(0);
   });
 
+  describe("lap delta", () => {
+    const field = (type: "race" | "practice") => {
+      const s = simState({ type, tick: 10, lap: 5, pct: 0.98 });
+      const cars: [number, number | null, number | null, boolean][] = [
+        // carIdx, laps, pct, connected
+        [1, 7, 0.02, true], // a lap up, just across the line ahead
+        [2, 6, 0.01, true], // same lap, just across the line
+        [3, 4, 0.9, true], // a lap down, just behind
+        [4, null, 0.5, true], // laps unknown
+        [5, 3, 0.5, false], // gone
+      ];
+      for (const [idx, laps, pct, connected] of cars) {
+        const c = emptyCar(idx);
+        c.connected = connected;
+        c.lapsCompleted = laps;
+        c.lapDistPct = pct;
+        s.cars.push(c);
+      }
+      const pit = emptyCar(6);
+      pit.connected = true;
+      pit.lapsCompleted = 4;
+      pit.lapDistPct = 0.95;
+      pit.onPitRoad = true;
+      s.cars.push(pit);
+      return s;
+    };
+
+    it("gives each car's whole-lap difference to the player in a race", () => {
+      const gaps = new Deriver().next(field("race")).gaps;
+      expect(gaps.map((g) => [g.carIdx, g.lapDelta])).toEqual([
+        [1, 1],
+        [2, 0],
+        [3, -1],
+        [4, null],
+        [5, null],
+        [6, -1],
+      ]);
+    });
+
+    it("is null for every car outside a race", () => {
+      const gaps = new Deriver().next(field("practice")).gaps;
+      expect(gaps.every((g) => g.lapDelta === null)).toBe(true);
+    });
+  });
+
   it("marks gaps unavailable for cars that are not in the world", () => {
     const s = simState({ tick: 10 });
     const away = emptyCar(1);
     s.cars.push(away);
-    expect(new Deriver().next(s).gaps).toEqual([{ carIdx: 1, gapS: null, tier: "unavailable" }]);
+    expect(new Deriver().next(s).gaps).toEqual([
+      { carIdx: 1, gapS: null, tier: "unavailable", lapDelta: null },
+    ]);
   });
 
   describe("class indices", () => {

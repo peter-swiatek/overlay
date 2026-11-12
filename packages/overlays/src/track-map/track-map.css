@@ -77,6 +77,29 @@
   opacity: 0.5;
 }
 
+/* Races only: a 2 px ring just outside the dot's dark outline on a car that has lapped or is
+   lapping you (red) or that you have lapped (blue, and dimmed so the cars you race stand out). */
+.track-map-lap-ring {
+  fill: none;
+  stroke-width: 2;
+}
+
+.track-map-car--lap-ahead .track-map-lap-ring {
+  stroke: var(--ov-locked-lap-ahead);
+}
+
+.track-map-car--lap-behind .track-map-lap-ring {
+  stroke: var(--ov-locked-lap-behind);
+}
+
+.track-map-car--lap-behind {
+  opacity: 0.6;
+}
+
+.track-map-car--pit.track-map-car--lap-behind {
+  opacity: 0.5;
+}
+
 .track-map-player-ring {
   fill: rgba(20, 150, 180, 0.35);
   stroke: #38bdf8;

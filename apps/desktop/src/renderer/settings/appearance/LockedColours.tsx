@@ -64,6 +64,13 @@ export const LOCKED_GROUPS: readonly {
     title: "Tyres",
     items: [["tyreCold", "Tyre cold"]],
   },
+  {
+    title: "Lapped cars",
+    items: [
+      ["lapAhead", "Lapping you (lap ahead)"],
+      ["lapBehind", "Lapped by you (lap behind)"],
+    ],
+  },
 ];
 
 /** Read-only legend: there is deliberately no input for a locked colour. */

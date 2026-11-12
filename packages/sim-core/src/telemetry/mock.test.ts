@@ -71,6 +71,20 @@ describe("MockSource", () => {
     }
   });
 
+  it("has a car a lap up and, once it has started a lap, a car a lap down", () => {
+    const mock = new MockSource();
+    const deriver = new Deriver();
+    let out = deriver.next(mock.state());
+    const delta = (idx: number) => out.gaps.find((g) => g.carIdx === idx)?.lapDelta;
+    expect(delta(9)).toBe(1);
+    // Laps unknown before it has crossed the line: no marker yet.
+    expect(delta(18)).toBeNull();
+    for (let i = 0; i < 1200; i++) out = deriver.next(mock.step(0.1));
+    expect(delta(9)).toBe(1);
+    expect(delta(18)).toBe(-1);
+    expect(out.gaps.filter((g) => g.lapDelta !== 0 && g.lapDelta !== null)).toHaveLength(2);
+  });
+
   it("is deterministic and survives structuredClone", () => {
     const a = new MockSource();
     const b = new MockSource();

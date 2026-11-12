@@ -40,6 +40,7 @@ export function RelativeOverlay({ settings }: OverlayProps) {
   const behind = optionNumber(settings, "drivers-behind");
   const hideInPits = optionBoolean(settings, "hide-in-pits");
   const gapThreat = optionBoolean(settings, "gap-threat");
+  const lapColours = optionBoolean(settings, "lap-colours");
   const iRatingChange = optionBoolean(settings, "irating-change");
   const previous = useRef<readonly RelativeRow[]>([]);
 
@@ -54,6 +55,7 @@ export function RelativeOverlay({ settings }: OverlayProps) {
         behind,
         hideInPits,
         gapThreat,
+        lapColours,
         livePositions,
         gapDecimals,
         lapDecimals,
@@ -95,17 +97,26 @@ export function RelativeOverlay({ settings }: OverlayProps) {
       inlinePitBadge,
       pitInLastLap: false,
     });
-    return base.map((column) =>
-      column.id === "gap"
-        ? {
-            ...column,
-            label: "Rel",
-            render: (row: DriverRow) => (
-              <span className={threatClass((row as RelativeRow).threat)}>{column.render(row)}</span>
-            ),
-          }
-        : column,
-    );
+    return base.map((column) => {
+      if (column.id === "gap") {
+        return {
+          ...column,
+          label: "Rel",
+          render: (row: DriverRow) => (
+            <span className={threatClass((row as RelativeRow).threat)}>{column.render(row)}</span>
+          ),
+        };
+      }
+      // The lap colour goes on the driver name only (see relative.css).
+      if (column.id === "driver") {
+        const cell = "ov-rel-name";
+        return {
+          ...column,
+          cellClassName: column.cellClassName ? `${column.cellClassName} ${cell}` : cell,
+        };
+      }
+      return column;
+    });
   }, [
     prefs,
     table.nameDisplay,
@@ -147,12 +158,18 @@ export function RelativeOverlay({ settings }: OverlayProps) {
           showHeader={rowLabels}
           isOwnRow={(r) => r.isFocus}
           rowStyle={driverRowStyle}
+          rowClassName={lapRowClass}
           isYellowRow={(r) => r.yellow}
         />
       )}
       {showFooter ? <InfoStrip variant="footer" items={selected.footer} /> : null}
     </div>
   );
+}
+
+function lapRowClass(row: DriverRow): string | undefined {
+  const mark = (row as RelativeRow).lapMark;
+  return mark === null || mark === undefined ? undefined : `ov-rel-lap--${mark}`;
 }
 
 function threatClass(level: "red" | "yellow" | null | undefined): string | undefined {

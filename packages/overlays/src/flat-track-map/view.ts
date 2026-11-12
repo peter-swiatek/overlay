@@ -1,4 +1,5 @@
 import type { TelemetryFrame } from "@overlay/sim-core/types";
+import { lapStatuses, type LapStatus } from "../shared/laps";
 import { carLabel } from "../track-map/view";
 
 /** One car on the bar. */
@@ -15,6 +16,8 @@ export interface FlatCar {
   /** Off track, or the slow car the deriver reports: drawn in flag yellow. */
   flag: boolean;
   player: boolean;
+  /** Races only: "ahead" = it has lapped the player, "behind" = the player has lapped it. */
+  lap: LapStatus;
 }
 
 export interface FlatLive {
@@ -29,6 +32,7 @@ export function flatLive(frame: TelemetryFrame | null): FlatLive {
   if (frame === null || frame.status !== "live") return NO_LIVE;
   const { state, derived } = frame;
   const slowIdx = derived.slowCar?.carIdx ?? null;
+  const laps = lapStatuses(frame);
   const cars: FlatCar[] = [];
   for (const car of state.cars) {
     if (car.isPaceCar === true || car.lapDistPct === null || !Number.isFinite(car.lapDistPct)) {
@@ -45,6 +49,7 @@ export function flatLive(frame: TelemetryFrame | null): FlatLive {
       pit,
       flag: !pit && (car.trackSurface === "offTrack" || car.carIdx === slowIdx),
       player: car.carIdx === state.playerCarIdx,
+      lap: car.carIdx === state.playerCarIdx ? null : (laps.get(car.carIdx) ?? null),
     });
   }
   return { sectorStartPcts: state.session.sectorStartPcts, cars };
@@ -163,16 +168,100 @@ export function barLabels(
   return kept;
 }
 
-/** Edit-mode sample: the board's field, two classes, one car in the pits and one slow car. */
+/**
+ * Edit-mode sample: the board's field, two classes, one car in the pits, one slow car, one car
+ * that has lapped the player and one the player has lapped.
+ */
 export const SAMPLE_SECTOR_STARTS: readonly number[] = [0, 0.33, 0.68];
 export const SAMPLE_CARS: readonly FlatCar[] = [
-  { carIdx: 1, pct: 0.19, number: "7", colour: "#ffda59", pit: false, flag: false, player: false },
-  { carIdx: 2, pct: 0.3, number: "22", colour: "#ff5c8a", pit: false, flag: false, player: false },
-  { carIdx: 3, pct: 0.39, number: "48", colour: "#ff5c8a", pit: false, flag: false, player: false },
-  { carIdx: 4, pct: 0.43, number: "15", colour: "#ffda59", pit: false, flag: false, player: false },
-  { carIdx: 5, pct: 0.52, number: "3", colour: "#33ceff", pit: false, flag: true, player: false },
-  { carIdx: 6, pct: 0.57, number: "91", colour: "#ffda59", pit: false, flag: false, player: false },
-  { carIdx: 7, pct: 0.82, number: "64", colour: "#ff5c8a", pit: false, flag: false, player: false },
-  { carIdx: 8, pct: 0.9, number: "12", colour: "#33ceff", pit: true, flag: false, player: false },
-  { carIdx: 0, pct: 0.46, number: "1", colour: "#ffda59", pit: false, flag: false, player: true },
+  {
+    carIdx: 1,
+    pct: 0.19,
+    number: "7",
+    colour: "#ffda59",
+    pit: false,
+    flag: false,
+    player: false,
+    lap: "behind",
+  },
+  {
+    carIdx: 2,
+    pct: 0.3,
+    number: "22",
+    colour: "#ff5c8a",
+    pit: false,
+    flag: false,
+    player: false,
+    lap: null,
+  },
+  {
+    carIdx: 3,
+    pct: 0.39,
+    number: "48",
+    colour: "#ff5c8a",
+    pit: false,
+    flag: false,
+    player: false,
+    lap: null,
+  },
+  {
+    carIdx: 4,
+    pct: 0.43,
+    number: "15",
+    colour: "#ffda59",
+    pit: false,
+    flag: false,
+    player: false,
+    lap: null,
+  },
+  {
+    carIdx: 5,
+    pct: 0.52,
+    number: "3",
+    colour: "#33ceff",
+    pit: false,
+    flag: true,
+    player: false,
+    lap: null,
+  },
+  {
+    carIdx: 6,
+    pct: 0.57,
+    number: "91",
+    colour: "#ffda59",
+    pit: false,
+    flag: false,
+    player: false,
+    lap: null,
+  },
+  {
+    carIdx: 7,
+    pct: 0.82,
+    number: "64",
+    colour: "#ff5c8a",
+    pit: false,
+    flag: false,
+    player: false,
+    lap: "ahead",
+  },
+  {
+    carIdx: 8,
+    pct: 0.9,
+    number: "12",
+    colour: "#33ceff",
+    pit: true,
+    flag: false,
+    player: false,
+    lap: null,
+  },
+  {
+    carIdx: 0,
+    pct: 0.46,
+    number: "1",
+    colour: "#ffda59",
+    pit: false,
+    flag: false,
+    player: true,
+    lap: null,
+  },
 ];

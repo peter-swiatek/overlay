@@ -88,6 +88,21 @@
   opacity: 0.5;
 }
 
+/* Races only: a 2 px ring outside the dark outline on a car that has lapped you or that you have
+   lapped; a car you have lapped is dimmed too, so the cars you race stand out. */
+.flat-track-map-car--lap-ahead {
+  box-shadow: 0 0 0 2px var(--ov-locked-lap-ahead);
+}
+
+.flat-track-map-car--lap-behind {
+  box-shadow: 0 0 0 2px var(--ov-locked-lap-behind);
+  opacity: 0.6;
+}
+
+.flat-track-map-car--pit.flat-track-map-car--lap-behind {
+  opacity: 0.5;
+}
+
 /* Off track or the slow car ahead: flag yellow with a dashed ring, as on the Track Map. */
 .flat-track-map-car--flag {
   background: var(--ov-locked-flag-yellow);

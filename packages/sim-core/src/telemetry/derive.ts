@@ -11,7 +11,13 @@ import {
 } from "../calc/fuel";
 import { DeltaTracker, deltaInput, type BestLapStore } from "../calc/delta";
 import { LapHistoryTracker, lapHistoryInput } from "../calc/laps";
-import { MiniSectorRecorder, RollingLapTimes, relativeGap, type GapCarTick } from "../calc/gaps";
+import {
+  MiniSectorRecorder,
+  RollingLapTimes,
+  lapDelta,
+  relativeGap,
+  type GapCarTick,
+} from "../calc/gaps";
 import { ProximityTracker } from "../calc/proximity";
 import { SlowCarDetector } from "../calc/slow-car";
 import { StandingsTracker, type StandingsInputs } from "../calc/standings";
@@ -347,11 +353,13 @@ export class Deriver {
 
   private gaps(state: SimState, player: Car | null): DerivedGap[] {
     const out: DerivedGap[] = [];
+    // Lap counts only rank cars in a race; in practice or qualifying they say nothing.
+    const race = state.session.type === "race";
     for (const car of state.cars) {
       if (car.isPaceCar === true || car.carIdx === state.playerCarIdx) continue;
       const pct = car.lapDistPct;
       if (player === null || player.lapDistPct === null || pct === null) {
-        out.push({ carIdx: car.carIdx, gapS: null, tier: "unavailable" });
+        out.push({ carIdx: car.carIdx, gapS: null, tier: "unavailable", lapDelta: null });
         continue;
       }
       const classId = this.classIndex(car.classId ?? "");
@@ -373,6 +381,7 @@ export class Deriver {
         carIdx: car.carIdx,
         gapS: result.tier === "unavailable" ? null : result.gapS,
         tier: result.tier,
+        lapDelta: race && car.connected ? lapDelta(player, car) : null,
       });
     }
     return out;

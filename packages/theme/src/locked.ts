@@ -28,4 +28,11 @@ export const LOCKED_COLOURS: Readonly<Record<LockedColourKey, string>> = Object.
   sectorSlower: "#facc15",
   /** Tyres overlay: a tyre below its temperature window. */
   tyreCold: "#38bdf8",
+  /**
+   * Race only: a car that has lapped you or is lapping you (a lap or more ahead on distance), in
+   * the sim's own red. A lighter red than loss, so the two stay apart.
+   */
+  lapAhead: "#f87171",
+  /** Race only: a car you have lapped or are lapping (a lap or more behind on distance), in blue. */
+  lapBehind: "#60a5fa",
 });

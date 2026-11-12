@@ -147,6 +147,45 @@ describe("RelativeOverlay", () => {
     }
   });
 
+  describe("lapped cars", () => {
+    const lapped = (): TelemetryFrame => {
+      const f = frame();
+      const deltas: Record<number, number> = { 1: 1, 2: -1, 3: 0 };
+      for (const g of f.derived.gaps) g.lapDelta = deltas[g.carIdx] ?? null;
+      return f;
+    };
+
+    it("is a Drivers toggle, on by default", () => {
+      expect(relativeManifest.settings.find((s) => s.key === "lap-colours")).toMatchObject({
+        kind: "toggle",
+        label: "Colour lapped cars",
+        section: "Drivers",
+        default: true,
+      });
+    });
+
+    it("puts the lap class on the rows of lapped cars and tags the name cell only", () => {
+      const html = render(lapped());
+      expect(html.match(/ov-rel-lap--ahead/g)).toHaveLength(1);
+      expect(html.match(/ov-rel-lap--behind/g)).toHaveLength(1);
+      expect(html).toContain("ov-rel-name");
+      expect(html).not.toContain("ov-rel-num");
+      expect(render(lapped(), { "lap-colours": false })).not.toContain("ov-rel-lap--");
+      expect(render(frame())).not.toContain("ov-rel-lap--");
+    });
+
+    it("colours the driver name with the locked lap colours", () => {
+      const css = readFileSync(join(__dirname, "relative.css"), "utf8");
+      expect(css).toMatch(
+        /\.ov-rel-lap--ahead > \.ov-rel-name \{\s*color: var\(--ov-locked-lap-ahead\)/,
+      );
+      expect(css).toMatch(
+        /\.ov-rel-lap--behind > \.ov-rel-name \{\s*color: var\(--ov-locked-lap-behind\)/,
+      );
+      expect(css).not.toContain("ov-car-num");
+    });
+  });
+
   it("labels the gap column Rel", () => {
     const html = render(frame(), { "row-labels": true });
     expect(html).toContain(">Rel<");

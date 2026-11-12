@@ -64,5 +64,7 @@ export const LOCKED_COLOUR_KEYS = [
   "pitExit",
   "sectorSlower",
   "tyreCold",
+  "lapAhead",
+  "lapBehind",
 ] as const;
 export type LockedColourKey = (typeof LOCKED_COLOUR_KEYS)[number];

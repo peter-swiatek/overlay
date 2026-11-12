@@ -16,6 +16,13 @@ export interface DerivedGap {
   /** Seconds relative to the player; negative = the car is ahead (see calc/gaps/types.ts). */
   gapS: number | null;
   tier: GapResult["tier"];
+  /**
+   * Races only: whole laps this car is ahead of the player on race distance once their on-track
+   * proximity is taken out (see calc/gaps/lapDelta.ts). +1 = it has lapped the player, -1 = the
+   * player has lapped it, 0 = same lap. Null (or absent) outside races and when either car's laps
+   * or position are unknown.
+   */
+  lapDelta?: number | null;
 }
 
 export interface Derived {

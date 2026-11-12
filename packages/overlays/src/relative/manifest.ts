@@ -80,6 +80,14 @@ export const relativeManifest: OverlayManifest = {
       help: "Gap of a car behind: red within 1.0 s, yellow within 2.0 s.",
     },
     {
+      key: "lap-colours",
+      label: "Colour lapped cars",
+      kind: "toggle",
+      section: "Drivers",
+      default: true,
+      help: "Races only: driver name in red for a car that has lapped you or is lapping you, in blue for a car you have lapped. Same lap stays white.",
+    },
+    {
       key: "weather-header",
       label: "Weather header",
       kind: "toggle",

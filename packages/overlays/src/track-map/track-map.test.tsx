@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { TelemetryFrame, TrackOutline } from "@overlay/sim-core/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -223,6 +225,46 @@ describe("TrackMapOverlay", () => {
     expect(texts(html, "track-map-slow-label")).toEqual(["9 YLW"]);
   });
 
+  describe("lapped cars", () => {
+    const lapped = (): TelemetryFrame => {
+      const f = frame();
+      f.derived.gaps = [
+        { carIdx: 1, gapS: 1, tier: "position", lapDelta: 1 },
+        { carIdx: 2, gapS: 1, tier: "position", lapDelta: -1 },
+        { carIdx: 3, gapS: 1, tier: "position", lapDelta: 0 },
+        { carIdx: 4, gapS: 1, tier: "position", lapDelta: null },
+      ];
+      return f;
+    };
+
+    it("reads the lap mark from the derived lap delta, never for the player", () => {
+      const marks = Object.fromEntries(mapLive(lapped()).cars.map((c) => [c.carIdx, c.lap]));
+      expect(marks).toEqual({ 0: null, 1: "ahead", 2: "behind", 3: null, 4: null });
+      expect(mapLive(frame()).cars.every((c) => c.lap === null)).toBe(true);
+    });
+
+    it("rings lapped cars and follows the mark-lapped setting", () => {
+      const html = render(lapped(), TRACK);
+      expect(count(html, 'class="track-map-lap-ring"')).toBe(2);
+      expect(count(html, "track-map-car--lap-ahead")).toBe(1);
+      expect(count(html, "track-map-car--lap-behind")).toBe(1);
+      const off = render(lapped(), TRACK, { options: { "mark-lapped": false } });
+      expect(off).not.toContain("track-map-lap-ring");
+      expect(off).not.toContain("track-map-car--lap-");
+    });
+
+    it("rings in the locked lap colours and dims a car you have lapped", () => {
+      const css = readFileSync(join(__dirname, "track-map.css"), "utf8");
+      expect(css).toMatch(
+        /\.track-map-car--lap-ahead \.track-map-lap-ring \{\s*stroke: var\(--ov-locked-lap-ahead\);/,
+      );
+      expect(css).toMatch(
+        /\.track-map-car--lap-behind \.track-map-lap-ring \{\s*stroke: var\(--ov-locked-lap-behind\);/,
+      );
+      expect(css).toMatch(/\.track-map-car--lap-behind \{\s*opacity: 0\.6;/);
+    });
+  });
+
   it("shows corner labels unless turned off", () => {
     expect(count(render(frame(), TRACK), 'class="track-map-corner"')).toBe(2);
     const off = render(frame(), TRACK, { options: { "corner-labels": false } });
@@ -242,6 +284,8 @@ describe("TrackMapOverlay", () => {
     expect(count(html, 'class="track-map-casing"')).toBe(1);
     expect(count(html, "track-map-player-ring")).toBe(1);
     expect(count(html, '<g class="track-map-car')).toBe(SAMPLE_CARS.length);
+    expect(count(html, "track-map-car--lap-ahead")).toBe(1);
+    expect(count(html, "track-map-car--lap-behind")).toBe(1);
     expect(count(html, 'class="track-map-corner"')).toBe(SAMPLE_TRACK.corners.length);
     expect(texts(html, "track-map-note")).toEqual([NO_OUTLINE_NOTE]);
   });

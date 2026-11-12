@@ -1,6 +1,6 @@
 import type { Car, DerivedGap, TelemetryFrame } from "@overlay/sim-core/types";
 import { describe, expect, it } from "vitest";
-import { FIXTURE_NAMES, fixtureFrame } from "../shared";
+import { FIXTURE_NAMES, fixtureFrame, lapStatus } from "../shared";
 import { gapThreat, relativeView, type RelativeOptions } from "./view";
 
 const OPTIONS: RelativeOptions = {
@@ -106,6 +106,35 @@ describe("relativeView", () => {
     expect(ids(frameWith(many, {}, { playerCarIdx: null }))).toEqual([]);
     expect(relativeView(null, OPTIONS).rows).toEqual([]);
     expect(relativeView({ ...frameWith(many), status: "waiting" }, OPTIONS).rows).toEqual([]);
+  });
+
+  describe("lap marks", () => {
+    const lapped = (lapColours: boolean) => {
+      const frame = frameWith({ 1: -1, 2: -0.5, 3: 0.5, 4: 1 });
+      const deltas: Record<number, number | null> = { 1: 2, 2: 1, 3: -1, 4: null };
+      for (const g of frame.derived.gaps) g.lapDelta = deltas[g.carIdx] ?? 0;
+      return Object.fromEntries(
+        relativeView(frame, { ...OPTIONS, lapColours }).rows.map((r) => [r.carIdx, r.lapMark]),
+      );
+    };
+
+    it("marks cars a lap or more ahead and behind, never the focus car", () => {
+      expect(lapped(true)).toEqual({ 1: "ahead", 2: "ahead", 0: null, 3: "behind", 4: null });
+    });
+
+    it("marks nothing when the option is off", () => {
+      expect(lapped(false)).toEqual({ 1: null, 2: null, 0: null, 3: null, 4: null });
+    });
+
+    it("maps lap deltas to marks; unknown or same lap is none", () => {
+      expect(lapStatus(1)).toBe("ahead");
+      expect(lapStatus(3)).toBe("ahead");
+      expect(lapStatus(-1)).toBe("behind");
+      expect(lapStatus(0)).toBeNull();
+      expect(lapStatus(null)).toBeNull();
+      expect(lapStatus(undefined)).toBeNull();
+      expect(lapStatus(Number.NaN)).toBeNull();
+    });
   });
 
   it("reuses row objects that did not change", () => {

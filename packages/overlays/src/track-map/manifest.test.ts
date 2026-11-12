@@ -17,14 +17,16 @@ describe("track map manifest", () => {
     expect(s.common.hideInGarage).toBe(false);
   });
 
-  it("has the two label toggles, both on", () => {
+  it("has the two label toggles and the lapped-car toggle, all on", () => {
     expect(m.settings.map((f) => [f.key, f.label, f.kind])).toEqual([
       ["corner-labels", "Corner labels", "toggle"],
       ["car-numbers", "Car numbers", "toggle"],
+      ["mark-lapped", "Mark lapped cars", "toggle"],
     ]);
     expect(defaultInstanceSettings(m).options).toEqual({
       "corner-labels": true,
       "car-numbers": true,
+      "mark-lapped": true,
     });
   });
 });

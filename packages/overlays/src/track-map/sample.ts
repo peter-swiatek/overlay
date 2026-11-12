@@ -108,16 +108,91 @@ export const SAMPLE_TRACK: TrackMapData = buildSample();
 
 export const SAMPLE_SECTOR_STARTS: readonly number[] = [0, 0.34, 0.67];
 
-/** Cars on the sample track: two classes, one in the pit lane, one slow, and the player. */
+/**
+ * Cars on the sample track: two classes, one in the pit lane, one slow, one lapping the player,
+ * one the player has lapped, and the player.
+ */
 export const SAMPLE_CARS: readonly MapCar[] = [
-  { carIdx: 1, pct: 0.06, label: "7", colour: "#ffda59", pit: false, slow: false, player: false },
-  { carIdx: 2, pct: 0.19, label: "22", colour: "#ffda59", pit: false, slow: false, player: false },
-  { carIdx: 3, pct: 0.31, label: "48", colour: "#33ceff", pit: false, slow: false, player: false },
-  { carIdx: 4, pct: 0.47, label: "3", colour: "#33ceff", pit: false, slow: true, player: false },
-  { carIdx: 5, pct: 0.62, label: "15", colour: "#ffda59", pit: false, slow: false, player: false },
-  { carIdx: 6, pct: 0.78, label: "91", colour: "#33ceff", pit: false, slow: false, player: false },
-  { carIdx: 7, pct: 0.95, label: "64", colour: "#ffda59", pit: true, slow: false, player: false },
-  { carIdx: 0, pct: 0.86, label: "1", colour: "#ffda59", pit: false, slow: false, player: true },
+  {
+    carIdx: 1,
+    pct: 0.06,
+    label: "7",
+    colour: "#ffda59",
+    pit: false,
+    slow: false,
+    player: false,
+    lap: null,
+  },
+  {
+    carIdx: 2,
+    pct: 0.19,
+    label: "22",
+    colour: "#ffda59",
+    pit: false,
+    slow: false,
+    player: false,
+    lap: "behind",
+  },
+  {
+    carIdx: 3,
+    pct: 0.31,
+    label: "48",
+    colour: "#33ceff",
+    pit: false,
+    slow: false,
+    player: false,
+    lap: null,
+  },
+  {
+    carIdx: 4,
+    pct: 0.47,
+    label: "3",
+    colour: "#33ceff",
+    pit: false,
+    slow: true,
+    player: false,
+    lap: null,
+  },
+  {
+    carIdx: 5,
+    pct: 0.62,
+    label: "15",
+    colour: "#ffda59",
+    pit: false,
+    slow: false,
+    player: false,
+    lap: null,
+  },
+  {
+    carIdx: 6,
+    pct: 0.78,
+    label: "91",
+    colour: "#33ceff",
+    pit: false,
+    slow: false,
+    player: false,
+    lap: "ahead",
+  },
+  {
+    carIdx: 7,
+    pct: 0.95,
+    label: "64",
+    colour: "#ffda59",
+    pit: true,
+    slow: false,
+    player: false,
+    lap: null,
+  },
+  {
+    carIdx: 0,
+    pct: 0.86,
+    label: "1",
+    colour: "#ffda59",
+    pit: false,
+    slow: false,
+    player: true,
+    lap: null,
+  },
 ];
 
 /** For hosts without outline fetching (the settings preview): always the sample track. */

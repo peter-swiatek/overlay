@@ -1,6 +1,13 @@
 import type { TelemetryFrame } from "@overlay/sim-core/types";
 import type { Decimals } from "@overlay/ui/types";
-import { driverRows, flagBorderColour, reuseRows, type DriverRow } from "../shared";
+import {
+  driverRows,
+  flagBorderColour,
+  lapStatus,
+  reuseRows,
+  type DriverRow,
+  type LapStatus,
+} from "../shared";
 
 export type ThreatLevel = "red" | "yellow" | null;
 
@@ -9,6 +16,8 @@ export interface RelativeOptions {
   behind: number;
   hideInPits: boolean;
   gapThreat: boolean;
+  /** Colour cars a lap or more ahead or behind (races only; sim-core gives no lap delta otherwise). */
+  lapColours?: boolean;
   livePositions: boolean;
   gapDecimals: Decimals;
   lapDecimals: Decimals;
@@ -20,6 +29,7 @@ export interface RelativeOptions {
 /** A driver row carrying its gap-threat colour, so a row only re-renders when its own content changes. */
 export interface RelativeRow extends DriverRow {
   threat: ThreatLevel;
+  lapMark: LapStatus;
 }
 
 export interface RelativeView {
@@ -75,7 +85,11 @@ export function relativeView(
   if (focus === undefined) return { ...empty, flagColour };
 
   const raw = new Map<number, number | null>();
-  for (const g of frame.derived.gaps) raw.set(g.carIdx, g.gapS);
+  const laps = new Map<number, LapStatus>();
+  for (const g of frame.derived.gaps) {
+    raw.set(g.carIdx, g.gapS);
+    if (options.lapColours === true) laps.set(g.carIdx, lapStatus(g.lapDelta));
+  }
   const connected = new Set<number>();
   for (const car of frame.state.cars) if (car.connected) connected.add(car.carIdx);
 
@@ -103,6 +117,7 @@ export function relativeView(
   const withThreat = (row: DriverRow): RelativeRow => ({
     ...row,
     threat: threats[row.carIdx] ?? null,
+    lapMark: row.isFocus ? null : (laps.get(row.carIdx) ?? null),
   });
   const rows = reuseRows(previous, [
     ...nearAhead.map((c) => withThreat(c.row)),

@@ -37,3 +37,13 @@
   color: var(--ov-locked-rejoin-yellow);
   font-weight: 700;
 }
+
+/* Races only: red for a car that has lapped or is lapping you, blue for one you have lapped or
+   are lapping. The driver name only; same lap stays in the normal text colour. */
+.ov-rel-lap--ahead > .ov-rel-name {
+  color: var(--ov-locked-lap-ahead);
+}
+
+.ov-rel-lap--behind > .ov-rel-name {
+  color: var(--ov-locked-lap-behind);
+}

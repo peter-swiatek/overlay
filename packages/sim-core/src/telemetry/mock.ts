@@ -42,6 +42,16 @@ const REPAIR_CAR = 7;
  */
 const RIVAL_CAR = 1;
 const RIVAL_LEAD_LAPS = 0.03;
+/**
+ * Lapped-car previews: a Hypercar that starts 0.85 laps up the road, so it is just behind the
+ * player on track but a lap up on distance and about to lap them, and a GT3 that starts a lap
+ * down. The lap-down car is "before the line" (laps unknown) until its distance turns positive,
+ * about 98 s in, as a sim reports a car that has not started a lap. Both keep the leader under a
+ * lap at the start, so the start grid is still recorded.
+ */
+const LAP_UP_CAR = 9;
+const LAP_UP_LAPS = 0.85;
+const LAP_DOWN_CAR = 18;
 /** Car that runs wide once per lap, and the lap fraction range it is off track. */
 const OFF_TRACK_CAR = 5;
 const OFF_TRACK_FROM = 0.3;
@@ -240,13 +250,14 @@ export class MockSource {
       index === RIVAL_CAR
         ? this.carCount * 0.012 + RIVAL_LEAD_LAPS
         : (this.carCount - index) * 0.012;
-    return offset + this.timeS / lapTimeOf(index);
+    const laps = index === LAP_UP_CAR ? LAP_UP_LAPS : index === LAP_DOWN_CAR ? -1 : 0;
+    return offset + laps + this.timeS / lapTimeOf(index);
   }
 
   private car(index: number, distance: number, position: number, classPosition: number): Car {
     const cls = classOf(index);
     const car = emptyCar(index);
-    const lapsCompleted = Math.floor(distance);
+    const lapsCompleted = Math.max(0, Math.floor(distance));
     car.driverName = `Mock Driver ${index}`;
     car.carName = cls.name;
     car.classId = cls.id;
@@ -255,15 +266,16 @@ export class MockSource {
     car.carNumber = String(index + 1);
     car.position = position;
     car.classPosition = classPosition;
-    car.lapsCompleted = lapsCompleted;
-    car.lapInProgress = lapsCompleted + 1;
-    car.lapDistPct = distance - lapsCompleted;
+    const started = distance >= 0;
+    car.lapsCompleted = started ? lapsCompleted : null;
+    car.lapInProgress = started ? lapsCompleted + 1 : null;
+    car.lapDistPct = distance - Math.floor(distance);
     car.onPitRoad = false;
     car.inPitStall = false;
     car.isOnTrack = true;
     car.lastLapS = lapsCompleted >= 1 ? lapTimeOf(index) : null;
     car.bestLapS = lapsCompleted >= 1 ? lapTimeOf(index) - 0.4 : null;
-    car.estTimeS = (distance - lapsCompleted) * lapTimeOf(index);
+    car.estTimeS = car.lapDistPct * lapTimeOf(index);
     car.isPaceCar = false;
     car.isPlayer = index === 0;
     car.iRating =
@@ -271,7 +283,7 @@ export class MockSource {
     car.license = "A 3.00";
     car.connected = true;
     car.flags = this.carFlags(index);
-    car.trackSurface = carSurface(index, distance - lapsCompleted);
+    car.trackSurface = carSurface(index, car.lapDistPct);
     if (cls === HYPER) {
       car.p2pCount = 10 - ((Math.floor(this.timeS / 15) + index) % 11);
       car.p2pActive = this.timeS % 15 < 3;

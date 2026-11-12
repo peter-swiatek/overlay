@@ -42,7 +42,7 @@ function useBarEm(ref: RefObject<HTMLDivElement>): number {
   return barEm;
 }
 
-function CarDot({ car }: { car: FlatCar }) {
+function CarDot({ car, markLaps }: { car: FlatCar; markLaps: boolean }) {
   const style = { left: at(car.pct), "--flat-track-map-class": dotColour(car.colour) };
   if (car.player) {
     return (
@@ -55,7 +55,8 @@ function CarDot({ car }: { car: FlatCar }) {
     );
   }
   const tone = car.flag ? " flat-track-map-car--flag" : car.pit ? " flat-track-map-car--pit" : "";
-  return <span className={`flat-track-map-car${tone}`} style={style as CSSProperties} />;
+  const lap = markLaps && car.lap !== null ? ` flat-track-map-car--lap-${car.lap}` : "";
+  return <span className={`flat-track-map-car${tone}${lap}`} style={style as CSSProperties} />;
 }
 
 function Label({ label }: { label: BarLabel }) {
@@ -85,6 +86,7 @@ export function FlatTrackMapOverlay({ settings }: OverlayProps) {
   const showLabels = optionBoolean(settings, "labels");
   const showTicks = optionBoolean(settings, "sector-ticks");
   const showPlayer = optionBoolean(settings, "player-label");
+  const markLaps = optionBoolean(settings, "mark-lapped");
 
   const ticks = showTicks ? innerBoundaries(starts) : [];
   // Sector names label the ticks, so they go with them; S/F stays with the labels setting.
@@ -111,7 +113,7 @@ export function FlatTrackMapOverlay({ settings }: OverlayProps) {
           />
         ))}
         {orderCars(cars).map((car) => (
-          <CarDot key={car.carIdx} car={car} />
+          <CarDot key={car.carIdx} car={car} markLaps={markLaps} />
         ))}
       </div>
       {labels.length > 0 && (
