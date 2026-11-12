@@ -123,7 +123,7 @@ describe("locked colours", () => {
         "flagYellow": "#facc15",
         "gain": "#22c55e",
         "lapAhead": "#f87171",
-        "lapBehind": "#60a5fa",
+        "lapBehind": "#2563eb",
         "lapFaster": "#22c55e",
         "lapSlower": "#ef4444",
         "licenceA": "#2f6fde",
@@ -168,7 +168,7 @@ describe("locked colours", () => {
     expect(vars["--ov-locked-licence-pro"]).toBe("#1a1a1a");
     expect(vars["--ov-locked-flag-blue"]).toBe("#2563eb");
     expect(vars["--ov-locked-lap-ahead"]).toBe("#f87171");
-    expect(vars["--ov-locked-lap-behind"]).toBe("#60a5fa");
+    expect(vars["--ov-locked-lap-behind"]).toBe("#2563eb");
     expect(vars["--ov-locked-gain"]).toBe("#22c55e");
     expect(vars["--ov-locked-shift"]).toBe("#38bdf8");
     expect(vars["--ov-locked-pit-box"]).toBe("#38bdf8");

@@ -40,7 +40,7 @@
   --ov-locked-sector-slower: #facc15;
   --ov-locked-tyre-cold: #38bdf8;
   --ov-locked-lap-ahead: #f87171;
-  --ov-locked-lap-behind: #60a5fa;
+  --ov-locked-lap-behind: #2563eb;
 }
 
 :root[data-compact="true"] {
