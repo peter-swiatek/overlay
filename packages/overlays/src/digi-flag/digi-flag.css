@@ -47,18 +47,22 @@
 .df-grid {
   display: grid;
   flex: 1;
-  grid-template-columns: repeat(5, 1fr);
-  align-items: center;
-  align-content: space-evenly;
-  gap: 0.29em;
+  /* Round LEDs with the same spacing across and down. */
+  grid-template-columns: repeat(5, 0.95em);
+  grid-auto-rows: 0.95em;
+  align-content: center;
+  justify-content: center;
+  gap: 0.36em;
   box-sizing: border-box;
   width: 100%;
   padding: 0.29em 0;
 }
 
-/* An unlit LED: a faint oval, so the grid still reads while no flag is out. */
+/* An unlit LED: a faint round dot, so the grid still reads while no flag is out. */
 .df-led {
-  height: 0.71em;
+  justify-self: center;
+  width: 0.95em;
+  height: 0.95em;
   border-radius: 50%;
   background: color-mix(in srgb, var(--ov-text) 8%, transparent);
 }
