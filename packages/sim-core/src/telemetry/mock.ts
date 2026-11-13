@@ -130,6 +130,9 @@ const PROFILE_BINS = 2000;
 const BRAKE_FULL_ACCEL = 4;
 /** The demo's single unclean lap (lap 3) records this many incidents from half way through. */
 const UNCLEAN_LAP_INCIDENTS = 2;
+/** Front brake share: the driver moves it forward by 0.2 % after the first lap. */
+const BRAKE_BIAS_START = 0.54;
+const BRAKE_BIAS_ADJUSTED = 0.542;
 /** The demo race's incident limits: the first penalty and the disqualification. */
 const INCIDENT_PENALTY_LIMIT = 17;
 const INCIDENT_DQ_LIMIT = 25;
@@ -278,6 +281,7 @@ export class MockSource {
     const playerFraction = playerDistance - playerLaps;
     p.incidentCount =
       playerLaps > 2 || (playerLaps === 2 && playerFraction >= 0.5) ? UNCLEAN_LAP_INCIDENTS : 0;
+    p.brakeBias = playerLaps >= 1 ? BRAKE_BIAS_ADJUSTED : BRAKE_BIAS_START;
     // A solo race: the team total is the player's own count.
     p.teamIncidentCount = p.incidentCount;
     p.yawRad = 2 * Math.PI * playerFraction;

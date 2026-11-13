@@ -285,6 +285,15 @@ describe("MockSource", () => {
     expect(mock.state().cars[0]?.lastLapS).toBe(100);
   });
 
+  it("gives a brake bias that moves forward 0.2 % after the first lap", () => {
+    const mock = new MockSource();
+    for (let i = 0; i < 1000; i++) {
+      const st = mock.step(0.2);
+      const laps = st.cars[0]?.lapsCompleted ?? 0;
+      expect(st.player.brakeBias).toBe(laps >= 1 ? 0.542 : 0.54);
+    }
+  });
+
   it("makes lap 3 the only unclean lap", () => {
     const mock = new MockSource();
     for (let i = 0; i < 1500; i++) {

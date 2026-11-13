@@ -22,6 +22,7 @@ import { tyresManifest } from "./tyres/manifest";
 import { radarManifest } from "./radar/manifest";
 import { miniMapManifest } from "./mini-map/manifest";
 import { flatTrackMapManifest } from "./flat-track-map/manifest";
+import { dataFramesManifest } from "./data-frames/manifest";
 
 export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   relativeManifest,
@@ -47,6 +48,7 @@ export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   radarManifest,
   miniMapManifest,
   flatTrackMapManifest,
+  dataFramesManifest,
 ];
 
 export function manifestById(id: string): OverlayManifest | undefined {
