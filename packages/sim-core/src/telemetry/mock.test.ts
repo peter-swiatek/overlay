@@ -298,6 +298,26 @@ describe("MockSource", () => {
     }
   });
 
+  it("has a Hypercar close on the player from behind and drop back every 75 s, never passing", () => {
+    const mock = new MockSource();
+    const deriver = new Deriver();
+    const gaps: number[] = [];
+    for (let i = 1; i <= 3000; i++) {
+      const state = mock.step(0.1);
+      const out = deriver.next(state);
+      expect(state.cars[14]?.className).toBe("Hypercar");
+      const gap = out.gaps.find((g) => g.carIdx === 14)?.gapS ?? null;
+      if (i % 10 === 0 && gap !== null) gaps.push(gap);
+    }
+    // Always behind; within 5 s for part of every 75 s cycle once the gaps settle.
+    expect(Math.min(...gaps)).toBeGreaterThan(0);
+    for (let cycle = 1; cycle < 4; cycle++) {
+      const span = gaps.slice(cycle * 75, (cycle + 1) * 75);
+      expect(Math.min(...span)).toBeLessThan(1.5);
+      expect(Math.max(...span)).toBeGreaterThan(6);
+    }
+  });
+
   it("puts a real car alongside the player in the derived proximity within 40 s", () => {
     const mock = new MockSource();
     const tracker = new ProximityTracker();

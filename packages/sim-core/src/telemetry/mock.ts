@@ -92,6 +92,18 @@ const STOP_AT_S = 40;
 const STOP_CRAWL_S = 6;
 const STOP_CRAWL_MPS = 10;
 const STOP_HALT_S = 12;
+/**
+ * A Hypercar that closes on the player from behind once every {@link CHASE_CYCLE_S}, so a
+ * faster-class car coming up behind can be previewed: seconds into each cycle, it closes from
+ * {@link CHASE_FAR_M} to {@link CHASE_NEAR_M} behind over CHASE_CLOSE_S, holds there for
+ * CHASE_HOLD_S, then drops back to CHASE_FAR_M for the rest of the cycle. It never passes.
+ */
+const CHASE_CAR = 14;
+const CHASE_CYCLE_S = 75;
+const CHASE_CLOSE_S = 35;
+const CHASE_HOLD_S = 10;
+const CHASE_FAR_M = 450;
+const CHASE_NEAR_M = 40;
 /** Gear bands over the player's speed (25..55 m/s): [from, to, gear]. The last band includes 55. */
 const GEAR_BANDS: readonly (readonly [number, number, number])[] = [
   [25, 30, 3],
@@ -193,7 +205,9 @@ export class MockSource {
         ? pose.lapIndex + pose.fraction
         : i === STOP_CAR
           ? this.stopCarDistance()
-          : this.distance(i),
+          : i === CHASE_CAR
+            ? this.chaseCarDistance()
+            : this.distance(i),
     );
     const order = distances.map((d, i) => ({ d, i })).sort((a, b) => b.d - a.d || a.i - b.i);
     const overall = new Map(order.map((o, rank) => [o.i, rank + 1]));
@@ -317,6 +331,22 @@ export class MockSource {
       gapM = endGapM + (STOP_CAR_GAP_M - endGapM) * eased;
     }
     return this.playerDistanceAt(t) + gapM / TRACK_LENGTH_M;
+  }
+
+  /** Distance in laps of {@link CHASE_CAR}: behind the player by a gap that closes and opens. */
+  private chaseCarDistance(): number {
+    const t = this.timeS;
+    const into = ((t % CHASE_CYCLE_S) + CHASE_CYCLE_S) % CHASE_CYCLE_S;
+    const ease = (u: number) => u * u * (3 - 2 * u);
+    let behindM = CHASE_NEAR_M;
+    if (into < CHASE_CLOSE_S) {
+      behindM = CHASE_FAR_M + (CHASE_NEAR_M - CHASE_FAR_M) * ease(into / CHASE_CLOSE_S);
+    } else if (into >= CHASE_CLOSE_S + CHASE_HOLD_S) {
+      const back = CHASE_CYCLE_S - CHASE_CLOSE_S - CHASE_HOLD_S;
+      const u = (into - CHASE_CLOSE_S - CHASE_HOLD_S) / back;
+      behindM = CHASE_NEAR_M + (CHASE_FAR_M - CHASE_NEAR_M) * ease(u);
+    }
+    return this.playerDistanceAt(t) - behindM / TRACK_LENGTH_M;
   }
 
   private carFlags(index: number): ReturnType<typeof emptyFlags> {
