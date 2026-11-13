@@ -5,7 +5,7 @@ export const incidentLogManifest: OverlayManifest = {
   title: "Incident Log",
   description:
     "The session's incidents, newest first: time, lap, sector, driver and what happened, with your incident points and the session's limits.",
-  sims: ["iracing", "lmu"],
+  sims: ["iracing"],
   defaultSize: { width: 380, height: 230 },
   minSize: { width: 240, height: 100 },
   defaultPosition: { x: 1520, y: 840 },

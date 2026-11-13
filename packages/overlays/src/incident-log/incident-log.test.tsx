@@ -68,10 +68,10 @@ const rows = (html: string) =>
   [...html.matchAll(/class="(il-row[^"]*)" data-event/g)].map((m) => m[1]);
 
 describe("incident log manifest", () => {
-  it("is a 380 x 230 panel for both sims, off by default, and registered", () => {
+  it("is a 380 x 230 iRacing-only panel, off by default, and registered", () => {
     const m = incidentLogManifest;
     expect(m.id).toBe("incident-log");
-    expect(m.sims).toEqual(["iracing", "lmu"]);
+    expect(m.sims).toEqual(["iracing"]);
     expect(m.defaultSize).toEqual({ width: 380, height: 230 });
     expect(m.defaultEnabled).toBe(false);
     expect(defaultInstanceSettings(m).enabled).toBe(false);
