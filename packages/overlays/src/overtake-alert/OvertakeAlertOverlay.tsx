@@ -73,7 +73,7 @@ export function OvertakeAlertOverlay({ settings }: OverlayProps) {
       if (column.id !== "gap") return column;
       return {
         ...column,
-        render: (row) => <span className={`ov-oa-gap ov-oa-gap--${row.tone}`}>{row.gapText}</span>,
+        render: (row) => <span className="ov-oa-gap">{row.gapText}</span>,
       };
     });
   }, [

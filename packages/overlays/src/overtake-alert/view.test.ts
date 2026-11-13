@@ -2,11 +2,9 @@ import type { Car, DerivedGap, TelemetryFrame } from "@overlay/sim-core/types";
 import { describe, expect, it } from "vitest";
 import { fixtureFrame } from "../shared/fixtures";
 import {
-  CLOSE_BELOW_S,
   classPaceS,
   gapProgress,
   gapText,
-  gapTone,
   overtakeView,
   rowTops,
   sampleOvertakeRows,
@@ -80,7 +78,6 @@ describe("overtakeView", () => {
     expect(ids(f, { maxRows: 4, windowS: 10 })).toEqual([2, 1, 3, 4]);
     const rows = overtakeView(f, OPTIONS);
     expect(rows.map((r) => r.gapText)).toEqual(["+1.2s", "+3.8s"]);
-    expect(rows.map((r) => r.tone)).toEqual(["close", "far"]);
     expect(rows[0]?.progress).toBeCloseTo(0.76);
     expect(rows[1]?.progress).toBeCloseTo(0.24);
     expect(rows[0]).toMatchObject({
@@ -152,17 +149,10 @@ describe("overtakeView", () => {
   });
 });
 
-describe("gap text, tone and progress", () => {
+describe("gap text and progress", () => {
   it("shows one decimal with a plus and an s", () => {
     expect(gapText(1.24)).toBe("+1.2s");
     expect(gapText(3.75)).toBe("+3.8s");
-  });
-
-  it("is close below 2.0 s as shown, else far", () => {
-    expect(CLOSE_BELOW_S).toBe(2);
-    expect(gapTone(1.94)).toBe("close");
-    expect(gapTone(1.96)).toBe("far");
-    expect(gapTone(3.8)).toBe("far");
   });
 
   it("runs from 0 at the window limit to 1 at no gap, clamped", () => {
@@ -221,10 +211,7 @@ describe("sampleOvertakeRows", () => {
       [2, "10", "Nadia Quill", "A 3.00", 2500],
       [3, "15", "Kasper Holm", "A 3.00", 2700],
     ]);
-    expect(rows.map((r) => [r.gapText, r.tone])).toEqual([
-      ["+1.2s", "close"],
-      ["+3.8s", "far"],
-    ]);
+    expect(rows.map((r) => r.gapText)).toEqual(["+1.2s", "+3.8s"]);
     expect(rows[0]?.progress).toBeCloseTo(0.76);
     expect(sampleOvertakeRows(10)[1]?.progress).toBeCloseTo(0.62);
   });

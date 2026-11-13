@@ -113,8 +113,8 @@ describe("OvertakeAlertOverlay", () => {
     // Car numbers without "#".
     expect(html).toMatch(/>15</);
     expect(html).not.toContain("#15");
-    expect(html).toContain('<span class="ov-oa-gap ov-oa-gap--close">+1.2s</span>');
-    expect(html).toContain('<span class="ov-oa-gap ov-oa-gap--far">+3.8s</span>');
+    expect(html).toContain('<span class="ov-oa-gap">+1.2s</span>');
+    expect(html).toContain('<span class="ov-oa-gap">+3.8s</span>');
     // Header row off; placed by its gap.
     expect(html).not.toContain("columnheader");
     expect(html).toContain("--oa-top:min(calc(100cqh - 2 * var(--ov-row-height, 24px))");
@@ -167,10 +167,10 @@ describe("Overtake Alert CSS", () => {
     expect(rule(".ov-oa")).toContain("container-type: size;");
   });
 
-  it("takes colours only from tokens and locked colours: loss red close, flag yellow further", () => {
+  it("takes colours only from tokens and locked colours, with a plain gap colour", () => {
     expect(css.match(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/gi) ?? []).toEqual([]);
-    expect(rule(".ov-oa-gap--close")).toContain("var(--ov-locked-loss)");
-    expect(rule(".ov-oa-gap--far")).toContain("var(--ov-locked-flag-yellow)");
+    expect(rule(".ov-oa-gap")).toContain("color: var(--ov-text);");
+    expect(css).not.toContain("ov-oa-gap--");
   });
 
   it("sizes in em, apart from 1 px hairlines", () => {

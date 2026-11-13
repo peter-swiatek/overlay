@@ -19,8 +19,6 @@ import { driverRows, reuseRows, type DriverRow } from "../shared";
 export const WINDOW_MIN_S = 2;
 export const WINDOW_MAX_S = 10;
 export const WINDOW_DEFAULT_S = 5;
-/** A gap (as shown, one decimal) below this is close: drawn in the loss red, else in yellow. */
-export const CLOSE_BELOW_S = 2;
 
 export interface OvertakeOptions {
   /** Cars up to this many seconds behind are shown. */
@@ -34,13 +32,10 @@ export interface OvertakeOptions {
   lapDecimals: Decimals;
 }
 
-export type GapTone = "close" | "far";
-
 /** A driver row with what only the Overtake Alert shows. */
 export interface OvertakeRow extends DriverRow {
   /** "+1.2s": seconds behind, one decimal. */
   gapText: string;
-  tone: GapTone;
   /**
    * 0 at the far end of the window (spawns at the bottom), 1 at no gap (the top):
    * clamp((window - gap) / window, 0, 1) on the unrounded gap.
@@ -68,11 +63,6 @@ export function classPaceS(frame: TelemetryFrame, classKey: string): number | nu
 /** "+1.2s" */
 export function gapText(gapS: number): string {
   return `+${gapS.toFixed(1)}s`;
-}
-
-/** Close (red) below {@link CLOSE_BELOW_S} as shown with one decimal, else far (yellow). */
-export function gapTone(gapS: number): GapTone {
-  return Number(gapS.toFixed(1)) < CLOSE_BELOW_S ? "close" : "far";
 }
 
 /** clamp((window - gap) / window, 0, 1) */
@@ -142,7 +132,6 @@ export function overtakeView(
     .map(({ row, gap }): OvertakeRow => ({
       ...row,
       gapText: gapText(gap),
-      tone: gapTone(gap),
       progress: gapProgress(gap, windowS),
     }));
   return reuseRows(previous, rows);
@@ -192,7 +181,6 @@ export function sampleOvertakeRows(windowS = WINDOW_DEFAULT_S): OvertakeRow[] {
     iRating,
     relativeGapS: gap,
     gapText: gapText(gap),
-    tone: gapTone(gap),
     progress: gapProgress(gap, clampWindow(windowS)),
   });
   return [

@@ -70,13 +70,8 @@
     inset -1px 0 0 var(--ov-border);
 }
 
-/* Gap behind: red when close, yellow further back. */
+/* Gap behind: plain text colour, no closeness colouring. */
 .ov-oa-gap {
+  color: var(--ov-text);
   font-weight: 700;
-}
-.ov-oa-gap--close {
-  color: var(--ov-locked-loss);
-}
-.ov-oa-gap--far {
-  color: var(--ov-locked-flag-yellow);
 }
