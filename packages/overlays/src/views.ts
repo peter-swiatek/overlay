@@ -11,6 +11,7 @@ export { incidentLogView } from "./incident-log/view";
 export { incidentBarView } from "./incident-bar/view";
 export { digiFlagView, newGreenMemory, topFlag } from "./digi-flag/view";
 export { rejoinView, newRejoinMemory } from "./rejoin-helper/view";
+export { overtakeView } from "./overtake-alert/view";
 export { tyresView } from "./tyres/view";
 export { radarView, newRadarMemory } from "./radar/view";
 export { miniLive } from "./mini-map/view";

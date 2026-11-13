@@ -17,6 +17,7 @@ import { incidentLogManifest } from "./incident-log/manifest";
 import { incidentBarManifest } from "./incident-bar/manifest";
 import { digiFlagManifest } from "./digi-flag/manifest";
 import { rejoinHelperManifest } from "./rejoin-helper/manifest";
+import { overtakeAlertManifest } from "./overtake-alert/manifest";
 import { tyresManifest } from "./tyres/manifest";
 import { radarManifest } from "./radar/manifest";
 import { miniMapManifest } from "./mini-map/manifest";
@@ -41,6 +42,7 @@ export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   incidentBarManifest,
   digiFlagManifest,
   rejoinHelperManifest,
+  overtakeAlertManifest,
   tyresManifest,
   radarManifest,
   miniMapManifest,

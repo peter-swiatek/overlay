@@ -7,7 +7,7 @@ import { flagBorderColour } from "./flags";
 import { fixtureFrame } from "./fixtures";
 import { HEADER_FIELD_IDS, HEADER_FIELD_OPTIONS, infoItems, type InfoContext } from "./info";
 import { InfoStrip } from "./InfoStrip";
-import { TABLE_OPTION_FIELDS, readTableOptions } from "./options";
+import { TABLE_OPTION_FIELDS, readTableOptions, tableOptionFields } from "./options";
 
 const NOW = new Date(2026, 0, 1, 14, 5, 0);
 const CTX: InfoContext = {
@@ -270,6 +270,24 @@ describe("table options", () => {
       nameDisplay: "driver-team",
       nameFormat: "last-f",
       sessionDisplay: "laps",
+    });
+  });
+
+  it("reads the defaults of the keys a manifest leaves out", () => {
+    const fields = tableOptionFields(["name-format", "column-width"]);
+    expect(fields.map((f) => f.key)).toEqual(["column-width", "name-format"]);
+    const subset = { ...manifest, settings: fields };
+    const settings = sanitizeInstanceSettings(subset, {
+      options: { "column-width": "compact", "name-format": "last" },
+    });
+    expect(readTableOptions(settings)).toEqual({
+      widthMode: "compact",
+      widthScalePct: 100,
+      gapDecimals: 1,
+      lapDecimals: 3,
+      nameDisplay: "driver",
+      nameFormat: "last",
+      sessionDisplay: "auto",
     });
   });
 });

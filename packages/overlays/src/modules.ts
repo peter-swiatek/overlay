@@ -17,6 +17,7 @@ import { incidentLogModule } from "./incident-log";
 import { incidentBarModule } from "./incident-bar";
 import { digiFlagModule } from "./digi-flag";
 import { rejoinHelperModule } from "./rejoin-helper";
+import { overtakeAlertModule } from "./overtake-alert";
 import { tyresModule } from "./tyres";
 import { radarModule } from "./radar";
 import { miniMapModule } from "./mini-map";
@@ -41,6 +42,7 @@ export const OVERLAY_MODULES: readonly OverlayModule[] = [
   incidentBarModule,
   digiFlagModule,
   rejoinHelperModule,
+  overtakeAlertModule,
   tyresModule,
   radarModule,
   miniMapModule,

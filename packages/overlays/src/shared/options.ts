@@ -112,27 +112,34 @@ function toDecimals(value: number): Decimals {
   return n === 0 ? 0 : n === 1 ? 1 : n === 2 ? 2 : 3;
 }
 
-/** Reads the shared options from settings already sanitised against a manifest that declares them. */
+/** The shared fields with these keys, in TABLE_OPTION_FIELDS order, for an overlay that needs only some. */
+export function tableOptionFields(keys: readonly string[]): SettingField[] {
+  return TABLE_OPTION_FIELDS.filter((f) => keys.includes(f.key));
+}
+
+/**
+ * Reads the shared options from settings already sanitised against a manifest that declares them.
+ * A key the manifest leaves out (see tableOptionFields) reads as its TABLE_OPTION_FIELDS default.
+ */
 export function readTableOptions(settings: OverlayInstanceSettings): TableOptions {
+  const declared = (key: string): boolean => settings.options[key] !== undefined;
+  const fallback = (key: string): SettingField["default"] =>
+    TABLE_OPTION_FIELDS.find((f) => f.key === key)?.default ?? "";
+  const num = (key: string): number =>
+    declared(key) ? optionNumber(settings, key) : Number(fallback(key));
+  const str = (key: string): string =>
+    declared(key) ? optionString(settings, key) : String(fallback(key));
   return {
-    widthMode: oneOf(optionString(settings, "column-width"), ["custom", "auto", "compact"], "auto"),
-    widthScalePct: optionNumber(settings, "width-fine-tune"),
-    gapDecimals: toDecimals(optionNumber(settings, "gap-decimals")),
-    lapDecimals: toDecimals(optionNumber(settings, "lap-decimals")),
-    nameDisplay: oneOf(
-      optionString(settings, "name-display"),
-      ["driver", "team", "driver-team"],
-      "driver",
-    ),
+    widthMode: oneOf(str("column-width"), ["custom", "auto", "compact"], "auto"),
+    widthScalePct: num("width-fine-tune"),
+    gapDecimals: toDecimals(num("gap-decimals")),
+    lapDecimals: toDecimals(num("lap-decimals")),
+    nameDisplay: oneOf(str("name-display"), ["driver", "team", "driver-team"], "driver"),
     nameFormat: oneOf(
-      optionString(settings, "name-format"),
+      str("name-format"),
       ["full", "f-last", "first-l", "last", "first", "last-f"],
       "f-last",
     ),
-    sessionDisplay: oneOf(
-      optionString(settings, "session-display"),
-      ["auto", "time", "laps"],
-      "auto",
-    ),
+    sessionDisplay: oneOf(str("session-display"), ["auto", "time", "laps"], "auto"),
   };
 }
