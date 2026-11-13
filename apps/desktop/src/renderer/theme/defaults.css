@@ -41,6 +41,7 @@
   --ov-locked-tyre-cold: #38bdf8;
   --ov-locked-lap-ahead: #f87171;
   --ov-locked-lap-behind: #2563eb;
+  --ov-locked-flag-meatball: #f97316;
 }
 
 :root[data-compact="true"] {

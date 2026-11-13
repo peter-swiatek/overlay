@@ -50,6 +50,7 @@ export const LOCKED_GROUPS: readonly {
       ["flagWhite", "Flag white"],
       ["flagRed", "Flag red"],
       ["flagBlack", "Flag black"],
+      ["flagMeatball", "Flag meatball (repair)"],
     ],
   },
   {

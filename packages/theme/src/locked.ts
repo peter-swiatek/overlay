@@ -35,4 +35,6 @@ export const LOCKED_COLOURS: Readonly<Record<LockedColourKey, string>> = Object.
   lapAhead: "#f87171",
   /** Race only: a car you have lapped or are lapping (a lap or more behind on distance), in blue. */
   lapBehind: "#2563eb",
+  /** Flag panel: the repair (meatball) flag, an orange disc on black. */
+  flagMeatball: "#f97316",
 });
