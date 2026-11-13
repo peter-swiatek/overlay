@@ -95,11 +95,6 @@
   fill: var(--ov-locked-flag-yellow);
 }
 
-/* A car behind within the shared red gap-threat window (1.0 s): the label in loss red. */
-.mini-map-car--threat .mini-map-label {
-  fill: var(--ov-locked-loss);
-}
-
 .mini-map-car--pit {
   opacity: 0.5;
 }

@@ -48,18 +48,13 @@ export function BattleBoxOverlay({ settings }: OverlayProps) {
   const table = readTableOptions(settings);
   const showStrips = optionBoolean(settings, "sector-strips");
   const rowLabels = optionBoolean(settings, "row-labels");
-  const gapThreat = optionBoolean(settings, "gap-threat");
   const iRatingChange = optionBoolean(settings, "irating-change");
   const previous = useRef<readonly BattleRow[]>([]);
   const { prefs, livePositions, combinedLicencePill } = runtime;
   const { gapDecimals, lapDecimals } = table;
 
   const { view, sim } = runtime.useTelemetry<Selected>((frame) => {
-    const next = battleView(
-      frame,
-      { livePositions, gapDecimals, lapDecimals, gapThreat },
-      previous.current,
-    );
+    const next = battleView(frame, { livePositions, gapDecimals, lapDecimals }, previous.current);
     previous.current = next.rows;
     return { view: next, sim: frame?.state.sim ?? null };
   }, 10);
@@ -93,11 +88,7 @@ export function BattleBoxOverlay({ settings }: OverlayProps) {
       if (column.id === "interval") {
         return {
           ...column,
-          render: (row) => (
-            <span className={row.threat === null ? undefined : `ov-bb-threat--${row.threat}`}>
-              {row.intText}
-            </span>
-          ),
+          render: (row) => row.intText,
         };
       }
       if (column.id === "last-lap") {

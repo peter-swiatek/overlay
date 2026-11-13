@@ -48,7 +48,7 @@ The option list from the requirements catalogue. "Left out" means we decided not
 - [ ] Same controls as Leaderboard: Row opacity, Column width, Width fine-tune, decimals, Name display, Name format, Session display (tick the same lines as section 2).
 - [ ] Drivers ahead and Drivers behind steppers (cars ahead above you, behind below).
 - [ ] Hide cars in pits works through a whole pit cycle (the car disappears on entry and returns on exit). Cars that left the session do not show.
-- [ ] Gap threat colours: a car closing from behind turns yellow then red. **Decide** (unconfirmed default): red at 1.0 s or less, yellow at 2.0 s or less. What should it be?
+- [ ] Gaps are never coloured by closeness (decided: no gap threat colours in any overlay).
 - [ ] Layout: Weather header; Show row labels; Session footer; Flag border follows the flag shown in the car; Show DQ limit.
 - [ ] Header fields (up to 5) and Footer fields (up to 5) work.
 - [ ] Visible fields as the Leaderboard, minus the class and overall columns.
@@ -154,7 +154,7 @@ Settings, Developer page, "Measure CPU" (ticket M2-21, built in parallel; if the
 
 1. Fuel bars: 100 % = largest lap use of the last 5. OK?
 2. Pit stop info: distance to box plus "In pit stall". OK?
-3. Gap threat: red up to 1.0 s, yellow up to 2.0 s. OK?
+3. Gap threat colours: decided, none (gaps are never coloured by closeness).
 4. LMU Pit Speed: "Limit not reported". OK?
 5. Fuel "Max basis Session / Tank": not mapped. Do you use it?
 6. Refuel amount: shortfall + margin, capped at one tank, from the session average. Should it use the 5-lap average?

@@ -1,6 +1,5 @@
 import type { TelemetryFrame, TrackOutline } from "@overlay/sim-core/types";
 import { formatDelta } from "@overlay/ui/format";
-import { threatLevel } from "../relative/view";
 import { carLabel } from "../track-map/view";
 
 /** The drawing's coordinate box (square); the SVG scales it into the window. */
@@ -37,8 +36,6 @@ export interface MiniCar {
   status: CarStatus | null;
   /** Seconds to the player, rounded to 0.1; negative = ahead. Null when unknown. */
   gapS: number | null;
-  /** Behind and within the shared red gap-threat window (threatLevel). */
-  threat: boolean;
 }
 
 export interface MiniLive {
@@ -90,8 +87,6 @@ export function miniLive(frame: TelemetryFrame | null): MiniLive {
       colour: car.classColour,
       status,
       gapS,
-      // Same rule as the Relative overlay: a car behind (raw gap >= 0) within the red window.
-      threat: raw !== null && raw >= 0 && gapS !== null && threatLevel(gapS) === "red",
     });
   }
   return {
@@ -281,9 +276,8 @@ export const SAMPLE_MINI_CARS: readonly MiniCar[] = [
     colour: "#33ceff",
     status: "off",
     gapS: -2.5,
-    threat: false,
   },
-  { carIdx: 4, pct: 0.29, number: "4", colour: "#ffda59", status: null, gapS: 0.8, threat: true },
+  { carIdx: 4, pct: 0.29, number: "4", colour: "#ffda59", status: null, gapS: 0.8 },
   {
     carIdx: 10,
     pct: 0.282,
@@ -291,6 +285,5 @@ export const SAMPLE_MINI_CARS: readonly MiniCar[] = [
     colour: "#ff5c8a",
     status: null,
     gapS: 1.4,
-    threat: false,
   },
 ];

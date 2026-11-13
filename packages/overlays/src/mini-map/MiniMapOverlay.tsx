@@ -30,7 +30,7 @@ export const NO_OUTLINE_NOTE = "Learning the track…";
 
 function CarDot({ car }: { car: PlacedMiniCar }) {
   const flagged = car.status === "off" || car.status === "slow";
-  const tone = flagged ? "flag" : car.threat ? "threat" : "class";
+  const tone = flagged ? "flag" : "class";
   const style = { "--mini-map-class": dotColour(car.colour) } as CSSProperties;
   return (
     <g

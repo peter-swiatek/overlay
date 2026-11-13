@@ -1,6 +1,5 @@
 import type { StandingsEntry, StandingsGap, TelemetryFrame } from "@overlay/sim-core/types";
 import type { Decimals } from "@overlay/ui/types";
-import { threatLevel, type ThreatLevel } from "../relative/view";
 import { driverRows, reuseRows, type DriverRow } from "../shared";
 
 export type BattleRole = "ahead" | "own" | "behind";
@@ -10,8 +9,6 @@ export interface BattleRow extends DriverRow {
   role: BattleRole;
   /** Int column: "-2.5" ahead, "0.0" own, "+0.8" behind, "1L" lapped, "--" unknown. */
   intText: string;
-  /** Threat colour of the car behind (null for the others, or with the option off). */
-  threat: ThreatLevel;
   /** The last lap is the session or class best: drawn in the fastest-lap colour. */
   lastFastest: boolean;
 }
@@ -20,7 +17,6 @@ export interface BattleOptions {
   livePositions: boolean;
   gapDecimals: Decimals;
   lapDecimals: Decimals;
-  gapThreat: boolean;
 }
 
 export interface BattleView {
@@ -99,20 +95,12 @@ export function battleView(
 
   const withRole = (row: DriverRow, role: BattleRole): BattleRow => {
     let text = (0).toFixed(options.gapDecimals);
-    let threat: ThreatLevel = null;
     if (role === "ahead") text = intText(gapOf(mine), "-", options.gapDecimals);
-    if (role === "behind") {
-      const gap = gapOf(entries.get(row.carIdx));
-      text = intText(gap, "+", options.gapDecimals);
-      if (options.gapThreat && gap !== null && gap.laps === 0 && gap.seconds !== null) {
-        threat = threatLevel(Number(gap.seconds.toFixed(options.gapDecimals)));
-      }
-    }
+    if (role === "behind") text = intText(gapOf(entries.get(row.carIdx)), "+", options.gapDecimals);
     return {
       ...row,
       role,
       intText: text,
-      threat,
       lastFastest: row.fastest && row.lastLapS !== null && row.lastLapS === row.bestLapS,
     };
   };

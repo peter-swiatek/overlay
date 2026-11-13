@@ -82,16 +82,6 @@
   color: var(--ov-locked-loss);
 }
 
-.ov-bb-threat--red {
-  color: var(--ov-locked-loss);
-  font-weight: 700;
-}
-
-.ov-bb-threat--yellow {
-  color: var(--ov-locked-rejoin-yellow);
-  font-weight: 700;
-}
-
 .ov-bb-fastest {
   color: var(--ov-locked-fastest);
 }

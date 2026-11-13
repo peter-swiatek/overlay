@@ -1,6 +1,7 @@
 import type { Car, DerivedGap, TelemetryFrame } from "@overlay/sim-core/types";
 import { describe, expect, it } from "vitest";
 import { FIXTURE_NAMES, fixtureFrame, lapStatus } from "../shared";
+import * as relativeModule from "./view";
 import { carStatus, relativeView, type RelativeOptions } from "./view";
 
 const OPTIONS: RelativeOptions = {
@@ -73,6 +74,7 @@ describe("relativeView", () => {
     expect(view.rows.map((r) => r.status)).toEqual([null, null, null, null]);
     expect(view).not.toHaveProperty("threats");
     expect(view.rows[2]).not.toHaveProperty("threat");
+    expect(relativeModule).not.toHaveProperty("threatLevel");
   });
 
   it("is empty without a focus car, before the first frame and when not live", () => {

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { TelemetryFrame, TrackOutline } from "@overlay/sim-core/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -125,17 +127,18 @@ describe("manifest", () => {
 });
 
 describe("miniLive", () => {
-  it("splits off the player, drops garage and pace cars, reads status, gap and threat", () => {
+  it("splits off the player, drops garage and pace cars, reads status and gap, no closeness colour", () => {
     const live = miniLive(frame());
     expect(live.playerPct).toBe(0.25);
     expect(live.trackKey).toBe("iracing_test-ring");
     expect(live.outlineReady).toBe(true);
     const byIdx = new Map(live.cars.map((c) => [c.carIdx, c]));
     expect([...byIdx.keys()]).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(byIdx.get(1)).toMatchObject({ number: "4", status: null, gapS: 0.8, threat: true });
-    expect(byIdx.get(2)).toMatchObject({ number: "3", status: "off", gapS: -2.5, threat: false });
-    expect(byIdx.get(3)).toMatchObject({ status: null, gapS: 1.9, threat: false });
-    expect(byIdx.get(4)).toMatchObject({ status: "pit", threat: false });
+    expect(byIdx.get(1)).toMatchObject({ number: "4", status: null, gapS: 0.8 });
+    expect(byIdx.get(2)).toMatchObject({ number: "3", status: "off", gapS: -2.5 });
+    expect(byIdx.get(3)).toMatchObject({ status: null, gapS: 1.9 });
+    expect(byIdx.get(4)).toMatchObject({ status: "pit" });
+    for (const c of live.cars) expect(c).not.toHaveProperty("threat");
     expect(byIdx.get(5)).toMatchObject({ status: "slow", gapS: null });
   });
 
@@ -219,7 +222,6 @@ describe("labels", () => {
     colour: null,
     status: "off",
     gapS: -2.5,
-    threat: false,
   };
 
   it("reads number, status and gap without a '#'", () => {
@@ -252,7 +254,9 @@ describe("MiniMapOverlay", () => {
       "9 SLOW",
     ]);
     expect(html).not.toContain("#4");
-    expect(html).toContain("mini-map-car mini-map-car--threat");
+    expect(html).not.toContain("threat");
+    expect(readFileSync(join(__dirname, "mini-map.css"), "utf8")).not.toContain("threat");
+    expect(html.match(/mini-map-car mini-map-car--class/g)).toHaveLength(3);
     expect(html).toContain("mini-map-car mini-map-car--flag");
     expect(html).toContain("mini-map-car--pit");
     expect(html).toContain("--mini-map-class:#ff5c8a");

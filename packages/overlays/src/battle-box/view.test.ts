@@ -6,7 +6,6 @@ const OPTIONS: BattleOptions = {
   livePositions: true,
   gapDecimals: 1,
   lapDecimals: 3,
-  gapThreat: true,
 };
 
 describe("battleView", () => {
@@ -59,20 +58,9 @@ describe("battleView", () => {
     expect(v.rows.map((r) => r.intText)).toEqual(["-0.3", "0.0", "+0.2"]);
   });
 
-  it("colours only the car behind, by the Relative's threat rule", () => {
-    const at = (seconds: number) =>
-      battleView(
-        battleFrame({
-          standings: (entries) =>
-            entries.map((e) => (e.carIdx === 4 ? { ...e, lineInterval: { laps: 0, seconds } } : e)),
-        }),
-        OPTIONS,
-      ).rows.map((r) => r.threat);
-    expect(at(0.84)).toEqual([null, null, "red"]);
-    expect(at(1.6)).toEqual([null, null, "yellow"]);
-    expect(at(2.5)).toEqual([null, null, null]);
-    const off = battleView(battleFrame(), { ...OPTIONS, gapThreat: false });
-    expect(off.rows.map((r) => r.threat)).toEqual([null, null, null]);
+  it("carries no closeness colour on any row", () => {
+    const v = battleView(battleFrame(), OPTIONS);
+    for (const row of v.rows) expect(row).not.toHaveProperty("threat");
   });
 
   it("compares your latest sector times with each car's, rounded to 0.01 s", () => {

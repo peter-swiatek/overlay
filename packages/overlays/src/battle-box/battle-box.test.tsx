@@ -6,7 +6,12 @@ import { NOMINAL_TABLE_METRICS } from "@overlay/ui/fit";
 import type { TelemetryFrame } from "@overlay/sim-core/types";
 import { manifestById } from "../manifests";
 import { moduleById } from "../modules";
-import { applySettingsPatch, defaultInstanceSettings, sanitizeOptionValue } from "../settings";
+import {
+  applySettingsPatch,
+  defaultInstanceSettings,
+  sanitizeInstanceSettings,
+  sanitizeOptionValue,
+} from "../settings";
 import { OverlayRuntimeContext, staticRuntime } from "../runtime";
 import { tableWidthsFor } from "../shared/table-fit";
 import { BattleBoxOverlay, sectorDeltaText } from "./BattleBoxOverlay";
@@ -93,12 +98,25 @@ describe("BattleBoxOverlay", () => {
     expect(html).toContain("--class-color:#ffda59");
   });
 
-  it("prints the last lap with 3 decimals and the line gaps, the car behind in its threat colour", () => {
+  it("prints the last lap with 3 decimals and the line gaps, never coloured by closeness", () => {
     const html = render(battleFrame());
     expect(html).toContain("1:40.150");
     expect(html).toContain(">-2.5<");
     expect(html).toContain(">0.0<");
-    expect(html).toContain('<span class="ov-bb-threat--red">+0.8</span>');
+    expect(html).toContain(">+0.8<");
+    expect(html).not.toContain("threat");
+    expect(css).not.toContain("threat");
+  });
+
+  it("has no gap threat setting, and a saved one is dropped on load", () => {
+    expect(battleBoxManifest.settings.map((s) => s.key)).not.toContain("gap-threat");
+    const loaded = sanitizeInstanceSettings(battleBoxManifest, {
+      enabled: true,
+      options: { "gap-threat": true, "sector-strips": false },
+    });
+    expect(loaded.options).not.toHaveProperty("gap-threat");
+    expect(loaded.options["sector-strips"]).toBe(false);
+    expect(render(battleFrame(), { "gap-threat": true } as never)).not.toContain("threat");
   });
 
   it("draws a sector strip after the car ahead and after you, coloured by who was faster", () => {

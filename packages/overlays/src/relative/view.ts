@@ -9,8 +9,6 @@ import {
   type LapStatus,
 } from "../shared";
 
-export type ThreatLevel = "red" | "yellow" | null;
-
 export interface RelativeOptions {
   ahead: number;
   behind: number;
@@ -42,18 +40,6 @@ export interface RelativeView {
   headerIds: string[];
   footerIds: string[];
   flagColour: string | null;
-}
-
-// Shared by the Battle Box and Mini Map (the Relative itself no longer colours by gap):
-// a car behind within 1.0 s shows red, within 2.0 s yellow.
-const RED_WITHIN_S = 1.0;
-const YELLOW_WITHIN_S = 2.0;
-
-/** The threat colour of a car behind by `gapS` seconds (the gap as shown, already rounded). */
-export function threatLevel(gapS: number): ThreatLevel {
-  if (gapS <= RED_WITHIN_S) return "red";
-  if (gapS <= YELLOW_WITHIN_S) return "yellow";
-  return null;
 }
 
 /** A car's status colour; pits take precedence over lap status. */

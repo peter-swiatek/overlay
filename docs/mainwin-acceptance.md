@@ -56,7 +56,7 @@ The preview uses demo data. It shows the overlay at its real on-screen size, sca
 For each of Leaderboard, Relative and Fuel Calculator, change every option on the page. The preview must change at once and look the same as the real overlay.
 
 - [ ] Leaderboard: Row opacity, Column width, Width fine-tune, decimals, Drivers around, Name display, Name format, Session display, layout toggles, every header field, every column toggle.
-- [ ] Relative: the same table options, plus Drivers ahead and behind, Hide cars in pits, threat colours, Weather header, Session footer, header and footer fields.
+- [ ] Relative: the same table options, plus Drivers ahead and behind, Hide cars in pits, Colour by car status, Weather header, Session footer, header and footer fields.
 - [ ] Fuel Calculator: Layout Vertical and Horizontal, Safety margin, and each other option.
 - [ ] Opacity and Scale change the preview. Scale also changes the size line.
 - [ ] Switch the theme on the Appearance page. The preview follows.

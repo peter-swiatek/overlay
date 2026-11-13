@@ -63,14 +63,6 @@ export const battleBoxManifest: OverlayManifest = {
       default: true,
     },
     {
-      key: "gap-threat",
-      label: "Gap threat colours",
-      kind: "toggle",
-      section: "Drivers",
-      default: true,
-      help: "Gap of the car behind: red within 1.0 s, yellow within 2.0 s.",
-    },
-    {
       key: "irating-change",
       label: "iRating change",
       kind: "toggle",
