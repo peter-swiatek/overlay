@@ -1,4 +1,4 @@
-import type { TelemetryFrame } from "@overlay/sim-core/types";
+import type { SessionInfo, TelemetryFrame } from "@overlay/sim-core/types";
 
 /**
  * clean: no incidents. caution: incidents, below the penalty limit. penalty: at or past the
@@ -52,6 +52,20 @@ export function incidentStatus(
 }
 
 /**
+ * The session's first penalty limit and DQ limit; each null when the session sets none (or the
+ * sim gives none). A penalty limit at or past the DQ limit can never apply, so it is null too.
+ */
+export function incidentLimits(session: SessionInfo): {
+  penaltyLimit: number | null;
+  dqLimit: number | null;
+} {
+  const dqLimit = limit(session.incidentLimit);
+  const pen = limit(session.incidentPenaltyLimit);
+  const penaltyLimit = pen !== null && dqLimit !== null && pen >= dqLimit ? null : pen;
+  return { penaltyLimit, dqLimit };
+}
+
+/**
  * The player's incidents and the session's limits; null without a live frame or a count.
  * In team events the limits apply to the team's total, so the team count is used there.
  */
@@ -61,10 +75,7 @@ export function incidentsView(frame: TelemetryFrame | null): IncidentsView | nul
   const team = session.teamRacing === true && count(player.teamIncidentCount) !== null;
   const n = team ? count(player.teamIncidentCount) : count(player.incidentCount);
   if (n === null) return null;
-  const dqLimit = limit(session.incidentLimit);
-  const pen = limit(session.incidentPenaltyLimit);
-  // A penalty limit at or past the DQ limit can never apply.
-  const penaltyLimit = pen !== null && dqLimit !== null && pen >= dqLimit ? null : pen;
+  const { penaltyLimit, dqLimit } = incidentLimits(session);
   return {
     count: n,
     team,

@@ -7,6 +7,7 @@ export { fuelView } from "./fuel/view";
 export { battleView } from "./battle-box/view";
 export { lapTimesView } from "./lap-times/view";
 export { incidentsView } from "./incidents/view";
+export { incidentLogView } from "./incident-log/view";
 export { tyresView } from "./tyres/view";
 export { radarView, newRadarMemory } from "./radar/view";
 export { miniLive } from "./mini-map/view";

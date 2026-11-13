@@ -13,6 +13,7 @@ import { inputsManifest } from "./inputs/manifest";
 import { trackMapManifest } from "./track-map/manifest";
 import { lapTimesManifest } from "./lap-times/manifest";
 import { incidentsManifest } from "./incidents/manifest";
+import { incidentLogManifest } from "./incident-log/manifest";
 import { tyresManifest } from "./tyres/manifest";
 import { radarManifest } from "./radar/manifest";
 import { miniMapManifest } from "./mini-map/manifest";
@@ -33,6 +34,7 @@ export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   trackMapManifest,
   lapTimesManifest,
   incidentsManifest,
+  incidentLogManifest,
   tyresManifest,
   radarManifest,
   miniMapManifest,
