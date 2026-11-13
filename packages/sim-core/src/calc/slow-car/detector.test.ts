@@ -255,6 +255,20 @@ describe("SlowCarDetector", () => {
     expect(run(track, det, 1.5)).not.toBeNull();
   });
 
+  it("lists every car it holds as slow, with how long, behind the player too", () => {
+    const track = scene({ slowSpeed: 5 });
+    track.add(2, track.ahead(-300), 8);
+    track.pendingSlow.set(2, 8);
+    const det = new SlowCarDetector();
+    run(track, det, 2);
+    const list = [...det.slowCars].sort((x, y) => x.carIdx - y.carIdx);
+    expect(list.map((s) => s.carIdx)).toEqual([1, 2]);
+    expect(list[0]!.speedMps).toBeCloseTo(5, 0);
+    expect(list[0]!.slowForS).toBeGreaterThan(1);
+    det.reset();
+    expect(det.slowCars).toEqual([]);
+  });
+
   it("reset forgets all estimates", () => {
     const track = scene({ slowSpeed: 0 });
     const det = new SlowCarDetector();

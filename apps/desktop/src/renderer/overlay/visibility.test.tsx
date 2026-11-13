@@ -123,6 +123,7 @@ function frame(status: TelemetryFrame["status"], onTrack: boolean | null): Telem
       laps: null,
       tyreStint: null,
       incidentLog: null,
+      incidentAhead: null,
       gaps: [],
     },
   };

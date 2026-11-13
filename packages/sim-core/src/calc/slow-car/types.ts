@@ -11,3 +11,12 @@ export interface SlowCarAhead {
   /** Below 2 m/s. */
   stopped: boolean;
 }
+
+/** One car the detector holds as slow (see `SlowCarDetector.slowCars`). */
+export interface SlowCarEstimate {
+  carIdx: number;
+  /** Its estimated speed, m/s. */
+  speedMps: number;
+  /** How long the estimate has been below the slow limit, seconds. */
+  slowForS: number;
+}

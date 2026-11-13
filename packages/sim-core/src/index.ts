@@ -13,6 +13,7 @@ export * from "./calc/slow-car";
 export * from "./calc/laps";
 export * from "./calc/tyres";
 export * from "./calc/incidents";
+export * from "./calc/incident-ahead";
 export * as iracing from "./adapters/iracing";
 export * as lmu from "./adapters/lmu";
 

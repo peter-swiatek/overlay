@@ -1,6 +1,7 @@
 import type { DeltaOutputs } from "../calc/delta";
 import type { FuelOutputs } from "../calc/fuel";
 import type { GapResult } from "../calc/gaps";
+import type { IncidentAhead } from "../calc/incident-ahead";
 import type { IncidentLog } from "../calc/incidents";
 import type { LapHistory } from "../calc/laps";
 import type { Proximity } from "../calc/proximity";
@@ -55,6 +56,11 @@ export interface Derived {
    * tick. See calc/incidents.
    */
   incidentLog: IncidentLog | null;
+  /**
+   * The nearest car stopped, slow or (iRacing) off track ahead of the player; null when there is
+   * none within range or it is unknown. See calc/incident-ahead.
+   */
+  incidentAhead: IncidentAhead | null;
 }
 
 /** What the telemetry process publishes to overlay renderers. Plain structured-cloneable data. */
@@ -81,5 +87,6 @@ export function emptyDerived(): Derived {
     laps: null,
     tyreStint: null,
     incidentLog: null,
+    incidentAhead: null,
   };
 }

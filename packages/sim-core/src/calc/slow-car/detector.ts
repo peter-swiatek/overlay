@@ -1,5 +1,5 @@
 import type { Car, SessionPhase, SimState } from "../../model";
-import { SLOW_CAR_RANGE_M, type SlowCarAhead } from "./types";
+import { SLOW_CAR_RANGE_M, type SlowCarAhead, type SlowCarEstimate } from "./types";
 
 /** A car below this estimated speed counts as slow, m/s (54 km/h). */
 export const SLOW_MPS = 15;
@@ -50,14 +50,26 @@ export class SlowCarDetector {
   private wasQuiet = false;
   /** Tick time at which the phase turned to racing after a quiet phase; null when not applicable. */
   private racingSinceS: number | null = null;
+  private slow: SlowCarEstimate[] = [];
 
   reset(): void {
     this.tracks.clear();
+    this.slow = [];
     this.wasQuiet = false;
     this.racingSinceS = null;
   }
 
+  /**
+   * Every car the last `next` call holds as slow: seen fast since its estimate began and now
+   * below {@link SLOW_MPS}, with how long it has been. The player and short dips are not taken
+   * out; callers apply their own debounce. Empty in quiet phases and just after the start.
+   */
+  get slowCars(): readonly SlowCarEstimate[] {
+    return this.slow;
+  }
+
   next(state: SimState): SlowCarAhead | null {
+    this.slow = [];
     const tickS = state.tickTimeS;
     const lengthM = state.session.trackLengthM;
     const phase = state.session.phase;
@@ -85,27 +97,30 @@ export class SlowCarDetector {
     // Cars are still standing on the grid for a moment after the start.
     if (this.racingSinceS !== null && tickS - this.racingSinceS < RACE_START_QUIET_S) return null;
 
+    for (const [carIdx, track] of this.tracks) {
+      // A car that has never been seen fast is standing (grid, restart), not slowing.
+      if (track.speedMps === null || track.slowSinceS === null || !track.wasFast) continue;
+      this.slow.push({ carIdx, speedMps: track.speedMps, slowForS: tickS - track.slowSinceS });
+    }
+
     const player = state.cars.find((c) => c.carIdx === state.playerCarIdx) ?? null;
     if (player === null || player.lapDistPct === null) return null;
     if (player.onPitRoad === true || player.inPitStall === true) return null;
     if (player.isOnTrack === false || player.trackSurface === "notInWorld") return null;
 
     let best: SlowCarAhead | null = null;
-    for (const car of state.cars) {
-      if (car.carIdx === player.carIdx || car.lapDistPct === null) continue;
-      const track = this.tracks.get(car.carIdx);
-      if (track === undefined || track.speedMps === null || track.slowSinceS === null) continue;
-      // A car that has never been seen fast is standing (grid, restart), not slowing.
-      if (!track.wasFast) continue;
-      if (tickS - track.slowSinceS < SLOW_FOR_S) continue;
-      const distanceM = ((car.lapDistPct - player.lapDistPct + 1) % 1) * lengthM;
+    for (const est of this.slow) {
+      if (est.carIdx === player.carIdx || est.slowForS < SLOW_FOR_S) continue;
+      const pct = state.cars.find((c) => c.carIdx === est.carIdx)?.lapDistPct ?? null;
+      if (pct === null) continue;
+      const distanceM = ((pct - player.lapDistPct + 1) % 1) * lengthM;
       if (distanceM <= 0 || distanceM > SLOW_CAR_RANGE_M) continue;
       if (best === null || distanceM < best.distanceM) {
         best = {
-          carIdx: car.carIdx,
+          carIdx: est.carIdx,
           distanceM,
-          speedMps: track.speedMps,
-          stopped: track.speedMps < STOPPED_MPS,
+          speedMps: est.speedMps,
+          stopped: est.speedMps < STOPPED_MPS,
         };
       }
     }

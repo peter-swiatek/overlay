@@ -10,6 +10,7 @@ import {
   type FuelTrackerOptions,
 } from "../calc/fuel";
 import { DeltaTracker, deltaInput, type BestLapStore } from "../calc/delta";
+import { IncidentAheadTracker } from "../calc/incident-ahead";
 import { IncidentLogTracker } from "../calc/incidents";
 import { LapHistoryTracker, lapHistoryInput } from "../calc/laps";
 import {
@@ -69,6 +70,7 @@ export class Deriver {
   private readonly lapHistory = new LapHistoryTracker();
   private readonly tyreStint = new TyreStintTracker();
   private readonly incidentLog = new IncidentLogTracker();
+  private readonly incidentAhead = new IncidentAheadTracker();
 
   private readonly classIndices = new Map<string, number>();
 
@@ -100,6 +102,7 @@ export class Deriver {
     this.lapHistory.reset();
     this.tyreStint.reset();
     this.incidentLog.reset();
+    this.incidentAhead.reset();
     this.track.reset();
     this.classIndices.clear();
   }
@@ -148,6 +151,7 @@ export class Deriver {
     if (tickS !== null) this.recordCars(state, tickS);
     const fuel = this.updateFuel(state, player, tickS);
     const standings = this.standings.next(state, this.standingsInputs());
+    const slowCar = this.slowCars.next(state);
     return {
       fuel,
       gaps: this.gaps(state, player),
@@ -155,13 +159,14 @@ export class Deriver {
       standings,
       proximity: this.proximity.next(state),
       delta: this.delta.next(deltaInput(state, player)),
-      slowCar: this.slowCars.next(state),
+      slowCar,
       energy: this.updateEnergy(state, player, tickS),
       laps: this.lapHistory.next(
         lapHistoryInput(state, standings, player === null ? null : this.fuel.lapRecords),
       ),
       tyreStint: this.tyreStint.next(tyreStintInput(state)),
       incidentLog: this.incidentLog.next(state),
+      incidentAhead: this.incidentAhead.next(state, this.slowCars.slowCars),
     };
   }
 

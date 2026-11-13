@@ -60,6 +60,19 @@ const OFF_TRACK_TO = 0.34;
 const OFF_TRACK_CAR_2 = 12;
 const OFF_TRACK_2_FROM = 0.64;
 const OFF_TRACK_2_TO = 0.67;
+/**
+ * A car that runs {@link STOP_CAR_GAP_M} ahead of the player at the player's pace and, once every
+ * {@link STOP_CYCLE_S}, crawls, stops until the player is well past, and then catches back up to
+ * its place, so slow and stopped cars ahead can be previewed. Seconds into each cycle:
+ * [0, STOP_AT_S) running, then STOP_CRAWL_S crawling, STOP_HALT_S standing, the rest catching up.
+ */
+const STOP_CAR = 15;
+const STOP_CAR_GAP_M = 450;
+const STOP_CYCLE_S = 120;
+const STOP_AT_S = 40;
+const STOP_CRAWL_S = 6;
+const STOP_CRAWL_MPS = 10;
+const STOP_HALT_S = 12;
 /** Gear bands over the player's speed (25..55 m/s): [from, to, gear]. The last band includes 55. */
 const GEAR_BANDS: readonly (readonly [number, number, number])[] = [
   [25, 30, 3],
@@ -147,9 +160,13 @@ export class MockSource {
 
   state(): SimState {
     const state = emptySimState("mock");
-    const pose = playerPose(this.timeS, this.carCount * 0.012 * NOMINAL_LAP_S);
+    const pose = playerPose(this.timeS, this.playerStartS);
     const distances = Array.from({ length: this.carCount }, (_, i) =>
-      i === 0 ? pose.lapIndex + pose.fraction : this.distance(i),
+      i === 0
+        ? pose.lapIndex + pose.fraction
+        : i === STOP_CAR
+          ? this.stopCarDistance()
+          : this.distance(i),
     );
     const order = distances.map((d, i) => ({ d, i })).sort((a, b) => b.d - a.d || a.i - b.i);
     const overall = new Map(order.map((o, rank) => [o.i, rank + 1]));
@@ -239,6 +256,39 @@ export class MockSource {
     p.steerMaxRad = 7.85;
     p.tyres = mockTyres(playerDistance, brake);
     return state;
+  }
+
+  /** How far into its first lap the player starts, in nominal seconds. */
+  private get playerStartS(): number {
+    return this.carCount * 0.012 * NOMINAL_LAP_S;
+  }
+
+  /** The player's distance in laps at session time `timeS`. */
+  private playerDistanceAt(timeS: number): number {
+    const pose = playerPose(timeS, this.playerStartS);
+    return pose.lapIndex + pose.fraction;
+  }
+
+  /** Distance in laps of {@link STOP_CAR}: a gap to the player that it loses and wins back. */
+  private stopCarDistance(): number {
+    const t = this.timeS;
+    const into = ((t % STOP_CYCLE_S) + STOP_CYCLE_S) % STOP_CYCLE_S;
+    const stopS = t - into + STOP_AT_S;
+    const haltEndS = stopS + STOP_CRAWL_S + STOP_HALT_S;
+    // The player's progress since the car began to slow, metres.
+    const playerSince = (until: number) =>
+      (this.playerDistanceAt(until) - this.playerDistanceAt(stopS)) * TRACK_LENGTH_M;
+    let gapM = STOP_CAR_GAP_M;
+    if (t >= stopS && t < haltEndS) {
+      const crawled = STOP_CRAWL_MPS * Math.min(t - stopS, STOP_CRAWL_S);
+      gapM = STOP_CAR_GAP_M + crawled - playerSince(t);
+    } else if (t >= haltEndS) {
+      const endGapM = STOP_CAR_GAP_M + STOP_CRAWL_MPS * STOP_CRAWL_S - playerSince(haltEndS);
+      const u = (t - haltEndS) / (STOP_CYCLE_S - STOP_AT_S - STOP_CRAWL_S - STOP_HALT_S);
+      const eased = u * u * (3 - 2 * u);
+      gapM = endGapM + (STOP_CAR_GAP_M - endGapM) * eased;
+    }
+    return this.playerDistanceAt(t) + gapM / TRACK_LENGTH_M;
   }
 
   private carFlags(index: number): ReturnType<typeof emptyFlags> {

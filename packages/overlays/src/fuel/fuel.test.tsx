@@ -82,6 +82,7 @@ function frame(
       laps: null,
       tyreStint: null,
       incidentLog: null,
+      incidentAhead: null,
       gaps: [],
     },
   };
