@@ -44,29 +44,10 @@
   --df-colour: var(--ov-locked-flag-meatball);
 }
 
-.df-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5em;
-  width: 100%;
-  font-size: 0.68em;
-  font-weight: 700;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.df-title {
-  color: var(--ov-text-muted);
-}
-
-.df-code {
-  color: var(--df-colour);
-}
-
 .df-grid {
   display: grid;
   flex: 1;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   align-items: center;
   align-content: space-evenly;
   gap: 0.29em;

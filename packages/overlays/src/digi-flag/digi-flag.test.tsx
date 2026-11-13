@@ -50,18 +50,18 @@ describe("digi flag manifest", () => {
 });
 
 describe("DigiFlagOverlay", () => {
-  it("shows a header, a 6 x 4 LED grid and a caption like the design", () => {
+  it("shows a 5 x 5 LED grid and a caption, with no header", () => {
     const html = render(frame({ yellow: true }));
     expect(html).toContain('class="df df--yellow"');
-    expect(html).toContain('<span class="df-title">FLAG</span><span class="df-code">YLW</span>');
-    expect(count(html, 'class="df-led df-led--on"')).toBe(24);
+    expect(html).not.toContain("df-head");
+    expect(count(html, 'class="df-led df-led--on"')).toBe(25);
     expect(html).toContain('<div class="df-caption">CAUTION</div>');
   });
 
   it("draws checkered as a two-tone pattern", () => {
     const html = render(frame({ checkered: true, white: true }));
     expect(html).toContain('class="df df--white"');
-    expect(count(html, 'class="df-led df-led--on"')).toBe(12);
+    expect(count(html, 'class="df-led df-led--on"')).toBe(13);
     expect(count(html, 'class="df-led"')).toBe(12);
     expect(html).toContain(">FINISH<");
   });
@@ -69,9 +69,8 @@ describe("DigiFlagOverlay", () => {
   it("shows a dim panel when no flag is out, or nothing with hide when no flag", () => {
     const html = render(frame({}));
     expect(html).toContain('class="df df--idle"');
-    expect(count(html, 'class="df-led"')).toBe(24);
+    expect(count(html, 'class="df-led"')).toBe(25);
     expect(html).not.toContain("df-led--on");
-    expect(html).toContain('<span class="df-code"></span>');
     expect(render(frame({}), { "hide-idle": true })).toBe("");
     expect(render(frame({ blue: true }), { "hide-idle": true })).toContain("df--blue");
   });
@@ -83,11 +82,11 @@ describe("DigiFlagOverlay", () => {
     );
   });
 
-  it("is empty without a frame, and shows the yellow S2 sample when editing", () => {
+  it("is empty without a frame, and shows the yellow sample when editing", () => {
     expect(render(null)).toBe("");
     for (const f of [null, frame({})]) {
       const html = render(f, { "hide-idle": true }, { editing: true });
-      expect(html).toContain('<span class="df-code">YLW S2</span>');
+      expect(html).toContain('class="df df--yellow"');
       expect(html).toContain(">CAUTION<");
     }
     const red = render(frame({ red: true }), {}, { editing: true });

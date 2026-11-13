@@ -11,7 +11,7 @@ import {
   type GreenMemory,
 } from "./view";
 
-/** A digital marshalling panel: the player's current flag on a 6 x 4 LED grid. */
+/** A digital marshalling panel: the player's current flag on a 5 x 5 LED grid. */
 export function DigiFlagOverlay({ settings }: OverlayProps) {
   const { useTelemetry, editing } = useOverlayRuntime();
   const memory = useRef<GreenMemory>(newGreenMemory());
@@ -32,10 +32,6 @@ export function DigiFlagOverlay({ settings }: OverlayProps) {
   const tone = view.tone === null ? " df--idle" : ` df--${view.tone}`;
   return (
     <div className={`df${tone}${view.blink ? " df--blink" : ""}`}>
-      <div className="df-head">
-        <span className="df-title">FLAG</span>
-        <span className="df-code">{view.code}</span>
-      </div>
       <div className="df-grid">
         {view.leds.map((on, i) => (
           <span key={i} className={on ? "df-led df-led--on" : "df-led"} />

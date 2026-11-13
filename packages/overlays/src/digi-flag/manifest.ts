@@ -4,7 +4,7 @@ export const digiFlagManifest: OverlayManifest = {
   id: "digi-flag",
   title: "Digi Flag",
   description:
-    "A digital marshalling panel: your current flag on a grid of LEDs, with a short code and a caption. iRacing shows every flag; LMU shows green, local yellow and blue.",
+    "A digital marshalling panel: your current flag on a grid of LEDs, with a caption. iRacing shows every flag; LMU shows green, local yellow and blue.",
   sims: ["iracing", "lmu"],
   defaultSize: { width: 120, height: 120 },
   minSize: { width: 80, height: 80 },

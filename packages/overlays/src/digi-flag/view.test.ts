@@ -1,4 +1,4 @@
-import type { DeltaOutputs, Flags } from "@overlay/sim-core/types";
+import type { Flags } from "@overlay/sim-core/types";
 import { describe, expect, it } from "vitest";
 import { fixtureFrame } from "../shared/fixtures";
 import {
@@ -36,21 +36,17 @@ function only(...kinds: FlagKind[]): Flags {
   return f;
 }
 
-function frame(flags: Partial<Flags> | null, sector: number | null = null) {
-  const f = fixtureFrame({ cars: [{ carIdx: 0 }], playerCarIdx: 0, flags });
-  if (sector !== null) {
-    f.derived.delta = { sectors: { current: sector } } as unknown as DeltaOutputs;
-  }
-  return f;
+function frame(flags: Partial<Flags> | null) {
+  return fixtureFrame({ cars: [{ carIdx: 0 }], playerCarIdx: 0, flags });
 }
 
 /** "x" lit, "." dark, one row per string. */
 function draw(leds: readonly boolean[]): string[] {
   const rows: string[] = [];
-  for (let r = 0; r < 4; r++) {
+  for (let r = 0; r < 5; r++) {
     rows.push(
       leds
-        .slice(r * 6, r * 6 + 6)
+        .slice(r * 5, r * 5 + 5)
         .map((on) => (on ? "x" : "."))
         .join(""),
     );
@@ -137,48 +133,43 @@ describe("withGreenHold", () => {
 });
 
 describe("ledPattern", () => {
-  it("draws each pattern on the 6 x 4 grid", () => {
-    expect(draw(ledPattern("full"))).toEqual(["xxxxxx", "xxxxxx", "xxxxxx", "xxxxxx"]);
-    expect(draw(ledPattern("checkered"))).toEqual(["x.x.x.", ".x.x.x", "x.x.x.", ".x.x.x"]);
-    expect(draw(ledPattern("frame"))).toEqual(["xxxxxx", "x....x", "x....x", "xxxxxx"]);
-    expect(draw(ledPattern("disc"))).toEqual(["..xx..", ".xxxx.", ".xxxx.", "..xx.."]);
-    expect(draw(ledPattern("diagonal"))).toEqual(["xxxxx.", "xxxx..", "xx....", "......"]);
+  it("draws each pattern on the 5 x 5 grid", () => {
+    expect(draw(ledPattern("full"))).toEqual(["xxxxx", "xxxxx", "xxxxx", "xxxxx", "xxxxx"]);
+    expect(draw(ledPattern("checkered"))).toEqual(["x.x.x", ".x.x.", "x.x.x", ".x.x.", "x.x.x"]);
+    expect(draw(ledPattern("frame"))).toEqual(["xxxxx", "x...x", "x...x", "x...x", "xxxxx"]);
+    expect(draw(ledPattern("disc"))).toEqual(["..x..", ".xxx.", "xxxxx", ".xxx.", "..x.."]);
+    expect(draw(ledPattern("diagonal"))).toEqual(["xxxx.", "xxx..", "xx...", "x....", "....."]);
   });
 });
 
 describe("flagView", () => {
   it("is dark with no flag", () => {
-    const v = flagView(null, 2, { blink: true });
-    expect(v).toMatchObject({ flag: null, code: "", caption: "", tone: null, blink: false });
-    expect(v.leds).toHaveLength(24);
+    const v = flagView(null, { blink: true });
+    expect(v).toMatchObject({ flag: null, caption: "", tone: null, blink: false });
+    expect(v.leds).toHaveLength(25);
     expect(v.leds.some(Boolean)).toBe(false);
   });
 
-  it("names each flag with a short code, a caption and its colour", () => {
+  it("names each flag with a caption and its colour", () => {
     const look = (k: FlagKind) => {
-      const v = flagView(k, null, { blink: false });
-      return [v.code, v.caption, v.tone];
+      const v = flagView(k, { blink: false });
+      return [v.caption, v.tone];
     };
-    expect(look("red")).toEqual(["RED", "RED FLAG", "red"]);
-    expect(look("disqualified")).toEqual(["DSQ", "DISQUALIFIED", "white"]);
-    expect(look("black")).toEqual(["BLK", "BLACK FLAG", "white"]);
-    expect(look("repair")).toEqual(["REP", "REPAIR", "meatball"]);
-    expect(look("furled")).toEqual(["WARN", "WARNING", "white"]);
-    expect(look("checkered")).toEqual(["CHK", "FINISH", "white"]);
-    expect(look("fullCourseYellow")).toEqual(["SC", "SAFETY CAR", "yellow"]);
-    expect(look("yellow")).toEqual(["YLW", "CAUTION", "yellow"]);
-    expect(look("blue")).toEqual(["BLU", "BLUE FLAG", "blue"]);
-    expect(look("white")).toEqual(["WHT", "LAST LAP", "white"]);
-    expect(look("green")).toEqual(["GRN", "GREEN", "green"]);
-  });
-
-  it("adds the sector to a local yellow only", () => {
-    expect(flagView("yellow", 2, { blink: false }).code).toBe("YLW S2");
-    expect(flagView("fullCourseYellow", 2, { blink: false }).code).toBe("SC");
+    expect(look("red")).toEqual(["RED FLAG", "red"]);
+    expect(look("disqualified")).toEqual(["DISQUALIFIED", "white"]);
+    expect(look("black")).toEqual(["BLACK FLAG", "white"]);
+    expect(look("repair")).toEqual(["REPAIR", "meatball"]);
+    expect(look("furled")).toEqual(["WARNING", "white"]);
+    expect(look("checkered")).toEqual(["FINISH", "white"]);
+    expect(look("fullCourseYellow")).toEqual(["SAFETY CAR", "yellow"]);
+    expect(look("yellow")).toEqual(["CAUTION", "yellow"]);
+    expect(look("blue")).toEqual(["BLUE FLAG", "blue"]);
+    expect(look("white")).toEqual(["LAST LAP", "white"]);
+    expect(look("green")).toEqual(["GREEN", "green"]);
   });
 
   it("blinks yellow, safety car and blue only when asked", () => {
-    const blinks = (k: FlagKind, blink: boolean) => flagView(k, null, { blink }).blink;
+    const blinks = (k: FlagKind, blink: boolean) => flagView(k, { blink }).blink;
     expect(blinks("yellow", true)).toBe(true);
     expect(blinks("fullCourseYellow", true)).toBe(true);
     expect(blinks("blue", true)).toBe(true);
@@ -201,12 +192,10 @@ describe("digiFlagView", () => {
     expect(digiFlagView(frame({}), newGreenMemory(), 0, OPTIONS)?.flag).toBeNull();
   });
 
-  it("shows the player's flag, with the player's sector on a local yellow", () => {
-    const v = digiFlagView(frame({ yellow: true, blue: true }, 1), newGreenMemory(), 0, OPTIONS);
-    expect(v).toMatchObject({ flag: "yellow", code: "YLW S2", caption: "CAUTION" });
-    expect(digiFlagView(frame({ yellow: true }), newGreenMemory(), 0, OPTIONS)?.code).toBe("YLW");
-    const blue = digiFlagView(frame({ blue: true }, 1), newGreenMemory(), 0, OPTIONS);
-    expect(blue?.code).toBe("BLU");
+  it("shows the player's top flag", () => {
+    const v = digiFlagView(frame({ yellow: true, blue: true }), newGreenMemory(), 0, OPTIONS);
+    expect(v).toMatchObject({ flag: "yellow", caption: "CAUTION" });
+    expect(digiFlagView(frame({ blue: true }), newGreenMemory(), 0, OPTIONS)?.flag).toBe("blue");
   });
 
   it("holds green across frames with the same memory", () => {
@@ -215,10 +204,9 @@ describe("digiFlagView", () => {
     expect(digiFlagView(frame({ green: true }), m, 16, OPTIONS)?.flag).toBeNull();
   });
 
-  it("has the design's yellow S2 sample for edit mode", () => {
+  it("has the design's yellow sample for edit mode", () => {
     expect(sampleDigiFlagView({ blink: false })).toMatchObject({
       flag: "yellow",
-      code: "YLW S2",
       caption: "CAUTION",
       tone: "yellow",
       blink: false,
