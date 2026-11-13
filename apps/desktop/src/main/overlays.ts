@@ -1,5 +1,11 @@
 import { BrowserWindow, screen } from "electron";
 import type { OverlayInstanceSettings, OverlayManifest } from "@overlay/overlays/contract";
+import {
+  instanceNumber,
+  instancesOf,
+  manifestForInstance,
+  parseInstanceId,
+} from "@overlay/overlays/instances";
 import type { SimName } from "@overlay/sim-core/types";
 import type { TableMetrics } from "@overlay/ui/fit";
 import { IPC, type Bounds, type Size } from "../shared/types";
@@ -11,7 +17,10 @@ import {
   retargetScale,
 } from "./auto-width";
 import {
+  boundsNextTo,
   clampToWorkArea,
+  defaultBounds,
+  INSTANCE_GAP_PX,
   effectiveMinSize,
   growToMin,
   placeInWorkArea,
@@ -48,6 +57,8 @@ export interface OverlayManagerDeps {
 }
 
 interface OpenOverlay {
+  /** Instance id (see @overlay/overlays/instances). */
+  id: string;
   win: BrowserWindow;
   manifest: OverlayManifest;
   /** The scale the window is currently sized for. */
@@ -64,7 +75,10 @@ function minArgs(size: Size): [number, number] {
   return [size.width, size.height];
 }
 
-/** Owns the overlay windows: one per enabled overlay, edit mode and layout persistence. */
+/**
+ * Owns the overlay windows: one per enabled overlay instance (an overlay can have several, each
+ * keyed by its instance id), edit mode and layout persistence.
+ */
 export class OverlayManager {
   private readonly open = new Map<string, OpenOverlay>();
   private readonly layout: Layout;
@@ -99,7 +113,45 @@ export class OverlayManager {
 
   start(): void {
     this.deps.overlaySettings.onChange((id, settings) => this.onSettingsChange(id, settings));
+    this.deps.overlaySettings.onRemove((id) => this.onInstanceRemoved(id));
     this.sync();
+  }
+
+  private manifestOf(id: string): OverlayManifest | undefined {
+    return manifestForInstance(id, this.deps.manifests);
+  }
+
+  /** Every instance id with settings (instance 1 of every overlay plus the added ones). */
+  private instanceIds(): string[] {
+    return Object.keys(this.deps.overlaySettings.getAll());
+  }
+
+  /** An added instance was removed: closes its window and forgets its bounds. */
+  private onInstanceRemoved(id: string): void {
+    const entry = this.open.get(id);
+    if (entry) {
+      this.open.delete(id);
+      if (!entry.win.isDestroyed()) entry.win.close();
+      this.deps.onStateChange();
+    }
+    delete this.layout[id];
+    this.flushSave();
+  }
+
+  /**
+   * Bounds of the window a new instance is placed next to: the nearest lower-numbered instance
+   * of the same overlay that has bounds, else the highest-numbered one. Undefined for instance 1.
+   */
+  private anchorFor(id: string): Bounds | undefined {
+    const ref = parseInstanceId(id);
+    if (ref === null || ref.n < 2) return undefined;
+    const placed = instancesOf(ref.overlayId, Object.keys(this.layout)).filter((o) => o !== id);
+    const pick = placed.filter((o) => instanceNumber(o) < ref.n).at(-1) ?? placed.at(-1);
+    if (pick === undefined) return undefined;
+    const live = this.open.get(pick)?.win;
+    if (live && !live.isDestroyed()) return live.getBounds();
+    const stored = this.layout[pick];
+    return stored && { x: stored.x, y: stored.y, width: stored.width, height: stored.height };
   }
 
   /** Call when the developer-tools switch changes: opens or closes the developer-only overlays. */
@@ -154,20 +206,20 @@ export class OverlayManager {
     );
     for (const id of plan.close) this.close(id);
     for (const id of plan.open) {
-      const manifest = this.deps.manifests.find((m) => m.id === id);
+      const manifest = this.manifestOf(id);
       const instance = settings[id];
-      if (manifest && instance) this.create(manifest, instance);
+      if (manifest && instance) this.create(id, manifest, instance);
     }
   }
 
   private onSettingsChange(id: string, settings: OverlayInstanceSettings): void {
-    const manifest = this.deps.manifests.find((m) => m.id === id);
+    const manifest = this.manifestOf(id);
     if (!manifest) return;
     const current = this.open.get(id);
     if (manifest.dev === true && !this.developerEnabled()) return;
     const enabled = this.enabledOverride?.[id] ?? settings.enabled;
     if (enabled && !current) {
-      this.create(manifest, settings);
+      this.create(id, manifest, settings);
     } else if (!enabled && current) {
       this.close(id);
     } else if (current && current.scalePct !== settings.common.scalePct) {
@@ -201,7 +253,7 @@ export class OverlayManager {
    * (or the stored bounds of a closed overlay) to it. Also raises the window minimum.
    */
   private applyFit(id: string): void {
-    const manifest = this.deps.manifests.find((m) => m.id === id);
+    const manifest = this.manifestOf(id);
     const settings = this.effectiveSettings()[id];
     const metrics = this.metricsFor(id);
     if (!manifest?.table || !settings || !metrics) return;
@@ -251,7 +303,7 @@ export class OverlayManager {
 
   /** Resizes a sizeByOption overlay (Fuel Calculator) when its layout option changed. */
   private applyOptionSize(id: string): void {
-    const manifest = this.deps.manifests.find((m) => m.id === id);
+    const manifest = this.manifestOf(id);
     const settings = this.effectiveSettings()[id];
     if (!manifest?.sizeByOption || !settings) return;
     const entry = this.open.get(id);
@@ -285,8 +337,8 @@ export class OverlayManager {
   setActiveSim(sim: SimName | null): void {
     if (sim === this.activeSim) return;
     this.activeSim = sim;
-    for (const manifest of this.deps.manifests) {
-      if (manifest.table) this.applyFit(manifest.id);
+    for (const id of this.instanceIds()) {
+      if (this.manifestOf(id)?.table) this.applyFit(id);
     }
   }
 
@@ -301,18 +353,31 @@ export class OverlayManager {
     this.lastMetrics = metrics;
     this.applyFit(id);
     if (prev?.chPx === metrics.chPx && prev.cellPadPx === metrics.cellPadPx) return;
-    for (const manifest of this.deps.manifests) {
-      if (manifest.table && manifest.id !== id && !this.open.has(manifest.id)) {
-        this.applyFit(manifest.id);
+    for (const other of this.instanceIds()) {
+      if (this.manifestOf(other)?.table && other !== id && !this.open.has(other)) {
+        this.applyFit(other);
       }
     }
   }
 
-  private create(manifest: OverlayManifest, settings: OverlayInstanceSettings): void {
-    const id = manifest.id;
+  private create(id: string, manifest: OverlayManifest, settings: OverlayInstanceSettings): void {
     const scalePct = settings.common.scalePct;
     const workAreas = screen.getAllDisplays().map((d) => d.workArea);
     const primary = screen.getPrimaryDisplay().workArea;
+    const n = instanceNumber(id);
+    if (!this.layout[id] && n >= 2) {
+      // First use of an added instance: next to another instance of the same overlay, or the
+      // default position moved down and right by its number when none has been placed.
+      const min = scaleSize(manifest.minSize, scalePct);
+      const anchor = this.anchorFor(id);
+      const step = INSTANCE_GAP_PX * 3 * (n - 1);
+      const fallback = defaultBounds(manifest, scalePct, primary);
+      const area = screen.getDisplayMatching(anchor ?? fallback).workArea;
+      const bounds = anchor
+        ? boundsNextTo(anchor, area, min)
+        : placeInWorkArea({ ...fallback, x: fallback.x + step, y: fallback.y + step }, area, min);
+      this.layout[id] = { ...bounds, scalePct };
+    }
     const stored = this.layout[id];
     // A scale change made while the overlay was off applies now.
     const sized =
@@ -354,6 +419,7 @@ export class OverlayManager {
 
     const win = new BrowserWindow(buildOverlayWindowOptions({ bounds, preloadPath }));
     this.open.set(id, {
+      id,
       win,
       manifest,
       scalePct,
@@ -407,17 +473,15 @@ export class OverlayManager {
 
   private rescale(entry: OpenOverlay, settings: OverlayInstanceSettings): void {
     const toPct = settings.common.scalePct;
-    const { win, manifest } = entry;
+    const { win, manifest, id } = entry;
     if (win.isDestroyed()) return;
     const current = win.getBounds();
     const area = screen.getDisplayMatching(current).workArea;
     // The title bar, when shown in flow, is fixed px: only the content under it scales.
-    const chrome = this.deps.overlaySettings.getAll()[manifest.id]?.common.showTitleBar
-      ? TITLE_BAR_PX
-      : 0;
+    const chrome = this.deps.overlaySettings.get(id)?.common.showTitleBar ? TITLE_BAR_PX : 0;
     // The reported content minimum was measured at the old scale; it is re-measured shortly.
     entry.contentMin = scaleContentMin(entry.contentMin, (toPct / entry.scalePct) * 100, chrome);
-    const metrics = this.metricsFor(manifest.id);
+    const metrics = this.metricsFor(id);
     const target = metrics ? fitTarget(manifest, settings, metrics, this.activeSim) : null;
     entry.tableMinWidth = target
       ? target.minWidth
@@ -435,9 +499,9 @@ export class OverlayManager {
     entry.scalePct = toPct;
     win.setMinimumSize(...minArgs(min));
     win.setBounds(next);
-    this.store(manifest.id, next, toPct);
+    this.store(id, next, toPct);
     // Record the fit at the new scale so a later unrelated change does not refit.
-    const stored = this.layout[manifest.id];
+    const stored = this.layout[id];
     if (stored && target?.fitWidth != null) stored.fitWidth = target.fitWidth;
     this.scheduleSave();
   }

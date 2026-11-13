@@ -5,6 +5,12 @@ import type {
   SettingField,
   SettingUnit,
 } from "@overlay/overlays/contract";
+import {
+  instancesOf,
+  instanceTitle,
+  isAddedInstance,
+  nextInstanceId,
+} from "@overlay/overlays/instances";
 import { defaultInstanceSettings, sanitizeOptionValue } from "@overlay/overlays/settings";
 import type { SimName } from "@overlay/sim-core/types";
 import type { DisplayPrefs, FieldConfig } from "@overlay/ui/types";
@@ -16,23 +22,62 @@ export const OPTIONS_SECTION = "Options";
 
 type AllSettings = Readonly<Record<string, OverlayInstanceSettings>>;
 
-/** Settings for an overlay, falling back to defaults for a missing entry. */
-export function settingsOf(manifest: OverlayManifest, all: AllSettings): OverlayInstanceSettings {
-  return all[manifest.id] ?? defaultInstanceSettings(manifest);
+/** Settings for an overlay instance (instance 1 by default), defaults for a missing entry. */
+export function settingsOf(
+  manifest: OverlayManifest,
+  all: AllSettings,
+  id: string = manifest.id,
+): OverlayInstanceSettings {
+  return all[id] ?? defaultInstanceSettings(manifest);
+}
+
+/** One row of the overlay list: an instance of an overlay. */
+export interface OverlayEntry {
+  /** Instance id: the manifest id for instance 1, "<manifest id>:<n>" for added ones. */
+  id: string;
+  manifest: OverlayManifest;
+  /** The user's name, or the overlay title plus the number from instance 2 ("Relative 2"). */
+  title: string;
+  /** An added instance (instance 2 or later), which the user can remove. */
+  added: boolean;
+}
+
+/** Every instance of every listed overlay: each overlay's instances in order, after it. */
+export function overlayEntries(
+  manifests: readonly OverlayManifest[],
+  all: AllSettings,
+  developerEnabled: boolean,
+): OverlayEntry[] {
+  const entries: OverlayEntry[] = [];
+  const ids = Object.keys(all);
+  for (const m of manifests) {
+    if (m.dev && !developerEnabled) continue;
+    const instances = instancesOf(m.id, ids);
+    if (!instances.includes(m.id)) instances.unshift(m.id);
+    for (const id of instances) {
+      const title = instanceTitle(m, id, all[id]?.name);
+      entries.push({ id, manifest: m, title, added: isAddedInstance(id) });
+    }
+  }
+  return entries;
 }
 
 export function listOverlays(
   manifests: readonly OverlayManifest[],
   all: AllSettings,
   developerEnabled: boolean,
-): { active: OverlayManifest[]; available: OverlayManifest[] } {
-  const active: OverlayManifest[] = [];
-  const available: OverlayManifest[] = [];
-  for (const m of manifests) {
-    if (m.dev && !developerEnabled) continue;
-    (settingsOf(m, all).enabled ? active : available).push(m);
+): { active: OverlayEntry[]; available: OverlayEntry[] } {
+  const active: OverlayEntry[] = [];
+  const available: OverlayEntry[] = [];
+  for (const e of overlayEntries(manifests, all, developerEnabled)) {
+    (settingsOf(e.manifest, all, e.id).enabled ? active : available).push(e);
   }
   return { active, available };
+}
+
+/** Whether another instance of the overlay can be added (it has fewer than the most allowed). */
+export function canAddInstance(manifest: OverlayManifest, all: AllSettings): boolean {
+  return nextInstanceId(manifest.id, Object.keys(all)) !== null;
 }
 
 export interface PanelSection {

@@ -83,4 +83,26 @@ describe("overlay sender", () => {
     sender.incoming(id, { ...base, common: { ...base.common, opacityPct: 80 } });
     expect(shown()[id]!.common.opacityPct).toBe(80);
   });
+
+  it("forgets a removed instance and drops its waiting patches", () => {
+    const t = setup();
+    const id2 = `${t.id}:2`;
+    t.sender.incoming(id2, t.base);
+    t.sender.send(id2, { common: { opacityPct: 40 } }, "opacityPct");
+    expect(t.shown()[id2]?.common.opacityPct).toBe(40);
+    t.sender.removed(id2);
+    expect(t.shown()).not.toHaveProperty(id2);
+    t.fire();
+    expect(t.sent).toEqual([]);
+  });
+
+  it("applies patches to an added instance with the overlay's manifest", () => {
+    const t = setup();
+    const id2 = `${t.id}:2`;
+    t.sender.incoming(id2, t.base);
+    t.sender.send(id2, { name: "Second" });
+    expect(t.shown()[id2]?.name).toBe("Second");
+    expect(t.shown()[t.id]).not.toHaveProperty("name");
+    expect(t.sent).toEqual([{ name: "Second" }]);
+  });
 });

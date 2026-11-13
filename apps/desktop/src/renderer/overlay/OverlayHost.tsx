@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef } from "react";
-import { OverlayRuntimeContext, type OverlayModule, type OverlayRuntime } from "@overlay/overlays";
+import {
+  instanceTitle,
+  OverlayRuntimeContext,
+  type OverlayModule,
+  type OverlayRuntime,
+} from "@overlay/overlays";
 import type { TelemetrySelector } from "@overlay/overlays";
 import { displayPrefsOf, type AppSettings } from "../../shared/app-settings-types";
 import { useTelemetry } from "../telemetry/useTelemetry";
@@ -45,10 +50,17 @@ function TableMetricsProbe() {
   );
 }
 
-/** Loads settings, applies the theme, provides the runtime and renders one overlay module. */
-export function OverlayHost({ module }: { module: OverlayModule }) {
+/** Loads settings, applies the theme, provides the runtime and renders one overlay instance. */
+export function OverlayHost({
+  module,
+  instanceId = module.manifest.id,
+}: {
+  module: OverlayModule;
+  /** Which instance of the overlay this window shows; instance 1 by default. */
+  instanceId?: string;
+}) {
   useApplyTheme();
-  const settings = useOverlaySettings(module.manifest.id);
+  const settings = useOverlaySettings(instanceId);
   const app = useAppSettings();
   const editing = useEditMode();
   const view = useTelemetry(hostView, HOST_VIEW_HZ);
@@ -75,6 +87,7 @@ export function OverlayHost({ module }: { module: OverlayModule }) {
         autoHide={app.general.autoHide}
         view={view}
         editing={editing}
+        title={instanceTitle(module.manifest, instanceId, settings.name)}
       />
     </OverlayRuntimeContext.Provider>
   );

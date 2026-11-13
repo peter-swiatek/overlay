@@ -44,10 +44,11 @@ export function metricAvailable(def: MetricDef, sim: SimName | null): boolean {
   return def.sims === undefined || sim === null || def.sims.includes(sim);
 }
 
-export const MAX_TILES = 8;
-
-/** The board's four tiles first; tiles 5 to 8 only show with a larger tile count. */
-export const DEFAULT_TILE_METRICS: readonly MetricId[] = [
+/**
+ * Metric of each instance on first use, by instance number - 1: the board's four tiles first,
+ * then more. Instances past the end of the list copy the metric of the instance they came from.
+ */
+export const INSTANCE_METRICS: readonly MetricId[] = [
   "class-position",
   "brake-bias",
   "fuel-level",
@@ -57,6 +58,3 @@ export const DEFAULT_TILE_METRICS: readonly MetricId[] = [
   "remaining",
   "air-temp",
 ];
-
-/** Settings key of tile `n` (1-based). */
-export const tileKey = (n: number): string => `tile-${n}`;

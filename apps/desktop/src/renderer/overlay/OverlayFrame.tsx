@@ -21,6 +21,8 @@ interface Props {
   manifest: OverlayManifest;
   common: CommonOverlaySettings;
   editing: boolean;
+  /** Name in the title bar; defaults to the manifest title (added instances pass theirs). */
+  title?: string;
   children: ReactNode;
 }
 
@@ -34,14 +36,14 @@ export function TitleBar({ name }: { name: string }) {
 }
 
 /** Root of an overlay window: scaled, faded content with the edit frame on top, unscaled. */
-export function OverlayFrame({ manifest, common, editing, children }: Props) {
+export function OverlayFrame({ manifest, common, editing, title, children }: Props) {
   const fitRef = useRef<HTMLDivElement>(null);
   // Tables report nothing: main derives their width minimum from the column fit, and they may
   // drop rows and columns. Other overlays report both edges.
   useReportContentMin(fitRef, true, common.showTitleBar, !manifest.table);
   return (
     <div className="overlay" data-edit={editing} data-titlebar={common.showTitleBar}>
-      {(editing || common.showTitleBar) && <TitleBar name={manifest.title} />}
+      {(editing || common.showTitleBar) && <TitleBar name={title ?? manifest.title} />}
       <div className="overlay-content" style={contentStyle(common, manifest.table)}>
         <div className="overlay-fit" ref={fitRef}>
           {children}

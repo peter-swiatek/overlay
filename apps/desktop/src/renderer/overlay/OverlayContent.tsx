@@ -10,10 +10,12 @@ interface Props {
   autoHide: boolean;
   view: HostView;
   editing: boolean;
+  /** The instance's name for the title bar. */
+  title?: string;
 }
 
 /** Decides what the overlay window shows (component, notice or nothing) and frames it. */
-export function OverlayContent({ module, settings, autoHide, view, editing }: Props) {
+export function OverlayContent({ module, settings, autoHide, view, editing, title }: Props) {
   const { manifest, Component } = module;
   const visibility = overlayVisibility({
     live: view.live,
@@ -28,7 +30,12 @@ export function OverlayContent({ module, settings, autoHide, view, editing }: Pr
   if (visibility === "unsupported" && !editing) return null;
 
   return (
-    <OverlayFrame manifest={manifest} common={settings.common} editing={editing}>
+    <OverlayFrame
+      manifest={manifest}
+      common={settings.common}
+      editing={editing}
+      {...(title === undefined ? {} : { title })}
+    >
       {visibility === "notice" && <div className="panel notice">{view.notice ?? "No data"}</div>}
       {visibility === "unsupported" && (
         <div className="panel notice">{unsupportedNote(view.sim)}</div>

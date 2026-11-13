@@ -3,6 +3,7 @@ import type {
   OverlayManifest,
   SettingField,
 } from "@overlay/overlays/contract";
+import { instanceId, MAX_INSTANCES } from "@overlay/overlays/instances";
 import { OVERLAY_MANIFESTS } from "@overlay/overlays/manifests";
 import { defaultInstanceSettings } from "@overlay/overlays/settings";
 import type { SimName } from "@overlay/sim-core/types";
@@ -24,10 +25,13 @@ function render(opts: {
   dev?: boolean;
   selected?: string;
   units?: "metric" | "imperial";
+  /** More settings by instance id, e.g. added instances. */
+  extra?: Record<string, OverlayInstanceSettings>;
 }): string {
   const manifests = opts.manifests ?? [testManifest];
   const all: Record<string, OverlayInstanceSettings> = {};
   for (const m of manifests) all[m.id] = { ...defaultInstanceSettings(m), ...opts.patch };
+  Object.assign(all, opts.extra);
   return renderToStaticMarkup(
     <OverlaysForm
       manifests={manifests}
@@ -41,9 +45,57 @@ function render(opts: {
       onToggle={noop}
       send={noop}
       onReset={noop}
+      onAddInstance={noop}
+      onRemoveInstance={noop}
     />,
   );
 }
+
+describe("OverlaysForm instances", () => {
+  const on = { ...defaultInstanceSettings(testManifest), enabled: true };
+  const extra = { "test-panel:2": on, "test-panel:3": { ...on, name: "Rear view" } };
+
+  it("lists added instances under their overlay with numbered or user names", () => {
+    const html = render({ extra });
+    const first = html.indexOf('aria-label="Enable Test Panel"');
+    const second = html.indexOf('aria-label="Enable Test Panel 2"');
+    const third = html.indexOf('aria-label="Enable Rear view"');
+    expect(first).toBeGreaterThan(-1);
+    expect(second).toBeGreaterThan(first);
+    expect(third).toBeGreaterThan(second);
+    expect(html.match(/data-instance="true"/g)).toHaveLength(2);
+    expect(html).toContain("Another Test Panel window");
+  });
+
+  it("offers Add instance for every instance and Remove only for added ones", () => {
+    const base = render({ extra });
+    expect(base).toContain("Add instance");
+    expect(base).not.toContain("Remove instance");
+    expect(base).toContain('placeholder="Test Panel"');
+    const added = render({ extra, selected: "test-panel:3" });
+    expect(added).toContain('<h3 class="ov-panel-title">Rear view</h3>');
+    expect(added).toContain("Remove instance");
+    expect(added).toContain('placeholder="Test Panel 3"');
+    expect(added).toContain('value="Rear view"');
+  });
+
+  it("disables Add instance once the overlay has the most instances", () => {
+    const full: Record<string, OverlayInstanceSettings> = {};
+    for (let n = 2; n <= MAX_INSTANCES; n++) full[instanceId("test-panel", n)] = on;
+    const html = render({ extra: full });
+    expect(html).toMatch(
+      /<button type="button" class="ctl-button" data-variant="secondary" disabled="">Add instance<\/button>/,
+    );
+  });
+
+  it("edits the selected instance's own settings", () => {
+    const html = render({
+      extra: { "test-panel:2": { ...on, common: { ...on.common, opacityPct: 35 } } },
+      selected: "test-panel:2",
+    });
+    expect(html).toContain("35 %");
+  });
+});
 
 describe("OverlaysForm lists", () => {
   it("shows active and available lists with Enable toggles", () => {

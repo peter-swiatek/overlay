@@ -50,6 +50,14 @@ export function createOverlayIpcHandlers(
       if (!ctx.isSettingsSender(event.sender)) ctx.deny(IPC.overlaysReset);
       return typeof id === "string" ? orNull(store.reset(id)) : null;
     },
+    [IPC.overlaysAddInstance]: (event, sourceId) => {
+      if (!ctx.isSettingsSender(event.sender)) ctx.deny(IPC.overlaysAddInstance);
+      return typeof sourceId === "string" ? (store.addInstance(sourceId) ?? null) : null;
+    },
+    [IPC.overlaysRemoveInstance]: (event, id) => {
+      if (!ctx.isSettingsSender(event.sender)) ctx.deny(IPC.overlaysRemoveInstance);
+      return typeof id === "string" ? store.removeInstance(id) : false;
+    },
   };
 }
 
@@ -65,7 +73,14 @@ export function registerOverlayIpc(
   broadcastOverlayChanges(ctx, store);
 }
 
-/** Tells every window when an overlay's settings really changed. */
+/** Tells every window when an instance's settings really changed or an instance was removed. */
 export function broadcastOverlayChanges(ctx: IpcContext, store: OverlaySettingsStore): () => void {
-  return store.onChange((id, settings) => ctx.broadcast(IPC.overlaysChanged, id, settings));
+  const offChange = store.onChange((id, settings) =>
+    ctx.broadcast(IPC.overlaysChanged, id, settings),
+  );
+  const offRemove = store.onRemove((id) => ctx.broadcast(IPC.overlaysRemoved, id));
+  return () => {
+    offChange();
+    offRemove();
+  };
 }

@@ -8,6 +8,7 @@ import {
   type SettingField,
   type SettingValue,
 } from "../contract";
+import { instanceNumber, isAddedInstance, MAX_INSTANCE_NAME, parseInstanceId } from "../instances";
 
 type Obj = Record<string, unknown>;
 type NumberLimits = { min: number; max: number; step: number };
@@ -165,6 +166,22 @@ function parseOptionsPartial(
   return out;
 }
 
+/** A trimmed instance name of at most MAX_INSTANCE_NAME characters; "" means "no name". */
+function parseName(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  return value.replace(/\s+/g, " ").trim().slice(0, MAX_INSTANCE_NAME).trim();
+}
+
+/** `settings` with `name` set, or without a name when it is undefined or "". */
+function withName(
+  settings: OverlayInstanceSettings,
+  name: string | undefined,
+): OverlayInstanceSettings {
+  const next = { ...settings };
+  delete next.name;
+  return name === undefined || name === "" ? next : { ...next, name };
+}
+
 /** Untrusted stored data to valid settings: anything wrong falls back to the manifest default. */
 export function sanitizeInstanceSettings(
   manifest: OverlayManifest,
@@ -173,8 +190,10 @@ export function sanitizeInstanceSettings(
   const src = isObj(raw) ? raw : {};
   const defaults = defaultInstanceSettings(manifest);
   const common = isObj(src.common) ? src.common : {};
+  const name = parseName(src.name);
   return {
     enabled: typeof src.enabled === "boolean" ? src.enabled : defaults.enabled,
+    ...(name ? { name } : {}),
     common: {
       ...defaults.common,
       ...parseCommonPartial(manifest, common),
@@ -192,11 +211,47 @@ export function applySettingsPatch(
   patch: unknown,
 ): OverlayInstanceSettings {
   if (!isObj(patch)) return current;
-  return {
+  const next: OverlayInstanceSettings = {
+    ...current,
     enabled: typeof patch.enabled === "boolean" ? patch.enabled : current.enabled,
     common: { ...current.common, ...parseCommonPartial(manifest, patch.common) },
     options: { ...current.options, ...parseOptionsPartial(manifest, patch.options) },
   };
+  return has(patch, "name") ? withName(next, parseName(patch.name) ?? current.name) : next;
+}
+
+/** The manifest's `instanceOptions` entry for instance key `id`; empty when it has none. */
+function instanceOptionsFor(manifest: OverlayManifest, id: string): Record<string, SettingValue> {
+  return { ...manifest.instanceOptions?.[instanceNumber(id) - 1] };
+}
+
+/**
+ * Settings of a newly added instance `id`: a copy of `source` (the instance it was added from),
+ * switched on, without the source's name, then the manifest's `instanceOptions` for its number.
+ */
+export function newInstanceSettings(
+  manifest: OverlayManifest,
+  source: OverlayInstanceSettings,
+  id: string,
+): OverlayInstanceSettings {
+  const copy = withName({ ...structuredClone(source), enabled: true }, undefined);
+  return applySettingsPatch(manifest, copy, { options: instanceOptionsFor(manifest, id) });
+}
+
+/**
+ * "Reset to defaults" for instance `id`. Instance 1 goes back to the manifest defaults, the
+ * enabled state included. An added instance keeps its enabled state and name and gets its
+ * `instanceOptions` again, so a reset never moves it in the list or renames it.
+ */
+export function resetInstanceSettings(
+  manifest: OverlayManifest,
+  current: OverlayInstanceSettings | undefined,
+  id: string,
+): OverlayInstanceSettings {
+  const defaults = defaultInstanceSettings(manifest);
+  if (!isAddedInstance(id) || current === undefined) return defaults;
+  const kept = withName({ ...defaults, enabled: current.enabled }, current.name);
+  return applySettingsPatch(manifest, kept, { options: instanceOptionsFor(manifest, id) });
 }
 
 export function parseOverlaySettingsFile(
@@ -210,6 +265,16 @@ export function parseOverlaySettingsFile(
       manifest,
       has(stored, manifest.id) ? stored[manifest.id] : undefined,
     );
+  }
+  // Added instances of known overlays, in manifest order then by number. Bad keys are dropped.
+  const added = Object.keys(stored)
+    .map((id) => ({ id, ref: parseInstanceId(id) }))
+    .filter((e) => e.ref !== null && e.ref.n >= 2)
+    .map((e) => ({ ...e, index: manifests.findIndex((m) => m.id === e.ref?.overlayId) }))
+    .filter((e) => e.index >= 0)
+    .sort((a, b) => a.index - b.index || (a.ref?.n ?? 0) - (b.ref?.n ?? 0));
+  for (const { id, index } of added) {
+    overlays[id] = sanitizeInstanceSettings(manifests[index] as OverlayManifest, stored[id]);
   }
   return { version: 1, overlays };
 }

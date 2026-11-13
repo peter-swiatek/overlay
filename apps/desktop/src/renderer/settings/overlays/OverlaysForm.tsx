@@ -6,10 +6,18 @@ import { OverlayPreview, type PreviewMeasure } from "../preview/OverlayPreview";
 import { useState } from "react";
 import "./overlays.css";
 import { OverlayPanel, type SendPatch } from "./OverlayPanel";
-import { listOverlays, settingsOf, simState, type SimContext } from "./model";
+import {
+  canAddInstance,
+  listOverlays,
+  settingsOf,
+  simState,
+  type OverlayEntry,
+  type SimContext,
+} from "./model";
 
 export interface OverlaysFormProps {
   manifests: readonly OverlayManifest[];
+  /** Settings by instance id. */
   all: Readonly<Record<string, OverlayInstanceSettings>>;
   developerEnabled: boolean;
   selectedId: string | null;
@@ -21,9 +29,13 @@ export interface OverlaysFormProps {
   onToggle(id: string, enabled: boolean): void;
   send(id: string, patch: Parameters<SendPatch>[0], debounceKey?: string): void;
   onReset(id: string): void;
+  /** Adds another instance of the overlay `id` is an instance of. */
+  onAddInstance(id: string): void;
+  /** Removes an added instance. */
+  onRemoveInstance(id: string): void;
 }
 
-/** The first active overlay, else the first listed one. */
+/** The first active overlay instance, else the first listed one. */
 export function defaultSelection(
   manifests: readonly OverlayManifest[],
   all: OverlaysFormProps["all"],
@@ -39,38 +51,42 @@ export function OverlaysForm(props: OverlaysFormProps) {
   const { active, available } = listOverlays(manifests, all, developerEnabled);
   const selected =
     [...active, ...available].find((m) => m.id === props.selectedId) ?? active[0] ?? available[0];
-  const group = (title: string, list: OverlayManifest[]) => (
+  const group = (title: string, list: OverlayEntry[]) => (
     <section className="ov-group" aria-label={title}>
       <h2>{title}</h2>
       {list.length === 0 && <p className="muted">None</p>}
       <ul className="ov-list">
-        {list.map((m) => {
+        {list.map((e) => {
+          const m = e.manifest;
           const state = simState(m.sims, sim);
-          const enabled = settingsOf(m, all).enabled;
+          const enabled = settingsOf(m, all, e.id).enabled;
           return (
             <li
-              key={m.id}
+              key={e.id}
               className="ov-item"
-              data-selected={m.id === selected?.id || undefined}
+              data-selected={e.id === selected?.id || undefined}
+              data-instance={e.added || undefined}
               aria-disabled={state.disabled || undefined}
             >
               <button
                 type="button"
                 className="ov-item-main"
-                aria-current={m.id === selected?.id ? "true" : undefined}
-                onClick={() => props.onSelect(m.id)}
+                aria-current={e.id === selected?.id ? "true" : undefined}
+                onClick={() => props.onSelect(e.id)}
               >
                 <span className="ov-item-title">
-                  {m.title}
+                  {e.title}
                   {state.badge && <em className="ctl-badge">{state.badge}</em>}
                 </span>
-                <small className="muted">{m.description}</small>
+                <small className="muted">
+                  {e.added ? `Another ${m.title} window` : m.description}
+                </small>
               </button>
               <Toggle
-                label={`Enable ${m.title}`}
+                label={`Enable ${e.title}`}
                 checked={enabled}
                 disabled={state.disabled && !enabled}
-                onChange={(next) => props.onToggle(m.id, next)}
+                onChange={(next) => props.onToggle(e.id, next)}
               />
             </li>
           );
@@ -89,8 +105,8 @@ export function OverlaysForm(props: OverlaysFormProps) {
           {selected && (
             <OverlayPreview
               key={selected.id}
-              manifest={selected}
-              settings={settingsOf(selected, all)}
+              manifest={selected.manifest}
+              settings={settingsOf(selected.manifest, all, selected.id)}
               size={props.sizes[selected.id] ?? null}
               onMeasure={(next) =>
                 setMeasure((prev) =>
@@ -109,8 +125,12 @@ export function OverlaysForm(props: OverlaysFormProps) {
           {selected ? (
             <OverlayPanel
               key={selected.id}
-              manifest={selected}
-              settings={settingsOf(selected, all)}
+              manifest={selected.manifest}
+              instanceId={selected.id}
+              canAddInstance={canAddInstance(selected.manifest, all)}
+              onAddInstance={() => props.onAddInstance(selected.id)}
+              onRemoveInstance={() => props.onRemoveInstance(selected.id)}
+              settings={settingsOf(selected.manifest, all, selected.id)}
               sim={sim}
               prefs={prefs}
               measure={measure?.id === selected.id ? measure.m : null}

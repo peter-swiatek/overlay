@@ -1,3 +1,4 @@
+import { parseInstanceId } from "@overlay/overlays/instances";
 import { OVERLAY_MANIFESTS } from "@overlay/overlays/manifests";
 import type { OverlayInstanceSettings, OverlaySettingsPatch } from "@overlay/overlays/contract";
 import type { OverlaySize } from "../../../shared/types";
@@ -38,6 +39,7 @@ export function OverlaysPage() {
     const offChanged = api.overlays.onChanged((id, s) => {
       sender.incoming(id, s);
     });
+    const offRemoved = api.overlays.onRemoved((id) => sender.removed(id));
     void api.overlays.getSizes().then((s) => {
       if (alive) setSizes(s);
     });
@@ -66,6 +68,7 @@ export function OverlaysPage() {
       window.removeEventListener("beforeunload", flush);
       document.removeEventListener("visibilitychange", onVisibility);
       offChanged();
+      offRemoved();
       offSizes();
       offSource();
       offStatus();
@@ -99,6 +102,18 @@ export function OverlaysPage() {
       onReset={(id) => {
         debouncer.flush();
         void window.overlayApi.overlays.reset(id);
+      }}
+      onAddInstance={(id) => {
+        debouncer.flush();
+        void window.overlayApi.overlays.addInstance(id).then((added) => {
+          if (added !== null) setSelectedId(added);
+        });
+      }}
+      onRemoveInstance={(id) => {
+        debouncer.flush();
+        void window.overlayApi.overlays.removeInstance(id).then((removed) => {
+          if (removed) setSelectedId(parseInstanceId(id)?.overlayId ?? null);
+        });
       }}
     />
   );

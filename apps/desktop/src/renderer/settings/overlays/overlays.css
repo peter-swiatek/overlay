@@ -123,6 +123,20 @@
   font-size: 18px;
   margin: 0 0 12px;
 }
+.ov-name-input {
+  width: 180px;
+  font: inherit;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+.ov-item[data-instance] .ov-item-title::before {
+  content: "\21B3";
+  margin-right: 6px;
+  color: var(--muted);
+}
 .ov-reset {
   display: flex;
   align-items: center;

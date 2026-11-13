@@ -95,6 +95,12 @@ export const IPC = {
   overlaysUpdate: "overlays:update",
   overlaysReset: "overlays:reset",
   overlaysChanged: "overlays:changed",
+  /** Main window only: adds an instance of the overlay of the given instance id; returns its id. */
+  overlaysAddInstance: "overlays:add-instance",
+  /** Main window only: removes an added instance; returns whether it was removed. */
+  overlaysRemoveInstance: "overlays:remove-instance",
+  /** Main to every window: carries the id of an instance that was removed. */
+  overlaysRemoved: "overlays:removed",
   themeGetState: "theme:get-state",
   themeGetActive: "theme:get-active",
   themeSetActive: "theme:set-active",
@@ -155,12 +161,21 @@ export interface OverlayApi {
    * listening. A higher rate than before brokers a new port.
    */
   subscribeTelemetry(rateHz: number): void;
+  /** Overlay settings, keyed by instance id ("relative", "relative:2"; see @overlay/overlays/instances). */
   overlays: {
     getAll(): Promise<Record<string, OverlayInstanceSettings>>;
     get(id: string): Promise<OverlayInstanceSettings | null>;
     update(id: string, patch: OverlaySettingsPatch): Promise<OverlayInstanceSettings | null>;
     reset(id: string): Promise<OverlayInstanceSettings | null>;
     onChanged(callback: (id: string, settings: OverlayInstanceSettings) => void): () => void;
+    /**
+     * Main window only: adds an instance of the overlay `sourceId` belongs to, copying its
+     * settings; resolves with the new instance id, or null when none could be added.
+     */
+    addInstance(sourceId: string): Promise<string | null>;
+    /** Main window only: removes an added instance (never instance 1). */
+    removeInstance(id: string): Promise<boolean>;
+    onRemoved(callback: (id: string) => void): () => void;
     /** Main window only: real on-screen size of every overlay window, keyed by overlay id. */
     getSizes(): Promise<Record<string, OverlaySize>>;
     /** Main window only: fires after an overlay is resized or rescaled (debounced layout save). */

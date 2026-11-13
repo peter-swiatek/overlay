@@ -108,6 +108,12 @@ export interface OverlayManifest {
    * keeping x/y and clamping to the work area. `defaultSize` equals sizes[the option's default].
    */
   sizeByOption?: { key: string; sizes: Readonly<Record<string, Size>> };
+  /**
+   * Options an added instance starts with, by instance number - 1 (entry 0 is instance 1, whose
+   * values should equal the manifest defaults). An added instance copies the instance it was added
+   * from and then takes these, so a second Data Frames tile does not repeat the first metric.
+   */
+  instanceOptions?: readonly Readonly<Record<string, SettingValue>>[];
 }
 
 /** Framework settings every overlay has; they behave the same everywhere. */
@@ -138,6 +144,8 @@ export const COMMON_LIMITS = {
 
 export interface OverlayInstanceSettings {
   enabled: boolean;
+  /** The user's name for this instance; absent means the overlay title (plus its number). */
+  name?: string;
   common: CommonOverlaySettings;
   /** One entry per manifest setting key, already validated. */
   options: Record<string, SettingValue>;
@@ -146,11 +154,16 @@ export interface OverlayInstanceSettings {
 /** What the settings window sends; every given key replaces the stored value after validation. */
 export interface OverlaySettingsPatch {
   enabled?: boolean;
+  /** An empty or blank name removes the user's name. */
+  name?: string;
   common?: Partial<CommonOverlaySettings>;
   options?: Record<string, SettingValue>;
 }
 
-/** Stored as JSON in userData/overlay-settings.json. */
+/**
+ * Stored as JSON in userData/overlay-settings.json. Keyed by instance: the manifest id for
+ * instance 1, "<manifest id>:<n>" for added instances (see instances.ts).
+ */
 export interface OverlaySettingsFile {
   version: 1;
   overlays: Record<string, OverlayInstanceSettings>;

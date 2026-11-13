@@ -1,4 +1,5 @@
 import type { OverlayManifest, SettingField } from "@overlay/overlays/contract";
+import { instanceId, MAX_INSTANCES } from "@overlay/overlays/instances";
 import {
   applySettingsPatch,
   defaultInstanceSettings,
@@ -12,7 +13,10 @@ import {
   fromDisplay,
   isAvailableIn,
   isSegmentedSelect,
+  canAddInstance,
   listOverlays,
+  overlayEntries,
+  settingsOf,
   moveField,
   movePick,
   multiFields,
@@ -36,14 +40,59 @@ describe("listOverlays", () => {
   const b: OverlayManifest = { ...testManifest, id: "b", defaultEnabled: false };
   const d: OverlayManifest = { ...testManifest, id: "d", defaultEnabled: true, dev: true };
 
+  const ids = (list: { id: string }[]) => list.map((e) => e.id);
+
   it("splits by enabled in manifest order and hides dev overlays unless developer is on", () => {
-    expect(listOverlays([a, b, d], {}, false)).toEqual({ active: [a], available: [b] });
-    expect(listOverlays([a, b, d], {}, true)).toEqual({ active: [a, d], available: [b] });
+    const off = listOverlays([a, b, d], {}, false);
+    expect(ids(off.active)).toEqual(["a"]);
+    expect(ids(off.available)).toEqual(["b"]);
+    expect(off.active[0]).toMatchObject({ manifest: a, title: a.title, added: false });
+    const on = listOverlays([a, b, d], {}, true);
+    expect(ids(on.active)).toEqual(["a", "d"]);
+    expect(ids(on.available)).toEqual(["b"]);
   });
 
   it("uses stored settings over defaults", () => {
     const all = { a: { ...defaultInstanceSettings(a), enabled: false } };
-    expect(listOverlays([a, b], all, false).available).toEqual([a, b]);
+    expect(ids(listOverlays([a, b], all, false).available)).toEqual(["a", "b"]);
+  });
+
+  it("lists added instances after their overlay, each in its own group, with their titles", () => {
+    const on = { ...defaultInstanceSettings(a), enabled: true };
+    const all = {
+      "a:3": { ...on, name: "Behind" },
+      "b:2": on,
+      "a:2": { ...on, enabled: false },
+      "a:x": on,
+      "zz:2": on,
+    };
+    const { active, available } = listOverlays([a, b], all, false);
+    expect(ids(active)).toEqual(["a", "a:3", "b:2"]);
+    expect(ids(available)).toEqual(["a:2", "b"]);
+    expect(active.map((e) => e.title)).toEqual([a.title, "Behind", `${b.title} 2`]);
+    expect(active.map((e) => e.added)).toEqual([false, true, true]);
+    expect(overlayEntries([a, b], all, false).map((e) => e.id)).toEqual([
+      "a",
+      "a:2",
+      "a:3",
+      "b",
+      "b:2",
+    ]);
+  });
+
+  it("allows adding instances until the overlay has the most", () => {
+    const all: Record<string, ReturnType<typeof defaultInstanceSettings>> = {};
+    for (let n = 1; n < MAX_INSTANCES; n++) all[instanceId("a", n)] = defaultInstanceSettings(a);
+    expect(canAddInstance(a, all)).toBe(true);
+    all[instanceId("a", MAX_INSTANCES)] = defaultInstanceSettings(a);
+    expect(canAddInstance(a, all)).toBe(false);
+    expect(canAddInstance(b, all)).toBe(true);
+  });
+
+  it("reads an instance's own settings", () => {
+    const all = { "a:2": { ...defaultInstanceSettings(a), enabled: false } };
+    expect(settingsOf(a, all, "a:2").enabled).toBe(false);
+    expect(settingsOf(a, all, "a:4")).toEqual(defaultInstanceSettings(a));
   });
 });
 

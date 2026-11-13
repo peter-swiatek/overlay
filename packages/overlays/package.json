@@ -15,6 +15,7 @@
     "./fields": "./src/shared/fields.ts",
     "./table-fit": "./src/shared/table-fit.ts",
     "./settings": "./src/settings/index.ts",
+    "./instances": "./src/instances.ts",
     "./views": "./src/views.ts"
   },
   "dependencies": {

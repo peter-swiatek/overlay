@@ -1,4 +1,5 @@
 import type { OverlayInstanceSettings, OverlayManifest } from "@overlay/overlays/contract";
+import { manifestForInstance, parseInstanceId } from "@overlay/overlays/instances";
 import type { Bounds, Size } from "../shared/types";
 
 /** Bounds plus the scale (percent) they were sized for. M1 entries have no scale and mean 100. */
@@ -10,7 +11,7 @@ export interface StoredBounds extends Bounds {
   sizedFor?: string;
 }
 
-/** Bounds of every overlay the user has placed, keyed by manifest id. */
+/** Bounds of every overlay instance the user has placed, keyed by instance id (see instances.ts). */
 export type Layout = Record<string, StoredBounds>;
 
 function isFiniteNumber(value: unknown): value is number {
@@ -60,8 +61,9 @@ function parseBounds(value: unknown): StoredBounds | undefined {
 const LEGACY_IDS: Readonly<Record<string, string>> = { inputs: "demo-inputs" };
 
 /**
- * Reads stored bounds for the known overlays only. Invalid entries and unknown ids are dropped
- * (the overlay then gets default bounds), and a stored "demo-inputs" entry migrates to "inputs".
+ * Reads stored bounds for instances of the known overlays only. Invalid entries and unknown ids
+ * are dropped (the overlay then gets default bounds), and a stored "demo-inputs" entry migrates
+ * to "inputs".
  */
 export function parseLayout(raw: unknown, manifests: readonly OverlayManifest[]): Layout {
   const stored = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
@@ -72,6 +74,12 @@ export function parseLayout(raw: unknown, manifests: readonly OverlayManifest[])
       parseBounds(stored[manifest.id]) ??
       (legacyId === undefined ? undefined : parseBounds(stored[legacyId]));
     if (bounds) layout[manifest.id] = migrateRetiredSize(bounds, manifest);
+  }
+  for (const id of Object.keys(stored)) {
+    if ((parseInstanceId(id)?.n ?? 1) < 2) continue;
+    const manifest = manifestForInstance(id, manifests);
+    const bounds = parseBounds(stored[id]);
+    if (manifest && bounds) layout[id] = migrateRetiredSize(bounds, manifest);
   }
   return layout;
 }
@@ -86,6 +94,8 @@ const RETIRED_DEFAULT_SIZES: Readonly<
 > = {
   "compact-hud": [{ size: { width: 340, height: 172 }, anchorBottom: true }],
   "delta-bar": [{ size: { width: 560, height: 131 }, anchorBottom: false }],
+  // The earlier Data Frames held a 2 x 2 grid of tiles; each tile is now its own instance.
+  "data-frames": [{ size: { width: 272, height: 140 }, anchorBottom: false }],
   weather: [
     { size: { width: 240, height: 352 }, anchorBottom: false },
     { size: { width: 200, height: 352 }, anchorBottom: false },
@@ -199,7 +209,11 @@ export interface WindowPlan {
   close: string[];
 }
 
-/** Which windows to create (developer-only manifests only while developer tools are on) and which to close so the open set matches the enabled overlays. */
+/**
+ * Which instance windows to create (developer-only overlays only while developer tools are on)
+ * and which to close so the open set matches the enabled instances. Ids are instance ids, in
+ * the order of `settingsById`.
+ */
 export function planWindowChanges(
   manifests: readonly OverlayManifest[],
   settingsById: Readonly<Record<string, OverlayInstanceSettings | undefined>>,
@@ -207,15 +221,47 @@ export function planWindowChanges(
   developerEnabled = true,
 ): WindowPlan {
   const open = new Set(openIds);
-  const wanted = new Set(
-    manifests
-      .filter((m) => settingsById[m.id]?.enabled === true && (developerEnabled || m.dev !== true))
-      .map((m) => m.id),
-  );
+  const wanted = Object.keys(settingsById).filter((id) => {
+    const manifest = manifestForInstance(id, manifests);
+    return (
+      manifest !== undefined &&
+      settingsById[id]?.enabled === true &&
+      (developerEnabled || manifest.dev !== true)
+    );
+  });
+  const wantedSet = new Set(wanted);
   return {
-    open: manifests.map((m) => m.id).filter((id) => wanted.has(id) && !open.has(id)),
-    close: [...open].filter((id) => !wanted.has(id)),
+    open: wanted.filter((id) => !open.has(id)),
+    close: [...open].filter((id) => !wantedSet.has(id)),
   };
+}
+
+/** Space left between a new instance's window and the one it is placed next to. */
+export const INSTANCE_GAP_PX = 8;
+
+/**
+ * First-use bounds of an added instance next to `anchor` (another instance's window) in the work
+ * area: to its right when that fits, else below it, else to its left, else above, else offset
+ * diagonally. Never exactly on top of the anchor.
+ */
+export function boundsNextTo(anchor: Bounds, area: Bounds, min: Size): Bounds {
+  const gap = INSTANCE_GAP_PX;
+  const { width, height } = anchor;
+  const candidates: Bounds[] = [
+    { x: anchor.x + width + gap, y: anchor.y, width, height },
+    { x: anchor.x, y: anchor.y + height + gap, width, height },
+    { x: anchor.x - width - gap, y: anchor.y, width, height },
+    { x: anchor.x, y: anchor.y - height - gap, width, height },
+  ];
+  const inside = (b: Bounds): boolean =>
+    b.x >= area.x &&
+    b.y >= area.y &&
+    b.x + b.width <= area.x + area.width &&
+    b.y + b.height <= area.y + area.height;
+  const fit = candidates.find(inside);
+  if (fit) return fit;
+  const offset = 3 * gap;
+  return placeInWorkArea({ ...anchor, x: anchor.x + offset, y: anchor.y + offset }, area, min);
 }
 
 /** Shrinks bounds so the window does not extend past the work area (never below the minimum). */

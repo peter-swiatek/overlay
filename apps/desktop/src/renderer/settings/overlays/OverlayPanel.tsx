@@ -7,6 +7,7 @@ import {
   type SettingField,
   type SettingValue,
 } from "@overlay/overlays/contract";
+import { instanceTitle, isAddedInstance, MAX_INSTANCE_NAME } from "@overlay/overlays/instances";
 import type { DisplayPrefs } from "@overlay/ui/types";
 import { useState, type ReactNode } from "react";
 import type { PreviewMeasure } from "../preview/OverlayPreview";
@@ -47,6 +48,13 @@ export interface OverlayPanelProps {
   prefs: DisplayPrefs;
   send: SendPatch;
   onReset(): void;
+  /** Which instance of the overlay the panel edits; instance 1 by default. */
+  instanceId?: string;
+  /** False when the overlay already has the most instances. */
+  canAddInstance?: boolean;
+  /** Absent: no instance controls (hosts that cannot add instances). */
+  onAddInstance?(): void;
+  onRemoveInstance?(): void;
   /** Latest preview measurement, for the column width floors. Null before the first one. */
   measure?: PreviewMeasure | null;
 }
@@ -65,15 +73,77 @@ export function OverlayPanel({
   send,
   onReset,
   measure,
+  instanceId = manifest.id,
+  canAddInstance = true,
+  onAddInstance,
+  onRemoveInstance,
 }: OverlayPanelProps) {
   const [confirming, setConfirming] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  // Typed text as is: the stored name is trimmed, which would eat a space while typing.
+  const [nameDraft, setNameDraft] = useState(settings.name ?? "");
   const common = settings.common;
   const setCommon = (patch: Partial<CommonOverlaySettings>, key?: string): void =>
     send({ common: patch }, key);
   const L = COMMON_LIMITS;
+  const defaultTitle = instanceTitle(manifest, instanceId);
+  const title = instanceTitle(manifest, instanceId, settings.name);
+  const added = isAddedInstance(instanceId);
   return (
     <div className="ov-panel">
-      <h3 className="ov-panel-title">{manifest.title}</h3>
+      <h3 className="ov-panel-title">{title}</h3>
+      {onAddInstance && (
+        <Collapsible title="Instances">
+          <Row
+            label="Name"
+            help={`Shown in this list and in the overlay's title bar. Empty uses "${defaultTitle}".`}
+          >
+            <input
+              type="text"
+              className="ov-name-input"
+              aria-label="Instance name"
+              maxLength={MAX_INSTANCE_NAME}
+              placeholder={defaultTitle}
+              value={nameDraft}
+              onChange={(e) => {
+                setNameDraft(e.target.value);
+                send({ name: e.target.value }, "name");
+              }}
+            />
+          </Row>
+          <Row
+            label="Another window"
+            help={`Adds another ${manifest.title} with a copy of these settings. Each one has its own settings, position and size.`}
+          >
+            <Button disabled={!canAddInstance} onClick={onAddInstance}>
+              Add instance
+            </Button>
+          </Row>
+          {added && onRemoveInstance && (
+            <div className="ov-reset">
+              {confirmingRemove ? (
+                <>
+                  <span>{`Remove ${title}? Its settings, position and size are deleted.`}</span>
+                  <Button
+                    variant="danger"
+                    onClick={() => {
+                      setConfirmingRemove(false);
+                      onRemoveInstance();
+                    }}
+                  >
+                    Remove
+                  </Button>
+                  <Button onClick={() => setConfirmingRemove(false)}>Cancel</Button>
+                </>
+              ) : (
+                <Button variant="danger" onClick={() => setConfirmingRemove(true)}>
+                  Remove instance
+                </Button>
+              )}
+            </div>
+          )}
+        </Collapsible>
+      )}
       <Collapsible title="Appearance">
         <Row label="Opacity">
           <Slider
@@ -201,7 +271,7 @@ export function OverlayPanel({
       <div className="ov-reset">
         {confirming ? (
           <>
-            <span>{`Reset ${manifest.title} to its defaults? Position and size are kept.`}</span>
+            <span>{`Reset ${title} to its defaults? Position and size are kept.`}</span>
             <Button
               variant="danger"
               onClick={() => {

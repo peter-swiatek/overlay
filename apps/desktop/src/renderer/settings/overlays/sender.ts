@@ -3,6 +3,7 @@ import type {
   OverlayManifest,
   OverlaySettingsPatch,
 } from "@overlay/overlays/contract";
+import { manifestForInstance } from "@overlay/overlays/instances";
 import { applySettingsPatch } from "@overlay/overlays/settings";
 import { settingsOf } from "./model";
 import type { Debouncer } from "./debounce";
@@ -30,6 +31,8 @@ export interface OverlaySender {
   send(id: string, patch: OverlaySettingsPatch, debounceKey?: string): void;
   /** An instance changed in main: re-applies patches main has not confirmed yet on top of it. */
   incoming(id: string, settings: OverlayInstanceSettings): void;
+  /** An added instance was removed in main: forgets it and any patch still waiting for it. */
+  removed(id: string): void;
 }
 
 /**
@@ -48,13 +51,13 @@ export function createOverlaySender(deps: SenderDeps): OverlaySender {
   const unsentByKey = new Map<string, number>();
 
   function manifestOf(id: string): OverlayManifest | undefined {
-    return deps.manifests.find((m) => m.id === id);
+    return manifestForInstance(id, deps.manifests);
   }
 
   function applyLocal(id: string, patch: OverlaySettingsPatch): void {
     const manifest = manifestOf(id);
     if (!manifest) return;
-    all = { ...all, [id]: applySettingsPatch(manifest, settingsOf(manifest, all), patch) };
+    all = { ...all, [id]: applySettingsPatch(manifest, settingsOf(manifest, all, id), patch) };
     deps.publish(all);
   }
 
@@ -106,7 +109,7 @@ export function createOverlaySender(deps: SenderDeps): OverlaySender {
         if (unsentByKey.get(key) !== token) return;
         unsentByKey.delete(key);
         const fields = outgoing.common?.fields;
-        const latest = settingsOf(manifest, all).common.fields;
+        const latest = settingsOf(manifest, all, id).common.fields;
         const sendNow =
           fields === undefined
             ? outgoing
@@ -123,6 +126,15 @@ export function createOverlaySender(deps: SenderDeps): OverlaySender {
         }
       }
       all = { ...all, [id]: next };
+      deps.publish(all);
+    },
+    removed(id) {
+      for (const [token, p] of pending) if (p.id === id) pending.delete(token);
+      for (const [key, token] of unsentByKey) if (!pending.has(token)) unsentByKey.delete(key);
+      if (!(id in all)) return;
+      const next = { ...all };
+      delete next[id];
+      all = next;
       deps.publish(all);
     },
   };
