@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyCar, emptySimState, type Car, type SessionPhase, type SimState } from "../../model";
-import { SLOW_CAR_RANGE_M } from "./types";
-import { SLOW_FOR_S, SLOW_MPS, STOPPED_MPS, SlowCarDetector } from "./detector";
+import { SLOW_FOR_S, SlowCarDetector } from "./detector";
+import { SLOW_CAR_RANGE_M, SLOW_MPS, STOPPED_MPS } from "./types";
 
 const LENGTH_M = 4000;
 const DT = 0.1;

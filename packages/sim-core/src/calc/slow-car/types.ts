@@ -1,5 +1,9 @@
 /** How far ahead the Deriver looks for a slow car, metres. */
 export const SLOW_CAR_RANGE_M = 1000;
+/** A car below this estimated speed counts as slow, m/s (54 km/h). */
+export const SLOW_MPS = 15;
+/** A car below this estimated speed counts as stopped, m/s. */
+export const STOPPED_MPS = 2;
 
 /** The nearest slow or stopped car ahead of the player on track. */
 export interface SlowCarAhead {

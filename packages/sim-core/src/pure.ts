@@ -7,3 +7,4 @@ export { LMU_CLASS_COLOURS, lmuClassColour, normaliseClassName } from "./model/c
 export * from "./calc/delta/select";
 export type * from "./calc/delta/types";
 export { LAP_TRACE_BINS } from "./calc/delta/types";
+export { SLOW_MPS, STOPPED_MPS } from "./calc/slow-car/types";

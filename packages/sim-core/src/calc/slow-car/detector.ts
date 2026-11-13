@@ -1,10 +1,12 @@
 import type { Car, SessionPhase, SimState } from "../../model";
-import { SLOW_CAR_RANGE_M, type SlowCarAhead, type SlowCarEstimate } from "./types";
+import {
+  SLOW_CAR_RANGE_M,
+  SLOW_MPS,
+  STOPPED_MPS,
+  type SlowCarAhead,
+  type SlowCarEstimate,
+} from "./types";
 
-/** A car below this estimated speed counts as slow, m/s (54 km/h). */
-export const SLOW_MPS = 15;
-/** A car below this estimated speed counts as stopped, m/s. */
-export const STOPPED_MPS = 2;
 /** How long the estimate must stay below {@link SLOW_MPS} before the car is reported, seconds. */
 export const SLOW_FOR_S = 0.5;
 

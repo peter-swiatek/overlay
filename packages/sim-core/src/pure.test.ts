@@ -12,6 +12,7 @@ const ALLOWED = new Set([
   "calc/fuel/types.ts",
   "calc/delta/select.ts",
   "calc/delta/types.ts",
+  "calc/slow-car/types.ts",
   "model/sim-state.ts",
   "model/class-colours.ts",
 ]);
