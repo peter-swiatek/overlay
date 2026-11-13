@@ -56,6 +56,10 @@ const LAP_DOWN_CAR = 18;
 const OFF_TRACK_CAR = 5;
 const OFF_TRACK_FROM = 0.3;
 const OFF_TRACK_TO = 0.34;
+/** A second car that runs wide every other lap (odd laps completed), later in the lap. */
+const OFF_TRACK_CAR_2 = 12;
+const OFF_TRACK_2_FROM = 0.64;
+const OFF_TRACK_2_TO = 0.67;
 /** Gear bands over the player's speed (25..55 m/s): [from, to, gear]. The last band includes 55. */
 const GEAR_BANDS: readonly (readonly [number, number, number])[] = [
   [25, 30, 3],
@@ -283,7 +287,7 @@ export class MockSource {
     car.license = "A 3.00";
     car.connected = true;
     car.flags = this.carFlags(index);
-    car.trackSurface = carSurface(index, car.lapDistPct);
+    car.trackSurface = carSurface(index, distance);
     if (cls === HYPER) {
       car.p2pCount = 10 - ((Math.floor(this.timeS / 15) + index) % 11);
       car.p2pActive = this.timeS % 15 < 3;
@@ -522,9 +526,12 @@ function gearAt(speedMps: number): { gear: number; fraction: number } {
   return { gear, fraction };
 }
 
-function carSurface(index: number, lapFraction: number): NonNullable<Car["trackSurface"]> {
+function carSurface(index: number, distance: number): NonNullable<Car["trackSurface"]> {
+  const lap = Math.floor(distance);
+  const f = distance - lap;
   const wide =
-    index === OFF_TRACK_CAR && lapFraction >= OFF_TRACK_FROM && lapFraction < OFF_TRACK_TO;
+    (index === OFF_TRACK_CAR && f >= OFF_TRACK_FROM && f < OFF_TRACK_TO) ||
+    (index === OFF_TRACK_CAR_2 && lap % 2 === 1 && f >= OFF_TRACK_2_FROM && f < OFF_TRACK_2_TO);
   return wide ? "offTrack" : "onTrack";
 }
 

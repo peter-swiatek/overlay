@@ -10,6 +10,7 @@ import {
   type FuelTrackerOptions,
 } from "../calc/fuel";
 import { DeltaTracker, deltaInput, type BestLapStore } from "../calc/delta";
+import { IncidentLogTracker } from "../calc/incidents";
 import { LapHistoryTracker, lapHistoryInput } from "../calc/laps";
 import {
   MiniSectorRecorder,
@@ -67,6 +68,7 @@ export class Deriver {
   private readonly delta: DeltaTracker;
   private readonly lapHistory = new LapHistoryTracker();
   private readonly tyreStint = new TyreStintTracker();
+  private readonly incidentLog = new IncidentLogTracker();
 
   private readonly classIndices = new Map<string, number>();
 
@@ -97,6 +99,7 @@ export class Deriver {
     this.delta.reset();
     this.lapHistory.reset();
     this.tyreStint.reset();
+    this.incidentLog.reset();
     this.track.reset();
     this.classIndices.clear();
   }
@@ -158,6 +161,7 @@ export class Deriver {
         lapHistoryInput(state, standings, player === null ? null : this.fuel.lapRecords),
       ),
       tyreStint: this.tyreStint.next(tyreStintInput(state)),
+      incidentLog: this.incidentLog.next(state),
     };
   }
 

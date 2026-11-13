@@ -218,6 +218,7 @@ export function fixtureFrame(input: {
       slowCar: null,
       laps: null,
       tyreStint: null,
+      incidentLog: null,
     },
   };
 }

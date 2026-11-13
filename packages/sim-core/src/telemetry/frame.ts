@@ -1,6 +1,7 @@
 import type { DeltaOutputs } from "../calc/delta";
 import type { FuelOutputs } from "../calc/fuel";
 import type { GapResult } from "../calc/gaps";
+import type { IncidentLog } from "../calc/incidents";
 import type { LapHistory } from "../calc/laps";
 import type { Proximity } from "../calc/proximity";
 import type { SlowCarAhead } from "../calc/slow-car";
@@ -49,6 +50,11 @@ export interface Derived {
   laps: LapHistory | null;
   /** Laps on the player's tyres; null without tyre data or a lap count. */
   tyreStint: TyreStint | null;
+  /**
+   * The session's incidents and off-track excursions, newest first; null before the first live
+   * tick. See calc/incidents.
+   */
+  incidentLog: IncidentLog | null;
 }
 
 /** What the telemetry process publishes to overlay renderers. Plain structured-cloneable data. */
@@ -74,5 +80,6 @@ export function emptyDerived(): Derived {
     slowCar: null,
     laps: null,
     tyreStint: null,
+    incidentLog: null,
   };
 }

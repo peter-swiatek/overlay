@@ -33,6 +33,7 @@ function frame(opts: { pitRoad?: boolean; limiter?: boolean; limit?: number | nu
       slowCar: null,
       laps: null,
       tyreStint: null,
+      incidentLog: null,
       gaps: [],
     },
   };

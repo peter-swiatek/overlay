@@ -25,6 +25,7 @@ function liveFrame(): TelemetryFrame {
       slowCar: null,
       laps: null,
       tyreStint: null,
+      incidentLog: null,
       gaps: [],
     },
   };

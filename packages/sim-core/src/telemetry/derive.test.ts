@@ -50,6 +50,7 @@ describe("Deriver", () => {
       energy: null,
       laps: null,
       tyreStint: null,
+      incidentLog: null,
     });
   });
 

@@ -81,6 +81,7 @@ function frame(
       slowCar: null,
       laps: null,
       tyreStint: null,
+      incidentLog: null,
       gaps: [],
     },
   };
