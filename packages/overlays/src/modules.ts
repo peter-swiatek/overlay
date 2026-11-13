@@ -14,6 +14,7 @@ import { trackMapModule } from "./track-map";
 import { lapTimesModule } from "./lap-times";
 import { incidentsModule } from "./incidents";
 import { incidentLogModule } from "./incident-log";
+import { incidentBarModule } from "./incident-bar";
 import { tyresModule } from "./tyres";
 import { radarModule } from "./radar";
 import { miniMapModule } from "./mini-map";
@@ -35,6 +36,7 @@ export const OVERLAY_MODULES: readonly OverlayModule[] = [
   lapTimesModule,
   incidentsModule,
   incidentLogModule,
+  incidentBarModule,
   tyresModule,
   radarModule,
   miniMapModule,
