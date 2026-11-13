@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ProximityTracker } from "../calc/proximity";
 import { isSimState } from "../model";
 import { Deriver } from "./derive";
-import { MockSource } from "./mock";
+import { MockSource, mockPlayerFlags } from "./mock";
 
 describe("MockSource", () => {
   it("gives the player a class rival ahead and behind with line gaps and sector times", () => {
@@ -318,5 +318,23 @@ describe("MockSource", () => {
     expect([...seen].some((c) => c === "left" || c === "twoLeft")).toBe(true);
     expect([...seen].some((c) => c === "right" || c === "twoRight")).toBe(true);
     expect(seen.has("both")).toBe(true);
+  });
+
+  it("cycles the player's flags: green, local yellow, green, blue, full-course caution, green", () => {
+    const shown = (t: number) =>
+      Object.entries(mockPlayerFlags(t))
+        .filter(([, on]) => on)
+        .map(([k]) => k);
+    expect(shown(1)).toEqual(["green"]);
+    expect(shown(7)).toEqual([]);
+    expect(shown(15)).toEqual(["yellow"]);
+    expect(shown(27)).toEqual(["green"]);
+    expect(shown(45)).toEqual(["blue"]);
+    expect(shown(65)).toEqual(["fullCourseYellow"]);
+    expect(shown(74)).toEqual(["green"]);
+    expect(shown(85)).toEqual([]);
+    expect(shown(105)).toEqual(["yellow"]);
+    const mock = new MockSource();
+    expect(mock.step(15).flags?.yellow).toBe(true);
   });
 });

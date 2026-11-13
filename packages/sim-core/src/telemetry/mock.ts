@@ -4,6 +4,7 @@ import {
   emptySimState,
   type Car,
   type CarLeftRight,
+  type Flags,
   type SimState,
   type TyreCorner,
   type TyreSet,
@@ -35,6 +36,24 @@ const ABS_BRAKE_LEVEL = 0.8;
 /** Car that is periodically under a local yellow, and the car that needs repair. */
 const YELLOW_CAR = 3;
 const REPAIR_CAR = 7;
+/**
+ * The player's flags repeat every this many seconds: green at the start, a local yellow, green
+ * again as it clears, a blue flag, then a full-course caution and green once more, with quiet
+ * spells between so a flag panel also shows its idle look.
+ */
+const PLAYER_FLAG_CYCLE_S = 90;
+const PLAYER_FLAG_SCRIPT: readonly (readonly [
+  number,
+  number,
+  "green" | "yellow" | "blue" | "fullCourseYellow",
+])[] = [
+  [0, 5, "green"],
+  [10, 25, "yellow"],
+  [25, 30, "green"],
+  [38, 52, "blue"],
+  [60, 72, "fullCourseYellow"],
+  [72, 77, "green"],
+];
 /**
  * A car in the player's class that starts this far (laps) ahead of the player's start and runs
  * the player's nominal lap time, so the player always has a class rival ahead with a gap that
@@ -141,6 +160,14 @@ function spotterCall(cars: readonly Car[], playerPct: number, timeS: number): Ca
   return "clear";
 }
 
+/** The player's flags `timeS` into the demo (see {@link PLAYER_FLAG_SCRIPT}). */
+export function mockPlayerFlags(timeS: number): Flags {
+  const flags = emptyFlags();
+  const t = ((timeS % PLAYER_FLAG_CYCLE_S) + PLAYER_FLAG_CYCLE_S) % PLAYER_FLAG_CYCLE_S;
+  for (const [from, to, flag] of PLAYER_FLAG_SCRIPT) if (t >= from && t < to) flags[flag] = true;
+  return flags;
+}
+
 export class MockSource {
   private timeS = 0;
   private readonly carCount: number;
@@ -180,6 +207,7 @@ export class MockSource {
 
     state.connected = true;
     state.tickTimeS = this.timeS;
+    state.flags = mockPlayerFlags(this.timeS);
     state.playerCarIdx = 0;
     state.focusCarIdx = 0;
     state.cars = distances.map((d, i) =>
