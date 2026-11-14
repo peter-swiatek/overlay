@@ -71,6 +71,11 @@ describe("preload API", () => {
     });
     api.reportWebPageRect(null);
     expect(ipc.send).toHaveBeenCalledWith(IPC.webPageRect, null);
+    const off = api.onTwitchChat(() => {});
+    expect(ipc.on).toHaveBeenCalledWith(IPC.twitchChatEvent, expect.any(Function));
+    expect(ipc.send).toHaveBeenCalledWith(IPC.twitchChatHello);
+    off();
+    expect(ipc.removeListener).toHaveBeenCalledWith(IPC.twitchChatEvent, expect.any(Function));
   });
 
   it("uses the agreed channel names", () => {

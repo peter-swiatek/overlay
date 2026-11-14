@@ -4,6 +4,7 @@ import type {
   OverlaySettingsPatch,
   PageRect,
 } from "@overlay/overlays/contract";
+import type { ChatEvent } from "@overlay/overlays/twitch-chat";
 import type { Theme, ThemeImportResult, ThemeState } from "@overlay/theme/types";
 import type { TableMetrics } from "@overlay/ui/fit";
 import type { AppSettings, AppSettingsPatch } from "./app-settings-types";
@@ -91,6 +92,10 @@ export const IPC = {
    * window) or null to hide it. Main loads the page itself from the stored settings.
    */
   webPageRect: "overlays:web-page-rect",
+  /** Twitch Chat overlay windows to main: send me this instance's chat so far (then the news). */
+  twitchChatHello: "twitch-chat:hello",
+  /** Main to a Twitch Chat overlay window: a `ChatEvent` for its channel. */
+  twitchChatEvent: "twitch-chat:event",
   getCaptureStatus: "capture:get-status",
   captureStatusChanged: "capture:status-changed",
   getCaptureSettings: "capture:get-settings",
@@ -162,6 +167,11 @@ export interface OverlayApi {
   reportTableMetrics(metrics: TableMetrics): void;
   /** Webview overlay windows only: where the embedded page goes, or null to hide it. */
   reportWebPageRect(rect: PageRect | null): void;
+  /**
+   * Twitch Chat overlay windows only: follows this instance's chat, starting with a snapshot.
+   * Main owns the (read-only) connection; returns the unsubscribe function.
+   */
+  onTwitchChat(callback: (event: ChatEvent) => void): () => void;
   getCaptureStatus(): Promise<CaptureStatus>;
   onCaptureStatus(callback: (status: CaptureStatus) => void): () => void;
   getCaptureSettings(): Promise<CaptureSettings>;

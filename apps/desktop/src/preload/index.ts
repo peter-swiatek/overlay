@@ -42,6 +42,11 @@ const api: OverlayApi = {
   reportContentMinSize: (size) => ipcRenderer.send(IPC.contentMinSize, size),
   reportTableMetrics: (metrics) => ipcRenderer.send(IPC.tableMetrics, metrics),
   reportWebPageRect: (rect) => ipcRenderer.send(IPC.webPageRect, rect),
+  onTwitchChat: (callback) => {
+    const off = subscribe(IPC.twitchChatEvent, callback);
+    ipcRenderer.send(IPC.twitchChatHello);
+    return off;
+  },
   getCaptureStatus: () => ipcRenderer.invoke(IPC.getCaptureStatus),
   onCaptureStatus: (callback) => {
     const listener = (_event: unknown, status: Parameters<typeof callback>[0]): void =>

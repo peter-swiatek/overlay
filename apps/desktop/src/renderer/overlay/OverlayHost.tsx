@@ -14,6 +14,7 @@ import { OverlayContent } from "./OverlayContent";
 import { cappedRateHz, hostView } from "./visibility";
 import { useReportTableMetrics } from "./tableMetrics";
 import { useAppSettings, useEditMode, useOverlaySettings } from "./useSettings";
+import { useTwitchChat } from "./useTwitchChat";
 
 const HOST_VIEW_HZ = 5;
 
@@ -38,6 +39,7 @@ function runtimeOf(app: AppSettings, module: OverlayModule, editing: boolean): O
     editing,
     useTrackOutline,
     reportPageRect,
+    useTwitchChat,
   };
 }
 

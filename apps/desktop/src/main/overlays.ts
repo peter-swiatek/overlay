@@ -168,6 +168,11 @@ export class OverlayManager {
     return [...this.open.values()].map((o) => o.win);
   }
 
+  /** The open overlay windows with their instance ids. */
+  openWindows(): { id: string; win: BrowserWindow }[] {
+    return [...this.open.values()].map((o) => ({ id: o.id, win: o.win }));
+  }
+
   /** The overlay id of the window that owns `sender`, if any. */
   idOfSender(sender: Electron.WebContents): string | undefined {
     for (const [id, o] of this.open) {

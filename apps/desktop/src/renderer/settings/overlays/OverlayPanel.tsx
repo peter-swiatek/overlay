@@ -8,6 +8,7 @@ import {
   type SettingValue,
 } from "@overlay/overlays/contract";
 import { instanceTitle, isAddedInstance, MAX_INSTANCE_NAME } from "@overlay/overlays/instances";
+import { isEmptyOrTwitchChannel, storedTwitchChannel } from "@overlay/overlays/twitch-chat";
 import { isEmptyOrWebPageUrl } from "@overlay/overlays/web-url";
 import type { DisplayPrefs } from "@overlay/ui/types";
 import { useState, type ReactNode } from "react";
@@ -71,8 +72,9 @@ function debounceKeyOf(field: SettingField): string | undefined {
   return field.kind === "text" ? `option:${field.key}` : undefined;
 }
 
-/** What a text field stores for `draft` (addresses are trimmed). */
+/** What a text field stores for `draft` (addresses are trimmed, channels become their login). */
 export function storedText(field: Field<"text">, draft: string): string {
+  if (field.format === "twitch-channel") return storedTwitchChannel(draft) ?? draft.trim();
   return field.format === "url" ? draft.trim() : draft;
 }
 
@@ -81,6 +83,9 @@ export function textError(field: Field<"text">, draft: string): string | null {
   if (draft.length > field.maxLength) return `At most ${field.maxLength} characters.`;
   if (field.format === "url" && !isEmptyOrWebPageUrl(draft)) {
     return "Enter an address starting with http:// or https://";
+  }
+  if (field.format === "twitch-channel" && !isEmptyOrTwitchChannel(draft)) {
+    return "Enter a Twitch channel name (3 to 25 letters, digits or _) or its twitch.tv address";
   }
   return null;
 }

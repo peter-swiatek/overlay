@@ -12,6 +12,7 @@ import {
 import pkg from "electron-updater";
 import { parseInstanceId } from "@overlay/overlays/instances";
 import { OVERLAY_MANIFESTS } from "@overlay/overlays/manifests";
+import { TWITCH_CHAT_OVERLAY_ID, twitchChatOptions } from "@overlay/overlays/twitch-chat";
 import { WEBVIEW_OVERLAY_ID } from "@overlay/overlays/webview";
 import { BUILD_INFO } from "../shared/build-info";
 import { IPC } from "../shared/types";
@@ -53,6 +54,8 @@ import { TelemetrySettingsStore } from "./telemetry-settings";
 import { ThemeStore } from "./theme-store";
 import { AppTray } from "./tray";
 import { UpdateSettingsStore } from "./update-settings";
+import { ChannelConnection, chatServerUrl, openWebSocket } from "./twitch-chat/connection";
+import { TwitchChatHub, type ChatWatcher } from "./twitch-chat/hub";
 import { WebPageHost, isWebPageContents } from "./web-page/host";
 import { Updater } from "./updater";
 import { buildMainWindowOptions } from "./window-options";
@@ -95,6 +98,29 @@ let lastRecording = false;
 let lastCaptureError: string | null = null;
 let zorder: ZOrderKeeper | undefined;
 let webPages: WebPageHost | undefined;
+let twitchChat: TwitchChatHub | undefined;
+
+/** The open Twitch Chat overlay windows and the channel each one's stored settings name. */
+function twitchChatWatchers(): ChatWatcher[] {
+  const watchers: ChatWatcher[] = [];
+  for (const { id, win } of overlays?.openWindows() ?? []) {
+    if (parseInstanceId(id)?.overlayId !== TWITCH_CHAT_OVERLAY_ID) continue;
+    const settings = overlaySettings?.get(id);
+    watchers.push({
+      id,
+      channel: settings ? twitchChatOptions(settings).channel : null,
+      send: (event) => {
+        if (!win.isDestroyed()) win.webContents.send(IPC.twitchChatEvent, event);
+      },
+    });
+  }
+  return watchers;
+}
+
+/** Connects to the channels the open Twitch Chat windows show, and only those. */
+function syncTwitchChat(): void {
+  twitchChat?.sync(twitchChatWatchers());
+}
 
 const MAIN_WINDOW_FILE = join(userData, "main-window.json");
 
@@ -210,6 +236,13 @@ function registerIpc(): void {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) webPages?.setRect(id, win, rect);
   });
+  ipcMain.on(IPC.twitchChatHello, (event) => {
+    // Only a Twitch Chat overlay window gets chat, and only its own instance's.
+    const id = overlays?.idOfSender(event.sender);
+    if (id === undefined || parseInstanceId(id)?.overlayId !== TWITCH_CHAT_OVERLAY_ID) return;
+    syncTwitchChat();
+    twitchChat?.hello(id);
+  });
   ipcMain.on(IPC.resizeBy, (event, dx: unknown, dy: unknown) => {
     if (!fromOverlay(event.sender)) return;
     if (typeof dx === "number" && typeof dy === "number") {
@@ -242,6 +275,25 @@ if (!app.requestSingleInstanceLock()) {
     overlaySettings = new OverlaySettingsStore(
       join(userData, "overlay-settings.json"),
       OVERLAY_MANIFESTS,
+    );
+    // Read-only, anonymous Twitch chat: the connections live here, never in a page.
+    const chatUrl = chatServerUrl(process.env["OVERLAY_TWITCH_IRC_URL"], app.isPackaged);
+    twitchChat = new TwitchChatHub(
+      (channel, onEvent) =>
+        new ChannelConnection(
+          channel,
+          {
+            url: chatUrl,
+            openSocket: openWebSocket,
+            now: () => Date.now(),
+            random: () => Math.random(),
+            setTimer: (fn, ms) => {
+              const timer = setTimeout(fn, ms);
+              return () => clearTimeout(timer);
+            },
+          },
+          onEvent,
+        ),
     );
     const appSettingsStore = new AppSettingsStore(join(userData, "app-settings.json"));
     appSettings = appSettingsStore;
@@ -293,6 +345,7 @@ if (!app.requestSingleInstanceLock()) {
       onStateChange: () => {
         notifyAppState();
         webPages?.setEditMode(overlays?.isEditMode ?? false);
+        syncTwitchChat();
       },
       onLayoutSaved: () => {
         if (overlays) sendToMain(IPC.overlaysSizesChanged, overlaySizes(overlays.getLayout()));
@@ -307,6 +360,9 @@ if (!app.requestSingleInstanceLock()) {
     webPages = pages;
     overlaySettings.onChange((id, s) => pages.onSettings(id, s));
     overlaySettings.onRemove((id) => pages.remove(id));
+    overlaySettings.onChange((id) => {
+      if (parseInstanceId(id)?.overlayId === TWITCH_CHAT_OVERLAY_ID) syncTwitchChat();
+    });
     notifyAppState = createAppStateNotifier(
       manager,
       (channel, state) => broadcast(channel, state),
@@ -474,6 +530,7 @@ if (!app.requestSingleInstanceLock()) {
     updater?.stop();
     globalShortcut.unregisterAll();
     zorder?.dispose();
+    twitchChat?.stopAll();
     overlays?.flushSave();
     overlaySettings?.flush();
   });

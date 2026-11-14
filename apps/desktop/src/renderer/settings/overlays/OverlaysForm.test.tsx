@@ -571,6 +571,30 @@ describe("text settings", () => {
     expect(textError(css, "a\nb")).toBeNull();
   });
 
+  it("validates and stores Twitch channels as their login", () => {
+    const channel: Extract<SettingField, { kind: "text" }> = {
+      key: "channel",
+      label: "Channel",
+      kind: "text",
+      default: "",
+      maxLength: 100,
+      format: "twitch-channel",
+    };
+    expect(textError(channel, "")).toBeNull();
+    expect(textError(channel, "#Some_Channel")).toBeNull();
+    expect(textError(channel, "twitch.tv/some_channel")).toBeNull();
+    expect(textError(channel, "no spaces")).toMatch(/Twitch channel name/);
+    expect(textError(channel, "ab")).not.toBeNull();
+    expect(storedText(channel, " #Some_Channel ")).toBe("some_channel");
+    expect(storedText(channel, "https://www.twitch.tv/Some_Channel")).toBe("some_channel");
+    expect(storedText(channel, "  ")).toBe("");
+    const chat = OVERLAY_MANIFESTS.find((m) => m.id === "twitch-chat");
+    if (!chat) throw new Error("no twitch chat manifest");
+    expect(render({ manifests: [chat] })).toMatch(
+      /<input[^>]*aria-label="Channel"[^>]*placeholder="channel_name"[^>]*type="text"/,
+    );
+  });
+
   it("stores addresses trimmed and other text as typed", () => {
     expect(storedText(url, "  http://a.b/  ")).toBe("http://a.b/");
     expect(storedText(css, "  x  ")).toBe("  x  ");
