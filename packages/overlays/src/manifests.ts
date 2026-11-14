@@ -27,6 +27,7 @@ import { vehicleDamageManifest } from "./vehicle-damage/manifest";
 import { carStatusManifest } from "./car-status/manifest";
 import { setupCompareManifest } from "./setup-compare/manifest";
 import { webviewManifest } from "./webview/manifest";
+import { twitchChatManifest } from "./twitch-chat/manifest";
 
 export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   relativeManifest,
@@ -57,6 +58,7 @@ export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   carStatusManifest,
   setupCompareManifest,
   webviewManifest,
+  twitchChatManifest,
 ];
 
 export function manifestById(id: string): OverlayManifest | undefined {

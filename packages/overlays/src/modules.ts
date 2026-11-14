@@ -27,6 +27,7 @@ import { vehicleDamageModule } from "./vehicle-damage";
 import { carStatusModule } from "./car-status";
 import { setupCompareModule } from "./setup-compare";
 import { webviewModule } from "./webview";
+import { twitchChatModule } from "./twitch-chat";
 
 export const OVERLAY_MODULES: readonly OverlayModule[] = [
   relativeModule,
@@ -57,6 +58,7 @@ export const OVERLAY_MODULES: readonly OverlayModule[] = [
   carStatusModule,
   setupCompareModule,
   webviewModule,
+  twitchChatModule,
 ];
 
 export function moduleById(id: string): OverlayModule | undefined {

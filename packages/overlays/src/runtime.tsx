@@ -2,6 +2,7 @@ import { createContext, useContext } from "react";
 import type { Corner, TelemetryFrame, TrackOutline } from "@overlay/sim-core/types";
 import { DEFAULT_DISPLAY_PREFS, type DisplayPrefs } from "@overlay/ui/types";
 import type { PageRect } from "./contract";
+import type { ChatState } from "./twitch-chat/state";
 
 /** Gets the newest frame (null before the first) and whether the stream went stale. */
 export type TelemetrySelector<T> = (frame: TelemetryFrame | null, stale: boolean) => T;
@@ -41,6 +42,12 @@ export interface OverlayRuntime {
    * loads it itself.
    */
   reportPageRect?: (rect: PageRect | null) => void;
+  /**
+   * Overlay windows only (absent in the settings preview): the Twitch chat of this window's
+   * instance. The host owns the connection and picks the channel from the stored settings; the
+   * overlay only reads what arrives.
+   */
+  useTwitchChat?: () => ChatState;
 }
 
 export const OverlayRuntimeContext = createContext<OverlayRuntime | null>(null);

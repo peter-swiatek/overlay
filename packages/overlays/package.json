@@ -18,7 +18,8 @@
     "./instances": "./src/instances.ts",
     "./views": "./src/views.ts",
     "./web-url": "./src/shared/web-url.ts",
-    "./webview": "./src/webview/options.ts"
+    "./webview": "./src/webview/options.ts",
+    "./twitch-chat": "./src/twitch-chat/options.ts"
   },
   "dependencies": {
     "@overlay/sim-core": "workspace:*",

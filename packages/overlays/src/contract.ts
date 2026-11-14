@@ -58,10 +58,11 @@ export type SettingField =
       /** Hint shown while empty. */
       placeholder?: string;
       /**
-       * "url": empty, or an http(s) address (see shared/web-url). A value that does not fit is
-       * refused: the stored value stays as it was.
+       * "url": empty, or an http(s) address (see shared/web-url). "twitch-channel": empty, or a
+       * Twitch channel, stored as its lowercase login (see twitch-chat/channel). A value that does
+       * not fit is refused: the stored value stays as it was.
        */
-      format?: "url";
+      format?: "url" | "twitch-channel";
     });
 
 /** A visible field, or a column of a table overlay. */
@@ -126,7 +127,7 @@ export interface OverlayManifest {
   /** Listed in the Overlays page only while developer tools are on. */
   dev?: boolean;
   /**
-   * False for overlays whose content does not come from the sim (Webview): they show without
+   * False for overlays whose content does not come from the sim (Webview, Twitch Chat): they show without
    * telemetry instead of the "no data" notice. Auto-hide still hides them while driving. Default true.
    */
   needsTelemetry?: boolean;

@@ -10,6 +10,7 @@ import {
 } from "../contract";
 import { instanceNumber, isAddedInstance, MAX_INSTANCE_NAME, parseInstanceId } from "../instances";
 import { isEmptyOrWebPageUrl } from "../shared/web-url";
+import { storedTwitchChannel } from "../twitch-chat/channel";
 
 type Obj = Record<string, unknown>;
 type NumberLimits = { min: number; max: number; step: number };
@@ -56,6 +57,7 @@ function parseOptionValue(field: SettingField, value: unknown): SettingValue | u
       // A one-line value keeps no line breaks; an address is stored trimmed.
       if (field.multiline !== true && /[\r\n]/.test(value)) return undefined;
       if (field.format === "url") return isEmptyOrWebPageUrl(value) ? value.trim() : undefined;
+      if (field.format === "twitch-channel") return storedTwitchChannel(value) ?? undefined;
       return value;
     }
     case "multi": {

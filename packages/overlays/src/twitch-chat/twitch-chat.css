@@ -1,0 +1,179 @@
+.tc {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--ov-bg);
+  color: var(--ov-text);
+  font-family: var(--ov-font-family, inherit);
+  font-weight: var(--ov-font-weight, 500);
+  font-size: var(--ov-font-size, 14px);
+}
+
+/* 1 px inset border drawn above the content, like the kit panel. */
+.tc::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  pointer-events: none;
+}
+
+/* Header and footer strips. */
+.tc-strip {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.66em;
+  box-sizing: border-box;
+  min-height: 1.83em;
+  padding: 0.17em var(--ov-cell-pad-x, 7px);
+  overflow: hidden;
+  white-space: nowrap;
+  background: var(--ov-header);
+  font-size: 0.86em;
+}
+
+.tc-strip--top {
+  border-bottom: 1px solid var(--ov-border);
+}
+
+/* Edit mode only: clear of the resize grip in the corner. */
+.tc-strip--footer {
+  margin-top: auto;
+  padding-right: 1.6em;
+  border-top: 1px solid var(--ov-border);
+}
+
+.tc-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.36em;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tc-label {
+  flex: none;
+  color: var(--ov-text-muted);
+  font-weight: 500;
+}
+
+.tc-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 700;
+}
+
+/* Purple while joined to the channel, muted otherwise. */
+.tc-dot {
+  flex: none;
+  color: var(--ov-text-muted);
+  font-weight: 800;
+}
+
+.tc-dot[data-live] {
+  color: var(--ov-locked-fastest);
+}
+
+.tc-status {
+  flex: none;
+  padding: 0.5em 0.71em 0;
+  color: var(--ov-text-muted);
+  font-size: 0.84em;
+  overflow-wrap: anywhere;
+}
+
+/* Messages: bottom-up by default (newest at the bottom, older ones leave at the top). */
+.tc-list {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.5em;
+  min-height: 0;
+  padding: 0.57em 0.71em;
+  overflow: hidden;
+  font-size: 0.84em;
+  line-height: 1.3;
+}
+
+.tc[data-direction="top-down"] .tc-list {
+  justify-content: flex-start;
+}
+
+.tc-msg {
+  flex: none;
+  overflow-wrap: anywhere;
+  transition: opacity 1s linear;
+}
+
+.tc-msg--out {
+  opacity: 0;
+}
+
+:root[data-reduced-effects="true"] .tc-msg {
+  transition: none;
+}
+
+/* The channel owner's messages: a lighter row with a purple bar. */
+.tc-msg--broadcaster {
+  padding: 0.29em 0.43em;
+  border-left: 0.18em solid var(--ov-locked-fastest);
+  border-radius: 4px;
+  background: var(--ov-header);
+}
+
+.tc-time {
+  margin-right: 0.36em;
+  color: var(--ov-text-muted);
+  font-size: 0.84em;
+  font-variant-numeric: tabular-nums;
+}
+
+.tc-badge {
+  display: inline-block;
+  margin-right: 0.36em;
+  padding: 0.2em 0.6em;
+  border-radius: 999px;
+  font-size: 0.7em;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: 0.12em;
+  white-space: nowrap;
+}
+
+.tc-badge--moderator {
+  background: var(--ov-locked-gain);
+  color: var(--ov-locked-flag-black);
+}
+
+.tc-badge--subscriber,
+.tc-badge--vip {
+  background: var(--ov-locked-fastest);
+  color: var(--ov-locked-flag-white);
+}
+
+.tc-badge--broadcaster {
+  background: var(--ov-locked-loss);
+  color: var(--ov-locked-flag-white);
+}
+
+.tc-name {
+  font-weight: 700;
+}
+
+.tc-text--action {
+  font-style: italic;
+}
+
+/* Emotes stay text (their images are never loaded). */
+.tc-emote {
+  font-weight: 600;
+}
