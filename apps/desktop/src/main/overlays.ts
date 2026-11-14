@@ -52,6 +52,8 @@ export interface OverlayManagerDeps {
   onStateChange: () => void;
   /** Whether developer tools are on; developer-only overlays stay closed while they are off. */
   isDeveloperEnabled?: () => boolean;
+  /** Whether "Combine safety & iRating" is on: the table fit then leaves out the SR column. */
+  isCombinedLicencePill?: () => boolean;
   /** Called after each (debounced) layout save, so sizes can be pushed to the main window. */
   onLayoutSaved?: () => void;
 }
@@ -262,7 +264,7 @@ export class OverlayManager {
     const settings = this.effectiveSettings()[id];
     const metrics = this.metricsFor(id);
     if (!manifest?.table || !settings || !metrics) return;
-    const target = fitTarget(manifest, settings, metrics, this.activeSim);
+    const target = fitTarget(manifest, settings, metrics, this.activeSim, this.combinedLicence());
     const entry = this.open.get(id);
     const prevFit = this.layout[id]?.fitWidth;
     if (entry && !entry.win.isDestroyed()) {
@@ -336,6 +338,17 @@ export class OverlayManager {
     } else if (plan.bounds) {
       this.scheduleSave();
     }
+  }
+
+  /** Call when "Combine safety & iRating" changes: refits the table overlays (one column fewer or more). */
+  refreshTableFit(): void {
+    for (const id of this.instanceIds()) {
+      if (this.manifestOf(id)?.table) this.applyFit(id);
+    }
+  }
+
+  private combinedLicence(): boolean {
+    return this.deps.isCombinedLicencePill?.() ?? false;
   }
 
   /** Sets the sim the telemetry source reads (null when unknown) and refits the table overlays when it changed. */
@@ -416,7 +429,7 @@ export class OverlayManager {
     if (stored && stored.scalePct !== scalePct && layoutEntry.fitWidth !== undefined) {
       // The fit was recorded at the old scale; re-record it at this one (no resize).
       const target = this.lastMetrics
-        ? fitTarget(manifest, settings, this.lastMetrics, this.activeSim)
+        ? fitTarget(manifest, settings, this.lastMetrics, this.activeSim, this.combinedLicence())
         : null;
       if (target?.fitWidth != null) layoutEntry.fitWidth = target.fitWidth;
     }
@@ -487,7 +500,9 @@ export class OverlayManager {
     // The reported content minimum was measured at the old scale; it is re-measured shortly.
     entry.contentMin = scaleContentMin(entry.contentMin, (toPct / entry.scalePct) * 100, chrome);
     const metrics = this.metricsFor(id);
-    const target = metrics ? fitTarget(manifest, settings, metrics, this.activeSim) : null;
+    const target = metrics
+      ? fitTarget(manifest, settings, metrics, this.activeSim, this.combinedLicence())
+      : null;
     entry.tableMinWidth = target
       ? target.minWidth
       : Math.round((entry.tableMinWidth * toPct) / entry.scalePct);

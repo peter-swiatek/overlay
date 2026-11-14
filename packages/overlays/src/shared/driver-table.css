@@ -59,6 +59,11 @@
   color: var(--ov-text-muted);
 }
 
+/* Driver name of a car that is not out on track (muteOffTrackName). */
+.ov-name--off-track {
+  color: var(--ov-text-muted);
+}
+
 /* In the flag column the badge starts at the cell edge. */
 .ov-cell > .ov-badge-flag:first-child {
   margin-left: 0;

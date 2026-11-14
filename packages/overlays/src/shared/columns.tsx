@@ -21,7 +21,9 @@ import {
   DRIVER_FIELDS,
   DRIVER_FIELD_IDS,
   SHORT_LABEL,
+  COMBINED_LICENCE_LABEL,
   IRATING_CHARS,
+  labelChars,
   columnFloorChars,
   type DriverFieldId,
   type IRatingSize,
@@ -35,7 +37,10 @@ export interface DriverColumnContext {
   nameFormat: NameFormat;
   gapDecimals: Decimals;
   lapDecimals: Decimals;
-  /** runtime.combinedLicencePill */
+  /**
+   * runtime.combinedLicencePill: the iRating column becomes "SR/IR", one iRating pill filled in
+   * the licence colour. The caller hides the separate SR column (combineLicenceFields).
+   */
   combinedLicencePill: boolean;
   /** "standings": gap = gap to the class leader with formatGap; "relative": gap = relativeGapS with formatDelta. */
   gapMode: "standings" | "relative";
@@ -49,6 +54,8 @@ export interface DriverColumnContext {
   inlinePitBadge?: boolean;
   /** Last lap cell reads "IN PIT" (muted) while the car is on pit road. Default false. */
   pitInLastLap?: boolean;
+  /** Driver name in the muted text colour while the car is not out on track (row.outOnTrack). Default false. */
+  muteOffTrackName?: boolean;
 }
 
 const NONE = "--";
@@ -128,14 +135,15 @@ export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[
     driver: (r) => {
       const name = formatNameDisplay(r.driverName, r.teamName, ctx.nameDisplay, ctx.nameFormat);
       const text = name === "" ? NONE : name;
+      const muted = ctx.muteOffTrackName === true && !r.outOnTrack;
       let badge: FlagBadgeKind | null = null;
       if (ctx.inlineFlagBadge === true && r.badge !== null) badge = r.badge;
       else if (ctx.inlinePitBadge === true && r.onPitRoad) badge = "pit";
-      if (badge === null) return text;
+      if (badge === null && !muted) return text;
       return (
         <>
-          <span className="ov-cell-text">{text}</span>
-          <FlagBadge kind={badge} />
+          <span className={muted ? "ov-cell-text ov-name--off-track" : "ov-cell-text"}>{text}</span>
+          {badge === null ? null : <FlagBadge kind={badge} />}
         </>
       );
     },
@@ -190,17 +198,23 @@ export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[
   };
   const size = ctx.iRatingSize ?? "auto";
   const fixedIRating = size !== "auto";
+  const minCharsFor = (id: DriverFieldId): number | undefined => {
+    const floor = fixedIRating && id === "irating" ? IRATING_CHARS[size] : columnFloorChars(id);
+    return ctx.combinedLicencePill && id === "irating"
+      ? Math.max(floor ?? 0, labelChars(COMBINED_LICENCE_LABEL))
+      : floor;
+  };
   return DRIVER_FIELD_IDS.map((id) => {
     const field = DRIVER_FIELDS.find((f) => f.id === id);
     const layout = LAYOUT[id];
     return {
       id,
-      label: SHORT_LABEL[id],
+      label: ctx.combinedLicencePill && id === "irating" ? COMBINED_LICENCE_LABEL : SHORT_LABEL[id],
       align: layout.align,
       grow: layout.grow,
       cellClassName: CELL_CLASS[id],
       chars: fixedIRating && id === "irating" ? IRATING_CHARS[size] : (field?.chars ?? 6),
-      minChars: fixedIRating && id === "irating" ? IRATING_CHARS[size] : columnFloorChars(id),
+      minChars: minCharsFor(id),
       dropPriority: field?.dropPriority,
       defaultWidthPct: field?.defaultWidthPct ?? 8,
       render: renderers[id],

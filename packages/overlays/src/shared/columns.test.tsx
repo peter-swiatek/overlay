@@ -211,6 +211,31 @@ describe("driverColumns", () => {
     expect(flagOnly).not.toContain("ov-badge-flag");
   });
 
+  it("mutes the driver name of a car not out on track only with muteOffTrackName", () => {
+    const away = row({ driverName: "Ada Testova", outOnTrack: false });
+    expect(cell("driver", away)).not.toContain("ov-name--off-track");
+    const muted = cell("driver", away, { muteOffTrackName: true });
+    expect(muted).toContain("ov-name--off-track");
+    expect(muted).toContain("Ada Testova");
+    expect(cell("driver", row({ driverName: "Ada Testova" }), { muteOffTrackName: true })).toBe(
+      "Ada Testova",
+    );
+  });
+
+  it("heads the iRating column SR/IR and fills the pill with the licence colour when combined", () => {
+    const cols = driverColumns({ ...CTX, combinedLicencePill: true });
+    const ir = cols.find((c) => c.id === "irating");
+    expect(ir?.label).toBe("SR/IR");
+    expect(ir?.minChars ?? 0).toBeGreaterThanOrEqual(6);
+    const html = cell("irating", row({ iRating: 1712, licence: "B 3.88" }), {
+      combinedLicencePill: true,
+    });
+    expect(html).toContain("1.7k");
+    expect(html).toContain("ov-pill--ir-tinted");
+    expect(html).toContain("var(--ov-locked-licence-b)");
+    expect(driverColumns(CTX).find((c) => c.id === "irating")?.label).toBe("iR");
+  });
+
   it("drops the iRating change with showIRatingChange: false", () => {
     const r = row({ iRating: 2400, iRatingChange: 11 });
     expect(cell("irating", r, { showIRatingChange: false })).not.toContain("ov-ir-delta");

@@ -44,6 +44,8 @@ export interface DriverRow {
   lap: number | null; // lapInProgress
   onPitRoad: boolean;
   inPitStall: boolean;
+  /** Out on track (isOutOnTrack): false on pit road, in the pit stall, in the garage or disconnected. */
+  outOnTrack: boolean;
   lastPitLap: number | null;
   stintLaps: number | null;
   prevStintLaps: number | null;
@@ -100,6 +102,18 @@ function chosen(live: boolean, liveValue: number | null, official: number | null
 function isYellowCar(car: Car): boolean {
   if (car.trackSurface === "offTrack") return true;
   return car.flags?.yellow === true && car.onPitRoad !== true;
+}
+
+/**
+ * Whether the car is out on track: connected (iRacing reads a car in the garage as not
+ * connected), in the world, off pit road and out of the pit stall. The pit-entry stretch
+ * ("approachingPits") still counts as on track; onPitRoad takes over at the pit lane line.
+ */
+export function isOutOnTrack(car: Car): boolean {
+  if (!car.connected) return false;
+  if (car.onPitRoad === true || car.inPitStall === true) return false;
+  if (car.isOnTrack === false) return false;
+  return car.trackSurface !== "notInWorld" && car.trackSurface !== "inPitStall";
 }
 
 /** The flag badge a car shows, by priority DSQ > BLK > DMG > OFF > YEL; null when none. */
@@ -167,6 +181,7 @@ function buildRow(
     lap: car.lapInProgress,
     onPitRoad: car.onPitRoad === true,
     inPitStall: car.inPitStall === true,
+    outOnTrack: isOutOnTrack(car),
     lastPitLap: entry?.lastPitLap ?? null,
     stintLaps: entry?.stintLaps ?? null,
     prevStintLaps: entry?.prevStintLaps ?? null,

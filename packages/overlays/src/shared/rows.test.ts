@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fixtureFrame } from "./fixtures";
 import type { Car, Flags } from "@overlay/sim-core/types";
-import { driverRows, flagBadgeKind, reuseRows, type DriverRowOptions } from "./rows";
+import { driverRows, flagBadgeKind, isOutOnTrack, reuseRows, type DriverRowOptions } from "./rows";
 
 function noFlags(): Flags {
   return {
@@ -254,5 +254,27 @@ describe("yellow rows and flag badges", () => {
     expect(rows.map((r) => r.p2pCount)).toEqual([4, null, null]);
     expect(rows.map((r) => r.p2pActive)).toEqual([true, false, false]);
     expect(rows.map((r) => r.badge)).toEqual([null, "off", null]);
+  });
+
+  it("counts a car out on track only when connected, in the world and off pit road", () => {
+    const car = (extra: Partial<Car>): Car => ({
+      ...fixtureFrame({ cars: [{ carIdx: 0 }] }).state.cars[0]!,
+      ...extra,
+    });
+    expect(isOutOnTrack(car({}))).toBe(true);
+    expect(isOutOnTrack(car({ trackSurface: "onTrack", isOnTrack: true }))).toBe(true);
+    expect(isOutOnTrack(car({ trackSurface: "offTrack" }))).toBe(true);
+    expect(isOutOnTrack(car({ trackSurface: "approachingPits" }))).toBe(true);
+    expect(isOutOnTrack(car({ onPitRoad: true }))).toBe(false);
+    expect(isOutOnTrack(car({ inPitStall: true }))).toBe(false);
+    expect(isOutOnTrack(car({ trackSurface: "inPitStall" }))).toBe(false);
+    expect(isOutOnTrack(car({ trackSurface: "notInWorld" }))).toBe(false);
+    expect(isOutOnTrack(car({ isOnTrack: false }))).toBe(false);
+    expect(isOutOnTrack(car({ connected: false }))).toBe(false);
+    const rows = driverRows(
+      fixtureFrame({ cars: [{ carIdx: 0 }, { carIdx: 1, onPitRoad: true }] }),
+      OPTS,
+    );
+    expect(rows.map((r) => r.outOnTrack)).toEqual([true, false]);
   });
 });

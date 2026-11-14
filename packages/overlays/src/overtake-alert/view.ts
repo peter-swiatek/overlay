@@ -217,6 +217,7 @@ const SAMPLE_ROW: DriverRow = {
   lap: null,
   onPitRoad: false,
   inPitStall: false,
+  outOnTrack: true,
   lastPitLap: null,
   stintLaps: null,
   prevStintLaps: null,

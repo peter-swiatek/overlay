@@ -10,6 +10,7 @@ import {
   driverColumns,
   driverRowStyle,
   fieldsForSim,
+  combineLicenceFields,
   infoItems,
   readTableOptions,
   type DriverRow,
@@ -73,8 +74,8 @@ export function RelativeOverlay({ settings }: OverlayProps) {
   }, 10);
   const { view, sim } = selected;
   const fields = useMemo(
-    () => fieldsForSim(settings.common.fields, sim),
-    [settings.common.fields, sim],
+    () => combineLicenceFields(fieldsForSim(settings.common.fields, sim), combinedLicencePill),
+    [settings.common.fields, sim, combinedLicencePill],
   );
 
   const inlineFlagBadge = !fields.some((f) => f.id === "flag" && f.visible);

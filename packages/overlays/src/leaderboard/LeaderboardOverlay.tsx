@@ -4,6 +4,7 @@ import type { OverlayProps } from "../module";
 import { useOverlayRuntime } from "../runtime";
 import { optionBoolean, optionNumber, optionStrings } from "../settings";
 import {
+  combineLicenceFields,
   driverColumns,
   fieldsForSim,
   driverRowStyle,
@@ -19,6 +20,8 @@ import { leaderboardManifest } from "./manifest";
 import { leaderboardView, reuseView, type LeaderboardView } from "./view";
 
 const AFTER_GAP = "ov-lb-after-gap";
+/** Rows of cars not out on track (pit road, pit stall, garage, disconnected): name muted, row text dimmed. */
+const OFF_TRACK = "ov-lb-off-track";
 
 function sofText(sof: number): string {
   return sof >= 1000 ? `SoF ${(sof / 1000).toFixed(1)}k` : `SoF ${Math.round(sof)}`;
@@ -70,15 +73,17 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
   }, 5);
 
   const fields = useMemo(
-    () => fieldsForSim(settings.common.fields, sim),
-    [settings.common.fields, sim],
+    () => combineLicenceFields(fieldsForSim(settings.common.fields, sim), combinedLicencePill),
+    [settings.common.fields, sim, combinedLicencePill],
   );
   // Columns for the fit hook: the same ids, chars and floors DataTable gets (grow = driver).
-  const fitColumns = useMemo(() => fitColumnsFor(leaderboardManifest), []);
+  const fitColumns = useMemo(
+    () => fitColumnsFor(leaderboardManifest, settings, combinedLicencePill),
+    [settings, combinedLicencePill],
+  );
   const fit = useFittedFields(fields, fitColumns, table.widthMode, table.widthScalePct);
   const shown = (id: string): boolean => fit.fields.some((f) => f.id === id && f.visible);
   const inlineFlagBadge = !shown("flag");
-  const inlinePitBadge = !shown("pit-lane");
 
   const columns = useMemo(
     () =>
@@ -94,12 +99,13 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
         iRatingSize: iRatingChange ? "wide" : "narrow",
         pitInLastLap: true,
         inlineFlagBadge,
-        inlinePitBadge,
+        // No PIT tag after the name: a car off track has its name greyed out instead.
+        inlinePitBadge: false,
+        muteOffTrackName: true,
       }),
     [
       prefs,
       inlineFlagBadge,
-      inlinePitBadge,
       combinedLicencePill,
       table.nameDisplay,
       table.nameFormat,
@@ -119,7 +125,10 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
     widthScalePct: table.widthScalePct,
     showHeader: rowLabels,
     isOwnRow: (r: DriverRow) => r.isFocus,
-    rowClassName: (r: DriverRow) => (gapRows.has(r.carIdx) ? AFTER_GAP : undefined),
+    rowClassName: (r: DriverRow) =>
+      [gapRows.has(r.carIdx) ? AFTER_GAP : "", r.outOnTrack ? "" : OFF_TRACK]
+        .filter(Boolean)
+        .join(" ") || undefined,
     rowStyle: driverRowStyle,
     isYellowRow: (r: DriverRow) => r.yellow,
   };

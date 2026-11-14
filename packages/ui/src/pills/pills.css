@@ -144,6 +144,12 @@
   color: #c92a2a;
 }
 
+/* On the licence colour the green / red change is unreadable: it takes the pill's readable text
+   colour, and the triangle alone gives the direction. */
+.ov-pill--ir-tinted .ov-ir-delta {
+  color: inherit;
+}
+
 .ov-ir-tri {
   font-size: 0.72em;
   line-height: 1;

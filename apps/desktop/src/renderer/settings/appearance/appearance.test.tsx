@@ -278,6 +278,18 @@ describe("AppearanceForm", () => {
     expect(pills.slice(0, pills.indexOf("<input") + 200)).not.toContain("disabled");
   });
 
+  it("previews the combined SR/IR pill: one licence-coloured iRating pill, no SR pill", () => {
+    const off = render(stateOf(custom.id, [custom]), false);
+    const offSample = off.slice(off.indexOf("ap-pill-sample"));
+    expect(offSample).toContain("ov-pill--lic-a");
+    expect(offSample).not.toContain("ov-pill--ir-tinted");
+    const on = render(stateOf(custom.id, [custom]), true);
+    expect(on).toContain("One SR/IR column");
+    const onSample = on.slice(on.indexOf("ap-pill-sample"));
+    expect(onSample).not.toContain("ov-pill--lic-a");
+    expect(onSample).toContain("ov-pill--ir-tinted");
+  });
+
   it("keeps a custom theme editable and offers a plain New theme button", () => {
     const html = render(stateOf(custom.id, [custom]));
     expect(html).not.toContain("Built-in colour schemes");

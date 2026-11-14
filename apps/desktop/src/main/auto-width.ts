@@ -33,8 +33,9 @@ export function fitTarget(
   settings: OverlayInstanceSettings,
   metrics: TableMetrics,
   sim: SimName | null = null,
+  combinedLicence = false,
 ): FitTarget {
-  const widths = tableWidthsFor(manifest, settings, metrics, sim);
+  const widths = tableWidthsFor(manifest, settings, metrics, sim, combinedLicence);
   if (!widths) return { fitWidth: null, minWidth: 0 };
   const scale = settings.common.scalePct / 100;
   return {

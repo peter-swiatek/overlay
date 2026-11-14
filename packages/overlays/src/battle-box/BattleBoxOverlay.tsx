@@ -5,7 +5,13 @@ import { useMemo, useRef } from "react";
 import type { OverlayProps } from "../module";
 import { useOverlayRuntime } from "../runtime";
 import { optionBoolean } from "../settings";
-import { driverColumns, driverRowStyle, fieldsForSim, readTableOptions } from "../shared";
+import {
+  combineLicenceFields,
+  driverColumns,
+  driverRowStyle,
+  fieldsForSim,
+  readTableOptions,
+} from "../shared";
 import { fitColumnsFor } from "../shared/table-fit";
 import { ChProbe, useFittedFields } from "../shared/useFittedFields";
 import "./battle-box.css";
@@ -60,10 +66,13 @@ export function BattleBoxOverlay({ settings }: OverlayProps) {
   }, 10);
 
   const fields = useMemo(
-    () => fieldsForSim(settings.common.fields, sim),
-    [settings.common.fields, sim],
+    () => combineLicenceFields(fieldsForSim(settings.common.fields, sim), combinedLicencePill),
+    [settings.common.fields, sim, combinedLicencePill],
   );
-  const fitColumns = useMemo(() => fitColumnsFor(battleBoxManifest, settings), [settings]);
+  const fitColumns = useMemo(
+    () => fitColumnsFor(battleBoxManifest, settings, combinedLicencePill),
+    [settings, combinedLicencePill],
+  );
   const fit = useFittedFields(fields, fitColumns, table.widthMode, table.widthScalePct);
   const shown = (id: string): boolean => fit.fields.some((f) => f.id === id && f.visible);
   const inlineFlagBadge = !shown("flag");

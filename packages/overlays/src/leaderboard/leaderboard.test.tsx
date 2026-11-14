@@ -2,7 +2,7 @@ import type { Flags, TelemetryFrame } from "@overlay/sim-core/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { OverlayInstanceSettings } from "../contract";
-import { OverlayRuntimeContext, staticRuntime } from "../runtime";
+import { OverlayRuntimeContext, staticRuntime, type OverlayRuntime } from "../runtime";
 import { applySettingsPatch, defaultInstanceSettings, sanitizeOptionValue } from "../settings";
 import { FIXTURE_NAMES, driverRows, fixtureFrame, type DriverRow } from "../shared";
 import { LeaderboardOverlay } from "./LeaderboardOverlay";
@@ -383,6 +383,7 @@ describe("manifest", () => {
 function render(
   frame: TelemetryFrame | null,
   patch: Parameters<typeof applySettingsPatch>[2] = {},
+  runtime: Partial<OverlayRuntime> = {},
 ): string {
   const settings: OverlayInstanceSettings = applySettingsPatch(
     leaderboardManifest,
@@ -390,7 +391,7 @@ function render(
     patch,
   );
   return renderToStaticMarkup(
-    <OverlayRuntimeContext.Provider value={staticRuntime(frame)}>
+    <OverlayRuntimeContext.Provider value={staticRuntime(frame, runtime)}>
       <LeaderboardOverlay settings={settings} />
     </OverlayRuntimeContext.Provider>,
   );
@@ -565,14 +566,42 @@ describe("LeaderboardOverlay restyle", () => {
     expect(off).not.toContain("ov-fastest");
   });
 
-  it("shows OFF and PIT after the name when the Flag and Pit lane columns are hidden", () => {
+  it("shows OFF after the name when the Flag column is hidden, but never a PIT tag", () => {
     const { frame, car } = setup();
     car(0).trackSurface = "offTrack";
     car(2).onPitRoad = true;
     const html = render(frame, withColumns(BASE));
     expect(html).toContain("OFF");
-    expect(html).toContain("PIT");
+    expect(html).not.toContain("ov-badge-flag--pit");
+    expect(html).not.toContain(">PIT<");
     expect(html).toContain("ov-cell-text");
+  });
+
+  it("greys out the name and dims the row of every car not out on track", () => {
+    const { frame, car } = setup();
+    car(2).onPitRoad = true; // pit road
+    car(3).inPitStall = true; // pit stall
+    car(4).connected = false; // garage / disconnected
+    car(5).trackSurface = "notInWorld";
+    const html = render(frame, withColumns(BASE));
+    expect(html.match(/ov-name--off-track/g)).toHaveLength(4);
+    expect(html.match(/ov-lb-off-track/g)).toHaveLength(4);
+    // Cars on track (and approaching the pits) keep the normal name.
+    car(2).onPitRoad = false;
+    car(3).inPitStall = false;
+    car(4).connected = true;
+    car(5).trackSurface = "approachingPits";
+    const back = render(frame, withColumns(BASE));
+    expect(back).not.toContain("ov-name--off-track");
+    expect(back).not.toContain("ov-lb-off-track");
+  });
+
+  it("greys out the own car's name off track and keeps the own-row highlight", () => {
+    const { frame, car } = setup();
+    car(1).onPitRoad = true;
+    const html = render(frame, withColumns(BASE));
+    expect(html).toMatch(/class="ov-row[^"]*ov-row--own[^"]*ov-lb-off-track"/);
+    expect(html).toContain("ov-name--off-track");
   });
 
   it("puts the badge in the Flag column, not inline, when Flag is visible", () => {
@@ -603,6 +632,63 @@ describe("LeaderboardOverlay restyle", () => {
 
   it("writes an empty data-hidden-columns on the root when nothing is measured", () => {
     expect(render(threeClasses(1), ALL)).toContain('data-hidden-columns=""');
+  });
+});
+
+describe("Leaderboard combined safety & iRating", () => {
+  const COLS = {
+    options: { "show-all": true },
+  };
+  it("shows separate SR and iR columns with the switch off", () => {
+    const frame = threeClasses(1);
+    for (const c of frame.state.cars) c.license = "B 2.50";
+    const html = render(frame, COLS);
+    expect(html).toContain(">SR<");
+    expect(html).toContain(">iR<");
+    expect(html).not.toContain("SR/IR");
+    expect(html).toContain("ov-pill--lic-");
+    expect(html).not.toContain("ov-pill--ir-tinted");
+  });
+
+  it("shows one SR/IR column of licence-coloured iRating pills with the switch on", () => {
+    const frame = threeClasses(1);
+    for (const c of frame.state.cars) {
+      c.license = "B 2.50";
+      c.iRating = 1700;
+    }
+    const html = render(frame, COLS, { combinedLicencePill: true });
+    expect(html).toContain(">SR/IR<");
+    expect(html).not.toContain(">SR<");
+    expect(html).not.toContain(">iR<");
+    expect(html).not.toContain("ov-pill--lic-");
+    expect(html).toContain("ov-pill--ir-tinted");
+    expect(html).toContain("1.7k");
+    expect(html).toContain("var(--ov-locked-licence-b)");
+  });
+
+  it("shows the SR/IR column when only the SR column was chosen", () => {
+    const fields = defaultInstanceSettings(leaderboardManifest).common.fields.map((f) => ({
+      ...f,
+      visible: f.id === "irating" ? false : f.visible,
+    }));
+    const html = render(
+      threeClasses(1),
+      { common: { fields }, options: { "show-all": true } },
+      {
+        combinedLicencePill: true,
+      },
+    );
+    expect(html).toContain(">SR/IR<");
+    expect(html).toContain("ov-pill--ir");
+  });
+
+  it("fits one column narrower with the switch on", () => {
+    const settings = defaultInstanceSettings(leaderboardManifest);
+    const off = tableWidthsFor(leaderboardManifest, settings, NOMINAL_TABLE_METRICS);
+    const on = tableWidthsFor(leaderboardManifest, settings, NOMINAL_TABLE_METRICS, null, true);
+    if (off?.fitPx == null || on?.fitPx == null) throw new Error("no fit");
+    expect(on.fitPx).toBeLessThan(off.fitPx);
+    expect(on.minPx).toBeLessThanOrEqual(off.minPx);
   });
 });
 

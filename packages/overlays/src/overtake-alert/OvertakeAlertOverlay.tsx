@@ -4,7 +4,13 @@ import { useMemo, useRef, type CSSProperties } from "react";
 import type { OverlayProps } from "../module";
 import { useOverlayRuntime } from "../runtime";
 import { optionBoolean, optionNumber } from "../settings";
-import { driverColumns, driverRowStyle, fieldsForSim, readTableOptions } from "../shared";
+import {
+  combineLicenceFields,
+  driverColumns,
+  driverRowStyle,
+  fieldsForSim,
+  readTableOptions,
+} from "../shared";
 import { fitColumnsFor } from "../shared/table-fit";
 import { ChProbe, useFittedFields } from "../shared/useFittedFields";
 import { overtakeAlertManifest } from "./manifest";
@@ -47,10 +53,14 @@ export function OvertakeAlertOverlay({ settings }: OverlayProps) {
   const rows = selected.rows.length > 0 || !editing ? selected.rows : sample;
 
   const fields = useMemo(
-    () => fieldsForSim(settings.common.fields, selected.sim),
-    [settings.common.fields, selected.sim],
+    () =>
+      combineLicenceFields(fieldsForSim(settings.common.fields, selected.sim), combinedLicencePill),
+    [settings.common.fields, selected.sim, combinedLicencePill],
   );
-  const fitColumns = useMemo(() => fitColumnsFor(overtakeAlertManifest, settings), [settings]);
+  const fitColumns = useMemo(
+    () => fitColumnsFor(overtakeAlertManifest, settings, combinedLicencePill),
+    [settings, combinedLicencePill],
+  );
   const fit = useFittedFields(fields, fitColumns, table.widthMode, table.widthScalePct);
 
   const columns = useMemo((): TableColumn<OvertakeRow>[] => {

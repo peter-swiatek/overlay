@@ -94,7 +94,10 @@ export function AppearanceForm(props: AppearanceFormProps) {
         {error && <p className="note ap-error">{error}</p>}
       </Section>
       <Section title="Pills">
-        <Row label="Combine safety & iRating" help="Tint the iRating pill with the licence colour.">
+        <Row
+          label="Combine safety & iRating"
+          help="One SR/IR column in place of the SR and iR columns: the iRating pill filled in the licence colour."
+        >
           <Toggle
             label="Combine safety & iRating"
             checked={combinePills}
@@ -102,7 +105,7 @@ export function AppearanceForm(props: AppearanceFormProps) {
           />
         </Row>
         <ThemeScope theme={theme} typography={typography} className="ap-pill-sample">
-          <LicencePill licence="A 3.41" />
+          {combinePills ? null : <LicencePill licence="A 3.41" />}
           <IRatingPill iRating={2412} licence="A 3.41" tinted={combinePills} />
         </ThemeScope>
       </Section>

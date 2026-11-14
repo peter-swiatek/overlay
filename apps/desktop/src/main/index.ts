@@ -329,11 +329,16 @@ if (!app.requestSingleInstanceLock()) {
       getSourceLabel: () => telemetry?.getSettings().source ?? "unknown",
     });
     let developerWas = appSettingsStore.load().developer.enabled;
+    let combinedWas = appSettingsStore.load().appearance.combinedLicencePill;
     appSettingsStore.onChange((next) => {
       tray?.refresh();
       if (next.developer.enabled !== developerWas) {
         developerWas = next.developer.enabled;
         overlays?.refreshDeveloperMode();
+      }
+      if (next.appearance.combinedLicencePill !== combinedWas) {
+        combinedWas = next.appearance.combinedLicencePill;
+        overlays?.refreshTableFit();
       }
     });
 
@@ -351,6 +356,7 @@ if (!app.requestSingleInstanceLock()) {
         if (overlays) sendToMain(IPC.overlaysSizesChanged, overlaySizes(overlays.getLayout()));
       },
       isDeveloperEnabled: () => appSettingsStore.load().developer.enabled,
+      isCombinedLicencePill: () => appSettingsStore.load().appearance.combinedLicencePill,
     });
     overlays = manager;
     const pages = new WebPageHost({

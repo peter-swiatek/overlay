@@ -72,6 +72,12 @@ const RIVAL_LEAD_LAPS = 0.03;
 const LAP_UP_CAR = 9;
 const LAP_UP_LAPS = 0.85;
 const LAP_DOWN_CAR = 18;
+/**
+ * A car parked in the garage for the whole session (iRacing reads it as not connected and not in
+ * the world): it never leaves the grid, so tables can preview a driver who is not out on track.
+ * Only in fields of more than 19 cars (the default 20).
+ */
+const GARAGE_CAR = 19;
 /** Car that runs wide once per lap, and the lap fraction range it is off track. */
 const OFF_TRACK_CAR = 5;
 const OFF_TRACK_FROM = 0.3;
@@ -218,7 +224,9 @@ export class MockSource {
           ? this.stopCarDistance()
           : i === CHASE_CAR
             ? this.chaseCarDistance()
-            : this.distance(i),
+            : i === GARAGE_CAR
+              ? 0
+              : this.distance(i),
     );
     const order = distances.map((d, i) => ({ d, i })).sort((a, b) => b.d - a.d || a.i - b.i);
     const overall = new Map(order.map((o, rank) => [o.i, rank + 1]));
@@ -416,6 +424,11 @@ export class MockSource {
     car.connected = true;
     car.flags = this.carFlags(index);
     car.trackSurface = carSurface(index, distance);
+    if (index === GARAGE_CAR) {
+      car.connected = false;
+      car.isOnTrack = false;
+      car.trackSurface = "notInWorld";
+    }
     if (cls === HYPER) {
       car.p2pCount = 10 - ((Math.floor(this.timeS / 15) + index) % 11);
       car.p2pActive = this.timeS % 15 < 3;

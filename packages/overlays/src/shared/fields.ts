@@ -156,6 +156,29 @@ export const SHORT_LABEL: Record<DriverFieldId, string> = {
   flag: "Flag",
 };
 
+/** Header of the iRating column while "Combine safety & iRating" is on (the SR column is hidden). */
+export const COMBINED_LICENCE_LABEL = "SR/IR";
+
+/**
+ * The field config with "Combine safety & iRating" applied: when `combined`, the separate Safety
+ * rating column is hidden and the iRating column (now "SR/IR") shows when either of the two was
+ * shown, in the iRating column's place. Unchanged (same array) when off or neither is present.
+ */
+export function combineLicenceFields<T extends FieldConfig>(
+  config: readonly T[],
+  combined: boolean,
+): readonly T[] {
+  if (!combined) return config;
+  const licence = config.find((f) => f.id === "licence");
+  if (licence === undefined || !config.some((f) => f.id === "irating")) return config;
+  const either = licence.visible || config.some((f) => f.id === "irating" && f.visible);
+  return config.map((f) => {
+    if (f.id === "licence") return { ...f, visible: false };
+    if (f.id === "irating" && f.visible !== either) return { ...f, visible: either };
+    return f;
+  });
+}
+
 /** Characters a header needs; capitals are wider than the digit the `ch` unit measures. */
 export function labelChars(label: string): number {
   return Math.ceil(label.length * 1.2);

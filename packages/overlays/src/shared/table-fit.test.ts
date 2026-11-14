@@ -6,7 +6,7 @@ import { applySettingsPatch, defaultInstanceSettings } from "../settings";
 import { driverColumns } from "./columns";
 import { DRIVER_FIELD_IDS, driverFields } from "./fields";
 import { TABLE_OPTION_FIELDS } from "./options";
-import { IRATING_CHARS } from "./fields";
+import { IRATING_CHARS, combineLicenceFields } from "./fields";
 import { fitColumnsFor, iRatingSizeFor, tableWidthsFor } from "./table-fit";
 
 const BOARD = [
@@ -147,5 +147,22 @@ describe("iRating pill size in the fit", () => {
     const fit = (on: boolean) =>
       tableWidthsFor(WITH_TOGGLE, withToggle(on), NOMINAL_TABLE_METRICS)?.fitPx ?? 0;
     expect(fit(true)).toBeGreaterThan(fit(false));
+  });
+});
+
+describe("combineLicenceFields", () => {
+  const f = (id: string, visible: boolean) => ({ id, visible, widthPct: null });
+  it("hides SR and shows the SR/IR (iRating) column when either was shown", () => {
+    const config = [f("driver", true), f("licence", true), f("irating", false)];
+    expect(combineLicenceFields(config, false)).toBe(config);
+    expect(combineLicenceFields(config, true)).toEqual([
+      f("driver", true),
+      f("licence", false),
+      f("irating", true),
+    ]);
+    const neither = [f("licence", false), f("irating", false)];
+    expect(combineLicenceFields(neither, true)).toEqual(neither);
+    const noIRating = [f("licence", true)];
+    expect(combineLicenceFields(noIRating, true)).toBe(noIRating);
   });
 });

@@ -3,7 +3,10 @@ import type { ColumnWidthMode } from "@overlay/ui/types";
 import type { OverlayInstanceSettings, OverlayManifest } from "../contract";
 import type { SimName } from "@overlay/sim-core/types";
 import {
+  COMBINED_LICENCE_LABEL,
   IRATING_CHANGE_KEY,
+  combineLicenceFields,
+  labelChars,
   IRATING_CHARS,
   columnFloorChars,
   fieldsForSim,
@@ -24,22 +27,33 @@ export function iRatingSizeFor(
   return value === true ? "wide" : "narrow";
 }
 
-/** FitColumns for a table manifest, matching what driverColumns gives DataTable (grow = driver). */
+/**
+ * FitColumns for a table manifest, matching what driverColumns gives DataTable (grow = driver).
+ * `combinedLicence`: the iRating column carries the "SR/IR" header, so its floor covers it.
+ */
 export function fitColumnsFor(
   manifest: OverlayManifest,
   settings?: OverlayInstanceSettings,
+  combinedLicence = false,
 ): FitColumn[] {
   const size = iRatingSizeFor(manifest, settings);
-  return manifest.fields.map((def) => ({
-    id: def.id,
-    chars: def.id === "irating" && size !== "auto" ? IRATING_CHARS[size] : (def.chars ?? 6),
-    minChars:
+  return manifest.fields.map((def) => {
+    const chars = def.id === "irating" && size !== "auto" ? IRATING_CHARS[size] : (def.chars ?? 6);
+    let minChars =
       def.id === "irating" && size !== "auto"
         ? IRATING_CHARS[size]
-        : (columnFloorChars(def.id) ?? def.minChars),
-    grow: def.id === "driver" ? true : undefined,
-    dropPriority: def.dropPriority,
-  }));
+        : (columnFloorChars(def.id) ?? def.minChars);
+    if (combinedLicence && def.id === "irating") {
+      minChars = Math.max(minChars ?? chars, labelChars(COMBINED_LICENCE_LABEL));
+    }
+    return {
+      id: def.id,
+      chars,
+      minChars,
+      grow: def.id === "driver" ? true : undefined,
+      dropPriority: def.dropPriority,
+    };
+  });
 }
 
 function widthMode(value: unknown): ColumnWidthMode {
@@ -48,19 +62,21 @@ function widthMode(value: unknown): ColumnWidthMode {
 
 /**
  * The table widths for an overlay's current settings at 100 % scale; null for non-table manifests.
- * With a known `sim`, columns that only exist in the other sim are left out, as the overlay does.
+ * With a known `sim`, columns that only exist in the other sim are left out, as the overlay does;
+ * with `combinedLicence` the Safety rating column is left out ("Combine safety & iRating").
  */
 export function tableWidthsFor(
   manifest: OverlayManifest,
   settings: OverlayInstanceSettings,
   metrics: TableMetrics,
   sim: SimName | null = null,
+  combinedLicence = false,
 ): TableWidths | null {
   if (!manifest.table) return null;
   const fineTune = settings.options["width-fine-tune"];
   return tableWidths(
-    fitColumnsFor(manifest, settings),
-    fieldsForSim(settings.common.fields, sim),
+    fitColumnsFor(manifest, settings, combinedLicence),
+    combineLicenceFields(fieldsForSim(settings.common.fields, sim), combinedLicence),
     widthMode(settings.options["column-width"]),
     typeof fineTune === "number" ? fineTune : 100,
     metrics,
