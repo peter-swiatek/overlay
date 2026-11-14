@@ -25,6 +25,7 @@ import { flatTrackMapManifest } from "./flat-track-map/manifest";
 import { dataFramesManifest } from "./data-frames/manifest";
 import { vehicleDamageManifest } from "./vehicle-damage/manifest";
 import { carStatusManifest } from "./car-status/manifest";
+import { setupCompareManifest } from "./setup-compare/manifest";
 
 export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   relativeManifest,
@@ -53,6 +54,7 @@ export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   dataFramesManifest,
   vehicleDamageManifest,
   carStatusManifest,
+  setupCompareManifest,
 ];
 
 export function manifestById(id: string): OverlayManifest | undefined {

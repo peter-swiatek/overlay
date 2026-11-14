@@ -25,6 +25,7 @@ import { flatTrackMapModule } from "./flat-track-map";
 import { dataFramesModule } from "./data-frames";
 import { vehicleDamageModule } from "./vehicle-damage";
 import { carStatusModule } from "./car-status";
+import { setupCompareModule } from "./setup-compare";
 
 export const OVERLAY_MODULES: readonly OverlayModule[] = [
   relativeModule,
@@ -53,6 +54,7 @@ export const OVERLAY_MODULES: readonly OverlayModule[] = [
   dataFramesModule,
   vehicleDamageModule,
   carStatusModule,
+  setupCompareModule,
 ];
 
 export function moduleById(id: string): OverlayModule | undefined {
