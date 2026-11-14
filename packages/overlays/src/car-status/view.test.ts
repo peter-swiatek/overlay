@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { damage } from "../vehicle-damage/testing";
 import { carFrame, restDamage } from "./testing";
 import {
+  brakeBand,
   carStatusView,
   damagePctText,
   fractionSeverity,
@@ -64,6 +65,25 @@ describe("helpers", () => {
     expect(tyreTemp({ ...hot, innerLayer: null }, true, WINDOW).band).toBe("hot");
     const none = { ...fl, innerLayer: null, surface: { inner: null, middle: null, outer: null } };
     expect(tyreTemp(none, true, WINDOW)).toEqual({ c: null, band: "unknown" });
+  });
+
+  it("bands brake discs: cold below 150 C, hot above 750 C, very hot above 950 C", () => {
+    expect(brakeBand(null)).toBe("unknown");
+    expect(brakeBand(Number.NaN)).toBe("unknown");
+    expect(brakeBand(20)).toBe("cold");
+    expect(brakeBand(149)).toBe("cold");
+    expect(brakeBand(150)).toBe("ok");
+    expect(brakeBand(412)).toBe("ok");
+    expect(brakeBand(750)).toBe("ok");
+    expect(brakeBand(751)).toBe("hot");
+    expect(brakeBand(950)).toBe("hot");
+    expect(brakeBand(951)).toBe("veryHot");
+    expect(brakeBand(1200)).toBe("veryHot");
+  });
+
+  it("samples the edit-mode brakes at 412 / 436 / 355 / 371 C", () => {
+    const t = SAMPLE_CAR_STATUS_VIEW.tyres!;
+    expect([t.fl.brakeC, t.fr.brakeC, t.rl.brakeC, t.rr.brakeC]).toEqual([412, 436, 355, 371]);
   });
 
   it("writes damage with one decimal", () => {

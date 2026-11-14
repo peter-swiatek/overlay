@@ -105,25 +105,47 @@
   overflow: visible;
 }
 
-/* Outline segments: grey when undamaged, yellow minor, red heavy. */
+/* Body segments: outlined and lightly filled; grey when undamaged, yellow minor, red heavy. */
 .cs-seg {
-  fill: none;
-  stroke-width: 5;
-  stroke-linecap: round;
+  stroke-width: 1.6;
   stroke-linejoin: round;
 }
 
 .cs-seg--ok,
 .cs-seg--unknown {
-  stroke: color-mix(in srgb, var(--ov-text-muted) 55%, transparent);
+  fill: color-mix(in srgb, var(--ov-text-muted) 14%, transparent);
+  stroke: color-mix(in srgb, var(--ov-text-muted) 70%, transparent);
 }
 
 .cs-seg--minor {
+  fill: color-mix(in srgb, var(--ov-locked-rejoin-yellow) 18%, transparent);
   stroke: var(--ov-locked-rejoin-yellow);
 }
 
 .cs-seg--heavy {
+  fill: color-mix(in srgb, var(--ov-locked-loss) 22%, transparent);
   stroke: var(--ov-locked-loss);
+}
+
+/* Brake strip on the inboard face of each tyre, banded by disc temperature. */
+.cs-brake--cold {
+  fill: var(--ov-locked-tyre-cold);
+}
+
+.cs-brake--ok {
+  fill: var(--ov-locked-gain);
+}
+
+.cs-brake--hot {
+  fill: var(--ov-locked-flag-yellow);
+}
+
+.cs-brake--veryHot {
+  fill: var(--ov-locked-loss);
+}
+
+.cs-brake--unknown {
+  fill: color-mix(in srgb, var(--ov-text) 18%, transparent);
 }
 
 /* Tyre blocks in the Tyres overlay's temperature bands. */
@@ -158,7 +180,7 @@
 /* Suspension damage on each corner; faint when the game's repair screen does not answer. */
 .cs-chev {
   fill: none;
-  stroke-width: 3;
+  stroke-width: 3.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }

@@ -37,13 +37,20 @@ function classOf(html: string, attr: string): string | undefined {
   return /class="([^"]*)"/.exec(tag)?.[1];
 }
 
-/** The tyre block's and the chevron's classes of one wheel. */
-function wheel(html: string, id: string): { tyre?: string; chevron?: string } {
-  const group = html.slice(html.indexOf(`data-wheel="${id}"`));
-  return {
-    tyre: /<rect class="([^"]*)"/.exec(group)?.[1],
-    chevron: /<path class="([^"]*)"/.exec(group)?.[1],
-  };
+/** One wheel's group, from its opening tag to its closing one. */
+function wheelGroup(html: string, id: string): string {
+  const start = html.indexOf(`data-wheel="${id}"`);
+  return html.slice(start, html.indexOf("</g>", start));
+}
+
+/** The classes of one wheel's parts: tyre block, brake strip and suspension chevron. */
+function wheel(html: string, id: string): { tyre?: string; brake?: string; chevron?: string } {
+  const group = wheelGroup(html, id);
+  const part = (name: string) =>
+    /class="([^"]*)"/.exec(
+      group.slice(group.lastIndexOf("<", group.indexOf(`data-part="${name}"`))),
+    )?.[1];
+  return { tyre: part("tyre"), brake: part("brake"), chevron: part("suspension") };
 }
 
 /** The values of one corner's column, top to bottom. */
@@ -55,12 +62,16 @@ function cornerValues(html: string, id: string): string[] {
 }
 
 describe("car status manifest", () => {
-  it("is an LMU-only 380 x 280 panel, off by default, and registered", () => {
+  it("is an LMU-only 440 x 300 panel, off by default, and registered", () => {
     const m = carStatusManifest;
     expect(m.id).toBe("car-status");
     expect(m.title).toBe("Car Status");
     expect(m.sims).toEqual(["lmu"]);
-    expect(m.defaultSize).toEqual({ width: 380, height: 280 });
+    expect(m.defaultSize).toEqual({ width: 440, height: 300 });
+    expect(m.minSize).toEqual({ width: 340, height: 240 });
+    // On a 1920 x 1080 screen.
+    expect(m.defaultPosition.x + m.defaultSize.width).toBeLessThanOrEqual(1920);
+    expect(m.defaultPosition.y + m.defaultSize.height).toBeLessThanOrEqual(1080);
     expect(m.defaultEnabled).toBe(false);
     expect(defaultInstanceSettings(m).enabled).toBe(false);
     expect(defaultInstanceSettings(m).options).toMatchObject({
@@ -120,6 +131,26 @@ describe("CarStatusOverlay", () => {
     );
     const flat = render(carFrame({ damage: damage([], { rl: true }) }));
     expect(wheel(flat, "rl").tyre).toBe("cs-tyre cs-tyre--flat");
+  });
+
+  it("draws each wheel from the body outward: suspension chevron, brake strip, tyre", () => {
+    const html = render(carFrame());
+    for (const id of ["fl", "fr", "rl", "rr"]) {
+      const parts = [...wheelGroup(html, id).matchAll(/data-part="([^"]*)"/g)].map((m) => m[1]);
+      expect(parts).toEqual(["suspension", "brake", "tyre"]);
+    }
+    // The brake strip belongs to the wheel, not to the body outline.
+    expect(html.match(/data-part="brake"/g)).toHaveLength(4);
+    expect(html.match(/data-zone=/g)).toHaveLength(9);
+  });
+
+  it("colours each brake strip by its disc temperature", () => {
+    // Design set: 490 / 510 C at the front.
+    expect(wheel(render(carFrame()), "fl").brake).toBe("cs-brake cs-brake--ok");
+    const sample = render(null, {}, { editing: true });
+    expect(wheel(sample, "fr").brake).toBe("cs-brake cs-brake--ok");
+    const none = render(carFrame({ tyres: false }));
+    expect(wheel(none, "rr").brake).toBe("cs-brake cs-brake--unknown");
   });
 
   it("shows suspension and aero damage only while the game's repair screen answers", () => {
@@ -201,6 +232,10 @@ describe("car status CSS", () => {
     expect(rule(".cs-tyre--overheat")).toContain("var(--ov-locked-loss)");
     expect(rule(".cs-seg--minor")).toContain("var(--ov-locked-rejoin-yellow)");
     expect(rule(".cs-seg--heavy")).toContain("var(--ov-locked-loss)");
+    expect(rule(".cs-brake--cold")).toContain("var(--ov-locked-tyre-cold)");
+    expect(rule(".cs-brake--ok")).toContain("var(--ov-locked-gain)");
+    expect(rule(".cs-brake--hot")).toContain("var(--ov-locked-flag-yellow)");
+    expect(rule(".cs-brake--veryHot")).toContain("var(--ov-locked-loss)");
   });
 
   it("sizes text in em only", () => {

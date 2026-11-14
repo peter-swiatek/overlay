@@ -78,6 +78,23 @@ export function tyreTemp(
   return { c: mean, band: tempBand(temps, window) };
 }
 
+/** Brake disc temperature bands: our thresholds, the sim names none. */
+export type BrakeBand = "cold" | "ok" | "hot" | "veryHot" | "unknown";
+/** Below this a disc is cold: it has not come up to working temperature yet. */
+export const BRAKE_COLD_BELOW_C = 150;
+/** Above this a disc runs hot. */
+export const BRAKE_HOT_ABOVE_C = 750;
+/** Above this a disc runs very hot. */
+export const BRAKE_VERY_HOT_ABOVE_C = 950;
+
+/** The colour band of a brake disc temperature; unknown without one. */
+export function brakeBand(celsius: number | null): BrakeBand {
+  if (celsius === null || !Number.isFinite(celsius)) return "unknown";
+  if (celsius < BRAKE_COLD_BELOW_C) return "cold";
+  if (celsius > BRAKE_VERY_HOT_ABOVE_C) return "veryHot";
+  return celsius > BRAKE_HOT_ABOVE_C ? "hot" : "ok";
+}
+
 /** "3.0%"; one decimal so a light knock does not read as zero. */
 export function damagePctText(v: number): string {
   return `${(v * 100).toFixed(1)}%`;

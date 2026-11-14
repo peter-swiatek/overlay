@@ -21,9 +21,9 @@ export const carStatusManifest: OverlayManifest = {
   description:
     "Damage, tyres and temperatures in one panel: the car from above with its body damage and tyre temperatures, each corner's values beside it, and the engine's oil and water in the middle.",
   sims: ["lmu"],
-  defaultSize: { width: 380, height: 280 },
-  minSize: { width: 300, height: 220 },
-  defaultPosition: { x: 1500, y: 760 },
+  defaultSize: { width: 440, height: 300 },
+  minSize: { width: 340, height: 240 },
+  defaultPosition: { x: 1460, y: 760 },
   table: false,
   fields: [],
   settings: [

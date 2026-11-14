@@ -12,8 +12,11 @@ import {
 import type { TempWindow } from "../tyres/view";
 import type { Severity, ZoneId } from "../vehicle-damage/view";
 import "./car-status.css";
+import { SEGMENTS, VIEW_H, VIEW_W, WHEELS } from "./shape";
 import {
+  brakeBand,
   carStatusView,
+  CORNERS,
   damagePctText,
   fractionSeverity,
   SAMPLE_CAR_STATUS_VIEW,
@@ -27,31 +30,6 @@ export function tempText(celsius: number | null, prefs: DisplayPrefs): string {
   if (celsius === null) return NO_VALUE;
   return `${degreesText(celsius, prefs)}${prefs.units === "imperial" ? "F" : "C"}`;
 }
-
-/**
- * The outline in the 160 x 200 drawing (nose up, the car's left on the left): a bar across the
- * nose, a rounded segment on each corner, a straight one down each side and two bars across the
- * tail. Each is coloured by its dent zone.
- */
-const SEGMENTS: readonly { zone: ZoneId; d: string }[] = [
-  { zone: "front", d: "M62,19 Q80,14 98,19" },
-  { zone: "frontLeft", d: "M38,64 V40 A18,18 0 0 1 54,22" },
-  { zone: "frontRight", d: "M122,64 V40 A18,18 0 0 0 106,22" },
-  { zone: "left", d: "M38,80 V124" },
-  { zone: "right", d: "M122,80 V124" },
-  { zone: "rearLeft", d: "M38,140 V162 A18,18 0 0 0 54,180" },
-  { zone: "rearRight", d: "M122,140 V162 A18,18 0 0 0 106,180" },
-  { zone: "rear", d: "M62,182 H98" },
-  { zone: "rear", d: "M48,193 H112" },
-];
-
-/** Tyre blocks, and the chevron on the inboard side of each, pointing at the car. */
-const WHEELS: Readonly<Record<CornerId, { x: number; y: number; chevron: string }>> = {
-  fl: { x: 4, y: 30, chevron: "M29,43 L35,52 L29,61" },
-  fr: { x: 134, y: 30, chevron: "M131,43 L125,52 L131,61" },
-  rl: { x: 4, y: 124, chevron: "M29,137 L35,146 L29,155" },
-  rr: { x: 134, y: 124, chevron: "M131,137 L125,146 L131,155" },
-};
 
 interface Options {
   rows: { temp: boolean; pressure: boolean; tread: boolean; suspension: boolean; brake: boolean };
@@ -67,7 +45,7 @@ function Car({ view, o }: { view: CarStatusView; o: Options }) {
   const zones = view.damage?.zones ?? null;
   const zoneClass = (z: ZoneId): Severity | "unknown" => (zones === null ? "unknown" : zones[z]);
   return (
-    <svg className="cs-car" viewBox="0 0 160 200" aria-hidden="true">
+    <svg className="cs-car" viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} aria-hidden="true">
       {SEGMENTS.map((s, i) => (
         <path
           key={i}
@@ -76,23 +54,29 @@ function Car({ view, o }: { view: CarStatusView; o: Options }) {
           d={s.d}
         />
       ))}
-      {(Object.keys(WHEELS) as CornerId[]).map((id) => {
+      {CORNERS.map((id) => {
         const w = WHEELS[id];
         const tyre = view.tyres?.[id];
         const band = tyre === undefined ? "unknown" : tyreTemp(tyre, o.underTread, o.window).band;
         const flat = view.damage?.tyreFlat[id] === true;
         const susp = fractionSeverity(view.suspension?.[id] ?? null) ?? "unknown";
+        const brake = brakeBand(tyre?.brakeC ?? null);
+        // From the body outward: suspension, brake, tyre.
         return (
           <g key={id} data-wheel={id}>
+            <path className={`cs-chev cs-chev--${susp}`} data-part="suspension" d={w.chevron} />
+            <rect
+              className={`cs-brake cs-brake--${brake}`}
+              data-part="brake"
+              {...w.brake}
+              rx="1.5"
+            />
             <rect
               className={flat ? "cs-tyre cs-tyre--flat" : `cs-tyre cs-tyre--${band}`}
-              x={w.x}
-              y={w.y}
-              width="22"
-              height="44"
-              rx="3"
+              data-part="tyre"
+              {...w.tyre}
+              rx="4"
             />
-            <path className={`cs-chev cs-chev--${susp}`} d={w.chevron} />
           </g>
         );
       })}
