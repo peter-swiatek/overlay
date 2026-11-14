@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import type { Corner, TelemetryFrame, TrackOutline } from "@overlay/sim-core/types";
 import { DEFAULT_DISPLAY_PREFS, type DisplayPrefs } from "@overlay/ui/types";
+import type { PageRect } from "./contract";
 
 /** Gets the newest frame (null before the first) and whether the stream went stale. */
 export type TelemetrySelector<T> = (frame: TelemetryFrame | null, stale: boolean) => T;
@@ -34,6 +35,12 @@ export interface OverlayRuntime {
    * its built-in sample track.
    */
   useTrackOutline?: UseTrackOutline;
+  /**
+   * Overlay windows only (absent in the settings preview): where the Webview overlay's page goes,
+   * in CSS px of the window, or null to hide it. The host places the page there; the overlay never
+   * loads it itself.
+   */
+  reportPageRect?: (rect: PageRect | null) => void;
 }
 
 export const OverlayRuntimeContext = createContext<OverlayRuntime | null>(null);

@@ -47,7 +47,22 @@ export type SettingField =
       /** "Pick up to N". */
       max?: number;
     })
-  | (SettingFieldBase & { kind: "colour"; default: FunctionalColour });
+  | (SettingFieldBase & { kind: "colour"; default: FunctionalColour })
+  | (SettingFieldBase & {
+      kind: "text";
+      default: string;
+      /** Longest accepted value in characters; a longer one is refused, never cut. */
+      maxLength: number;
+      /** A text area instead of a one-line input. */
+      multiline?: boolean;
+      /** Hint shown while empty. */
+      placeholder?: string;
+      /**
+       * "url": empty, or an http(s) address (see shared/web-url). A value that does not fit is
+       * refused: the stored value stays as it was.
+       */
+      format?: "url";
+    });
 
 /** A visible field, or a column of a table overlay. */
 export interface OverlayFieldDef {
@@ -78,6 +93,14 @@ export interface Size {
   height: number;
 }
 
+/** A rectangle in an overlay window, CSS px (window DIPs). */
+export interface PageRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface OverlayManifest {
   /** kebab-case and stable: used as a key in settings and layout files. */
   id: string;
@@ -102,6 +125,16 @@ export interface OverlayManifest {
   commonDefaults?: Partial<Pick<CommonOverlaySettings, "hideInGarage" | "hideOnTrack">>;
   /** Listed in the Overlays page only while developer tools are on. */
   dev?: boolean;
+  /**
+   * False for overlays whose content does not come from the sim (Webview): they show without
+   * telemetry instead of the "no data" notice. Auto-hide still hides them while driving. Default true.
+   */
+  needsTelemetry?: boolean;
+  /**
+   * The title bar takes its own row while editing too, instead of lying over the content's top
+   * edge (Webview: the embedded page is a native view that would cover it). Default false.
+   */
+  editTitleBarInFlow?: boolean;
   /**
    * Non-table overlays whose layout option changes the natural window size (Fuel Calculator).
    * When the option's value changes, main sets the window to sizes[value] at the overlay's scale,

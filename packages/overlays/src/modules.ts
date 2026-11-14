@@ -26,6 +26,7 @@ import { dataFramesModule } from "./data-frames";
 import { vehicleDamageModule } from "./vehicle-damage";
 import { carStatusModule } from "./car-status";
 import { setupCompareModule } from "./setup-compare";
+import { webviewModule } from "./webview";
 
 export const OVERLAY_MODULES: readonly OverlayModule[] = [
   relativeModule,
@@ -55,6 +56,7 @@ export const OVERLAY_MODULES: readonly OverlayModule[] = [
   vehicleDamageModule,
   carStatusModule,
   setupCompareModule,
+  webviewModule,
 ];
 
 export function moduleById(id: string): OverlayModule | undefined {

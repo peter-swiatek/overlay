@@ -9,6 +9,7 @@ import {
   type SettingValue,
 } from "../contract";
 import { instanceNumber, isAddedInstance, MAX_INSTANCE_NAME, parseInstanceId } from "../instances";
+import { isEmptyOrWebPageUrl } from "../shared/web-url";
 
 type Obj = Record<string, unknown>;
 type NumberLimits = { min: number; max: number; step: number };
@@ -50,6 +51,13 @@ function parseOptionValue(field: SettingField, value: unknown): SettingValue | u
     case "colour":
       if (value === "accent") return "accent";
       return typeof value === "string" && COLOUR_RE.test(value) ? value.toLowerCase() : undefined;
+    case "text": {
+      if (typeof value !== "string" || value.length > field.maxLength) return undefined;
+      // A one-line value keeps no line breaks; an address is stored trimmed.
+      if (field.multiline !== true && /[\r\n]/.test(value)) return undefined;
+      if (field.format === "url") return isEmptyOrWebPageUrl(value) ? value.trim() : undefined;
+      return value;
+    }
     case "multi": {
       if (!Array.isArray(value)) return undefined;
       const allowed = new Set(field.options.map((o) => o.value));

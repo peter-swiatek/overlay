@@ -26,6 +26,7 @@ import { dataFramesManifest } from "./data-frames/manifest";
 import { vehicleDamageManifest } from "./vehicle-damage/manifest";
 import { carStatusManifest } from "./car-status/manifest";
 import { setupCompareManifest } from "./setup-compare/manifest";
+import { webviewManifest } from "./webview/manifest";
 
 export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   relativeManifest,
@@ -55,6 +56,7 @@ export const OVERLAY_MANIFESTS: readonly OverlayManifest[] = [
   vehicleDamageManifest,
   carStatusManifest,
   setupCompareManifest,
+  webviewManifest,
 ];
 
 export function manifestById(id: string): OverlayManifest | undefined {

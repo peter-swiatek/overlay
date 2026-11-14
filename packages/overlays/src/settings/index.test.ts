@@ -359,3 +359,62 @@ describe("visibleFields and typed readers", () => {
     expect(() => optionStrings(settings, "pick")).toThrow();
   });
 });
+
+describe("text settings", () => {
+  const textManifest: OverlayManifest = {
+    ...manifest,
+    table: false,
+    fields: [],
+    settings: [
+      { key: "url", label: "URL", kind: "text", default: "", maxLength: 2048, format: "url" },
+      { key: "note", label: "Note", kind: "text", default: "hi", maxLength: 10 },
+      { key: "css", label: "CSS", kind: "text", default: "", maxLength: 40, multiline: true },
+    ],
+  };
+  const text = (key: string) => {
+    const f = textManifest.settings.find((s) => s.key === key);
+    if (!f) throw new Error(key);
+    return f;
+  };
+
+  it("accepts strings up to the limit and refuses longer ones without cutting", () => {
+    expect(sanitizeOptionValue(text("note"), "short")).toBe("short");
+    expect(sanitizeOptionValue(text("note"), "x".repeat(10))).toBe("x".repeat(10));
+    expect(sanitizeOptionValue(text("note"), "x".repeat(11))).toBe("hi");
+    expect(sanitizeOptionValue(text("note"), 5)).toBe("hi");
+  });
+
+  it("keeps line breaks only in multi-line fields", () => {
+    expect(sanitizeOptionValue(text("note"), "a\nb")).toBe("hi");
+    expect(sanitizeOptionValue(text("css"), "a { }\nb { }")).toBe("a { }\nb { }");
+  });
+
+  it("stores an empty or http(s) address, trimmed, and refuses anything else", () => {
+    expect(sanitizeOptionValue(text("url"), "")).toBe("");
+    expect(sanitizeOptionValue(text("url"), " http://localhost:8888/x ")).toBe(
+      "http://localhost:8888/x",
+    );
+    expect(sanitizeOptionValue(text("url"), "file:///C:/x")).toBe("");
+    expect(sanitizeOptionValue(text("url"), "javascript:alert(1)")).toBe("");
+    expect(sanitizeOptionValue(text("url"), "localhost:8888")).toBe("");
+  });
+
+  it("keeps the stored address when a patch carries an invalid one", () => {
+    const base = applySettingsPatch(textManifest, defaultInstanceSettings(textManifest), {
+      options: { url: "https://example.com/dash" },
+    });
+    expect(base.options["url"]).toBe("https://example.com/dash");
+    const next = applySettingsPatch(textManifest, base, { options: { url: "file:///etc/passwd" } });
+    expect(next.options["url"]).toBe("https://example.com/dash");
+    expect(applySettingsPatch(textManifest, base, { options: { url: "" } }).options["url"]).toBe(
+      "",
+    );
+  });
+
+  it("drops an invalid stored address to the default", () => {
+    const s = sanitizeInstanceSettings(textManifest, {
+      options: { url: "javascript:alert(1)", note: "ok" },
+    });
+    expect(s.options).toEqual({ url: "", note: "ok", css: "" });
+  });
+});

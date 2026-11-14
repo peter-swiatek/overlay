@@ -16,7 +16,9 @@
     "./table-fit": "./src/shared/table-fit.ts",
     "./settings": "./src/settings/index.ts",
     "./instances": "./src/instances.ts",
-    "./views": "./src/views.ts"
+    "./views": "./src/views.ts",
+    "./web-url": "./src/shared/web-url.ts",
+    "./webview": "./src/webview/options.ts"
   },
   "dependencies": {
     "@overlay/sim-core": "workspace:*",
