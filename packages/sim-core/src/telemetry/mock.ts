@@ -303,6 +303,9 @@ export class MockSource {
     p.steerMaxRad = 7.85;
     p.tyres = mockTyres(playerDistance, brake);
     p.damage = mockDamage(this.timeS);
+    const engine = mockEngineTemps(playerDistance);
+    p.waterTempC = engine.waterC;
+    p.oilTempC = engine.oilC;
     return state;
   }
 
@@ -458,14 +461,25 @@ function mockTyres(distanceLaps: number, brake: number): TyreSet {
 /** Session time of the mock's one scripted impact: a light touch to the nose. */
 export const MOCK_TOUCH_S = 20;
 
-/** Clean until {@link MOCK_TOUCH_S}, then a minor dent at the front for the rest of the run. */
+/**
+ * Clean until {@link MOCK_TOUCH_S}, then for the rest of the run a minor dent at the front with a
+ * little aero damage and a slightly bent front-left corner.
+ */
 function mockDamage(timeS: number): VehicleDamage {
   const touched = timeS >= MOCK_TOUCH_S;
   return {
     dents: [touched ? 1 : 0, 0, 0, 0, 0, 0, 0, 0],
     tyreFlat: { fl: false, fr: false, rl: false, rr: false },
     lastImpactS: touched ? MOCK_TOUCH_S : null,
+    aero: touched ? 0.04 : 0,
+    suspension: { fl: touched ? 0.02 : 0, fr: 0, rl: 0, rr: 0 },
   };
+}
+
+/** Water and oil from the 60 C the car is pre-heated to, warming over the first laps. */
+function mockEngineTemps(distanceLaps: number): { waterC: number; oilC: number } {
+  const warm = 1 - Math.exp(-1.5 * Math.max(0, distanceLaps));
+  return { waterC: 60 + 26 * warm, oilC: 60 + 42 * warm };
 }
 
 /** 1 on the straights, dipping through each corner (compact cosine dips). */

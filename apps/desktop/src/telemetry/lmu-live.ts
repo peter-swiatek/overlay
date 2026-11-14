@@ -12,10 +12,23 @@ import type { LiveSource, SourceFrame } from "./source";
 /** 50 Hz, the rate LMU updates its shared memory at. */
 export const LMU_POLL_MS = 20;
 
+/** How often the repair screen (aero and suspension damage) is asked for while LMU is live. */
+export const LMU_REPAIR_POLL_MS = 2000;
+
+/** The read-only GET of the game's REST API (`LmuRestClient`); it never throws for HTTP errors. */
+export interface LmuRestGetter {
+  get(path: string): Promise<{ path: string; status: number; body: unknown }>;
+}
+
 /**
  * Live Le Mans Ultimate source. Read-only and lock-free: it never opens the game's lock mapping
  * or its events. A frame is accepted only when two consecutive copies of the used bytes are
  * identical; after 5 failed attempts the frame is dropped.
+ *
+ * With a REST client it also asks the game for its repair screen (a GET, the same one the
+ * capture tool records) every {@link LMU_REPAIR_POLL_MS}, one request at a time and only while
+ * frames are decoding, for the aero and suspension damage the shared memory lacks. A failed
+ * request leaves those values null.
  */
 export class LmuLiveSource implements LiveSource {
   readonly id = "lmu";
@@ -32,9 +45,13 @@ export class LmuLiveSource implements LiveSource {
   /** Frames dropped because no consistent copy was obtained. */
   inconsistentDropped = 0;
 
+  private restInFlight = false;
+  private lastRestMono = Number.NEGATIVE_INFINITY;
+
   constructor(
     private readonly shm: SharedMemorySource,
     private readonly clock: Clock,
+    private readonly rest?: LmuRestGetter,
   ) {}
 
   /** The buffer has not changed for 5 s: paused, in a menu, or a dead game. */
@@ -73,7 +90,28 @@ export class LmuLiveSource implements LiveSource {
     // An unchanged buffer is a pause, a menu or a dead game: nothing new to publish.
     if (!this.observe(this.copyB, now)) return null;
     const result = this.decoder.decode(this.copyB);
+    if (result.error === null) this.pollRepair(now);
     return { state: result.state, error: result.error };
+  }
+
+  /** Starts a repair screen request when one is due; its answer reaches the decoder later. */
+  private pollRepair(now: number): void {
+    const rest = this.rest;
+    if (!rest || this.restInFlight || now - this.lastRestMono < LMU_REPAIR_POLL_MS) return;
+    this.restInFlight = true;
+    this.lastRestMono = now;
+    const decoder = this.decoder;
+    const path = lmu.LMU_REPAIR_PATH;
+    rest
+      .get(path)
+      .catch(() => ({ path, status: 0, body: null }))
+      .then((response) => {
+        // A closed source has a new decoder; the answer belongs to the old session.
+        if (decoder === this.decoder) decoder.observeRest(response);
+      })
+      .finally(() => {
+        this.restInFlight = false;
+      });
   }
 
   close(): void {

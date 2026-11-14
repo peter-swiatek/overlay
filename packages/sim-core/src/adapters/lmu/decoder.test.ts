@@ -25,6 +25,7 @@ import {
   TELEMETRY_BASE,
   WHEEL,
 } from "./layout";
+import { LMU_REPAIR_PATH } from "./rest";
 
 const dir = fileURLToPath(new URL("../../../../../fixtures/", import.meta.url));
 
@@ -516,6 +517,25 @@ describe("field data for overlays", () => {
     expect(t?.rr.compound).toBeNull();
   });
 
+  it("reads the player's engine water and oil temperatures in Celsius", () => {
+    for (const { result } of onTrack.frames) {
+      const p = result.state.player;
+      // About 105 s into the run: warming up from the 60 C the car is pre-heated to.
+      expect(p.waterTempC).toBeGreaterThan(60);
+      expect(p.waterTempC).toBeLessThan(90);
+      expect(p.oilTempC).toBeGreaterThan(60);
+      expect(p.oilTempC).toBeLessThan(90);
+    }
+    const edited = Buffer.from(raw);
+    const row = playerTelemetryRow(edited);
+    edited.writeDoubleLE(92.5, row + TELEM.waterTempC);
+    edited.writeDoubleLE(0, row + TELEM.oilTempC);
+    const { state } = new LmuDecoder().decode(edited);
+    expect(state.player.waterTempC).toBe(92.5);
+    // Zero is a car without the channel, not a frozen engine.
+    expect(state.player.oilTempC).toBeNull();
+  });
+
   it("names each wheel's compound from its list position, else from its kind", () => {
     const edited = Buffer.from(raw);
     const row = playerTelemetryRow(edited);
@@ -769,16 +789,28 @@ describe("LmuDecoder on the damage slice", () => {
   it("clears everything when the car is reset to the garage", () => {
     const last = states.at(-1)!;
     expect(last.player.tyres).toBeNull();
-    expect(last.player.damage).toEqual({
-      dents: [0, 0, 0, 0, 0, 0, 0, 0],
-      tyreFlat: { fl: false, fr: false, rl: false, rr: false },
-      lastImpactS: null,
-    });
+    expect(last.player.damage?.dents).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(last.player.damage?.tyreFlat).toEqual({ fl: false, fr: false, rl: false, rr: false });
+    expect(last.player.damage?.lastImpactS).toBeNull();
+  });
+
+  it("adds the aero and suspension damage of the slice's repair screen body", () => {
+    expect(damaged.rest.some((r) => r.path === LMU_REPAIR_PATH)).toBe(true);
+    for (const s of driving) {
+      expect(s.player.damage?.aero).toBeCloseTo(0.0533, 4);
+      const susp = s.player.damage?.suspension;
+      expect(susp?.fl).toBeCloseTo(0.0571, 4);
+      expect(susp?.fr).toBe(0);
+      expect(susp?.rl).toBeCloseTo(0.1377, 4);
+      expect(susp?.rr).toBe(0);
+    }
   });
 
   it("has no damage on the clean on-track slice", () => {
     for (const { result } of onTrack.frames) {
       expect(result.state.player.damage?.dents).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+      expect(result.state.player.damage?.aero).toBe(0);
+      expect(result.state.player.damage?.suspension).toEqual({ fl: 0, fr: 0, rl: 0, rr: 0 });
       expect(Object.values(result.state.player.damage?.tyreFlat ?? {})).not.toContain(true);
     }
   });

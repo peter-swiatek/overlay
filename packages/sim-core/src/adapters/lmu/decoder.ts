@@ -83,6 +83,7 @@ const W = {
   fuel: { name: "fuel L", lo: -0.01, hi: 1000 },
   speed: { name: "speed m/s", lo: 0, hi: 200 },
   tyreK: { name: "tyre temp K", lo: 200, hi: 700 },
+  engineC: { name: "engine temp C", lo: -60, hi: 300 },
   pressure: { name: "tyre pressure kPa", lo: 0, hi: 1000 },
   wear: { name: "tyre wear", lo: -0.001, hi: 1.001 },
 } as const satisfies Record<string, Window>;
@@ -127,7 +128,10 @@ export class LmuDecoder {
     this.validated = options.validatedGameVersions ?? LMU_VALIDATED_GAME_VERSIONS;
   }
 
-  /** Feeds a recorded REST response (`/rest/watch/standings` or `/rest/watch/sessionInfo`). */
+  /**
+   * Feeds a REST response: `/rest/watch/standings`, `/rest/watch/sessionInfo` or the repair
+   * screen (`LMU_REPAIR_PATH`); others are ignored.
+   */
   observeRest(response: { path: string; status?: number; body: unknown }): void {
     this.rest = applyRestResponse(this.rest, response);
   }
@@ -205,6 +209,12 @@ export class LmuDecoder {
 
     const telemetryRow = playerId === null ? null : findTelemetryRow(f, playerId);
     if (telemetryRow !== null) readPlayer(f, telemetryRow, state);
+    const damage = state.player.damage;
+    if (damage) {
+      damage.aero = this.rest.damage?.aero ?? null;
+      const susp = this.rest.damage?.suspension;
+      damage.suspension = susp ? { ...susp } : null;
+    }
     return { state, error: null, warnings };
   }
 }
@@ -600,6 +610,13 @@ function readPlayer(f: Frame, o: number, state: SimState): void {
   player.brakeBias = rear > 0 && rear < 1 ? 1 - rear : null;
   player.tyres = readTyres(f, o);
   player.damage = readDamage(f, o);
+  player.waterTempC = engineTemp(f.f64(o + TELEM.waterTempC));
+  player.oilTempC = engineTemp(f.f64(o + TELEM.oilTempC));
+}
+
+/** Engine temperatures are Celsius; exactly 0 means the car does not report them (no engine). */
+function engineTemp(c: number): number | null {
+  return c !== 0 && outside(W.engineC, c) === null ? c : null;
 }
 
 /** Dent bytes, flat tyres and the last impact time of one telemetry row (see layout.ts). */

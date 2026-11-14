@@ -1,7 +1,13 @@
+import type { WheelValues } from "../../model/sim-state";
+
 /**
- * Optional enrichment from recorded `/rest/watch/*` response bodies. We never call the game's REST
- * API from here (and never `getVehicleCondition`); the caller hands us bodies it already has.
+ * Optional enrichment from the game's REST response bodies: recorded ones in replays, and the
+ * repair screen polled by the desktop app's live LMU source. We never call the game's REST API
+ * from here (and never `getVehicleCondition`); the caller hands us bodies it already has.
  */
+
+/** The repair and refuel screen's data: a read-only GET that also carries the car's wear. */
+export const LMU_REPAIR_PATH = "/rest/garage/UIScreen/RepairAndRefuel";
 
 export interface LmuRestCar {
   carClass: string | null;
@@ -19,14 +25,29 @@ export interface LmuRestSession {
   maxTimeS: number | null;
 }
 
+/**
+ * The player's damage from the repair screen's `wearables`. Checked against Peter's Le Mans
+ * recording (115 bodies, one every 20 s): `body.aero` and all four `suspension` values are 0 on
+ * the undamaged car, and after the crash that flattened the rear left tyre the body read aero
+ * 0.0533 and suspension 0.057 / 0 / 0.138 / 0 (front left, front right, rear left, rear right),
+ * with `tires` 0 on the rear left in the same body; all back to 0 after the reset to the garage.
+ * Both are fractions, 0 = undamaged.
+ */
+export interface LmuRestDamage {
+  aero: number | null;
+  suspension: WheelValues | null;
+}
+
 export interface LmuRestSnapshot {
   /** Keyed by `slotID`, which equals the scoring row `id`. */
   cars: Map<number, LmuRestCar>;
   session: LmuRestSession | null;
+  /** From the last repair screen body; null when there is none or the last request failed. */
+  damage: LmuRestDamage | null;
 }
 
 export function emptyRestSnapshot(): LmuRestSnapshot {
-  return { cars: new Map(), session: null };
+  return { cars: new Map(), session: null, damage: null };
 }
 
 /** Standings body: an array with one object per car. Entries that do not look right are skipped. */
@@ -57,12 +78,39 @@ export function parseSessionInfo(body: unknown): LmuRestSession | null {
   };
 }
 
-/** Folds one recorded REST response into the snapshot; unknown paths and non-200s are ignored. */
+const fraction = (v: unknown): number | null =>
+  typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1 ? v : null;
+
+/** The repair screen body's `wearables`; null when it does not look right. */
+export function parseRepairDamage(body: unknown): LmuRestDamage | null {
+  if (!isRecord(body)) return null;
+  const wear = body["wearables"];
+  if (!isRecord(wear)) return null;
+  const aero = isRecord(wear["body"]) ? fraction(wear["body"]["aero"]) : null;
+  const susp = wear["suspension"];
+  let suspension: WheelValues | null = null;
+  if (Array.isArray(susp) && susp.length === 4) {
+    const [fl, fr, rl, rr] = susp.map(fraction);
+    if (fl != null && fr != null && rl != null && rr != null) suspension = { fl, fr, rl, rr };
+  }
+  return aero === null && suspension === null ? null : { aero, suspension };
+}
+
+/**
+ * Folds one REST response into the snapshot; unknown paths are ignored. A failed standings or
+ * session request keeps the last good one; a failed repair screen request clears the damage, so
+ * it is never shown stale.
+ */
 export function applyRestResponse(
   snapshot: LmuRestSnapshot,
   response: { path: string; status?: number; body: unknown },
 ): LmuRestSnapshot {
-  if (response.status !== undefined && response.status !== 200) return snapshot;
+  const ok = response.status === undefined || response.status === 200;
+  if (response.path === LMU_REPAIR_PATH) {
+    const body = typeof response.body === "string" ? safeJson(response.body) : response.body;
+    return { ...snapshot, damage: ok ? parseRepairDamage(body) : null };
+  }
+  if (!ok) return snapshot;
   const body = typeof response.body === "string" ? safeJson(response.body) : response.body;
   if (response.path === "/rest/watch/standings") {
     const cars = parseStandings(body);

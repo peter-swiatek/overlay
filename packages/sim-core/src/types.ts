@@ -18,6 +18,7 @@ export type {
   TyreTemps,
   Vec3,
   VehicleDamage,
+  WheelValues,
 } from "./model/sim-state";
 export type { FuelLapUse, FuelOutputs, FuelPitWindow } from "./calc/fuel/types";
 export type { Standings, StandingsEntry, StandingsGap } from "./calc/standings/types";

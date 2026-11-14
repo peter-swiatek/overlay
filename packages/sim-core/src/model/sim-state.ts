@@ -228,6 +228,21 @@ export interface VehicleDamage {
   tyreFlat: { fl: boolean; fr: boolean; rl: boolean; rr: boolean };
   /** Session time of the last impact, seconds (compare with `tickTimeS`); null when none yet. */
   lastImpactS: number | null;
+  /**
+   * Aerodynamic (body) damage, 0..1 (0 = none). LMU REST only: null when the game's REST API did
+   * not answer; absent in states recorded before it.
+   */
+  aero?: number | null;
+  /** Suspension damage per corner, 0..1 (0 = none). LMU REST only, like `aero`. */
+  suspension?: WheelValues | null;
+}
+
+/** One number per wheel. */
+export interface WheelValues {
+  fl: number;
+  fr: number;
+  rl: number;
+  rr: number;
 }
 
 /** Spotter state: which sides have a car alongside. */
@@ -327,6 +342,10 @@ export interface Player {
   steerMaxRad: number | null;
   /** Body and tyre damage; LMU only. Null when unknown, absent in states recorded before it. */
   damage?: VehicleDamage | null;
+  /** Engine coolant temperature, degrees Celsius. LMU only; absent in older states. */
+  waterTempC?: number | null;
+  /** Engine oil temperature, degrees Celsius. LMU only; absent in older states. */
+  oilTempC?: number | null;
 }
 
 export interface SimState {

@@ -236,6 +236,8 @@ export const TELEMETRY = {
  * | velocity      | f64 x3  | scoring carVelocity to 3 digits; z is about -(speed) when moving      |
  * | gear          | i32     | 5 at 57 m/s in a 7 speed car; 0 in the pits (LOCAL); steering > 0 pairs with lateral accel toward the right (LOCAL) |
  * | engineRpm           | f64     | 5722 rpm at 57 m/s in 5th, below rpmLimit 8500                 |
+ * | waterTempC    | f64     | Celsius (LOCAL), not Kelvin: 60.7 on the pre-heated car before it moves and again after the garage reset, rising with running to 81.0; responds first when the driver lifts (75.1 against 77.7 a few seconds earlier while the oil kept rising) |
+ * | oilTempC      | f64     | Celsius (LOCAL): 60.8 pre-heated, lags the water while warming, then runs above it, up to 84.2; changes slowly. The two follow the engine rpm in the public rFactor 2 plugin telemetry order (rpm, water, oil, clutch rpm; the f64 at 380 equals the engine rpm while driving). Only the player's row has them; every other car reads 0 |
  * | *Input       | f64     | unfiltered pedals 0..1 and steering -1..1; brake 0.68 while the   |
  * |               |         | car decelerates (the filtered copies follow 32 bytes later)        |
  * | fuelLitres          | f64     | litres; fuelLitres / tankCapacityLitres equals standings fuelFraction (0.7843) |
@@ -255,6 +257,8 @@ export const TELEM = {
   velocity: 184,
   gear: 352,
   engineRpm: 356,
+  waterTempC: 364,
+  oilTempC: 372,
   throttleInput: 388,
   brakeInput: 396,
   steeringInput: 404,
@@ -303,7 +307,8 @@ export const TELEM = {
  * Searched and not found in the telemetry row: an aero or suspension damage value. REST
  * RepairAndRefuel reported body aero 0.0533 and suspension 0.057 / 0.138 on the front-left and
  * rear-left while the game was paused at 494 s; no f32 or f64 in the row held those values (or one
- * minus them). The live app does not read REST, so neither is decoded.
+ * minus them). Both come from that REST body instead (see `parseRepairDamage` in rest.ts), which
+ * the live LMU source polls every 2 s.
  */
 
 /** Wheel order in the telemetry row: front left, front right, rear left, rear right. */

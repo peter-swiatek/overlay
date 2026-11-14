@@ -3,7 +3,8 @@ import { lmu, type FixtureRecord } from "@overlay/sim-core";
 import { FakeClock, FakeMapping, FakeSharedMemory } from "../capture/fakes";
 import { LMU_DATA_NAME, LMU_LOCK_DATA_NAME, LMU_MAX_COPY_ATTEMPTS } from "../capture/lmu-names";
 import { STALE_CLOSE_MS } from "../capture/sim-capture";
-import { LmuLiveSource } from "./lmu-live";
+import { LMU_REST_ALLOWLIST, LmuRestClient, type FetchLike } from "../capture/rest-client";
+import { LMU_REPAIR_POLL_MS, LmuLiveSource, type LmuRestGetter } from "./lmu-live";
 import { LMU_ON_PACE, RecordKind, readRecords } from "./testing";
 
 let buffers: Buffer[];
@@ -107,5 +108,105 @@ describe("LmuLiveSource", () => {
     const frame = await source.read();
     expect(frame?.error).toEqual(expect.any(String));
     expect(frame?.state.connected).toBe(false);
+  });
+
+  describe("repair screen polling", () => {
+    const body = { wearables: { body: { aero: 0.05 }, suspension: [0.02, 0, 0.1, 0] } };
+
+    /** A REST client whose answers the test releases by hand. */
+    function manualRest() {
+      const calls: string[] = [];
+      const pending: ((r: { path: string; status: number; body: unknown }) => void)[] = [];
+      const rest: LmuRestGetter = {
+        get: (path) => {
+          calls.push(path);
+          return new Promise((resolve) => pending.push(resolve));
+        },
+      };
+      return { rest, calls, pending };
+    }
+
+    function setupWith(rest: LmuRestGetter) {
+      const shm = new FakeSharedMemory();
+      const mapping = new FakeMapping(Buffer.from(buffers[0] as Buffer));
+      shm.mappings.set(LMU_DATA_NAME, mapping);
+      const clock = new FakeClock();
+      return { mapping, clock, source: new LmuLiveSource(shm, clock, rest) };
+    }
+
+    const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+    it("asks for the repair screen while frames decode, one at a time, every 2 s", async () => {
+      const { rest, calls, pending } = manualRest();
+      const { mapping, clock, source } = setupWith(rest);
+      await source.read();
+      expect(calls).toEqual([]); // nothing decoded yet
+      publish(mapping, 1);
+      const first = await source.read();
+      expect(calls).toEqual([lmu.LMU_REPAIR_PATH]);
+      expect(first?.state.player.damage?.aero).toBeNull();
+      // Still in flight: no second request, however long it takes.
+      clock.advance(LMU_REPAIR_POLL_MS * 3);
+      publish(mapping, 2);
+      await source.read();
+      expect(calls).toHaveLength(1);
+      pending[0]?.({ path: lmu.LMU_REPAIR_PATH, status: 200, body });
+      await flush();
+      publish(mapping, 3);
+      const after = await source.read();
+      expect(after?.state.player.damage?.aero).toBe(0.05);
+      expect(after?.state.player.damage?.suspension).toEqual({ fl: 0.02, fr: 0, rl: 0.1, rr: 0 });
+      expect(calls).toHaveLength(2); // due again, and the first one is done
+      clock.advance(LMU_REPAIR_POLL_MS - 1);
+      pending[1]?.({ path: lmu.LMU_REPAIR_PATH, status: 200, body });
+      await flush();
+      publish(mapping, 4);
+      await source.read();
+      expect(calls).toHaveLength(2); // not due yet
+    });
+
+    it("drops the damage values when a request fails or throws", async () => {
+      let answer: () => Promise<{ path: string; status: number; body: unknown }> = async () => ({
+        path: lmu.LMU_REPAIR_PATH,
+        status: 200,
+        body,
+      });
+      const { mapping, clock, source } = setupWith({ get: () => answer() });
+      await source.read();
+      publish(mapping, 1);
+      await source.read();
+      await flush();
+      publish(mapping, 2);
+      expect((await source.read())?.state.player.damage?.aero).toBe(0.05);
+      answer = () => Promise.reject(new Error("game gone"));
+      clock.advance(LMU_REPAIR_POLL_MS);
+      publish(mapping, 3);
+      await source.read();
+      await flush();
+      publish(mapping, 4);
+      const frame = await source.read();
+      expect(frame?.state.player.damage?.aero).toBeNull();
+      expect(frame?.state.player.damage?.suspension).toBeNull();
+    });
+
+    it("never asks while the game is not running", async () => {
+      const { rest, calls } = manualRest();
+      const source = new LmuLiveSource(new FakeSharedMemory(), new FakeClock(), rest);
+      source.probe();
+      await source.read();
+      expect(calls).toEqual([]);
+    });
+
+    it("uses an allowlisted path, which the REST client sends as a GET", async () => {
+      expect(LMU_REST_ALLOWLIST).toContain(lmu.LMU_REPAIR_PATH);
+      const seen: { url: string; method: string }[] = [];
+      const fetchFn: FetchLike = async (url, init) => {
+        seen.push({ url, method: init.method });
+        return { status: 200, text: async () => JSON.stringify(body) };
+      };
+      const result = await new LmuRestClient(new FakeClock(), fetchFn).get(lmu.LMU_REPAIR_PATH);
+      expect(result.status).toBe(200);
+      expect(seen).toEqual([{ url: expect.stringContaining(lmu.LMU_REPAIR_PATH), method: "GET" }]);
+    });
   });
 });

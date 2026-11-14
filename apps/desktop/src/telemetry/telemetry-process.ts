@@ -12,6 +12,7 @@ import { BUILD_INFO } from "../shared/build-info";
 import type { TelemetryCommand } from "../shared/telemetry-types";
 import { createWindowsSharedMemorySource } from "../capture/shm-windows";
 import { systemClock } from "../capture/shm";
+import { LmuRestClient } from "../capture/rest-client";
 import type { LiveSource } from "./source";
 import { IracingLiveSource } from "./iracing-live";
 import { LmuLiveSource } from "./lmu-live";
@@ -58,7 +59,7 @@ async function main(): Promise<void> {
       systemClock,
       new WorkerSessionParser(spawnSessionWorker),
     );
-    live.lmu = new LmuLiveSource(shm, systemClock);
+    live.lmu = new LmuLiveSource(shm, systemClock, new LmuRestClient(systemClock));
   }
 
   // Main passes the userData path and retention in the fork arguments: this process has no `app`.

@@ -178,6 +178,22 @@ describe("MockSource", () => {
     expect(after?.dents).toEqual([1, 0, 0, 0, 0, 0, 0, 0]);
     expect(after?.tyreFlat).toEqual({ fl: false, fr: false, rl: false, rr: false });
     expect(after?.lastImpactS).toBe(MOCK_TOUCH_S);
+    expect(before?.aero).toBe(0);
+    expect(after?.aero).toBeGreaterThan(0);
+    expect(after?.suspension?.fl).toBeGreaterThan(0);
+    expect(after?.suspension?.rr).toBe(0);
+  });
+
+  it("warms the engine from the pre-heated 60 C, oil above water", () => {
+    const mock = new MockSource();
+    const start = mock.step(0.1).player;
+    expect(start.waterTempC).toBeGreaterThanOrEqual(60);
+    const warm = mock.step(600).player;
+    expect(warm.waterTempC).toBeGreaterThan(start.waterTempC ?? Infinity);
+    expect(warm.waterTempC).toBeGreaterThan(80);
+    expect(warm.waterTempC).toBeLessThan(95);
+    expect(warm.oilTempC).toBeGreaterThan(warm.waterTempC ?? 0);
+    expect(warm.oilTempC).toBeLessThan(115);
   });
 
   it("runs one Medium set that wears with distance and warms into the window", () => {
