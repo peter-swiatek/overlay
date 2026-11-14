@@ -48,6 +48,29 @@ describe("overlayVisibility", () => {
     expect(visibility({ live: false, autoHide: true, editing: true })).toBe("notice");
   });
 
+  it("shows an overlay that needs no telemetry without data, unless auto-hide hides it", () => {
+    expect(visibility({ live: false, needsTelemetry: false })).toBe("show");
+    expect(visibility({ live: false, needsTelemetry: false, editing: true })).toBe("show");
+    expect(visibility({ live: false, needsTelemetry: false, autoHide: true })).toBe("hidden");
+    expect(visibility({ live: false, needsTelemetry: false, autoHide: true, editing: true })).toBe(
+      "show",
+    );
+    expect(
+      visibility({
+        live: false,
+        needsTelemetry: false,
+        autoHide: true,
+        common: { ...rules, alwaysShow: true },
+      }),
+    ).toBe("show");
+  });
+
+  it("applies the hide rules to an overlay that needs no telemetry while a sim is live", () => {
+    const own = { needsTelemetry: false, common: { ...rules, hideOnTrack: true } };
+    expect(visibility(own)).toBe("hidden");
+    expect(visibility({ ...own, editing: true })).toBe("show");
+  });
+
   it("does not apply auto-hide while data is live", () => {
     expect(visibility({ autoHide: true })).toBe("show");
   });

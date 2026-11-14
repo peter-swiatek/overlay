@@ -46,6 +46,30 @@ describe("OverlayFrame title bar", () => {
   });
 });
 
+describe("OverlayFrame with editTitleBarInFlow", () => {
+  const own: OverlayManifest = { ...manifest, editTitleBarInFlow: true };
+  const renderOwn = (editing: boolean, showTitleBar: boolean): string =>
+    renderToStaticMarkup(
+      <OverlayFrame
+        manifest={own}
+        common={{ ...defaultInstanceSettings(own).common, showTitleBar }}
+        editing={editing}
+      >
+        <i>page</i>
+      </OverlayFrame>,
+    );
+
+  it("gives the bar its own row while editing", () => {
+    expect(renderOwn(true, false)).toContain('data-titlebar="true"');
+  });
+
+  it("has no bar while locked with the setting off", () => {
+    const html = renderOwn(false, false);
+    expect(html).toContain('data-titlebar="false"');
+    expect(html).not.toContain("ov-titlebar");
+  });
+});
+
 describe("OverlayFrame for table overlays", () => {
   it("renders the frame like any other (a table just reports no content minimum)", () => {
     const table = OVERLAY_MANIFESTS.find((m) => m.table);

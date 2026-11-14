@@ -12,7 +12,7 @@ import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { FieldPicker, parsePickDrag, pickDragType } from "./FieldPicker";
-import { OverlayPanel, SettingRow } from "./OverlayPanel";
+import { OverlayPanel, SettingRow, storedText, textError } from "./OverlayPanel";
 import { OverlaysForm } from "./OverlaysForm";
 import { testManifest, testTableManifest } from "./test-manifest";
 
@@ -532,5 +532,47 @@ describe("columns hidden by width", () => {
   it("ignores hidden ids of columns that are switched off", () => {
     // Charlie is off by default.
     expect(panel({ hiddenColumnIds: ["c"] }, "auto")).not.toContain("Hidden: too narrow");
+  });
+});
+
+describe("text settings", () => {
+  const webview = OVERLAY_MANIFESTS.find((m) => m.id === "webview");
+  const url: Extract<SettingField, { kind: "text" }> = {
+    key: "url",
+    label: "Page address",
+    kind: "text",
+    default: "",
+    maxLength: 30,
+    format: "url",
+  };
+  const css: Extract<SettingField, { kind: "text" }> = {
+    key: "css",
+    label: "Custom CSS",
+    kind: "text",
+    default: "",
+    maxLength: 100,
+    multiline: true,
+  };
+
+  it("renders the Webview address as a url input and its CSS as a text area", () => {
+    if (!webview) throw new Error("no webview manifest");
+    const html = render({ manifests: [webview] });
+    expect(html).toMatch(/<input[^>]*aria-label="Page address"[^>]*type="url"/);
+    expect(html).toMatch(/<textarea[^>]*aria-label="Custom CSS"/);
+    expect(html).not.toContain("ov-text-error");
+  });
+
+  it("explains an address it will not store", () => {
+    expect(textError(url, "")).toBeNull();
+    expect(textError(url, "http://localhost:8888/")).toBeNull();
+    expect(textError(url, "file:///C:/x")).toMatch(/http:\/\/ or https:\/\//);
+    expect(textError(url, "javascript:alert(1)")).not.toBeNull();
+    expect(textError(url, "http://localhost/" + "a".repeat(20))).toMatch(/At most 30/);
+    expect(textError(css, "a\nb")).toBeNull();
+  });
+
+  it("stores addresses trimmed and other text as typed", () => {
+    expect(storedText(url, "  http://a.b/  ")).toBe("http://a.b/");
+    expect(storedText(css, "  x  ")).toBe("  x  ");
   });
 });

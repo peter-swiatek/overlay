@@ -10,7 +10,9 @@ import {
   type WebContents,
 } from "electron";
 import pkg from "electron-updater";
+import { parseInstanceId } from "@overlay/overlays/instances";
 import { OVERLAY_MANIFESTS } from "@overlay/overlays/manifests";
+import { WEBVIEW_OVERLAY_ID } from "@overlay/overlays/webview";
 import { BUILD_INFO } from "../shared/build-info";
 import { IPC } from "../shared/types";
 import { AppSettingsStore } from "./app-settings";
@@ -51,6 +53,7 @@ import { TelemetrySettingsStore } from "./telemetry-settings";
 import { ThemeStore } from "./theme-store";
 import { AppTray } from "./tray";
 import { UpdateSettingsStore } from "./update-settings";
+import { WebPageHost, isWebPageContents } from "./web-page/host";
 import { Updater } from "./updater";
 import { buildMainWindowOptions } from "./window-options";
 import { ZOrderKeeper, hwndOf } from "./zorder";
@@ -91,6 +94,7 @@ let notifyAppState: () => void = () => {};
 let lastRecording = false;
 let lastCaptureError: string | null = null;
 let zorder: ZOrderKeeper | undefined;
+let webPages: WebPageHost | undefined;
 
 const MAIN_WINDOW_FILE = join(userData, "main-window.json");
 
@@ -199,6 +203,13 @@ function registerIpc(): void {
     if (!fromOverlay(event.sender)) return;
     overlays?.setTableMetricsFromSender(event.sender, payload);
   });
+  ipcMain.on(IPC.webPageRect, (event, rect: unknown) => {
+    // Only a Webview overlay window places a page, and only its own.
+    const id = overlays?.idOfSender(event.sender);
+    if (id === undefined || parseInstanceId(id)?.overlayId !== WEBVIEW_OVERLAY_ID) return;
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) webPages?.setRect(id, win, rect);
+  });
   ipcMain.on(IPC.resizeBy, (event, dx: unknown, dy: unknown) => {
     if (!fromOverlay(event.sender)) return;
     if (typeof dx === "number" && typeof dy === "number") {
@@ -207,10 +218,13 @@ function registerIpc(): void {
   });
 }
 
-// Renderers only ever show our own pages: no new windows, no navigation away.
+// Renderers only ever show our own pages: no new windows, no navigation away. The Webview
+// overlay's embedded pages may follow http(s) links; their own guards check every navigation.
 app.on("web-contents-created", (_event, contents) => {
   contents.setWindowOpenHandler(() => ({ action: "deny" }));
-  contents.on("will-navigate", (event) => event.preventDefault());
+  contents.on("will-navigate", (event) => {
+    if (!isWebPageContents(contents)) event.preventDefault();
+  });
   // A reloaded or crashed page has lost its ports; it asks again when it is back.
   contents.on("did-start-loading", () => telemetry?.forgetWindow(contents));
   contents.on("render-process-gone", () => telemetry?.forgetWindow(contents));
@@ -276,13 +290,23 @@ if (!app.requestSingleInstanceLock()) {
       overlaySettings,
       manifests: OVERLAY_MANIFESTS,
       opacityWorkaround: effective.opacityWorkaround,
-      onStateChange: () => notifyAppState(),
+      onStateChange: () => {
+        notifyAppState();
+        webPages?.setEditMode(overlays?.isEditMode ?? false);
+      },
       onLayoutSaved: () => {
         if (overlays) sendToMain(IPC.overlaysSizesChanged, overlaySizes(overlays.getLayout()));
       },
       isDeveloperEnabled: () => appSettingsStore.load().developer.enabled,
     });
     overlays = manager;
+    const pages = new WebPageHost({
+      settingsOf: (id) => overlaySettings?.get(id),
+      isEditMode: () => manager.isEditMode,
+    });
+    webPages = pages;
+    overlaySettings.onChange((id, s) => pages.onSettings(id, s));
+    overlaySettings.onRemove((id) => pages.remove(id));
     notifyAppState = createAppStateNotifier(
       manager,
       (channel, state) => broadcast(channel, state),

@@ -62,6 +62,15 @@ describe("preload API", () => {
     api.reportTableMetrics({ chPx: 8.6, cellPadPx: 7 });
     expect(ipc.send).toHaveBeenCalledWith(IPC.tableMetrics, { chPx: 8.6, cellPadPx: 7 });
     expect(IPC.tableMetrics).toBe("overlays:table-metrics");
+    api.reportWebPageRect({ x: 0, y: 20, width: 400, height: 240 });
+    expect(ipc.send).toHaveBeenCalledWith(IPC.webPageRect, {
+      x: 0,
+      y: 20,
+      width: 400,
+      height: 240,
+    });
+    api.reportWebPageRect(null);
+    expect(ipc.send).toHaveBeenCalledWith(IPC.webPageRect, null);
   });
 
   it("uses the agreed channel names", () => {

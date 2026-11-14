@@ -8,6 +8,7 @@ import {
   type SettingValue,
 } from "@overlay/overlays/contract";
 import { instanceTitle, isAddedInstance, MAX_INSTANCE_NAME } from "@overlay/overlays/instances";
+import { isEmptyOrWebPageUrl } from "@overlay/overlays/web-url";
 import type { DisplayPrefs } from "@overlay/ui/types";
 import { useState, type ReactNode } from "react";
 import type { PreviewMeasure } from "../preview/OverlayPreview";
@@ -64,6 +65,25 @@ function widthModeOf(value: SettingValue | undefined): WidthMode | undefined {
 }
 
 type Field<K extends SettingField["kind"]> = Extract<SettingField, { kind: K }>;
+
+/** Typed text is sent after a pause, like a slider; everything else at once. */
+function debounceKeyOf(field: SettingField): string | undefined {
+  return field.kind === "text" ? `option:${field.key}` : undefined;
+}
+
+/** What a text field stores for `draft` (addresses are trimmed). */
+export function storedText(field: Field<"text">, draft: string): string {
+  return field.format === "url" ? draft.trim() : draft;
+}
+
+/** Why `draft` cannot be stored, or null when it can. */
+export function textError(field: Field<"text">, draft: string): string | null {
+  if (draft.length > field.maxLength) return `At most ${field.maxLength} characters.`;
+  if (field.format === "url" && !isEmptyOrWebPageUrl(draft)) {
+    return "Enter an address starting with http:// or https://";
+  }
+  return null;
+}
 
 export function OverlayPanel({
   manifest,
@@ -249,7 +269,7 @@ export function OverlayPanel({
               value={settings.options[field.key] ?? field.default}
               sim={sim}
               prefs={prefs}
-              onChange={(value) => send({ options: { [field.key]: value } })}
+              onChange={(value) => send({ options: { [field.key]: value } }, debounceKeyOf(field))}
             />
           ))}
         </Collapsible>
@@ -263,7 +283,7 @@ export function OverlayPanel({
               value={settings.options[field.key] ?? field.default}
               sim={sim}
               prefs={prefs}
-              onChange={(value) => send({ options: { [field.key]: value } })}
+              onChange={(value) => send({ options: { [field.key]: value } }, debounceKeyOf(field))}
             />
           ))}
         </Collapsible>
@@ -393,6 +413,15 @@ export function SettingControl({
           onChange={onChange}
         />
       );
+    case "text":
+      return (
+        <TextSetting
+          field={field}
+          value={typeof value === "string" ? value : field.default}
+          disabled={off}
+          onChange={onChange}
+        />
+      );
     case "colour": {
       const accent = value === "accent";
       return (
@@ -409,6 +438,67 @@ export function SettingControl({
       );
     }
   }
+}
+
+/**
+ * A one-line input or a text area. Keeps what is typed and sends only values the field accepts;
+ * a value changed elsewhere (reset) replaces the draft.
+ */
+function TextSetting({
+  field,
+  value,
+  disabled,
+  onChange,
+}: {
+  field: Field<"text">;
+  value: string;
+  disabled: boolean;
+  onChange(next: string): void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [shown, setShown] = useState(value);
+  if (value !== shown) {
+    setShown(value);
+    if (value !== storedText(field, draft)) setDraft(value);
+  }
+  const error = textError(field, draft);
+  const edit = (next: string): void => {
+    setDraft(next);
+    if (textError(field, next) === null) onChange(storedText(field, next));
+  };
+  const common = {
+    "aria-label": field.label,
+    "aria-invalid": error !== null || undefined,
+    maxLength: field.maxLength,
+    placeholder: field.placeholder,
+    disabled,
+    spellCheck: false,
+    value: draft,
+  };
+  return (
+    <span className="ov-text" data-multiline={field.multiline || undefined}>
+      {field.multiline ? (
+        <textarea
+          {...common}
+          className="ov-text-input"
+          rows={4}
+          onChange={(e) => edit(e.target.value)}
+        />
+      ) : (
+        <input
+          {...common}
+          type={field.format === "url" ? "url" : "text"}
+          className="ov-text-input"
+          onChange={(e) => edit(e.target.value)}
+        />
+      )}
+      {error && (
+        <small className="ov-text-error" role="alert">
+          {error}
+        </small>
+      )}
+    </span>
+  );
 }
 
 function NumberSetting({

@@ -40,9 +40,11 @@ export function OverlayFrame({ manifest, common, editing, title, children }: Pro
   const fitRef = useRef<HTMLDivElement>(null);
   // Tables report nothing: main derives their width minimum from the column fit, and they may
   // drop rows and columns. Other overlays report both edges.
-  useReportContentMin(fitRef, true, common.showTitleBar, !manifest.table);
+  // Some overlays keep the title bar in its own row while editing too (see the manifest).
+  const titleBarInFlow = common.showTitleBar || (editing && manifest.editTitleBarInFlow === true);
+  useReportContentMin(fitRef, true, titleBarInFlow, !manifest.table);
   return (
-    <div className="overlay" data-edit={editing} data-titlebar={common.showTitleBar}>
+    <div className="overlay" data-edit={editing} data-titlebar={titleBarInFlow}>
       {(editing || common.showTitleBar) && <TitleBar name={title ?? manifest.title} />}
       <div className="overlay-content" style={contentStyle(common, manifest.table)}>
         <div className="overlay-fit" ref={fitRef}>

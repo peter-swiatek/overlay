@@ -17,6 +17,10 @@ import { useAppSettings, useEditMode, useOverlaySettings } from "./useSettings";
 
 const HOST_VIEW_HZ = 5;
 
+/** One function for the window's lifetime, so the Webview overlay keeps its report effect. */
+const reportPageRect: NonNullable<OverlayRuntime["reportPageRect"]> = (rect) =>
+  window.overlayApi.reportWebPageRect(rect);
+
 /** A `useTelemetry` for overlay components that never runs faster than `maxHz`. */
 function cappedTelemetry(maxHz: number, performanceHz: number): OverlayRuntime["useTelemetry"] {
   return function useCappedTelemetry<T>(selector: TelemetrySelector<T>, rateHz: number): T {
@@ -33,6 +37,7 @@ function runtimeOf(app: AppSettings, module: OverlayModule, editing: boolean): O
     combinedLicencePill: app.appearance.combinedLicencePill,
     editing,
     useTrackOutline,
+    reportPageRect,
   };
 }
 

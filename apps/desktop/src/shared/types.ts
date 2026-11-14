@@ -1,5 +1,9 @@
 import type { BuildInfo } from "./build-info";
-import type { OverlayInstanceSettings, OverlaySettingsPatch } from "@overlay/overlays/contract";
+import type {
+  OverlayInstanceSettings,
+  OverlaySettingsPatch,
+  PageRect,
+} from "@overlay/overlays/contract";
 import type { Theme, ThemeImportResult, ThemeState } from "@overlay/theme/types";
 import type { TableMetrics } from "@overlay/ui/fit";
 import type { AppSettings, AppSettingsPatch } from "./app-settings-types";
@@ -82,6 +86,11 @@ export const IPC = {
   contentMinSize: "overlays:content-min-size",
   /** Overlay renderer to main: the table font measured at zoom 1, for the window fit. */
   tableMetrics: "overlays:table-metrics",
+  /**
+   * Webview overlay windows to main: where the embedded page goes (`PageRect`, CSS px of the
+   * window) or null to hide it. Main loads the page itself from the stored settings.
+   */
+  webPageRect: "overlays:web-page-rect",
   getCaptureStatus: "capture:get-status",
   captureStatusChanged: "capture:status-changed",
   getCaptureSettings: "capture:get-settings",
@@ -151,6 +160,8 @@ export interface OverlayApi {
   reportContentMinSize(size: Size): void;
   /** Overlay windows only: the table font measured at zoom 1, for the window fit. */
   reportTableMetrics(metrics: TableMetrics): void;
+  /** Webview overlay windows only: where the embedded page goes, or null to hide it. */
+  reportWebPageRect(rect: PageRect | null): void;
   getCaptureStatus(): Promise<CaptureStatus>;
   onCaptureStatus(callback: (status: CaptureStatus) => void): () => void;
   getCaptureSettings(): Promise<CaptureSettings>;

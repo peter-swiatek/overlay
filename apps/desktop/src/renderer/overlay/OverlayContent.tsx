@@ -25,6 +25,7 @@ export function OverlayContent({ module, settings, autoHide, view, editing, titl
     common: settings.common,
     autoHide,
     editing,
+    needsTelemetry: manifest.needsTelemetry ?? true,
   });
   if (visibility === "hidden") return null;
   if (visibility === "unsupported" && !editing) return null;

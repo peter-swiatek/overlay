@@ -38,6 +38,8 @@ export interface VisibilityInput {
   /** Settings > General > Auto-hide. */
   autoHide: boolean;
   editing: boolean;
+  /** False for overlays that show their own content (manifest `needsTelemetry`). Default true. */
+  needsTelemetry?: boolean;
 }
 
 /**
@@ -46,7 +48,11 @@ export interface VisibilityInput {
  */
 export function overlayVisibility(input: VisibilityInput): Visibility {
   const { live, playerOnTrack, sim, manifestSims, common, autoHide, editing } = input;
-  if (!live) return !editing && autoHide && !common.alwaysShow ? "hidden" : "notice";
+  if (!live) {
+    if (!editing && autoHide && !common.alwaysShow) return "hidden";
+    // Without a sim there is no garage or track to hide for: content of its own just shows.
+    return input.needsTelemetry === false ? "show" : "notice";
+  }
   if (sim !== null && !manifestSims.includes(sim)) return "unsupported";
   if (editing) return "show";
   if (common.hideInGarage && playerOnTrack === false) return "hidden";
