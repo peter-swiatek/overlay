@@ -1,5 +1,5 @@
 import { lockedCssVars, themeToCssVars, themeTone } from "@overlay/theme";
-import type { Theme } from "@overlay/theme/types";
+import type { ActiveTheme } from "@overlay/theme/types";
 
 /** The part of `document.documentElement` that applying a theme touches. */
 export interface ThemeRoot {
@@ -7,12 +7,15 @@ export interface ThemeRoot {
   dataset: Record<string, string | undefined>;
 }
 
-/** Writes the theme's variables, `data-compact` and `data-tone` ("light" | "dark") onto the root. Never writes locked variables. */
-export function applyThemeToRoot(root: ThemeRoot, theme: Theme): void {
-  for (const [name, value] of Object.entries(themeToCssVars(theme))) {
+/**
+ * Writes the theme's colour variables, the global typography variables, `data-compact` and
+ * `data-tone` ("light" | "dark") onto the root. Never writes locked variables.
+ */
+export function applyThemeToRoot(root: ThemeRoot, { theme, typography }: ActiveTheme): void {
+  for (const [name, value] of Object.entries(themeToCssVars(theme, typography))) {
     root.style.setProperty(name, value);
   }
-  root.dataset.compact = String(theme.compact);
+  root.dataset.compact = String(typography.compact);
   root.dataset.tone = themeTone(theme.tokens.text);
 }
 

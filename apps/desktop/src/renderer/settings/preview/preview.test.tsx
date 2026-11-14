@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { moduleById, staticRuntime } from "@overlay/overlays";
 import { applySettingsPatch, defaultInstanceSettings } from "@overlay/overlays/settings";
 import type { OverlayInstanceSettings } from "@overlay/overlays/contract";
-import { GRAPHITE } from "@overlay/theme";
+import { DEFAULT_TYPOGRAPHY, GRAPHITE } from "@overlay/theme";
 import type { TelemetryFrame } from "@overlay/sim-core/types";
 import { OverlayErrorBoundary } from "../../overlay/ErrorBoundary";
 import { fallbackFrame } from "./fallback-frame";
@@ -62,6 +62,7 @@ function render(
       shellZoom={1}
       runtime={runtime}
       theme={GRAPHITE}
+      typography={DEFAULT_TYPOGRAPHY}
     />,
   );
 }

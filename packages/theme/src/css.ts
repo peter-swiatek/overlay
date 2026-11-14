@@ -6,6 +6,7 @@ import {
   type Theme,
   type ThemeFont,
   type ThemeTokenKey,
+  type Typography,
 } from "./types";
 
 const TOKEN_VARS: Record<ThemeTokenKey, string> = {
@@ -27,16 +28,28 @@ const FONT_FAMILIES: Record<ThemeFont, string> = {
   "barlow-condensed": '"Barlow Condensed", system-ui, sans-serif',
 };
 
-/** Token variables in THEME_TOKEN_KEYS order, then typography. */
-export function themeToCssVars(theme: Theme): Record<string, string> {
+/** The CSS font-family stack the overlays use for `font`. */
+export function fontFamilyCss(font: ThemeFont): string {
+  return FONT_FAMILIES[font];
+}
+
+/** Font and density variables. They come from the global typography, never from a theme. */
+export function typographyToCssVars(typography: Typography): Record<string, string> {
+  const { compact } = typography;
+  return {
+    "--ov-font-family": FONT_FAMILIES[typography.font],
+    "--ov-font-weight": String(typography.weight),
+    "--ov-font-size": compact ? "12px" : "14px",
+    "--ov-row-height": compact ? "20px" : "24px",
+    "--ov-cell-pad-x": compact ? "5px" : "7px",
+  };
+}
+
+/** The theme's token variables in THEME_TOKEN_KEYS order, then the typography variables. */
+export function themeToCssVars(theme: Theme, typography: Typography): Record<string, string> {
   const vars: Record<string, string> = {};
   for (const key of THEME_TOKEN_KEYS) vars[TOKEN_VARS[key]] = theme.tokens[key];
-  vars["--ov-font-family"] = FONT_FAMILIES[theme.font];
-  vars["--ov-font-weight"] = String(theme.weight);
-  vars["--ov-font-size"] = theme.compact ? "12px" : "14px";
-  vars["--ov-row-height"] = theme.compact ? "20px" : "24px";
-  vars["--ov-cell-pad-x"] = theme.compact ? "5px" : "7px";
-  return vars;
+  return { ...vars, ...typographyToCssVars(typography) };
 }
 
 /** `licencePro` becomes `--ov-locked-licence-pro`. */

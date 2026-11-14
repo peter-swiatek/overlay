@@ -18,12 +18,17 @@ export type ThemeFont = (typeof THEME_FONTS)[number];
 export const THEME_WEIGHTS = [400, 500, 600, 700, 800] as const;
 export type ThemeWeight = (typeof THEME_WEIGHTS)[number];
 
+/** A colour scheme. Typography is not part of a theme; see Typography. */
 export interface Theme {
   /** Preset ids are fixed words ("graphite"); custom ids start with "custom-". */
   id: string;
   /** 1..40 printable characters. */
   name: string;
   tokens: ThemeTokens;
+}
+
+/** The user's font, weight and density. Global: applies on top of whichever theme is active. */
+export interface Typography {
   font: ThemeFont;
   weight: ThemeWeight;
   compact: boolean;
@@ -33,6 +38,13 @@ export interface ThemeState {
   activeId: string;
   presets: readonly Theme[];
   custom: readonly Theme[];
+  typography: Typography;
+}
+
+/** What an overlay draws with: the active theme's colours and the global typography. */
+export interface ActiveTheme {
+  theme: Theme;
+  typography: Typography;
 }
 
 export type ThemeImportResult =

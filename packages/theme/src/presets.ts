@@ -1,6 +1,13 @@
-import type { Theme } from "./types";
+import type { Theme, Typography } from "./types";
 
 export const DEFAULT_THEME_ID = "graphite";
+
+/** A fresh install's typography: what the Graphite theme carried before typography left themes. */
+export const DEFAULT_TYPOGRAPHY: Readonly<Typography> = Object.freeze({
+  font: "inter",
+  weight: 500,
+  compact: false,
+});
 
 export const GRAPHITE: Theme = {
   id: "graphite",
@@ -16,9 +23,6 @@ export const GRAPHITE: Theme = {
     border: "#ffffff1f",
     ownRow: "#1aa8c270",
   },
-  font: "inter",
-  weight: 500,
-  compact: false,
 };
 
 const MIDNIGHT: Theme = {
@@ -35,9 +39,6 @@ const MIDNIGHT: Theme = {
     border: "#8aa4ff26",
     ownRow: "#1aa8c270",
   },
-  font: "manrope",
-  weight: 500,
-  compact: false,
 };
 
 const CARBON: Theme = {
@@ -54,9 +55,6 @@ const CARBON: Theme = {
     border: "#ffffff1a",
     ownRow: "#1aa8c270",
   },
-  font: "barlow-condensed",
-  weight: 600,
-  compact: true,
 };
 
 const PADDOCK: Theme = {
@@ -73,9 +71,6 @@ const PADDOCK: Theme = {
     border: "#2dd4bf29",
     ownRow: "#1aa8c270",
   },
-  font: "inter",
-  weight: 600,
-  compact: false,
 };
 
 const GLACIER: Theme = {
@@ -92,9 +87,6 @@ const GLACIER: Theme = {
     border: "#0f172a26",
     ownRow: "#0284c738",
   },
-  font: "inter",
-  weight: 600,
-  compact: false,
 };
 
 const AURORA: Theme = {
@@ -111,9 +103,6 @@ const AURORA: Theme = {
     border: "#c4b5fd26",
     ownRow: "#1aa8c270",
   },
-  font: "oswald",
-  weight: 500,
-  compact: false,
 };
 
 export const THEME_PRESETS: readonly Theme[] = [

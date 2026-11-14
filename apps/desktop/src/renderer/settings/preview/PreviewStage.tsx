@@ -1,7 +1,7 @@
 import { forwardRef } from "react";
 import { OverlayRuntimeContext, type OverlayModule, type OverlayRuntime } from "@overlay/overlays";
 import type { OverlayInstanceSettings } from "@overlay/overlays/contract";
-import type { Theme } from "@overlay/theme/types";
+import type { Theme, Typography } from "@overlay/theme/types";
 import { ThemeScope } from "../appearance/ThemeScope";
 import { OverlayErrorBoundary } from "../../overlay/ErrorBoundary";
 import { contentStyle } from "../../overlay/OverlayFrame";
@@ -19,6 +19,7 @@ export interface PreviewStageProps {
   shellZoom: number;
   runtime: OverlayRuntime;
   theme: Theme;
+  typography: Typography;
 }
 
 /**
@@ -27,7 +28,7 @@ export interface PreviewStageProps {
  * `.pv-*` and a ThemeScope; the overlay window's stylesheet is never loaded here.
  */
 export const PreviewStage = forwardRef<HTMLDivElement, PreviewStageProps>(function PreviewStage(
-  { module, settings, size, fit, shellZoom, runtime, theme },
+  { module, settings, size, fit, shellZoom, runtime, theme, typography },
   ref,
 ) {
   const { manifest, Component } = module;
@@ -47,6 +48,7 @@ export const PreviewStage = forwardRef<HTMLDivElement, PreviewStageProps>(functi
       >
         <ThemeScope
           theme={theme}
+          typography={typography}
           className={settings.common.showTitleBar ? "pv-window pv-window--titlebar" : "pv-window"}
         >
           {settings.common.showTitleBar && (

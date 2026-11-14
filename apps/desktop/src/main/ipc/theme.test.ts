@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { WebContents } from "electron";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { THEME_PRESETS, encodeThemeCode, serializeThemeFile } from "@overlay/theme";
+import {
+  DEFAULT_TYPOGRAPHY,
+  THEME_PRESETS,
+  encodeThemeCode,
+  serializeThemeFile,
+} from "@overlay/theme";
 import { IPC } from "../../shared/types";
 import { ThemeStore } from "../theme-store";
 import type { IpcContext } from "./context";
@@ -73,6 +78,7 @@ describe("theme IPC sender rules", () => {
   const settingsOnly = [
     IPC.themeGetState,
     IPC.themeSetActive,
+    IPC.themeSetTypography,
     IPC.themeSave,
     IPC.themeRemove,
     IPC.themeImportCode,
@@ -90,9 +96,10 @@ describe("theme IPC sender rules", () => {
     );
   });
 
-  it("lets settings and overlay windows read the active theme", () => {
-    expect(call(IPC.themeGetActive, settings)).toMatchObject({ id: "graphite" });
-    expect(call(IPC.themeGetActive, overlay)).toMatchObject({ id: "graphite" });
+  it("lets settings and overlay windows read the active theme and typography", () => {
+    const applied = { theme: { id: "graphite" }, typography: DEFAULT_TYPOGRAPHY };
+    expect(call(IPC.themeGetActive, settings)).toMatchObject(applied);
+    expect(call(IPC.themeGetActive, overlay)).toMatchObject(applied);
     expect(() => call(IPC.themeGetActive, other)).toThrow("Rejected IPC");
   });
 });
@@ -105,6 +112,16 @@ describe("theme IPC store calls", () => {
 
   it("rejects saving a preset", () => {
     expect(() => call(IPC.themeSave, settings, THEME_PRESETS[1])).toThrow();
+  });
+
+  it("sets the typography with a built-in theme active, ignoring invalid fields", () => {
+    expect(call(IPC.themeSetTypography, settings, { font: "oswald", weight: 9 })).toMatchObject({
+      activeId: "graphite",
+      typography: { ...DEFAULT_TYPOGRAPHY, font: "oswald" },
+    });
+    expect(call(IPC.themeSetTypography, settings, "junk")).toMatchObject({
+      typography: { ...DEFAULT_TYPOGRAPHY, font: "oswald" },
+    });
   });
 });
 

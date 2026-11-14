@@ -329,7 +329,7 @@ export function ThemeEditorPanel(props: ThemeEditorPanelProps) {
           ))}
           <p className="muted">{LOCKED_LINE}</p>
         </div>
-        <ThemePreview theme={theme} />
+        <ThemePreview theme={theme} typography={state.typography} />
       </div>
 
       <div className="ed-manage">

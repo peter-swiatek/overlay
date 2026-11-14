@@ -1,5 +1,11 @@
-import { GRAPHITE, LOCKED_COLOUR_KEYS, LOCKED_COLOURS, THEME_PRESETS } from "@overlay/theme";
-import type { Theme, ThemeState } from "@overlay/theme/types";
+import {
+  DEFAULT_TYPOGRAPHY,
+  GRAPHITE,
+  LOCKED_COLOUR_KEYS,
+  LOCKED_COLOURS,
+  THEME_PRESETS,
+} from "@overlay/theme";
+import type { Theme, ThemeState, Typography } from "@overlay/theme/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { AppearanceForm } from "../pages/AppearancePage";
@@ -13,29 +19,35 @@ import {
 } from "./model";
 
 const custom: Theme = { ...GRAPHITE, id: "custom-aaaaaaaa", name: "Night Stint" };
-const stateOf = (activeId: string, extra: Theme[] = []): ThemeState => ({
+const accent = (hex: string) => ({ accent: hex }) as Theme["tokens"];
+const stateOf = (
+  activeId: string,
+  extra: Theme[] = [],
+  typography: Typography = DEFAULT_TYPOGRAPHY,
+): ThemeState => ({
   activeId,
   presets: THEME_PRESETS,
   custom: extra,
+  typography,
 });
 
 describe("planThemeEdit", () => {
   it("refuses an edit to a preset and leaves it untouched", () => {
     const state = stateOf("graphite");
     const before = JSON.stringify(state);
-    const plan = planThemeEdit(state, { font: "oswald" });
+    const plan = planThemeEdit(state, { name: "Mine" });
     expect(plan).toEqual({ error: PRESET_LOCKED_MESSAGE });
     expect(JSON.stringify(state)).toBe(before);
   });
 
   it("edits a custom theme in place and merges tokens", () => {
     const plan = planThemeEdit(stateOf(custom.id, [custom]), {
-      compact: true,
+      name: "Renamed",
       tokens: { accent: "#112233" } as Theme["tokens"],
     });
     if (!("theme" in plan)) throw new Error("expected a theme");
     expect(plan.theme.id).toBe(custom.id);
-    expect(plan.theme.compact).toBe(true);
+    expect(plan.theme.name).toBe("Renamed");
     expect(plan.theme.tokens.accent).toBe("#112233");
     expect(plan.theme.tokens.row).toBe(custom.tokens.row);
   });
@@ -46,12 +58,20 @@ describe("activeTheme and applyActiveChanged", () => {
     expect(activeTheme(stateOf("nope")).id).toBe("graphite");
   });
 
-  it("replaces the active custom theme's content", () => {
-    const next = applyActiveChanged(stateOf(custom.id, [custom]), { ...custom, compact: true });
-    expect(next.custom[0]?.compact).toBe(true);
-    expect(applyActiveChanged(stateOf("graphite"), THEME_PRESETS[1]!).activeId).toBe(
-      THEME_PRESETS[1]!.id,
-    );
+  it("replaces the active custom theme's content and the typography", () => {
+    const typography: Typography = { font: "oswald", weight: 700, compact: true };
+    const next = applyActiveChanged(stateOf(custom.id, [custom]), {
+      theme: { ...custom, name: "Renamed" },
+      typography,
+    });
+    expect(next.custom[0]?.name).toBe("Renamed");
+    expect(next.typography).toEqual(typography);
+    const picked = applyActiveChanged(stateOf("graphite", [], typography), {
+      theme: THEME_PRESETS[1]!,
+      typography,
+    });
+    expect(picked.activeId).toBe(THEME_PRESETS[1]!.id);
+    expect(picked.typography).toEqual(typography);
   });
 });
 
@@ -60,10 +80,15 @@ describe("createThemeWriter", () => {
     const log: string[] = [];
     let customThemes = initial;
     let activeId = active;
-    const snapshot = (): ThemeState => ({ activeId, presets: THEME_PRESETS, custom: customThemes });
+    const snapshot = (): ThemeState => ({
+      activeId,
+      presets: THEME_PRESETS,
+      custom: customThemes,
+      typography: DEFAULT_TYPOGRAPHY,
+    });
     const api = {
       async save(theme: Theme) {
-        log.push(`save:${theme.id}:${theme.name}:${theme.font}/${theme.weight}`);
+        log.push(`save:${theme.id}:${theme.name}:${theme.tokens.accent}`);
         await Promise.resolve();
         if (!customThemes.some((t) => t.id === theme.id) && customThemes.length >= 50) {
           throw new Error("You can keep up to 50 custom themes");
@@ -88,12 +113,10 @@ describe("createThemeWriter", () => {
   it("refuses to write to a preset and saves nothing", async () => {
     const { api, log, snapshot } = setup();
     const writer = createThemeWriter(api);
-    await expect(writer.write(snapshot(), { font: "oswald" })).rejects.toThrow(
-      PRESET_LOCKED_MESSAGE,
-    );
-    await expect(writer.write(snapshot(), { weight: 700 }, { target: "graphite" })).rejects.toThrow(
-      PRESET_LOCKED_MESSAGE,
-    );
+    await expect(writer.write(snapshot(), { name: "Mine" })).rejects.toThrow(PRESET_LOCKED_MESSAGE);
+    await expect(
+      writer.write(snapshot(), { tokens: accent("#112233") }, { target: "graphite" }),
+    ).rejects.toThrow(PRESET_LOCKED_MESSAGE);
     expect(log).toEqual([]);
   });
 
@@ -101,22 +124,22 @@ describe("createThemeWriter", () => {
     const { api, log, snapshot } = setup([custom], custom.id);
     const writer = createThemeWriter(api);
     const stale = snapshot();
-    const a = writer.write(stale, { font: "oswald" });
-    const b = writer.write(stale, { weight: 600 });
-    const c = writer.write(stale, { weight: 700 });
+    const a = writer.write(stale, { name: "Renamed" });
+    const b = writer.write(stale, { tokens: accent("#111111") });
+    const c = writer.write(stale, { tokens: accent("#222222") });
     const [, , last] = await Promise.all([a, b, c]);
     expect(log.filter((l) => l.startsWith("save:"))).toHaveLength(2);
     expect(last.custom).toHaveLength(1);
-    expect(last.custom[0]).toMatchObject({ font: "oswald", weight: 700 });
+    expect(last.custom[0]).toMatchObject({ name: "Renamed", tokens: { accent: "#222222" } });
   });
 
   it("writes to the theme the edit was made on, even after another is selected", async () => {
     const { api, log, snapshot } = setup([custom], custom.id);
     const writer = createThemeWriter(api);
-    const pending = writer.write(snapshot(), { font: "manrope" }, { target: custom.id });
+    const pending = writer.write(snapshot(), { tokens: accent("#123456") }, { target: custom.id });
     const picked = writer.select("graphite");
     const [afterEdit, afterSelect] = await Promise.all([pending, picked]);
-    expect(afterEdit.custom[0]?.font).toBe("manrope");
+    expect(afterEdit.custom[0]?.tokens.accent).toBe("#123456");
     expect(afterSelect.activeId).toBe("graphite");
     expect(log.at(-1)).toBe("active:graphite");
   });
@@ -150,7 +173,7 @@ function render(state: ThemeState, combinePills = false): string {
       combinePills={combinePills}
       error={null}
       onSelect={noop}
-      onEdit={noop}
+      onTypography={noop}
       onCreate={noop}
       onCombinePills={noop}
       onState={noop}
@@ -188,18 +211,46 @@ describe("AppearanceForm", () => {
   });
 
   it("shows the Oswald note only for Oswald", () => {
-    const oswald = { ...custom, font: "oswald" as const };
-    expect(render(stateOf(oswald.id, [oswald]))).toContain("Oswald has no ExtraBold");
-    expect(render(stateOf(custom.id, [custom]))).not.toContain("Oswald has no ExtraBold");
+    const oswald = { ...DEFAULT_TYPOGRAPHY, font: "oswald" as const };
+    expect(render(stateOf("graphite", [], oswald))).toContain("Oswald has no ExtraBold");
+    expect(render(stateOf("graphite"))).not.toContain("Oswald has no ExtraBold");
   });
 
-  it("locks the typography controls and offers New theme from this while a preset is active", () => {
+  const typographyOf = (html: string) =>
+    html.slice(html.indexOf(">Typography<"), html.indexOf(">Pills<"));
+
+  it("keeps the typography controls enabled with every built-in theme active", () => {
+    for (const preset of THEME_PRESETS) {
+      const typo = typographyOf(render(stateOf(preset.id)));
+      expect(typo).toContain("Overlay font");
+      expect(typo).toContain("Compact mode");
+      expect(typo).not.toContain("disabled");
+      expect(typo).not.toContain("can&#x27;t be changed");
+    }
+  });
+
+  it("shows the global typography, not anything from the theme", () => {
+    const typography: Typography = { font: "manrope", weight: 700, compact: true };
+    const typo = typographyOf(render(stateOf("carbon", [], typography)));
+    expect(typo).toMatch(/aria-pressed="true"[^>]*>Manrope</);
+    expect(typo.match(/aria-pressed="true"[^>]*>(Inter|Oswald|Barlow Condensed)</g)).toBeNull();
+    expect(typo).toMatch(
+      /<input[^>]*checked=""[^>]*aria-label="Compact mode"|aria-label="Compact mode"[^>]*checked=""/,
+    );
+  });
+
+  it("does not change the typography section when the theme changes", () => {
+    const typography: Typography = { font: "oswald", weight: 600, compact: true };
+    const sections = [...THEME_PRESETS.map((t) => t.id), custom.id].map((id) =>
+      typographyOf(render(stateOf(id, [custom], typography))),
+    );
+    for (const s of sections) expect(s).toBe(sections[0]);
+  });
+
+  it("locks only the colours while a preset is active and offers New theme from this", () => {
     const html = render(stateOf("graphite"));
-    expect(html).toContain("Built-in themes can&#x27;t be changed.");
+    expect(html).toContain("Built-in colour schemes can&#x27;t be changed.");
     expect(html).toMatch(/data-variant="primary"[^>]*>New theme from this…</);
-    const typo = html.slice(html.indexOf("Overlay font"), html.indexOf("Pills"));
-    expect(typo).not.toMatch(/<button(?![^>]*disabled)[^>]*aria-pressed/);
-    expect(typo.match(/disabled=""/g)!.length).toBeGreaterThanOrEqual(10);
     // The pill switch is not a theme colour and stays editable.
     const pills = html.slice(html.indexOf("Combine safety"));
     expect(pills.slice(0, pills.indexOf("<input") + 200)).not.toContain("disabled");
@@ -207,7 +258,7 @@ describe("AppearanceForm", () => {
 
   it("keeps a custom theme editable and offers a plain New theme button", () => {
     const html = render(stateOf(custom.id, [custom]));
-    expect(html).not.toContain("Built-in themes");
+    expect(html).not.toContain("Built-in colour schemes");
     expect(html).toContain(">New theme<");
     expect(html).not.toContain("New theme from this");
     const typo = html.slice(html.indexOf("Overlay font"), html.indexOf("Pills"));
@@ -233,8 +284,16 @@ describe("AppearanceForm", () => {
 describe("ThemeScope", () => {
   it("carries theme and locked variables inline without touching the document", () => {
     expect(typeof document).toBe("undefined");
-    const html = renderToStaticMarkup(<ThemeScope theme={GRAPHITE}>x</ThemeScope>);
+    const typography: Typography = { font: "oswald", weight: 700, compact: true };
+    const html = renderToStaticMarkup(
+      <ThemeScope theme={GRAPHITE} typography={typography}>
+        x
+      </ThemeScope>,
+    );
     expect(html).toContain(`--ov-accent:${GRAPHITE.tokens.accent}`);
+    expect(html).toContain("--ov-font-weight:700");
+    expect(html).toContain("--ov-font-size:12px");
+    expect(html).toContain("Oswald");
     expect(html).toContain("--ov-locked-gain:#22c55e");
   });
 });

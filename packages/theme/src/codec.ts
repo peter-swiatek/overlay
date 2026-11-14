@@ -8,13 +8,9 @@ export const MAX_THEME_FILE_BYTES = 64 * 1024;
 const FILE_FORMAT = "overlay-theme";
 
 function shareable(theme: Theme): Omit<Theme, "id"> {
-  return {
-    name: theme.name,
-    tokens: theme.tokens,
-    font: theme.font,
-    weight: theme.weight,
-    compact: theme.compact,
-  };
+  // Colours only. Codes and files from older versions may still carry font, weight and compact;
+  // sanitizeTheme ignores them, so they still import.
+  return { name: theme.name, tokens: theme.tokens };
 }
 
 function toBase64Url(bytes: Uint8Array): string {

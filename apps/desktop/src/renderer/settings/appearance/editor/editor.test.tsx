@@ -1,5 +1,6 @@
 import {
   decodeThemeCode,
+  DEFAULT_TYPOGRAPHY,
   GRAPHITE,
   LOCKED_COLOUR_KEYS,
   LOCKED_COLOURS,
@@ -21,6 +22,7 @@ const stateOf = (activeId: string, extra: Theme[] = []): ThemeState => ({
   activeId,
   presets: THEME_PRESETS,
   custom: extra,
+  typography: DEFAULT_TYPOGRAPHY,
 });
 
 const api: EditorApi = {
@@ -155,9 +157,8 @@ describe("locked colours cannot be imported", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(Object.keys(result.theme.tokens).sort()).toEqual([...THEME_TOKEN_KEYS].sort());
-    expect(Object.keys(result.theme).sort()).toEqual(
-      ["compact", "font", "id", "name", "tokens", "weight"].sort(),
-    );
+    // Colours only: the font, weight and compact an older code carries are dropped.
+    expect(Object.keys(result.theme).sort()).toEqual(["id", "name", "tokens"]);
     expect(JSON.stringify(LOCKED_COLOURS)).toBe(lockedBefore);
     expect(JSON.stringify(lockedCssVars())).toBe(varsBefore);
 
@@ -193,7 +194,7 @@ describe("editor render", () => {
 
   it("locks colours, rename and delete and shows the note for a preset", () => {
     const html = render(stateOf("graphite"));
-    expect(html).toContain("Built-in themes can&#x27;t be changed.");
+    expect(html).toContain("Built-in colour schemes can&#x27;t be changed.");
     expect(html).not.toContain("first edit makes a custom copy");
     expect(html).toMatch(/<input[^>]*aria-label="Theme name"[^>]*disabled/);
     expect(html).toMatch(/<button[^>]*data-variant="danger"[^>]*disabled=""[^>]*>Delete/);
@@ -205,11 +206,34 @@ describe("editor render", () => {
 
   it("enables colours, rename and delete and hides the note for a custom theme", () => {
     const html = render(stateOf(custom.id, [custom]));
-    expect(html).not.toContain("Built-in themes");
+    expect(html).not.toContain("Built-in colour schemes");
     expect(html).not.toMatch(/aria-label="Theme name"[^>]*disabled/);
     expect(html).not.toMatch(/data-variant="danger"[^>]*disabled/);
     const tokens = html.slice(html.indexOf('class="ed-tokens"'), html.indexOf("ed-manage"));
     expect(tokens).not.toContain("disabled");
+  });
+
+  it("edits colours only: no font, weight or compact control", () => {
+    const html = render(stateOf(custom.id, [custom]));
+    for (const label of ["Overlay font", "Weight", "Compact mode", "Typography"]) {
+      expect(html).not.toContain(label);
+    }
+    // Every input is a colour (hex, picker or alpha) or the name: nothing for typography.
+    const labels = [...html.matchAll(/<input[^>]*aria-label="([^"]*)"/g)].map((m) => m[1]!);
+    const tokenLabels = THEME_TOKEN_KEYS.map((k) => TOKEN_LABELS[k]);
+    const extra = labels.filter((l) => !tokenLabels.some((t) => l.startsWith(t)));
+    expect(extra).toEqual(["Theme name"]);
+    expect(html).not.toMatch(/role="switch"|type="checkbox"/);
+  });
+
+  it("previews with the global typography", () => {
+    const state = {
+      ...stateOf(custom.id, [custom]),
+      typography: { font: "oswald", weight: 800, compact: true } as const,
+    };
+    const html = render(state);
+    expect(html).toContain("--ov-font-weight:800");
+    expect(html).toContain("--ov-font-size:12px");
   });
 
   it("shows a warning next to Text", () => {

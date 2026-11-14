@@ -80,6 +80,7 @@ const api: OverlayApi = {
     getState: () => ipcRenderer.invoke(IPC.themeGetState),
     getActive: () => ipcRenderer.invoke(IPC.themeGetActive),
     setActive: (id) => ipcRenderer.invoke(IPC.themeSetActive, id),
+    setTypography: (patch) => ipcRenderer.invoke(IPC.themeSetTypography, patch),
     save: (theme) => ipcRenderer.invoke(IPC.themeSave, theme),
     remove: (id) => ipcRenderer.invoke(IPC.themeRemove, id),
     importCode: (code) => ipcRenderer.invoke(IPC.themeImportCode, code),

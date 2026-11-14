@@ -1,8 +1,9 @@
-import { DEFAULT_THEME_ID, forkTheme, sanitizeThemeName } from "@overlay/theme";
-import type { Theme, ThemeState } from "@overlay/theme/types";
+import { DEFAULT_THEME_ID, DEFAULT_TYPOGRAPHY, forkTheme, sanitizeThemeName } from "@overlay/theme";
+import type { ActiveTheme, Theme, ThemeState } from "@overlay/theme/types";
 import type { OverlayApi } from "../../../shared/types";
 
-export type ThemeEdit = Partial<Pick<Theme, "name" | "tokens" | "font" | "weight" | "compact">>;
+/** A theme is its name and colours; typography is global and changes through setTypography. */
+export type ThemeEdit = Partial<Pick<Theme, "name" | "tokens">>;
 
 /** The active theme, else Graphite (an unknown id can only mean a stale state). */
 export function activeTheme(state: ThemeState): Theme {
@@ -23,7 +24,7 @@ function applyEdit(base: Theme, edit: ThemeEdit): Theme {
 }
 
 export const PRESET_LOCKED_MESSAGE =
-  "Built-in themes can't be changed. Create your own theme to customise it.";
+  "Built-in colour schemes can't be changed. Create your own theme to customise the colours.";
 
 /** Applies an edit to the active theme. Presets never change: an edit to one is refused. */
 export function planThemeEdit(
@@ -40,14 +41,15 @@ export function defaultNewThemeName(base: Theme): string {
   return sanitizeThemeName(`${base.name} copy`);
 }
 
-/** Follows `theme:changed`, which carries only the active theme. */
-export function applyActiveChanged(state: ThemeState, active: Theme): ThemeState {
-  if (isPreset(state, active.id)) return { ...state, activeId: active.id };
+/** Follows `theme:changed`, which carries only the active theme and the typography. */
+export function applyActiveChanged(state: ThemeState, applied: ActiveTheme): ThemeState {
+  const { theme: active, typography } = applied;
+  if (isPreset(state, active.id)) return { ...state, activeId: active.id, typography };
   const known = state.custom.some((t) => t.id === active.id);
   const custom = known
     ? state.custom.map((t) => (t.id === active.id ? active : t))
     : [...state.custom, active];
-  return { ...state, activeId: active.id, custom };
+  return { ...state, activeId: active.id, custom, typography };
 }
 
 function mergeEdits(a: ThemeEdit, b: ThemeEdit): ThemeEdit {
@@ -166,7 +168,7 @@ export function createThemeWriter(api: ThemeWriterApi): ThemeWriter {
         // The state is only used when nothing ran before; setActive returns the whole state.
         enqueue({
           kind: "select",
-          state: { activeId: id, presets: [], custom: [] },
+          state: { activeId: id, presets: [], custom: [], typography: DEFAULT_TYPOGRAPHY },
           id,
           waiters: [{ resolve, reject }],
         });

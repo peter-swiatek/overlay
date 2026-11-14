@@ -1,5 +1,5 @@
-import { GRAPHITE, THEME_FONTS, THEME_WEIGHTS, themeToCssVars } from "@overlay/theme";
-import type { Theme, ThemeFont, ThemeState, ThemeWeight } from "@overlay/theme/types";
+import { THEME_FONTS, THEME_WEIGHTS, fontFamilyCss } from "@overlay/theme";
+import type { Theme, ThemeFont, ThemeState, ThemeWeight, Typography } from "@overlay/theme/types";
 import { IRatingPill, LicencePill } from "@overlay/ui";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NewTheme } from "../appearance/NewTheme";
@@ -12,8 +12,6 @@ import {
   applyActiveChanged,
   createThemeWriter,
   isPreset,
-  PRESET_LOCKED_MESSAGE,
-  type ThemeEdit,
   type ThemeWriter,
 } from "../appearance/model";
 import { Row, Section, Segmented, Toggle } from "../controls";
@@ -35,17 +33,13 @@ const WEIGHT_LABELS: Record<ThemeWeight, string> = {
 
 type WeightKey = `${ThemeWeight}`;
 
-/** The same family string the overlays use, so a label shows the face it names. */
-function fontFamily(font: ThemeFont): string {
-  return themeToCssVars({ ...GRAPHITE, font })["--ov-font-family"]!;
-}
-
 export interface AppearanceFormProps {
   state: ThemeState;
   combinePills: boolean;
   error: string | null;
   onSelect(id: string): void;
-  onEdit(edit: ThemeEdit): void;
+  /** Changes the global typography, whichever theme is active. */
+  onTypography(patch: Partial<Typography>): void;
   onCreate(name: string): void;
   onCombinePills(next: boolean): void;
   onState(next: ThemeState): void;
@@ -58,6 +52,7 @@ export function AppearanceForm(props: AppearanceFormProps) {
   const { state, combinePills, error } = props;
   const theme: Theme = activeTheme(state);
   const preset = isPreset(state, theme.id);
+  const { typography } = state;
   const settleRef = useRef<(() => Promise<unknown>) | null>(null);
   return (
     <>
@@ -78,17 +73,19 @@ export function AppearanceForm(props: AppearanceFormProps) {
           settleRef={settleRef}
         />
       </Section>
-      <Section title="Typography">
+      <Section
+        title="Typography"
+        description="Applies to every overlay, whichever theme is active, built-in or your own."
+      >
         <Row label="Overlay font">
           <div role="group" aria-label="Overlay font" className="ctl-segmented">
             {THEME_FONTS.map((font) => (
               <button
                 key={font}
                 type="button"
-                disabled={preset}
-                aria-pressed={theme.font === font}
-                style={{ fontFamily: fontFamily(font) }}
-                onClick={() => props.onEdit({ font })}
+                aria-pressed={typography.font === font}
+                style={{ fontFamily: fontFamilyCss(font) }}
+                onClick={() => props.onTypography({ font })}
               >
                 {FONT_LABELS[font]}
               </button>
@@ -97,28 +94,27 @@ export function AppearanceForm(props: AppearanceFormProps) {
         </Row>
         <Row
           label="Weight"
-          help={theme.font === "oswald" ? "Oswald has no ExtraBold; 800 shows as Bold." : undefined}
+          help={
+            typography.font === "oswald" ? "Oswald has no ExtraBold; 800 shows as Bold." : undefined
+          }
         >
           <Segmented<WeightKey>
             label="Weight"
-            disabled={preset}
-            value={String(theme.weight) as WeightKey}
+            value={String(typography.weight) as WeightKey}
             options={THEME_WEIGHTS.map((w) => ({
               value: String(w) as WeightKey,
               label: WEIGHT_LABELS[w],
             }))}
-            onChange={(next) => props.onEdit({ weight: Number(next) as ThemeWeight })}
+            onChange={(next) => props.onTypography({ weight: Number(next) as ThemeWeight })}
           />
         </Row>
         <Row label="Compact mode" help="Smaller text and rows in every overlay.">
           <Toggle
             label="Compact mode"
-            disabled={preset}
-            checked={theme.compact}
-            onChange={(compact) => props.onEdit({ compact })}
+            checked={typography.compact}
+            onChange={(compact) => props.onTypography({ compact })}
           />
         </Row>
-        {preset && <p className="note">{PRESET_LOCKED_MESSAGE}</p>}
         {error && <p className="note ap-error">{error}</p>}
       </Section>
       <Section title="Pills">
@@ -129,7 +125,7 @@ export function AppearanceForm(props: AppearanceFormProps) {
             onChange={props.onCombinePills}
           />
         </Row>
-        <ThemeScope theme={theme} className="ap-pill-sample">
+        <ThemeScope theme={theme} typography={typography} className="ap-pill-sample">
           <LicencePill licence="A 3.41" />
           <IRatingPill iRating={2412} licence="A 3.41" tinted={combinePills} />
         </ThemeScope>
@@ -188,10 +184,9 @@ export function AppearancePage() {
         setError(null);
         writer.create(latest.current ?? state, name).then(accept, fail);
       }}
-      onEdit={(edit) => {
+      onTypography={(patch) => {
         setError(null);
-        const from = latest.current ?? state;
-        writer.write(from, edit, { target: activeTheme(from).id }).then(accept, fail);
+        window.overlayApi.theme.setTypography(patch).then(accept, fail);
       }}
       onCombinePills={(combinedLicencePill) => update({ appearance: { combinedLicencePill } })}
     />

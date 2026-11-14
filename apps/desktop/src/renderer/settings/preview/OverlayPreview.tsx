@@ -2,8 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { moduleById, type OverlayRuntime, type TelemetrySelector } from "@overlay/overlays";
 import type { OverlayInstanceSettings, OverlayManifest } from "@overlay/overlays/contract";
 import { createDemoFeed, type DemoFeed } from "@overlay/sim-core/demo";
-import { GRAPHITE } from "@overlay/theme";
-import type { Theme } from "@overlay/theme/types";
+import { DEFAULT_TYPOGRAPHY, GRAPHITE } from "@overlay/theme";
+import type { ActiveTheme } from "@overlay/theme/types";
 import { displayPrefsOf } from "../../../shared/app-settings-types";
 import type { OverlaySize } from "../../../shared/types";
 import { structurallyEqual } from "../../telemetry/client";
@@ -62,8 +62,11 @@ export interface OverlayPreviewProps {
 /** Cap on how tall the scaled preview may get, as a share of the window height. */
 const MAX_HEIGHT_SHARE = 0.6;
 
-function useActiveTheme(): Theme {
-  const [theme, setTheme] = useState<Theme>(GRAPHITE);
+function useActiveTheme(): ActiveTheme {
+  const [theme, setTheme] = useState<ActiveTheme>({
+    theme: GRAPHITE,
+    typography: DEFAULT_TYPOGRAPHY,
+  });
   useEffect(() => {
     const api = window.overlayApi?.theme;
     if (!api) return;
@@ -281,7 +284,8 @@ export function OverlayPreview({ manifest, settings, size, onMeasure }: OverlayP
           fit={layout.fit}
           shellZoom={layout.shellZoom}
           runtime={runtime}
-          theme={theme}
+          theme={theme.theme}
+          typography={theme.typography}
         />
       </div>
       <p className="pv-caption">{captionText(real)}</p>

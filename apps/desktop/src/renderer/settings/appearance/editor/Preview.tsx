@@ -1,4 +1,4 @@
-import type { Theme } from "@overlay/theme/types";
+import type { Theme, Typography } from "@overlay/theme/types";
 import {
   DataTable,
   formatDelta,
@@ -142,11 +142,14 @@ function SpotterSample() {
   );
 }
 
-/** The draft theme drawn the way an overlay does, on a checkerboard that stands in for the sim. */
-export function ThemePreview({ theme }: { theme: Theme }) {
+/**
+ * The draft theme drawn the way an overlay does (with the global typography), on a checkerboard
+ * that stands in for the sim.
+ */
+export function ThemePreview({ theme, typography }: { theme: Theme; typography: Typography }) {
   return (
     <div className="ed-backdrop">
-      <ThemeScope theme={theme} className="ed-preview">
+      <ThemeScope theme={theme} typography={typography} className="ed-preview">
         <DataTable
           columns={COLUMNS}
           config={CONFIG}

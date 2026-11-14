@@ -1,14 +1,27 @@
-import { DEFAULT_THEME_ID, THEME_PRESETS, sanitizeTheme } from "@overlay/theme";
-import type { Theme, ThemeState } from "@overlay/theme/types";
+import {
+  DEFAULT_THEME_ID,
+  DEFAULT_TYPOGRAPHY,
+  THEME_PRESETS,
+  migrateLegacyTypography,
+  sanitizeTheme,
+  sanitizeTypography,
+} from "@overlay/theme";
+import type { ActiveTheme, Theme, ThemeState, Typography } from "@overlay/theme/types";
 import { readJsonFile, writeJsonFileAtomic } from "./json-file";
 
 export const MAX_CUSTOM_THEMES = 50;
 const CUSTOM_PREFIX = "custom-";
 
+/**
+ * Version 1 kept font, weight and compact inside each theme. Version 2 keeps colours only in
+ * themes and one global `typography`. A version 1 file is migrated once on load (see
+ * migrateLegacyTypography) and rewritten as version 2 straight away.
+ */
 interface ThemesFile {
-  version: 1;
+  version: 2;
   activeId: string;
   custom: Theme[];
+  typography: Typography;
 }
 
 /** Keeps valid custom themes with unique `custom-` ids, at most MAX_CUSTOM_THEMES. */
@@ -28,11 +41,15 @@ function sanitizeCustom(raw: unknown): Theme[] {
   return out;
 }
 
-/** The active theme and the user's own themes, stored in `themes.json`. */
+/**
+ * The active theme, the user's own themes and the global typography, stored in `themes.json`.
+ * Themes are colour schemes; typography applies on top of whichever theme is active.
+ */
 export class ThemeStore {
   private custom: Theme[] = [];
   private activeId: string = DEFAULT_THEME_ID;
-  private readonly listeners = new Set<(active: Theme) => void>();
+  private typography: Typography = { ...DEFAULT_TYPOGRAPHY };
+  private readonly listeners = new Set<(active: ActiveTheme) => void>();
 
   constructor(private readonly file: string) {
     const raw = readJsonFile(file);
@@ -42,11 +59,35 @@ export class ThemeStore {
       if (typeof data.activeId === "string" && this.find(data.activeId)) {
         this.activeId = data.activeId;
       }
+      if (data.version === 2) {
+        this.typography = sanitizeTypography(data.typography);
+      } else {
+        // An older file: typography lived in the themes. Lift it out once and save.
+        this.typography = migrateLegacyTypography(data.activeId, data.custom);
+        this.persist();
+      }
     }
   }
 
   getState(): ThemeState {
-    return { activeId: this.activeId, presets: THEME_PRESETS, custom: [...this.custom] };
+    return {
+      activeId: this.activeId,
+      presets: THEME_PRESETS,
+      custom: [...this.custom],
+      typography: { ...this.typography },
+    };
+  }
+
+  /** The active theme with the global typography: what overlays draw with. */
+  getApplied(): ActiveTheme {
+    return { theme: this.getActive(), typography: { ...this.typography } };
+  }
+
+  /** Merges a partial typography change; invalid fields keep their current value. */
+  setTypography(patch: unknown): ThemeState {
+    const next = sanitizeTypography(patch, this.typography);
+    this.mutate(() => (this.typography = next));
+    return this.getState();
   }
 
   getActive(): Theme {
@@ -89,7 +130,7 @@ export class ThemeStore {
     return this.getState();
   }
 
-  onChange(listener: (active: Theme) => void): () => void {
+  onChange(listener: (active: ActiveTheme) => void): () => void {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
@@ -100,17 +141,24 @@ export class ThemeStore {
     return THEME_PRESETS.find((t) => t.id === id) ?? this.custom.find((t) => t.id === id);
   }
 
-  /** Runs a change, saves, and notifies when the active theme or its content changed. */
+  /** Runs a change, saves, and notifies when the active theme, its content or typography changed. */
   private mutate(change: () => void): void {
-    const before = JSON.stringify(this.getActive());
+    const before = JSON.stringify(this.getApplied());
     change();
     this.persist();
-    const active = this.getActive();
-    if (JSON.stringify(active) !== before) for (const listener of this.listeners) listener(active);
+    const applied = this.getApplied();
+    if (JSON.stringify(applied) !== before) {
+      for (const listener of this.listeners) listener(applied);
+    }
   }
 
   private persist(): void {
-    const data: ThemesFile = { version: 1, activeId: this.activeId, custom: this.custom };
+    const data: ThemesFile = {
+      version: 2,
+      activeId: this.activeId,
+      custom: this.custom,
+      typography: this.typography,
+    };
     try {
       writeJsonFileAtomic(this.file, data);
     } catch (error) {

@@ -1,5 +1,5 @@
 import { HEX_COLOUR } from "./colour";
-import { GRAPHITE } from "./presets";
+import { DEFAULT_TYPOGRAPHY } from "./presets";
 import {
   THEME_FONTS,
   THEME_TOKEN_KEYS,
@@ -9,6 +9,7 @@ import {
   type ThemeTokenKey,
   type ThemeTokens,
   type ThemeWeight,
+  type Typography,
 } from "./types";
 
 export type ThemeResult = { ok: true; theme: Theme } | { ok: false; error: string };
@@ -58,8 +59,25 @@ function isWeight(value: unknown): value is ThemeWeight {
 }
 
 /**
+ * Builds Typography from untrusted data, field by field: a missing or invalid field takes the
+ * value from `fallback`.
+ */
+export function sanitizeTypography(
+  raw: unknown,
+  fallback: Readonly<Typography> = DEFAULT_TYPOGRAPHY,
+): Typography {
+  const data = isRecord(raw) ? raw : {};
+  return {
+    font: isFont(data.font) ? data.font : fallback.font,
+    weight: isWeight(data.weight) ? data.weight : fallback.weight,
+    compact: typeof data.compact === "boolean" ? data.compact : fallback.compact,
+  };
+}
+
+/**
  * Builds a Theme from untrusted data. Only known fields are read, so extra keys (including every
- * locked colour name, at any depth) never reach the result.
+ * locked colour name, at any depth, and the font, weight and compact fields older themes
+ * carried) never reach the result.
  */
 export function sanitizeTheme(raw: unknown): ThemeResult {
   if (!isRecord(raw)) return { ok: false, error: "This is not a theme" };
@@ -84,9 +102,6 @@ export function sanitizeTheme(raw: unknown): ThemeResult {
       id,
       name: sanitizeThemeName(raw.name),
       tokens: tokens as ThemeTokens,
-      font: isFont(raw.font) ? raw.font : GRAPHITE.font,
-      weight: isWeight(raw.weight) ? raw.weight : GRAPHITE.weight,
-      compact: typeof raw.compact === "boolean" ? raw.compact : false,
     },
   };
 }
@@ -108,5 +123,5 @@ export function forkTheme(
       .trimEnd() + suffix;
   let name = fit(base.name, " (custom)");
   for (let n = 2; names.has(name); n++) name = fit(`${base.name} (custom)`, ` ${n}`);
-  return { ...base, id, name, tokens: { ...base.tokens } };
+  return { id, name, tokens: { ...base.tokens } };
 }

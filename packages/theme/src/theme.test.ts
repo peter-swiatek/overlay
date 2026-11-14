@@ -10,15 +10,20 @@ import {
   contrastRatio,
   decodeThemeCode,
   encodeThemeCode,
+  DEFAULT_TYPOGRAPHY,
   forkTheme,
+  fontFamilyCss,
   lockedCssVars,
+  migrateLegacyTypography,
   overBlack,
   parseThemeFile,
   resolveFunctionalColour,
   sanitizeTheme,
+  sanitizeTypography,
   themeTone,
   serializeThemeFile,
   themeToCssVars,
+  typographyToCssVars,
   type Theme,
 } from "./index";
 
@@ -67,11 +72,16 @@ describe("presets", () => {
         border: "#ffffff1f",
         ownRow: "#1aa8c270",
       },
-      font: "inter",
-      weight: 500,
-      compact: false,
     });
     expect(DEFAULT_THEME_ID).toBe(graphite.id);
+  });
+
+  it("carries colours only: no preset has typography", () => {
+    for (const t of THEME_PRESETS) expect(Object.keys(t).sort()).toEqual(["id", "name", "tokens"]);
+  });
+
+  it("defaults typography to what Graphite used to carry", () => {
+    expect(DEFAULT_TYPOGRAPHY).toEqual({ font: "inter", weight: 500, compact: false });
   });
 
   it("has distinct accents", () => {
@@ -199,20 +209,16 @@ describe("sanitizeTheme", () => {
     expect(sanitizeTheme({ ...valid, tokens: undefined }).ok).toBe(false);
   });
 
-  it("lower-cases colours and falls back for font, weight and compact", () => {
+  it("lower-cases colours and drops the typography older themes carried", () => {
     const r = sanitizeTheme({
       ...valid,
       tokens: { ...valid.tokens, accent: "#FFC400" },
-      font: "comic",
-      weight: 550,
-      compact: "yes",
+      font: "oswald",
+      weight: 700,
+      compact: true,
     });
-    expect(r.ok && r.theme).toMatchObject({
-      tokens: { accent: "#ffc400" },
-      font: "inter",
-      weight: 500,
-      compact: false,
-    });
+    expect(r.ok && r.theme).toMatchObject({ tokens: { accent: "#ffc400" } });
+    expect(r.ok && Object.keys(r.theme).sort()).toEqual(["id", "name", "tokens"]);
   });
 
   it("cleans names", () => {
@@ -246,6 +252,7 @@ describe("forkTheme", () => {
     expect(fork.name).toBe("Graphite (custom)");
     expect(fork.tokens).toEqual(graphite.tokens);
     expect(fork.tokens).not.toBe(graphite.tokens);
+    expect(Object.keys(fork).sort()).toEqual(["id", "name", "tokens"]);
   });
 
   it("makes names unique", () => {
@@ -319,14 +326,7 @@ describe("share code", () => {
     const r = decodeThemeCode(`OVT1.${b64}`);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(Object.keys(r.theme).sort()).toEqual([
-      "compact",
-      "font",
-      "id",
-      "name",
-      "tokens",
-      "weight",
-    ]);
+    expect(Object.keys(r.theme).sort()).toEqual(["id", "name", "tokens"]);
     expect(Object.keys(r.theme.tokens).sort()).toEqual([...THEME_TOKEN_KEYS].sort());
     expect(LOCKED_COLOURS).toEqual(before);
   });
@@ -355,7 +355,7 @@ describe("theme file", () => {
 
 describe("css variables", () => {
   it("lists tokens in order, then typography", () => {
-    expect(Object.keys(themeToCssVars(graphite))).toEqual([
+    expect(Object.keys(themeToCssVars(graphite, DEFAULT_TYPOGRAPHY))).toEqual([
       "--ov-bg",
       "--ov-row",
       "--ov-row-alt",
@@ -374,7 +374,7 @@ describe("css variables", () => {
   });
 
   it("maps fonts and compact mode", () => {
-    const vars = themeToCssVars(graphite);
+    const vars = themeToCssVars(graphite, DEFAULT_TYPOGRAPHY);
     expect(vars["--ov-font-family"]).toBe('"Inter", system-ui, sans-serif');
     expect(vars["--ov-font-weight"]).toBe("500");
     expect([vars["--ov-font-size"], vars["--ov-row-height"], vars["--ov-cell-pad-x"]]).toEqual([
@@ -382,7 +382,11 @@ describe("css variables", () => {
       "24px",
       "7px",
     ]);
-    const compact = themeToCssVars({ ...graphite, compact: true, font: "barlow-condensed" });
+    const compact = themeToCssVars(graphite, {
+      ...DEFAULT_TYPOGRAPHY,
+      compact: true,
+      font: "barlow-condensed",
+    });
     expect([
       compact["--ov-font-size"],
       compact["--ov-row-height"],
@@ -392,12 +396,16 @@ describe("css variables", () => {
   });
 
   it("pins the default and compact cell padding", () => {
-    expect(themeToCssVars(graphite)["--ov-cell-pad-x"]).toBe("7px");
-    expect(themeToCssVars({ ...graphite, compact: true })["--ov-cell-pad-x"]).toBe("5px");
+    expect(themeToCssVars(graphite, DEFAULT_TYPOGRAPHY)["--ov-cell-pad-x"]).toBe("7px");
+    expect(
+      themeToCssVars(graphite, { ...DEFAULT_TYPOGRAPHY, compact: true })["--ov-cell-pad-x"],
+    ).toBe("5px");
   });
 
   it("never carries a locked variable", () => {
-    expect(Object.keys(themeToCssVars(graphite)).some((k) => k.includes("locked"))).toBe(false);
+    expect(
+      Object.keys(themeToCssVars(graphite, DEFAULT_TYPOGRAPHY)).some((k) => k.includes("locked")),
+    ).toBe(false);
   });
 });
 
@@ -434,5 +442,73 @@ describe("preset own-row colours", () => {
       glacier: "#0284c738",
       aurora: "#1aa8c270",
     });
+  });
+});
+
+describe("typography", () => {
+  it("is the same for every theme: the token variables change, the typography ones do not", () => {
+    const typography = { font: "oswald", weight: 700, compact: true } as const;
+    const expected = typographyToCssVars(typography);
+    for (const t of THEME_PRESETS) {
+      expect(themeToCssVars(t, typography)).toMatchObject(expected);
+    }
+    expect(expected["--ov-font-family"]).toBe(fontFamilyCss("oswald"));
+  });
+
+  it("sanitises field by field against a fallback", () => {
+    expect(sanitizeTypography(null)).toEqual(DEFAULT_TYPOGRAPHY);
+    expect(sanitizeTypography({ font: "comic", weight: 550, compact: "yes" })).toEqual(
+      DEFAULT_TYPOGRAPHY,
+    );
+    expect(sanitizeTypography({ weight: 800 })).toEqual({ ...DEFAULT_TYPOGRAPHY, weight: 800 });
+    const fallback = { font: "manrope", weight: 600, compact: true } as const;
+    expect(sanitizeTypography({ compact: false }, fallback)).toEqual({
+      ...fallback,
+      compact: false,
+    });
+  });
+});
+
+describe("migrateLegacyTypography", () => {
+  const old = (id: string, extra: Record<string, unknown>) => ({
+    id,
+    name: "Old",
+    tokens: graphite.tokens,
+    ...extra,
+  });
+
+  it("takes the active custom theme's own font, weight and compact", () => {
+    const custom = [
+      old("custom-aaaaaaaa", { font: "manrope", weight: 400, compact: false }),
+      old("custom-bbbbbbbb", { font: "oswald", weight: 700, compact: true }),
+    ];
+    expect(migrateLegacyTypography("custom-bbbbbbbb", custom)).toEqual({
+      font: "oswald",
+      weight: 700,
+      compact: true,
+    });
+  });
+
+  it("fills invalid or missing fields of the active custom theme with the defaults", () => {
+    const custom = [old("custom-aaaaaaaa", { font: "comic", weight: 800 })];
+    expect(migrateLegacyTypography("custom-aaaaaaaa", custom)).toEqual({
+      ...DEFAULT_TYPOGRAPHY,
+      weight: 800,
+    });
+  });
+
+  it("keeps what an active built-in theme used to show", () => {
+    expect(migrateLegacyTypography("carbon", [])).toEqual({
+      font: "barlow-condensed",
+      weight: 600,
+      compact: true,
+    });
+    expect(migrateLegacyTypography("graphite", [])).toEqual(DEFAULT_TYPOGRAPHY);
+  });
+
+  it("falls back to the defaults for anything else", () => {
+    expect(migrateLegacyTypography(undefined, undefined)).toEqual(DEFAULT_TYPOGRAPHY);
+    expect(migrateLegacyTypography("custom-gone", [5, null])).toEqual(DEFAULT_TYPOGRAPHY);
+    expect(migrateLegacyTypography("toString", [])).toEqual(DEFAULT_TYPOGRAPHY);
   });
 });

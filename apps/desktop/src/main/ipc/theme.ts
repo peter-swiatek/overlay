@@ -113,7 +113,11 @@ export function createThemeHandlers(
       if (!ctx.isSettingsSender(event.sender) && !ctx.isOverlaySender(event.sender)) {
         ctx.deny(IPC.themeGetActive);
       }
-      return store.getActive();
+      return store.getApplied();
+    },
+    [IPC.themeSetTypography]: (event, patch) => {
+      settingsOnly(event.sender, IPC.themeSetTypography);
+      return store.setTypography(patch);
     },
     [IPC.themeSetActive]: (event, id) => {
       settingsOnly(event.sender, IPC.themeSetActive);

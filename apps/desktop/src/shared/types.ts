@@ -5,7 +5,13 @@ import type {
   PageRect,
 } from "@overlay/overlays/contract";
 import type { ChatEvent } from "@overlay/overlays/twitch-chat";
-import type { Theme, ThemeImportResult, ThemeState } from "@overlay/theme/types";
+import type {
+  ActiveTheme,
+  Theme,
+  ThemeImportResult,
+  ThemeState,
+  Typography,
+} from "@overlay/theme/types";
 import type { TableMetrics } from "@overlay/ui/fit";
 import type { AppSettings, AppSettingsPatch } from "./app-settings-types";
 import type { CaptureSettings, CaptureStatus } from "./capture-types";
@@ -117,6 +123,7 @@ export const IPC = {
   overlaysRemoved: "overlays:removed",
   themeGetState: "theme:get-state",
   themeGetActive: "theme:get-active",
+  themeSetTypography: "theme:set-typography",
   themeSetActive: "theme:set-active",
   themeSave: "theme:save",
   themeRemove: "theme:remove",
@@ -210,15 +217,19 @@ export interface OverlayApi {
   };
   theme: {
     getState(): Promise<ThemeState>;
-    getActive(): Promise<Theme>;
+    /** The active theme's colours and the global typography. */
+    getActive(): Promise<ActiveTheme>;
     setActive(id: string): Promise<ThemeState>;
+    /** Changes the global typography (applies to every theme, built-in or custom). */
+    setTypography(patch: Partial<Typography>): Promise<ThemeState>;
     save(theme: Theme): Promise<ThemeState>;
     remove(id: string): Promise<ThemeState>;
     importCode(code: string): Promise<ThemeImportResult>;
     exportCode(id: string): Promise<string | null>;
     importFile(): Promise<ThemeImportResult | null>;
     exportFile(id: string): Promise<boolean>;
-    onChanged(callback: (active: Theme) => void): () => void;
+    /** Fires when the active theme, its colours or the typography change. */
+    onChanged(callback: (active: ActiveTheme) => void): () => void;
   };
   appSettings: {
     get(): Promise<AppSettings>;

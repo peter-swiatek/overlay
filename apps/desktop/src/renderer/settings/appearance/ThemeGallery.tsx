@@ -1,5 +1,5 @@
 import { formatDriverName, formatLapTime, LicencePill } from "@overlay/ui";
-import type { Theme, ThemeState } from "@overlay/theme/types";
+import type { Theme, ThemeState, Typography } from "@overlay/theme/types";
 import { ThemeScope } from "./ThemeScope";
 import "./appearance.css";
 
@@ -12,17 +12,20 @@ const SWATCHES = [
 
 function ThemeCard({
   theme,
+  typography,
   active,
   custom,
   onSelect,
 }: {
   theme: Theme;
+  /** The global typography, so a card shows the theme as the overlays would. */
+  typography: Typography;
   active: boolean;
   custom: boolean;
   onSelect(id: string): void;
 }) {
   return (
-    <ThemeScope theme={theme} className="ap-card-scope">
+    <ThemeScope theme={theme} typography={typography} className="ap-card-scope">
       <button
         type="button"
         className="ap-card"
@@ -66,6 +69,7 @@ export function ThemeGallery({
         <ThemeCard
           key={t.id}
           theme={t}
+          typography={state.typography}
           active={t.id === state.activeId}
           custom={false}
           onSelect={onSelect}
@@ -75,6 +79,7 @@ export function ThemeGallery({
         <ThemeCard
           key={t.id}
           theme={t}
+          typography={state.typography}
           active={t.id === state.activeId}
           custom
           onSelect={onSelect}
