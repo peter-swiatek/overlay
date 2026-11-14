@@ -3,6 +3,7 @@ import {
   GRAPHITE,
   LOCKED_COLOUR_KEYS,
   LOCKED_COLOURS,
+  THEME_FONTS,
   THEME_PRESETS,
 } from "@overlay/theme";
 import type { Theme, ThemeState, Typography } from "@overlay/theme/types";
@@ -198,16 +199,34 @@ describe("AppearanceForm", () => {
     expect(html).toContain("Max Example");
   });
 
-  it("renders each font label in its own family", () => {
+  it("renders every font in the closed picker's list, each name in its own family", () => {
     const html = render(stateOf("graphite"));
+    const list = html.slice(html.indexOf('role="listbox"'), html.indexOf("</ul>"));
+    expect(list.match(/role="option"/g)).toHaveLength(THEME_FONTS.length);
     for (const [label, family] of [
       ["Inter", "Inter"],
       ["Manrope", "Manrope"],
       ["Oswald", "Oswald"],
       ["Barlow Condensed", "Barlow Condensed"],
+      ["DM Sans", "DM Sans"],
+      ["Figtree", "Figtree"],
+      ["Urbanist", "Urbanist"],
     ]) {
-      expect(html).toMatch(new RegExp(`font-family:&quot;${family}&quot;[^>]*>${label}<`));
+      expect(list).toMatch(
+        new RegExp(
+          `font-family:&quot;${family}&quot;[^>]*>(<span[^>]*>[^<]*</span>)?<span class="ap-font-name">${label}<`,
+        ),
+      );
     }
+    // Closed: the list is in the markup but hidden, and nothing is highlighted for a reader.
+    expect(html).toMatch(/role="listbox"[^>]*hidden=""/);
+    expect(html).toMatch(/role="combobox"[^>]*aria-expanded="false"/);
+    expect(html).not.toContain("aria-activedescendant");
+  });
+
+  it("no longer uses segmented buttons for the font", () => {
+    const typo = typographyOf(render(stateOf("graphite")));
+    expect(typo).not.toMatch(/aria-pressed="[a-z]+"[^>]*>(Inter|Manrope|Oswald|Barlow Condensed)</);
   });
 
   it("shows the Oswald note only for Oswald", () => {
@@ -232,8 +251,11 @@ describe("AppearanceForm", () => {
   it("shows the global typography, not anything from the theme", () => {
     const typography: Typography = { font: "manrope", weight: 700, compact: true };
     const typo = typographyOf(render(stateOf("carbon", [], typography)));
-    expect(typo).toMatch(/aria-pressed="true"[^>]*>Manrope</);
-    expect(typo.match(/aria-pressed="true"[^>]*>(Inter|Oswald|Barlow Condensed)</g)).toBeNull();
+    expect(typo).toMatch(
+      /role="combobox"[^>]*font-family:&quot;Manrope&quot;[^>]*><span class="ap-font-value">Manrope</,
+    );
+    expect(typo.match(/aria-selected="true"/g)).toHaveLength(1);
+    expect(typo).toMatch(/aria-selected="true"[^>]*data-font="manrope"/);
     expect(typo).toMatch(
       /<input[^>]*checked=""[^>]*aria-label="Compact mode"|aria-label="Compact mode"[^>]*checked=""/,
     );

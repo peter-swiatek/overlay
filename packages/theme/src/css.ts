@@ -26,6 +26,9 @@ const FONT_FAMILIES: Record<ThemeFont, string> = {
   manrope: '"Manrope", system-ui, sans-serif',
   oswald: '"Oswald", system-ui, sans-serif',
   "barlow-condensed": '"Barlow Condensed", system-ui, sans-serif',
+  "dm-sans": '"DM Sans", system-ui, sans-serif',
+  figtree: '"Figtree", system-ui, sans-serif',
+  urbanist: '"Urbanist", system-ui, sans-serif',
 };
 
 /** The CSS font-family stack the overlays use for `font`. */

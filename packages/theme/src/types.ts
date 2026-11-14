@@ -13,7 +13,15 @@ export type ThemeTokenKey = (typeof THEME_TOKEN_KEYS)[number];
 /** Each value "#rrggbb" or "#rrggbbaa", lower case. */
 export type ThemeTokens = Record<ThemeTokenKey, string>;
 
-export const THEME_FONTS = ["inter", "manrope", "oswald", "barlow-condensed"] as const;
+export const THEME_FONTS = [
+  "inter",
+  "manrope",
+  "oswald",
+  "barlow-condensed",
+  "dm-sans",
+  "figtree",
+  "urbanist",
+] as const;
 export type ThemeFont = (typeof THEME_FONTS)[number];
 export const THEME_WEIGHTS = [400, 500, 600, 700, 800] as const;
 export type ThemeWeight = (typeof THEME_WEIGHTS)[number];

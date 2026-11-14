@@ -1,7 +1,9 @@
-import { THEME_FONTS, THEME_WEIGHTS, fontFamilyCss } from "@overlay/theme";
-import type { Theme, ThemeFont, ThemeState, ThemeWeight, Typography } from "@overlay/theme/types";
+import { THEME_WEIGHTS } from "@overlay/theme";
+import type { Theme, ThemeState, ThemeWeight, Typography } from "@overlay/theme/types";
 import { IRatingPill, LicencePill } from "@overlay/ui";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { FontPicker } from "../appearance/FontPicker";
+import { WEIGHT_LABELS, fontWeightNote } from "../appearance/fonts";
 import { NewTheme } from "../appearance/NewTheme";
 import { LockedColours } from "../appearance/LockedColours";
 import { ThemeEditorEntry } from "../appearance/editor";
@@ -16,20 +18,6 @@ import {
 } from "../appearance/model";
 import { Row, Section, Segmented, Toggle } from "../controls";
 import { useAppSettings } from "../controls/useAppSettings";
-
-const FONT_LABELS: Record<ThemeFont, string> = {
-  inter: "Inter",
-  manrope: "Manrope",
-  oswald: "Oswald",
-  "barlow-condensed": "Barlow Condensed",
-};
-const WEIGHT_LABELS: Record<ThemeWeight, string> = {
-  400: "Regular 400",
-  500: "Medium 500",
-  600: "SemiBold 600",
-  700: "Bold 700",
-  800: "ExtraBold 800",
-};
 
 type WeightKey = `${ThemeWeight}`;
 
@@ -78,26 +66,14 @@ export function AppearanceForm(props: AppearanceFormProps) {
         description="Applies to every overlay, whichever theme is active, built-in or your own."
       >
         <Row label="Overlay font">
-          <div role="group" aria-label="Overlay font" className="ctl-segmented">
-            {THEME_FONTS.map((font) => (
-              <button
-                key={font}
-                type="button"
-                aria-pressed={typography.font === font}
-                style={{ fontFamily: fontFamilyCss(font) }}
-                onClick={() => props.onTypography({ font })}
-              >
-                {FONT_LABELS[font]}
-              </button>
-            ))}
-          </div>
+          <FontPicker
+            label="Overlay font"
+            value={typography.font}
+            weight={typography.weight}
+            onChange={(font) => props.onTypography({ font })}
+          />
         </Row>
-        <Row
-          label="Weight"
-          help={
-            typography.font === "oswald" ? "Oswald has no ExtraBold; 800 shows as Bold." : undefined
-          }
-        >
+        <Row label="Weight" help={fontWeightNote(typography.font)}>
           <Segmented<WeightKey>
             label="Weight"
             value={String(typography.weight) as WeightKey}

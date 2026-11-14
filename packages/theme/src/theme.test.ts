@@ -3,6 +3,7 @@ import {
   DEFAULT_THEME_ID,
   LOCKED_COLOURS,
   LOCKED_COLOUR_KEYS,
+  THEME_FONTS,
   THEME_PRESETS,
   THEME_TOKEN_KEYS,
   compositeOver,
@@ -466,6 +467,36 @@ describe("typography", () => {
       ...fallback,
       compact: false,
     });
+  });
+
+  it("offers seven fonts, each with its own quoted family first and a sans-serif fallback", () => {
+    expect(THEME_FONTS).toEqual([
+      "inter",
+      "manrope",
+      "oswald",
+      "barlow-condensed",
+      "dm-sans",
+      "figtree",
+      "urbanist",
+    ]);
+    const families = THEME_FONTS.map((f) => fontFamilyCss(f));
+    expect(new Set(families).size).toBe(THEME_FONTS.length);
+    expect(fontFamilyCss("dm-sans")).toBe('"DM Sans", system-ui, sans-serif');
+    expect(fontFamilyCss("figtree")).toBe('"Figtree", system-ui, sans-serif');
+    expect(fontFamilyCss("urbanist")).toBe('"Urbanist", system-ui, sans-serif');
+    for (const family of families) {
+      expect(family).toMatch(/^"[A-Z][A-Za-z ]+", system-ui, sans-serif$/);
+    }
+  });
+
+  it("accepts every font, the newer ones too, and carries it to the css variables", () => {
+    for (const font of THEME_FONTS) {
+      const t = sanitizeTypography({ font, weight: 700, compact: false });
+      expect(t).toEqual({ font, weight: 700, compact: false });
+      expect(typographyToCssVars(t)["--ov-font-family"]).toBe(fontFamilyCss(font));
+    }
+    expect(sanitizeTypography({ font: "DM Sans" }).font).toBe(DEFAULT_TYPOGRAPHY.font);
+    expect(sanitizeTypography({ font: "dm_sans" }).font).toBe(DEFAULT_TYPOGRAPHY.font);
   });
 });
 
