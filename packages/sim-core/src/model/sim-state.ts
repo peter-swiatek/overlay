@@ -214,6 +214,22 @@ export interface TyreSet {
   rearCompound?: string | null;
 }
 
+/**
+ * Body dent severity per zone around the car, in this order: front, front left, left, rear left,
+ * rear, rear right, right, front right. 0 = none; the sim counts up from there (LMU: 1 and 2;
+ * only 2 was seen in the recordings).
+ */
+export type DentZones = readonly [number, number, number, number, number, number, number, number];
+
+/** The player's car damage as the sim reports it (LMU only). */
+export interface VehicleDamage {
+  dents: DentZones;
+  /** The tyre on this wheel is flat (or the wheel is off; LMU can not tell them apart here). */
+  tyreFlat: { fl: boolean; fr: boolean; rl: boolean; rr: boolean };
+  /** Session time of the last impact, seconds (compare with `tickTimeS`); null when none yet. */
+  lastImpactS: number | null;
+}
+
 /** Spotter state: which sides have a car alongside. */
 export type CarLeftRight = "clear" | "left" | "right" | "both" | "twoLeft" | "twoRight";
 
@@ -309,6 +325,8 @@ export interface Player {
   redlineRpm: number | null;
   /** Steering wheel lock, radians each side (iRacing SteeringWheelAngleMax). */
   steerMaxRad: number | null;
+  /** Body and tyre damage; LMU only. Null when unknown, absent in states recorded before it. */
+  damage?: VehicleDamage | null;
 }
 
 export interface SimState {
@@ -447,6 +465,7 @@ export function emptySimState(source: SimSource = "mock"): SimState {
       shiftLights: null,
       redlineRpm: null,
       steerMaxRad: null,
+      damage: null,
     },
   };
 }

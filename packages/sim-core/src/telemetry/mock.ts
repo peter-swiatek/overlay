@@ -9,6 +9,7 @@ import {
   type TyreCorner,
   type TyreSet,
   type Vec3,
+  type VehicleDamage,
 } from "../model";
 
 export interface MockSourceOptions {
@@ -301,6 +302,7 @@ export class MockSource {
     p.redlineRpm = 8000;
     p.steerMaxRad = 7.85;
     p.tyres = mockTyres(playerDistance, brake);
+    p.damage = mockDamage(this.timeS);
     return state;
   }
 
@@ -450,6 +452,19 @@ function mockTyres(distanceLaps: number, brake: number): TyreSet {
     rr: corner("rr", false),
     frontCompound: "Medium",
     rearCompound: "Medium",
+  };
+}
+
+/** Session time of the mock's one scripted impact: a light touch to the nose. */
+export const MOCK_TOUCH_S = 20;
+
+/** Clean until {@link MOCK_TOUCH_S}, then a minor dent at the front for the rest of the run. */
+function mockDamage(timeS: number): VehicleDamage {
+  const touched = timeS >= MOCK_TOUCH_S;
+  return {
+    dents: [touched ? 1 : 0, 0, 0, 0, 0, 0, 0, 0],
+    tyreFlat: { fl: false, fr: false, rl: false, rr: false },
+    lastImpactS: touched ? MOCK_TOUCH_S : null,
   };
 }
 

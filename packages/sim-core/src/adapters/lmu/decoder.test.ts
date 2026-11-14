@@ -61,6 +61,7 @@ async function load(name: string): Promise<Loaded> {
 
 const onTrack = await load("lmu-hypercar-onpace-10s-5hz.ovfx");
 const burst = await load("lmu-burst-first-5s.ovfx");
+const damaged = await load("lmu-damage-impacts-10s-5hz.ovfx");
 
 describe("LmuDecoder on the on-track slice", () => {
   it("decodes every frame into a valid SimState", () => {
@@ -713,5 +714,72 @@ describe("field data for overlays", () => {
       body: [{ slotID: edited.readInt32LE(rowOf(0)), fullTeamName: "Max Example Racing" }],
     });
     expect(decoder.decode(edited).state.cars[0]?.teamName).toBe("Max Example Racing");
+  });
+});
+
+describe("LmuDecoder on the damage slice", () => {
+  const states = damaged.frames.map((f) => f.result.state);
+  const driving = states.filter((s) => s.player.tyres !== null);
+
+  it("decodes every frame", () => {
+    expect(damaged.frames.length).toBeGreaterThan(40);
+    for (const { result } of damaged.frames) {
+      expect(result.error).toBeNull();
+      expect(isSimState(result.state)).toBe(true);
+    }
+    expect(driving.length).toBeGreaterThan(30);
+  });
+
+  it("reads the dents as they appear: nose, then the left rear quarter, then the tail", () => {
+    const seen: string[] = [];
+    for (const s of driving) {
+      const dents = s.player.damage?.dents.join(",") ?? "none";
+      if (seen.at(-1) !== dents) seen.push(dents);
+    }
+    expect(seen).toEqual([
+      "0,0,0,0,0,0,0,0",
+      "2,0,0,0,0,0,0,0",
+      "2,0,0,2,0,0,0,0",
+      "2,0,0,2,2,0,0,0",
+    ]);
+  });
+
+  it("flags the rear-left tyre, whose pressure and tread read zero", () => {
+    for (const s of driving) {
+      expect(s.player.damage?.tyreFlat).toEqual({ fl: false, fr: false, rl: true, rr: false });
+      expect(s.player.tyres?.rl.pressureKpa).toBe(0);
+      expect(s.player.tyres?.rl.wear).toBe(1);
+      expect(s.player.tyres?.fl.pressureKpa).toBeGreaterThan(100);
+    }
+  });
+
+  it("keeps the last impact time on the session clock", () => {
+    const times = new Set<number>();
+    for (const s of driving) {
+      const at = s.player.damage?.lastImpactS ?? null;
+      expect(at).not.toBeNull();
+      expect(at!).toBeLessThanOrEqual((s.tickTimeS ?? 0) + 0.2);
+      times.add(at!);
+    }
+    expect([...times][0]).toBeCloseTo(343.5, 1);
+    expect([...times].at(-1)).toBeCloseTo(349.72, 2);
+    expect(times.size).toBeGreaterThan(5);
+  });
+
+  it("clears everything when the car is reset to the garage", () => {
+    const last = states.at(-1)!;
+    expect(last.player.tyres).toBeNull();
+    expect(last.player.damage).toEqual({
+      dents: [0, 0, 0, 0, 0, 0, 0, 0],
+      tyreFlat: { fl: false, fr: false, rl: false, rr: false },
+      lastImpactS: null,
+    });
+  });
+
+  it("has no damage on the clean on-track slice", () => {
+    for (const { result } of onTrack.frames) {
+      expect(result.state.player.damage?.dents).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+      expect(Object.values(result.state.player.damage?.tyreFlat ?? {})).not.toContain(true);
+    }
   });
 });

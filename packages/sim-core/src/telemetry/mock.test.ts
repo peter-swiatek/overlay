@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ProximityTracker } from "../calc/proximity";
 import { isSimState } from "../model";
 import { Deriver } from "./derive";
-import { MockSource, mockPlayerFlags } from "./mock";
+import { MOCK_TOUCH_S, MockSource, mockPlayerFlags } from "./mock";
 
 describe("MockSource", () => {
   it("gives the player a class rival ahead and behind with line gaps and sector times", () => {
@@ -168,6 +168,17 @@ describe("MockSource", () => {
       true,
     ]);
   }, 20_000);
+
+  it("touches the nose once, MOCK_TOUCH_S into the run", () => {
+    const mock = new MockSource();
+    const before = mock.step(MOCK_TOUCH_S - 1).player.damage;
+    expect(before?.dents).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(before?.lastImpactS).toBeNull();
+    const after = mock.step(600).player.damage;
+    expect(after?.dents).toEqual([1, 0, 0, 0, 0, 0, 0, 0]);
+    expect(after?.tyreFlat).toEqual({ fl: false, fr: false, rl: false, rr: false });
+    expect(after?.lastImpactS).toBe(MOCK_TOUCH_S);
+  });
 
   it("runs one Medium set that wears with distance and warms into the window", () => {
     const mock = new MockSource();

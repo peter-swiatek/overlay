@@ -4,6 +4,7 @@ export type {
   Car,
   CarLeftRight,
   Conditions,
+  DentZones,
   Flags,
   Player,
   PlayerLapDeltas,
@@ -16,6 +17,7 @@ export type {
   TyreSet,
   TyreTemps,
   Vec3,
+  VehicleDamage,
 } from "./model/sim-state";
 export type { FuelLapUse, FuelOutputs, FuelPitWindow } from "./calc/fuel/types";
 export type { Standings, StandingsEntry, StandingsGap } from "./calc/standings/types";

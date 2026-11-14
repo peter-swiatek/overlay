@@ -14,6 +14,7 @@ import {
   type TyreCorner,
   type TyreSet,
   type Vec3,
+  type VehicleDamage,
 } from "../../model";
 import {
   COMPOUND_KIND_NAMES,
@@ -598,6 +599,21 @@ function readPlayer(f: Frame, o: number, state: SimState): void {
   const rear = f.f64(o + TELEM.rearBrakeBias);
   player.brakeBias = rear > 0 && rear < 1 ? 1 - rear : null;
   player.tyres = readTyres(f, o);
+  player.damage = readDamage(f, o);
+}
+
+/** Dent bytes, flat tyres and the last impact time of one telemetry row (see layout.ts). */
+function readDamage(f: Frame, row: number): VehicleDamage {
+  const dent = (i: number): number => f.u8(row + TELEM.dentSeverity.offset + i);
+  const dents = [dent(0), dent(1), dent(2), dent(3), dent(4), dent(5), dent(6), dent(7)] as const;
+  const flat = (w: number): boolean => f.u8(wheelOffset(row, w) + WHEEL.tyreFlat) !== 0;
+  const impact = f.f64(row + TELEM.lastImpactTime);
+  return {
+    dents,
+    tyreFlat: { fl: flat(0), fr: flat(1), rl: flat(2), rr: flat(3) },
+    // 0 until the first impact (and again after a reset to the garage).
+    lastImpactS: Number.isFinite(impact) && impact > 0 ? impact : null,
+  };
 }
 
 /**
