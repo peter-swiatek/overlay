@@ -23,6 +23,7 @@ import { radarModule } from "./radar";
 import { miniMapModule } from "./mini-map";
 import { flatTrackMapModule } from "./flat-track-map";
 import { dataFramesModule } from "./data-frames";
+import { vehicleDamageModule } from "./vehicle-damage";
 
 export const OVERLAY_MODULES: readonly OverlayModule[] = [
   relativeModule,
@@ -49,6 +50,7 @@ export const OVERLAY_MODULES: readonly OverlayModule[] = [
   miniMapModule,
   flatTrackMapModule,
   dataFramesModule,
+  vehicleDamageModule,
 ];
 
 export function moduleById(id: string): OverlayModule | undefined {
