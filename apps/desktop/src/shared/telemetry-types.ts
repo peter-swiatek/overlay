@@ -46,6 +46,8 @@ export type TelemetryCommand =
   | { type: "subscribe"; rateHz: number }
   /** The Fuel overlay's options that the telemetry process acts on. */
   | { type: "setFuelOptions"; keepFuelData: boolean }
+  /** The Setup Compare overlay's options that the telemetry process acts on. */
+  | { type: "setSetupCompareOptions"; pinBaseline: boolean }
   | { type: "stop" };
 
 /** Subscriber to telemetry process: this frame has been handled. */

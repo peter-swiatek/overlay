@@ -62,6 +62,9 @@ export class TelemetryService {
       case "setFuelOptions":
         this.deriver.setKeepFuelData(command.keepFuelData === true);
         break;
+      case "setSetupCompareOptions":
+        this.deriver.setPinSetupBaseline(command.pinBaseline === true);
+        break;
       case "stop":
         this.engine.stop();
         this.deps.onStopped();

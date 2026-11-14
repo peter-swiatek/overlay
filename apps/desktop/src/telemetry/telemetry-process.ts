@@ -25,6 +25,7 @@ import { WorkerSessionParser, type WorkerLike } from "./session-parser";
 import { FileBestLapStore, bestLapFile } from "./best-lap-store";
 import { FileFuelHistoryStore, fuelHistoryFile } from "./fuel-history-store";
 import { FilePitExitStore, pitExitFile } from "./pit-exit-store";
+import { FileSetupStatsStore, setupStatsFile } from "./setup-stats-store";
 import { FileTrackOutlineStore, parseUserDataArg, trackOutlineDir } from "./track-store";
 
 const parentPort = process.parentPort;
@@ -82,6 +83,9 @@ async function main(): Promise<void> {
             console.error(message),
           ),
           bestLaps: new FileBestLapStore(bestLapFile(userData), (message) =>
+            console.error(message),
+          ),
+          setupStats: new FileSetupStatsStore(setupStatsFile(userData), (message) =>
             console.error(message),
           ),
         },

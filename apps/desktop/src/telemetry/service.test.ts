@@ -128,6 +128,23 @@ describe("TelemetryService", () => {
     expect(spy.mock.calls).toEqual([[true], [false]]);
   });
 
+  it("passes setSetupCompareOptions to the deriver", () => {
+    const deriver = new Deriver();
+    const spy = vi.spyOn(deriver, "setPinSetupBaseline");
+    const service = new TelemetryService({
+      live: {},
+      createReplay: (path, speed, loop) => ReplayTelemetrySource.fromFile(path, { speed, loop }),
+      createMock: () => new MockTelemetrySource(),
+      monoMs: () => performance.now(),
+      sendToMain: () => {},
+      onStopped: () => {},
+      deriver,
+    });
+    service.handle({ type: "setSetupCompareOptions", pinBaseline: true }, []);
+    service.handle({ type: "setSetupCompareOptions", pinBaseline: false }, []);
+    expect(spy.mock.calls).toEqual([[true], [false]]);
+  });
+
   describe("track outlines", () => {
     const KEY = "iracing_virginia-international-raceway_full-course";
     const virCorners = cornersFor(KEY)?.corners ?? [];

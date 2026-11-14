@@ -152,6 +152,27 @@ describe("TelemetryManager", () => {
     ]);
   });
 
+  it("sends Setup Compare options when they change and again to a restarted child", () => {
+    const h = harness();
+    h.manager.setSetupCompareOptions({ pinBaseline: false });
+    h.manager.start();
+    const first = h.children[0] as FakeChild;
+    expect(first.commands("setSetupCompareOptions")).toEqual([
+      { type: "setSetupCompareOptions", pinBaseline: false },
+    ]);
+    h.manager.setSetupCompareOptions({ pinBaseline: false });
+    h.manager.setSetupCompareOptions({ pinBaseline: true });
+    expect(first.commands("setSetupCompareOptions")).toEqual([
+      { type: "setSetupCompareOptions", pinBaseline: false },
+      { type: "setSetupCompareOptions", pinBaseline: true },
+    ]);
+    first.exit();
+    h.timers[0]?.fn();
+    expect(h.children[1]?.commands("setSetupCompareOptions")).toEqual([
+      { type: "setSetupCompareOptions", pinBaseline: true },
+    ]);
+  });
+
   it("holds fuel options set before start and sends them with the child", () => {
     const h = harness();
     h.manager.setFuelOptions({ keepFuelData: true });

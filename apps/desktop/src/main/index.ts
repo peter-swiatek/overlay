@@ -372,8 +372,16 @@ if (!app.requestSingleInstanceLock()) {
     const keepFuelData = (s: { options: Record<string, unknown> } | undefined): boolean =>
       s?.options["keep-fuel-data"] === true;
     telemetry.setFuelOptions({ keepFuelData: keepFuelData(overlaySettings.get("fuel")) });
+    // So does the Setup Compare overlay's "Pin baseline": turning it on pins the loaded setup.
+    const pinBaseline = (s: { options: Record<string, unknown> } | undefined): boolean =>
+      s?.options["pin-baseline"] === true;
+    telemetry.setSetupCompareOptions({
+      pinBaseline: pinBaseline(overlaySettings.get("setup-compare")),
+    });
     overlaySettings.onChange((id, s) => {
       if (id === "fuel") telemetry?.setFuelOptions({ keepFuelData: keepFuelData(s) });
+      if (id === "setup-compare")
+        telemetry?.setSetupCompareOptions({ pinBaseline: pinBaseline(s) });
     });
     telemetry.start();
 

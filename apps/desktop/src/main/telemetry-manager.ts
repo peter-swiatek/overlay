@@ -57,6 +57,8 @@ export class TelemetryManager {
   private readonly rates = new Map<object, number>();
   /** The Fuel overlay's options, once main has told us; resent to every new child. */
   private fuelOptions: { keepFuelData: boolean } | undefined;
+  /** The Setup Compare overlay's options, once main has told us; resent to every new child. */
+  private setupOptions: { pinBaseline: boolean } | undefined;
   private quitting = false;
   private restartAttempt = 0;
   private startedAtMs = 0;
@@ -99,6 +101,7 @@ export class TelemetryManager {
     });
     this.sendSource();
     this.postFuelOptions();
+    this.postSetupOptions();
     for (const [sender, rate] of this.rates) this.broker(sender, rate);
   }
 
@@ -181,6 +184,25 @@ export class TelemetryManager {
     this.child?.postMessage({
       type: "setFuelOptions",
       keepFuelData: this.fuelOptions.keepFuelData,
+    });
+  }
+
+  /**
+   * Remembers the options and sends them to the running child (only when changed) and after
+   * every (re)start. A new child takes the first value it gets as it is: only a change while it
+   * runs pins a setup.
+   */
+  setSetupCompareOptions(options: { pinBaseline: boolean }): void {
+    const changed = this.setupOptions?.pinBaseline !== options.pinBaseline;
+    this.setupOptions = { pinBaseline: options.pinBaseline };
+    if (changed) this.postSetupOptions();
+  }
+
+  private postSetupOptions(): void {
+    if (this.setupOptions === undefined) return;
+    this.child?.postMessage({
+      type: "setSetupCompareOptions",
+      pinBaseline: this.setupOptions.pinBaseline,
     });
   }
 
