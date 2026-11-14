@@ -44,13 +44,17 @@ export function fitTarget(
   };
 }
 
-/** A fit target converted from one scale to another (for stored bounds kept at an older scale). */
+/**
+ * A fit target converted from one scale to another (for stored bounds kept at an older scale).
+ * Rounded, not ceiled: the stored values were already ceiled at the old scale, and a second
+ * ceil can land one pixel above the fit computed at the new scale (a needless resize).
+ */
 export function retargetScale(target: FitTarget, fromPct: number, toPct: number): FitTarget {
   if (!(fromPct > 0) || !(toPct > 0) || fromPct === toPct) return target;
   const ratio = toPct / fromPct;
   return {
-    fitWidth: target.fitWidth === null ? null : Math.ceil(target.fitWidth * ratio),
-    minWidth: Math.ceil(target.minWidth * ratio),
+    fitWidth: target.fitWidth === null ? null : Math.round(target.fitWidth * ratio),
+    minWidth: Math.round(target.minWidth * ratio),
   };
 }
 

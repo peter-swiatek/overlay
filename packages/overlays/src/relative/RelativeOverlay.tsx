@@ -78,9 +78,6 @@ export function RelativeOverlay({ settings }: OverlayProps) {
     [settings.common.fields, sim, combinedLicencePill],
   );
 
-  const inlineFlagBadge = !fields.some((f) => f.id === "flag" && f.visible);
-  const inlinePitBadge = !fields.some((f) => f.id === "pit-lane" && f.visible);
-
   const columns = useMemo(() => {
     const base = driverColumns({
       prefs,
@@ -92,8 +89,10 @@ export function RelativeOverlay({ settings }: OverlayProps) {
       gapMode: "relative",
       showIRatingChange: iRatingChange,
       iRatingSize: iRatingChange ? "wide" : "narrow",
-      inlineFlagBadge,
-      inlinePitBadge,
+      // Nothing after the name: flags have the Flag column, pit road the muted name colour (and
+      // the optional Pit lane column).
+      inlineFlagBadge: false,
+      inlinePitBadge: false,
       pitInLastLap: false,
     });
     // The status colour goes on the driver name and the Rel gap only (see relative.css).
@@ -113,8 +112,6 @@ export function RelativeOverlay({ settings }: OverlayProps) {
     gapDecimals,
     lapDecimals,
     combinedLicencePill,
-    inlineFlagBadge,
-    inlinePitBadge,
     iRatingChange,
   ]);
 

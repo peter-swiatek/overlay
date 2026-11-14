@@ -15,13 +15,15 @@ const DEFAULT_VISIBLE: readonly DriverFieldId[] = [
   "licence",
   "irating",
   "gap",
+  // Flag / penalty badges have their own column (on by default); nothing is drawn after the name.
+  "flag",
 ];
 
 /**
  * Window width that fits the default columns at the nominal metrics, rounded up.
  * relative.test.tsx asserts it equals the computed fit.
  */
-const DEFAULT_WIDTH = 428;
+const DEFAULT_WIDTH = 485;
 
 export const relativeManifest: OverlayManifest = {
   id: "relative",

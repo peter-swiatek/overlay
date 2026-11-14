@@ -63,6 +63,7 @@ describe("relative manifest", () => {
       "licence",
       "irating",
       "gap",
+      "flag",
     ]);
   });
 
@@ -74,8 +75,8 @@ describe("relative manifest", () => {
     );
     if (widths === null || widths.fitPx === null) throw new Error("table manifest");
     expect(relativeManifest.defaultSize).toEqual({ width: Math.ceil(widths.fitPx), height: 300 });
-    expect(relativeManifest.defaultSize.width).toBeGreaterThan(420);
-    expect(relativeManifest.defaultSize.width).toBeLessThan(440);
+    expect(relativeManifest.defaultSize.width).toBeGreaterThan(470);
+    expect(relativeManifest.defaultSize.width).toBeLessThan(500);
   });
 
   it("shows air, track, wetness and wind in the header by default", () => {
@@ -280,7 +281,7 @@ describe("RelativeOverlay", () => {
     });
   });
 
-  it("draws an OFF badge after the name of an off-track car, a PIT badge for pit road", () => {
+  it("draws flag badges in the Flag column, never after the driver name", () => {
     const f = frame();
     const off = f.state.cars.find((c) => c.carIdx === 3);
     const pit = f.state.cars.find((c) => c.carIdx === 2);
@@ -288,8 +289,30 @@ describe("RelativeOverlay", () => {
     off.trackSurface = "offTrack";
     pit.onPitRoad = true;
     const html = render(f);
-    expect(html).toContain("ov-badge-flag--off");
-    expect(html).toContain(">PIT<");
+    expect(html).toContain(">Flag<");
+    expect(html.match(/>OFF</g)).toHaveLength(1);
+    // The badge is the cell's first child (the Flag column), not after a name span.
+    expect(html).toMatch(/role="cell"><span class="ov-badge-flag ov-badge-flag--off">OFF</);
+    expect(html).not.toMatch(/ov-cell-text[^>]*>[^<]*<\/span><span class="ov-badge/);
+    expect(html).not.toContain(">PIT<");
+  });
+
+  it("hides the Flag column when it is toggled off, without moving the badge to the name", () => {
+    const f = frame();
+    const off = f.state.cars.find((c) => c.carIdx === 3);
+    if (off === undefined) throw new Error("fixture");
+    off.trackSurface = "offTrack";
+    const settings = defaultInstanceSettings(relativeManifest);
+    const fields = settings.common.fields.map((x) =>
+      x.id === "flag" ? { ...x, visible: false } : x,
+    );
+    const html = renderToStaticMarkup(
+      <OverlayRuntimeContext.Provider value={staticRuntime(f)}>
+        <RelativeOverlay settings={{ ...settings, common: { ...settings.common, fields } }} />
+      </OverlayRuntimeContext.Provider>,
+    );
+    expect(html).not.toContain(">Flag<");
+    expect(html).not.toContain("ov-badge-flag");
   });
 
   it("writes the data-hidden-columns attribute (empty without a measurement)", () => {
