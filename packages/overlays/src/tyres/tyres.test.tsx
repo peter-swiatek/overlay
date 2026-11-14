@@ -10,7 +10,8 @@ import { OverlayRuntimeContext, staticRuntime, type OverlayRuntime } from "../ru
 import { applySettingsPatch, defaultInstanceSettings } from "../settings";
 import { designTyres, fitSet, tyreCorner, tyresFrame } from "./testing";
 import { tyresManifest } from "./manifest";
-import { degreesText, pressureText, pressureUnit, TyresOverlay } from "./TyresOverlay";
+import { TyresOverlay } from "./TyresOverlay";
+import { degreesText, pressureText, pressureUnit } from "./units";
 
 function render(
   f: TelemetryFrame | null,

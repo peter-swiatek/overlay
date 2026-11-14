@@ -18,3 +18,4 @@ export { miniLive } from "./mini-map/view";
 export { flatLive } from "./flat-track-map/view";
 export { dataFramesView, sampleTiles, tileView } from "./data-frames/view";
 export { damageStatus, damageView } from "./vehicle-damage/view";
+export { carStatusView } from "./car-status/view";
