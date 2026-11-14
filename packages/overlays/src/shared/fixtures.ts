@@ -220,6 +220,7 @@ export function fixtureFrame(input: {
       tyreStint: null,
       incidentLog: null,
       incidentAhead: null,
+      setupCompare: null,
     },
   };
 }

@@ -188,6 +188,27 @@ describe("mapSessionType", () => {
   });
 });
 
+describe("parseSessionYaml setup name", () => {
+  it("reads the loaded setup of the committed slice", async () => {
+    const slice = await loadSlice(`${FIXTURE_DIR}iracing-ferrari-race-start-20s.ovfx`);
+    const info = parseSessionYaml(slice.yamlTexts[0] ?? "");
+    expect(info.setupName).toBe("fixed.sto");
+    expect(info.setupModified).toBe(false);
+  });
+
+  it("reads a modified setup and gives null for a missing or empty name", () => {
+    const modified = parseSessionYaml(
+      yamlWithDrivers([], " DriverSetupName: spa_race_v1.sto\n DriverSetupIsModified: 1"),
+    );
+    expect(modified.setupName).toBe("spa_race_v1.sto");
+    expect(modified.setupModified).toBe(true);
+    const missing = parseSessionYaml(yamlWithDrivers([]));
+    expect(missing.setupName).toBeNull();
+    expect(missing.setupModified).toBeNull();
+    expect(parseSessionYaml(yamlWithDrivers([], " DriverSetupName:")).setupName).toBeNull();
+  });
+});
+
 describe("parseSessionYaml redline, shift lights and track usage", () => {
   const sli = (first: string, shift: string, last: string, blink: string) =>
     [

@@ -5,6 +5,7 @@ import type { IncidentAhead } from "../calc/incident-ahead";
 import type { IncidentLog } from "../calc/incidents";
 import type { LapHistory } from "../calc/laps";
 import type { Proximity } from "../calc/proximity";
+import type { SetupCompare } from "../calc/setups";
 import type { SlowCarAhead } from "../calc/slow-car";
 import type { Standings } from "../calc/standings";
 import type { TyreStint } from "../calc/tyres";
@@ -61,6 +62,11 @@ export interface Derived {
    * none within range or it is unknown. See calc/incident-ahead.
    */
   incidentAhead: IncidentAhead | null;
+  /**
+   * The baseline car setup against the one loaded now, with lap statistics per setup at this car
+   * and track; null when the sim names no setup (iRacing only). See calc/setups.
+   */
+  setupCompare: SetupCompare | null;
 }
 
 /** What the telemetry process publishes to overlay renderers. Plain structured-cloneable data. */
@@ -88,5 +94,6 @@ export function emptyDerived(): Derived {
     tyreStint: null,
     incidentLog: null,
     incidentAhead: null,
+    setupCompare: null,
   };
 }

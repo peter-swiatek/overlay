@@ -35,6 +35,7 @@ function frame(opts: { pitRoad?: boolean; limiter?: boolean; limit?: number | nu
       tyreStint: null,
       incidentLog: null,
       incidentAhead: null,
+      setupCompare: null,
       gaps: [],
     },
   };

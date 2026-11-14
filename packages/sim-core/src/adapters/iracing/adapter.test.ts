@@ -1051,6 +1051,20 @@ describe("IracingAdapter design-system fields (synthetic)", () => {
     expect(run({}, null).player.redlineRpm).toBeNull();
   });
 
+  it("names the loaded setup from the session info, also out of the car", () => {
+    const named = { ...info, setupName: "spa_race_v1.sto", setupModified: true };
+    expect(run({}, named).player.setup).toEqual({ name: "spa_race_v1.sto", modified: true });
+    expect(run({ CarIdxTrackSurface: [-1, 3, 3] }, named).player.setup?.name).toBe(
+      "spa_race_v1.sto",
+    );
+    expect(run({}, { ...info, setupName: "a.sto" }).player.setup).toEqual({
+      name: "a.sto",
+      modified: false,
+    });
+    expect(run({}).player.setup).toBeNull();
+    expect(run({}, null).player.setup).toBeNull();
+  });
+
   it("uses the live shift-light points, then the session info, then nothing", () => {
     const live = run({
       PlayerCarSLFirstRPM: 5200,

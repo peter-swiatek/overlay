@@ -8,6 +8,7 @@ export type {
   Flags,
   Player,
   PlayerLapDeltas,
+  PlayerSetup,
   SessionInfo,
   ShiftLightRpm,
   SimName,
@@ -40,5 +41,6 @@ export type { LapHistory, LapRecord } from "./calc/laps/types";
 export type { TyreStint } from "./calc/tyres/types";
 export type { IncidentLogEvent, IncidentLogKind, IncidentLog } from "./calc/incidents/types";
 export type { IncidentAhead, IncidentAheadKind } from "./calc/incident-ahead/types";
+export type { SetupCompare, SetupSide } from "./calc/setups/types";
 export type { TrackOutline } from "./track/types";
 export type { Corner } from "./track/corners/schema";

@@ -51,6 +51,7 @@ function frame(seq: number, patch: Partial<TelemetryFrame> = {}): TelemetryFrame
       tyreStint: null,
       incidentLog: null,
       incidentAhead: null,
+      setupCompare: null,
       energy: null,
     },
     ...patch,

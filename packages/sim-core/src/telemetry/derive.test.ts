@@ -52,6 +52,7 @@ describe("Deriver", () => {
       tyreStint: null,
       incidentLog: null,
       incidentAhead: null,
+      setupCompare: null,
     });
   });
 

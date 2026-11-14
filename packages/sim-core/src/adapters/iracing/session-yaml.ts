@@ -56,6 +56,10 @@ export interface IracingSessionInfo {
   teamRacing?: boolean | null;
   /** DriverInfo DriverPitTrkPct: lap distance (0..1) of the player's pit stall. */
   pitStallLapDistPct?: number | null;
+  /** DriverInfo DriverSetupName: the loaded setup's file name; null when missing or empty. */
+  setupName?: string | null;
+  /** DriverInfo DriverSetupIsModified ("1" once changed in the garage); null when missing. */
+  setupModified?: boolean | null;
   /** DriverInfo DriverCarRedLine, rpm; null when missing or 0. */
   redlineRpm?: number | null;
   /** DriverInfo DriverCarSLFirstRPM / SLShiftRPM / SLLastRPM / SLBlinkRPM; null when missing or all 0. */
@@ -101,6 +105,8 @@ export function parseSessionYaml(text: string): IracingSessionInfo {
     ),
     teamRacing: flag(weekend["TeamRacing"]),
     pitStallLapDistPct: fraction(driver["DriverPitTrkPct"]),
+    setupName: str(trimmed(driver["DriverSetupName"])),
+    setupModified: flag(driver["DriverSetupIsModified"]),
     redlineRpm: positive(driver["DriverCarRedLine"]),
     shiftLightRpm: shiftLights(driver),
     sectorStartPcts: sectorStarts(splits["Sectors"]),

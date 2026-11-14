@@ -124,6 +124,7 @@ function frame(status: TelemetryFrame["status"], onTrack: boolean | null): Telem
       tyreStint: null,
       incidentLog: null,
       incidentAhead: null,
+      setupCompare: null,
       gaps: [],
     },
   };

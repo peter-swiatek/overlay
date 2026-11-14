@@ -321,6 +321,9 @@ function fillPlayer(state: SimState, r: VarReader, info: IracingSessionInfo | nu
   p.isOnTrack = r.bool("IsOnTrack");
   p.steerMaxRad = positive(r.number("SteeringWheelAngleMax"));
   p.redlineRpm = info?.redlineRpm ?? null;
+  p.setup = info?.setupName
+    ? { name: info.setupName, modified: info.setupModified === true }
+    : null;
   p.shiftLights = shiftLights(r) ?? info?.shiftLightRpm ?? null;
 }
 

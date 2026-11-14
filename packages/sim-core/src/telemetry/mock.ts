@@ -134,6 +134,13 @@ const UNCLEAN_LAP_INCIDENTS = 2;
 /** Front brake share: the driver moves it forward by 0.2 % after the first lap. */
 const BRAKE_BIAS_START = 0.54;
 const BRAKE_BIAS_ADJUSTED = 0.542;
+/**
+ * The player's car setups: the first until this many laps are completed, then the second (as if
+ * changed in the pits), so a setup comparison has two setups with laps.
+ */
+const SETUP_SWITCH_LAPS = 2;
+const SETUP_FIRST = "mock_race_v1.sto";
+const SETUP_SECOND = "mock_lowdf_v2.sto";
 /** The demo race's incident limits: the first penalty and the disqualification. */
 const INCIDENT_PENALTY_LIMIT = 17;
 const INCIDENT_DQ_LIMIT = 25;
@@ -306,6 +313,10 @@ export class MockSource {
     const engine = mockEngineTemps(playerDistance);
     p.waterTempC = engine.waterC;
     p.oilTempC = engine.oilC;
+    p.setup = {
+      name: playerLaps >= SETUP_SWITCH_LAPS ? SETUP_SECOND : SETUP_FIRST,
+      modified: false,
+    };
     return state;
   }
 

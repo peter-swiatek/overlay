@@ -13,6 +13,7 @@ import { DeltaTracker, deltaInput, type BestLapStore } from "../calc/delta";
 import { IncidentAheadTracker } from "../calc/incident-ahead";
 import { IncidentLogTracker } from "../calc/incidents";
 import { LapHistoryTracker, lapHistoryInput } from "../calc/laps";
+import { SetupCompareTracker, type SetupStatsStore } from "../calc/setups";
 import {
   MiniSectorRecorder,
   RollingLapTimes,
@@ -54,6 +55,8 @@ export interface DeriverOptions {
   fuelHistory?: FuelHistoryStore;
   /** All-time best laps per car and track; without it they live only in memory. */
   bestLaps?: BestLapStore;
+  /** Lap statistics per car setup and the pinned baselines; without it they live only in memory. */
+  setupStats?: SetupStatsStore;
 }
 
 export class Deriver {
@@ -71,12 +74,17 @@ export class Deriver {
   private readonly tyreStint = new TyreStintTracker();
   private readonly incidentLog = new IncidentLogTracker();
   private readonly incidentAhead = new IncidentAheadTracker();
+  private readonly setupCompare: SetupCompareTracker;
 
   private readonly classIndices = new Map<string, number>();
 
   constructor(options: DeriverOptions = {}) {
     this.fuelHistory = options.fuelHistory ?? null;
     this.delta = new DeltaTracker({ store: options.bestLaps ?? null });
+    this.setupCompare = new SetupCompareTracker({
+      store: options.setupStats ?? null,
+      ...(options.now ? { now: options.now } : {}),
+    });
     this.track = new TrackTracker({
       ...(options.trackOutlines ? { store: options.trackOutlines } : {}),
       ...(options.pitExits ? { pitExits: options.pitExits } : {}),
@@ -103,6 +111,7 @@ export class Deriver {
     this.tyreStint.reset();
     this.incidentLog.reset();
     this.incidentAhead.reset();
+    this.setupCompare.reset();
     this.track.reset();
     this.classIndices.clear();
   }
@@ -116,6 +125,14 @@ export class Deriver {
       this.classIndices.set(key, index);
     }
     return index;
+  }
+
+  /**
+   * The Setup Compare option "Pin baseline": turning it on pins the setup loaded now as the
+   * baseline of this car and track. Takes effect on the next tick.
+   */
+  setPinSetupBaseline(on: boolean): void {
+    this.setupCompare.setPinBaseline(on);
   }
 
   /** Number of resets so far; this is the `sessionNum` the fuel tracker sees. */
@@ -152,6 +169,9 @@ export class Deriver {
     const fuel = this.updateFuel(state, player, tickS);
     const standings = this.standings.next(state, this.standingsInputs());
     const slowCar = this.slowCars.next(state);
+    const laps = this.lapHistory.next(
+      lapHistoryInput(state, standings, player === null ? null : this.fuel.lapRecords),
+    );
     return {
       fuel,
       gaps: this.gaps(state, player),
@@ -161,12 +181,11 @@ export class Deriver {
       delta: this.delta.next(deltaInput(state, player)),
       slowCar,
       energy: this.updateEnergy(state, player, tickS),
-      laps: this.lapHistory.next(
-        lapHistoryInput(state, standings, player === null ? null : this.fuel.lapRecords),
-      ),
+      laps,
       tyreStint: this.tyreStint.next(tyreStintInput(state)),
       incidentLog: this.incidentLog.next(state),
       incidentAhead: this.incidentAhead.next(state, this.slowCars.slowCars),
+      setupCompare: this.setupCompare.next(state, laps),
     };
   }
 

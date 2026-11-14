@@ -346,6 +346,19 @@ export interface Player {
   waterTempC?: number | null;
   /** Engine oil temperature, degrees Celsius. LMU only; absent in older states. */
   oilTempC?: number | null;
+  /**
+   * The car setup loaded now. iRacing only (DriverInfo DriverSetupName); null when the sim names
+   * none, absent in states recorded before it.
+   */
+  setup?: PlayerSetup | null;
+}
+
+/** The player's loaded car setup, as the sim names it. */
+export interface PlayerSetup {
+  /** The setup's file name, e.g. "spa_race_v1.sto". */
+  name: string;
+  /** Changed in the garage since it was loaded and not saved under a new name. */
+  modified: boolean;
 }
 
 export interface SimState {
@@ -485,6 +498,7 @@ export function emptySimState(source: SimSource = "mock"): SimState {
       redlineRpm: null,
       steerMaxRad: null,
       damage: null,
+      setup: null,
     },
   };
 }
