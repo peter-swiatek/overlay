@@ -1,7 +1,7 @@
 import { useRef, type PointerEvent } from "react";
 
-/** Dashed outline, name label (drag region) and a bottom-right grip that resizes via IPC. */
-export function EditFrame({ name }: { name: string }) {
+/** Dashed outline (drag region; the title bar names the overlay) and a bottom-right grip that resizes via IPC. */
+export function EditFrame() {
   const last = useRef<{ x: number; y: number } | null>(null);
 
   const onDown = (e: PointerEvent<HTMLDivElement>): void => {
@@ -24,7 +24,6 @@ export function EditFrame({ name }: { name: string }) {
 
   return (
     <div className="edit-frame">
-      <span className="edit-name">{name}</span>
       <div
         className="edit-grip"
         onPointerDown={onDown}

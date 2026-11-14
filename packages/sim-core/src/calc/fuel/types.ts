@@ -85,4 +85,22 @@ export interface FuelOutputs {
   pitWindow: FuelPitWindow | null;
   tankCapacityL: number | null;
   validLapCount: number;
+  /** Mean of the last 5 / 10 valid laps. */
+  fuelAvg5Lap: number | null;
+  fuelAvg10Lap: number | null;
+  /** Valid laps, newest first, at most 10. */
+  recentLaps: FuelLapUse[];
+  /** From the context: racing laps still to run (fractional). */
+  lapsToGo: number | null;
+  /** Laps completed since the stint began (session start or the last refuel). */
+  stintLaps: number;
+  stintTimeS: number | null;
+  /** Use per hour of driving, over valid laps. */
+  fuelPerHour: number | null;
+}
+
+export interface FuelLapUse {
+  lapNumber: number;
+  used: number;
+  lapTimeS: number | null;
 }

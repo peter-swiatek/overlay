@@ -1,0 +1,214 @@
+.vd {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 0.57em 0.71em;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--ov-bg);
+  color: var(--ov-text);
+  font-family: var(--ov-font-family, inherit);
+  font-weight: var(--ov-font-weight, 500);
+  font-size: var(--ov-font-size, 14px);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 1 px inset border, like the kit panel. */
+.vd::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  pointer-events: none;
+}
+
+.vd-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.43em;
+  min-height: 1.3em;
+  padding-bottom: 0.29em;
+  border-bottom: 1px solid var(--ov-border);
+}
+
+.vd-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ov-text-muted);
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.vd-pill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  box-sizing: border-box;
+  height: 1.42em;
+  padding: 0 0.58em;
+  border-radius: 999px;
+  font-size: 0.82em;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.vd-pill--ok {
+  color: var(--ov-locked-gain);
+  background: color-mix(in srgb, var(--ov-locked-gain) 22%, transparent);
+}
+
+.vd-pill--minor {
+  color: var(--ov-locked-rejoin-yellow);
+  background: color-mix(in srgb, var(--ov-locked-rejoin-yellow) 22%, transparent);
+}
+
+.vd-pill--heavy {
+  color: var(--ov-locked-loss);
+  background: color-mix(in srgb, var(--ov-locked-loss) 22%, transparent);
+}
+
+.vd-stage {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 0.29em 0;
+}
+
+.vd-car {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Wings: filled and outlined in the zone's colour. */
+.vd-shape,
+.vd-edge {
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.vd-shape--ok {
+  fill: color-mix(in srgb, var(--ov-locked-gain) 22%, transparent);
+  stroke: var(--ov-locked-gain);
+}
+
+.vd-shape--minor {
+  fill: color-mix(in srgb, var(--ov-locked-rejoin-yellow) 35%, transparent);
+  stroke: var(--ov-locked-rejoin-yellow);
+}
+
+.vd-shape--heavy {
+  fill: color-mix(in srgb, var(--ov-locked-loss) 35%, transparent);
+  stroke: var(--ov-locked-loss);
+}
+
+/* The body's fill follows its worst side zone; its outline is drawn zone by zone on top. */
+.vd-body {
+  stroke: none;
+}
+
+.vd-body--ok {
+  fill: color-mix(in srgb, var(--ov-locked-gain) 18%, transparent);
+}
+
+.vd-body--minor {
+  fill: color-mix(in srgb, var(--ov-locked-rejoin-yellow) 22%, transparent);
+}
+
+.vd-body--heavy {
+  fill: color-mix(in srgb, var(--ov-locked-loss) 25%, transparent);
+}
+
+.vd-edge {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.vd-edge--ok {
+  stroke: var(--ov-locked-gain);
+}
+
+.vd-edge--minor {
+  stroke: var(--ov-locked-rejoin-yellow);
+}
+
+.vd-edge--heavy {
+  stroke: var(--ov-locked-loss);
+}
+
+.vd-cockpit {
+  fill: color-mix(in srgb, var(--ov-bg) 75%, transparent);
+  stroke: var(--ov-border);
+  stroke-width: 1.5;
+}
+
+/* The sim gives no suspension damage, so the arms stay neutral. */
+.vd-arm {
+  stroke: var(--ov-text-muted);
+  stroke-width: 2.5;
+}
+
+.vd-wheel {
+  fill: var(--ov-locked-gain);
+}
+
+/* A flat tyre: red, hollowed out and dashed. */
+.vd-wheel--flat {
+  fill: color-mix(in srgb, var(--ov-locked-loss) 30%, transparent);
+  stroke: var(--ov-locked-loss);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 2;
+}
+
+.vd-details {
+  display: grid;
+  flex: none;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.29em 0.71em;
+  padding-top: 0.36em;
+  border-top: 1px solid var(--ov-border);
+  font-size: 0.78em;
+}
+
+.vd-kv {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.3em;
+  min-width: 0;
+}
+
+.vd-kv > span {
+  color: var(--ov-text-muted);
+}
+
+.vd-val {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 700;
+}
+
+.vd-val--ok {
+  color: var(--ov-locked-gain);
+}
+
+.vd-val--minor {
+  color: var(--ov-locked-rejoin-yellow);
+}
+
+.vd-val--heavy {
+  color: var(--ov-locked-loss);
+}
+
+.vd-val--plain {
+  color: var(--ov-text);
+}

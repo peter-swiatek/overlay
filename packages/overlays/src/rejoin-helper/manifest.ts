@@ -1,0 +1,50 @@
+import type { OverlayManifest } from "../contract";
+
+export const rejoinHelperManifest: OverlayManifest = {
+  id: "rejoin-helper",
+  title: "Rejoin Helper",
+  description:
+    "After a spin or an off: seconds until the next car behind reaches you, in red, yellow or green. Shows when you are off track (iRacing) or stopped or slow on track (both sims).",
+  sims: ["iracing", "lmu"],
+  defaultSize: { width: 196, height: 50 },
+  minSize: { width: 140, height: 36 },
+  defaultPosition: { x: 862, y: 640 },
+  table: false,
+  fields: [],
+  settings: [
+    {
+      key: "red-seconds",
+      label: "Do not rejoin below",
+      kind: "number",
+      section: "Rejoin",
+      default: 2,
+      min: 0.5,
+      max: 10,
+      step: 0.5,
+      unit: "s",
+      help: "The panel turns red when the next car behind is closer than this.",
+    },
+    {
+      key: "caution-seconds",
+      label: "Caution below",
+      kind: "number",
+      section: "Rejoin",
+      default: 5,
+      min: 1,
+      max: 20,
+      step: 0.5,
+      unit: "s",
+      help: "The panel turns yellow when the next car behind is closer than this, else green.",
+    },
+    {
+      key: "always-show",
+      label: "Always show",
+      kind: "toggle",
+      section: "Rejoin",
+      default: false,
+      help: "Off: shows only while you are off track, stopped or slow on track. On: always, for testing.",
+    },
+  ],
+  rateHz: 10,
+  defaultEnabled: false,
+};

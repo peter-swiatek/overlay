@@ -1,0 +1,50 @@
+import type { OverlayManifest } from "../contract";
+
+export const incidentBarManifest: OverlayManifest = {
+  id: "incident-bar",
+  title: "Incident Bar",
+  description:
+    "A thin warning bar for a car stopped, slow or off track ahead: how far, which car and where. Yellow, or red for a stopped car close ahead.",
+  sims: ["iracing", "lmu"],
+  defaultSize: { width: 360, height: 24 },
+  minSize: { width: 200, height: 18 },
+  defaultPosition: { x: 780, y: 20 },
+  table: false,
+  fields: [],
+  settings: [
+    {
+      key: "range",
+      label: "Warning distance",
+      kind: "number",
+      section: "Warning",
+      default: 300,
+      min: 50,
+      max: 1000,
+      step: 50,
+      unit: "m",
+      help: "Shows a car stopped, slow or off track up to this far ahead. Off track is iRacing only.",
+    },
+    {
+      key: "red-distance",
+      label: "Red distance",
+      kind: "number",
+      section: "Warning",
+      default: 100,
+      min: 0,
+      max: 1000,
+      step: 10,
+      unit: "m",
+      help: "A stopped car this close or closer turns the bar red.",
+    },
+    {
+      key: "corner-labels",
+      label: "Corner labels",
+      kind: "toggle",
+      section: "Warning",
+      default: true,
+      help: "Adds the corner, e.g. T7, on tracks with a corner list. Corners are numbered in driving order and may differ from the official turn numbers.",
+    },
+  ],
+  rateHz: 10,
+  defaultEnabled: false,
+};

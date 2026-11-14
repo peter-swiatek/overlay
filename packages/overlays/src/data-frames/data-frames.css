@@ -1,0 +1,102 @@
+/* One panel that fills the window. More tiles are more instances, each its own window. */
+.dfr {
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  font-family: var(--ov-font-family, inherit);
+  font-weight: var(--ov-font-weight, 500);
+  font-size: var(--ov-font-size, 14px);
+  font-variant-numeric: tabular-nums;
+}
+
+.dfr-tile {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0.43em 0.57em;
+  border-radius: 6px;
+  background: var(--ov-bg);
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  color: var(--ov-text);
+}
+
+.dfr-label {
+  overflow: hidden;
+  color: var(--ov-text-muted);
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dfr-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4em;
+  min-width: 0;
+}
+
+.dfr-row--chip {
+  align-items: center;
+}
+
+.dfr-value {
+  flex: none;
+  font-size: 1.35em;
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.dfr-value--accent {
+  color: var(--ov-accent);
+}
+
+.dfr-value--gain {
+  color: var(--ov-locked-gain);
+}
+
+.dfr-value--loss {
+  color: var(--ov-locked-loss);
+}
+
+/* The position chip: the table's position cell (class-colour left border and gradient) as a chip. */
+.dfr-pos-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12em 0.55em 0.12em 0.45em;
+  border-left: 3px solid var(--class-color, var(--ov-accent));
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--class-color, var(--ov-accent)) 36%, transparent) 0%,
+    color-mix(in srgb, var(--class-color, var(--ov-accent)) 6%, transparent) 75%,
+    transparent 100%
+  );
+  font-size: 1.25em;
+  line-height: 1.1;
+}
+
+.dfr-sub {
+  overflow: hidden;
+  min-width: 0;
+  color: var(--ov-text-muted);
+  font-size: 0.78em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dfr-sub--loss {
+  color: var(--ov-locked-loss);
+  font-weight: 700;
+}

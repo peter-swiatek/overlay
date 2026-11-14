@@ -1,0 +1,156 @@
+.flat-track-map {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--ov-bg);
+  color: var(--ov-text);
+  font-family: var(--ov-font-family, inherit);
+  font-weight: var(--ov-font-weight, 500);
+  font-size: var(--ov-font-size, 14px);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 1 px inset border, like the kit panel. */
+.flat-track-map::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  pointer-events: none;
+}
+
+/* The bar and the label row share the same 0..100 % span. */
+.flat-track-map-bar,
+.flat-track-map-labels {
+  position: absolute;
+  left: 1em;
+  right: 1em;
+}
+
+/* Zero height: everything on the bar is centred on its line. */
+.flat-track-map-bar {
+  top: 1.07em;
+  height: 0;
+}
+
+.flat-track-map-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -0.14em;
+  height: 0.28em;
+  border-radius: 0.14em;
+  background: color-mix(in srgb, var(--ov-text) 22%, transparent);
+}
+
+.flat-track-map-tick,
+.flat-track-map-car,
+.flat-track-map-player-dot {
+  position: absolute;
+  top: 0;
+  box-sizing: border-box;
+  transform: translate(-50%, -50%);
+}
+
+.flat-track-map-tick {
+  border-radius: 1px;
+}
+
+/* Start/finish in flag yellow, like the Track Map's line. */
+.flat-track-map-tick--start {
+  left: 0;
+  width: 3px;
+  height: 0.86em;
+  transform: translate(0, -50%);
+  background: var(--ov-locked-flag-yellow);
+}
+
+.flat-track-map-tick--sector {
+  width: 2px;
+  height: 0.64em;
+  background: color-mix(in srgb, var(--ov-text) 55%, transparent);
+}
+
+/* Class-coloured dot with the Track Map's dark outline. */
+.flat-track-map-car {
+  width: 0.64em;
+  height: 0.64em;
+  border-radius: 50%;
+  border: 1.5px solid #0b0d12;
+  background: var(--flat-track-map-class);
+}
+
+.flat-track-map-car--pit {
+  opacity: 0.5;
+}
+
+/* Races only: a 2 px ring outside the dark outline on a car that has lapped you or that you have
+   lapped; a car you have lapped is dimmed too, so the cars you race stand out. */
+.flat-track-map-car--lap-ahead {
+  box-shadow: 0 0 0 2px var(--ov-locked-lap-ahead);
+}
+
+.flat-track-map-car--lap-behind {
+  box-shadow: 0 0 0 2px var(--ov-locked-lap-behind);
+  opacity: 0.6;
+}
+
+.flat-track-map-car--pit.flat-track-map-car--lap-behind {
+  opacity: 0.5;
+}
+
+/* Off track or the slow car ahead: flag yellow with a dashed ring, as on the Track Map. */
+.flat-track-map-car--flag {
+  background: var(--ov-locked-flag-yellow);
+  outline: 1.5px dashed var(--ov-locked-flag-yellow);
+  outline-offset: 1px;
+}
+
+/* The Track Map's player ring (fixed colours named in the design plan). */
+.flat-track-map-car--player {
+  width: 1.14em;
+  height: 1.14em;
+  border: 2px solid #38bdf8;
+  background: rgba(20, 150, 180, 0.35);
+}
+
+.flat-track-map-player-dot {
+  left: 50%;
+  top: 50%;
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 50%;
+  border: 1.5px solid #ffffff;
+  background: var(--flat-track-map-class);
+}
+
+.flat-track-map-labels {
+  top: 1.82em;
+  height: 0;
+  color: var(--ov-text-muted);
+  white-space: nowrap;
+}
+
+.flat-track-map-label {
+  position: absolute;
+  top: 0;
+  font-size: 0.72em;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.flat-track-map-label--middle {
+  transform: translateX(-50%);
+}
+
+.flat-track-map-label--end {
+  transform: translateX(-100%);
+}
+
+.flat-track-map-label--player {
+  color: var(--ov-text);
+}

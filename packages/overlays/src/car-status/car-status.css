@@ -1,0 +1,265 @@
+.cs {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.43em;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 0.57em 0.71em 0.57em 1em;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--ov-bg);
+  color: var(--ov-text);
+  font-family: var(--ov-font-family, inherit);
+  font-weight: var(--ov-font-weight, 500);
+  font-size: var(--ov-font-size, 14px);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 1 px inset border, like the kit panel. */
+.cs::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  pointer-events: none;
+}
+
+/* The thin accent bar down the left edge. */
+.cs::before {
+  content: "";
+  position: absolute;
+  top: 0.57em;
+  bottom: 0.57em;
+  left: 0.36em;
+  width: 0.21em;
+  border-radius: 999px;
+  background: var(--ov-accent);
+}
+
+/* Front corner on top, rear below, each block centred on its tyre. */
+.cs-side {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  min-width: 0;
+}
+
+.cs-corner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.07em;
+}
+
+.cs-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.43em;
+  line-height: 1.2;
+}
+
+/* The right column mirrors the left: values on the car side. */
+.cs-side--right .cs-row {
+  flex-direction: row-reverse;
+}
+
+.cs-label {
+  color: var(--ov-text-muted);
+  font-size: 0.6em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.cs-val {
+  font-size: 1.08em;
+  font-weight: 700;
+}
+
+.cs-val--ok {
+  color: var(--ov-text-muted);
+}
+
+.cs-val--minor {
+  color: var(--ov-locked-rejoin-yellow);
+}
+
+.cs-val--heavy {
+  color: var(--ov-locked-loss);
+}
+
+.cs-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cs-car {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Body segments: outlined and lightly filled; grey when undamaged, yellow minor, red heavy. */
+.cs-seg {
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
+.cs-seg--ok,
+.cs-seg--unknown {
+  fill: color-mix(in srgb, var(--ov-text-muted) 14%, transparent);
+  stroke: color-mix(in srgb, var(--ov-text-muted) 70%, transparent);
+}
+
+.cs-seg--minor {
+  fill: color-mix(in srgb, var(--ov-locked-rejoin-yellow) 18%, transparent);
+  stroke: var(--ov-locked-rejoin-yellow);
+}
+
+.cs-seg--heavy {
+  fill: color-mix(in srgb, var(--ov-locked-loss) 22%, transparent);
+  stroke: var(--ov-locked-loss);
+}
+
+/* Brake strip on the inboard face of each tyre, banded by disc temperature. */
+.cs-brake--cold {
+  fill: var(--ov-locked-tyre-cold);
+}
+
+.cs-brake--ok {
+  fill: var(--ov-locked-gain);
+}
+
+.cs-brake--hot {
+  fill: var(--ov-locked-flag-yellow);
+}
+
+.cs-brake--veryHot {
+  fill: var(--ov-locked-loss);
+}
+
+.cs-brake--unknown {
+  fill: color-mix(in srgb, var(--ov-text) 18%, transparent);
+}
+
+/* Tyre blocks in the Tyres overlay's temperature bands. */
+.cs-tyre--ok {
+  fill: var(--ov-locked-gain);
+}
+
+.cs-tyre--cold {
+  fill: var(--ov-locked-tyre-cold);
+}
+
+.cs-tyre--hot {
+  fill: var(--ov-locked-flag-yellow);
+}
+
+.cs-tyre--overheat {
+  fill: var(--ov-locked-loss);
+}
+
+.cs-tyre--unknown {
+  fill: color-mix(in srgb, var(--ov-text) 18%, transparent);
+}
+
+/* A flat tyre: red, hollowed out and dashed, as on the Vehicle Damage panel. */
+.cs-tyre--flat {
+  fill: color-mix(in srgb, var(--ov-locked-loss) 30%, transparent);
+  stroke: var(--ov-locked-loss);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 2;
+}
+
+/* Suspension damage on each corner; faint when the game's repair screen does not answer. */
+.cs-chev {
+  fill: none;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cs-chev--ok {
+  stroke: var(--ov-text-muted);
+}
+
+.cs-chev--minor {
+  stroke: var(--ov-locked-rejoin-yellow);
+}
+
+.cs-chev--heavy {
+  stroke: var(--ov-locked-loss);
+}
+
+.cs-chev--unknown {
+  stroke: color-mix(in srgb, var(--ov-text-muted) 30%, transparent);
+}
+
+.cs-centre {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.29em;
+  pointer-events: none;
+}
+
+.cs-engine-temp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.21em;
+  color: var(--ov-text-muted);
+  font-size: 0.86em;
+  font-weight: 700;
+}
+
+.cs-icon {
+  width: 1.3em;
+  height: 0.9em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cs-icon--engine {
+  width: 2.6em;
+  height: 2em;
+  color: var(--ov-text-muted);
+  stroke-width: 1.8;
+}
+
+.cs-aero {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.29em;
+  font-size: 1.08em;
+  font-weight: 700;
+}
+
+.cs-aero small {
+  color: var(--ov-text-muted);
+  font-size: 0.55em;
+  letter-spacing: 0.05em;
+}
+
+.cs-aero--ok {
+  color: var(--ov-text-muted);
+}
+
+.cs-aero--minor {
+  color: var(--ov-locked-rejoin-yellow);
+}
+
+.cs-aero--heavy {
+  color: var(--ov-locked-loss);
+}

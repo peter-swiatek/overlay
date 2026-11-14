@@ -1,0 +1,224 @@
+.lt {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--ov-bg);
+  color: var(--ov-text);
+  font-family: var(--ov-font-family, inherit);
+  font-weight: var(--ov-font-weight, 500);
+  font-size: var(--ov-font-size, 14px);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 1 px inset border drawn above the rows, like the kit panel. */
+.lt::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  pointer-events: none;
+}
+
+.lt-waiting {
+  padding: 0.57em var(--ov-cell-pad-x, 7px);
+  color: var(--ov-text-muted);
+}
+
+/* Top bar and footer: `label value` pairs. */
+.lt-strip {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.66em;
+  box-sizing: border-box;
+  min-height: 1.83em;
+  padding: 0.17em var(--ov-cell-pad-x, 7px);
+  overflow: hidden;
+  white-space: nowrap;
+  background: var(--ov-header);
+  font-size: 0.86em;
+}
+
+.lt-strip--top {
+  border-bottom: 1px solid var(--ov-border);
+}
+
+.lt-strip--footer {
+  margin-top: auto;
+  border-top: 1px solid var(--ov-border);
+}
+
+.lt-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.33em;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.lt-label {
+  color: var(--ov-text-muted);
+  font-weight: 500;
+}
+
+.lt-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 700;
+}
+
+/* Laps table: plain zebra rows (no own-row tint). */
+.lt-table {
+  display: grid;
+  flex: none;
+  grid-auto-rows: var(--ov-row-height, 24px);
+  width: 100%;
+}
+
+.lt-row {
+  display: contents;
+}
+
+.lt-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.36em;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0 var(--ov-cell-pad-x, 7px);
+  overflow: hidden;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--ov-row) calc(var(--ov-row-opacity, 1) * 100%), transparent);
+}
+
+.lt-row--alt > .lt-cell {
+  background: color-mix(
+    in srgb,
+    var(--ov-row-alt) calc(var(--ov-row-opacity, 1) * 100%),
+    transparent
+  );
+}
+
+.lt-row--header > .lt-cell {
+  border-bottom: 1px solid var(--ov-border);
+  background: var(--ov-header);
+  color: var(--ov-text-muted);
+  font-size: 0.82em;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.lt-cell--center {
+  justify-content: center;
+}
+
+.lt-cell--right {
+  justify-content: flex-end;
+}
+
+.lt-time {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lt-row--newest .lt-time {
+  font-weight: 700;
+}
+
+.lt-fastest {
+  color: var(--ov-locked-fastest);
+}
+
+.lt-gain {
+  color: var(--ov-locked-gain);
+}
+
+.lt-loss {
+  color: var(--ov-locked-loss);
+}
+
+/* Laps that do not count (off track, incidents, pit road, no time): muted, never coloured. */
+.lt-row--invalid > .lt-cell {
+  color: var(--ov-text-muted);
+}
+
+/* The invalid lap's own time stands out: locked loss red with a strike-through. */
+.lt-row--invalid .lt-time {
+  color: var(--ov-locked-loss);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+.lt-tag {
+  padding: 0 0.3em;
+  border: 1px solid var(--ov-border);
+  border-radius: 3px;
+  color: var(--ov-text-muted);
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.lt-empty {
+  color: var(--ov-text-muted);
+}
+
+/* Session best: green gain gradient box above the laps. */
+.lt-session-best {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.86em;
+  box-sizing: border-box;
+  height: 4.4em;
+  padding: 0 0.86em;
+  border-bottom: 1px solid color-mix(in srgb, var(--ov-locked-gain) 50%, transparent);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--ov-locked-gain) 30%, transparent),
+    transparent
+  );
+}
+
+.lt-sb-main,
+.lt-sb-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.14em;
+  min-width: 0;
+}
+
+.lt-sb-side {
+  align-items: flex-end;
+}
+
+.lt-sb-label {
+  color: var(--ov-text-muted);
+  font-size: 0.74em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.lt-sb-time {
+  color: var(--ov-text);
+  font-size: 1.71em;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.lt-sb-lap {
+  color: var(--ov-text);
+  font-size: 1.29em;
+  font-weight: 700;
+  line-height: 1.1;
+}

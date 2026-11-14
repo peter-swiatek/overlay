@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FIXTURE_DIR, loadSlice, toStates } from "../adapters/iracing/slice-support";
 import { emptyCar, emptySimState, type SessionPhase, type SimState } from "../model";
+import type { StandingsInputs } from "../calc/standings";
 import { Deriver } from "./derive";
 import { emptyDerived, type Derived } from "./frame";
 
@@ -36,8 +37,30 @@ describe("Deriver", () => {
     expect(out).toEqual({
       fuel: null,
       gaps: [],
-      track: { trackKey: null, outlineReady: false },
+      track: {
+        trackKey: null,
+        outlineReady: false,
+        pitExitLapDistPct: null,
+        pitExitDistanceM: null,
+      },
+      standings: null,
+      proximity: null,
+      delta: null,
+      slowCar: null,
+      energy: null,
+      laps: null,
+      tyreStint: null,
+      incidentLog: null,
+      incidentAhead: null,
+      setupCompare: null,
     });
+  });
+
+  it("publishes no delta and no slow car yet", () => {
+    const d = new Deriver();
+    const out = d.next(simState({ tick: 1 }));
+    expect(out.delta).toBeNull();
+    expect(out.slowCar).toBeNull();
   });
 
   it("maps the session phase to the fuel tracker's session state", () => {
@@ -80,11 +103,102 @@ describe("Deriver", () => {
     expect(gaps[1]?.gapS).toBeGreaterThan(0);
   });
 
+  describe("lap delta", () => {
+    const field = (type: "race" | "practice") => {
+      const s = simState({ type, tick: 10, lap: 5, pct: 0.98 });
+      const cars: [number, number | null, number | null, boolean][] = [
+        // carIdx, laps, pct, connected
+        [1, 7, 0.02, true], // a lap up, just across the line ahead
+        [2, 6, 0.01, true], // same lap, just across the line
+        [3, 4, 0.9, true], // a lap down, just behind
+        [4, null, 0.5, true], // laps unknown
+        [5, 3, 0.5, false], // gone
+      ];
+      for (const [idx, laps, pct, connected] of cars) {
+        const c = emptyCar(idx);
+        c.connected = connected;
+        c.lapsCompleted = laps;
+        c.lapDistPct = pct;
+        s.cars.push(c);
+      }
+      const pit = emptyCar(6);
+      pit.connected = true;
+      pit.lapsCompleted = 4;
+      pit.lapDistPct = 0.95;
+      pit.onPitRoad = true;
+      s.cars.push(pit);
+      return s;
+    };
+
+    it("gives each car's whole-lap difference to the player in a race", () => {
+      const gaps = new Deriver().next(field("race")).gaps;
+      expect(gaps.map((g) => [g.carIdx, g.lapDelta])).toEqual([
+        [1, 1],
+        [2, 0],
+        [3, -1],
+        [4, null],
+        [5, null],
+        [6, -1],
+      ]);
+    });
+
+    it("is null for every car outside a race", () => {
+      const gaps = new Deriver().next(field("practice")).gaps;
+      expect(gaps.every((g) => g.lapDelta === null)).toBe(true);
+    });
+  });
+
   it("marks gaps unavailable for cars that are not in the world", () => {
     const s = simState({ tick: 10 });
     const away = emptyCar(1);
     s.cars.push(away);
-    expect(new Deriver().next(s).gaps).toEqual([{ carIdx: 1, gapS: null, tier: "unavailable" }]);
+    expect(new Deriver().next(s).gaps).toEqual([
+      { carIdx: 1, gapS: null, tier: "unavailable", lapDelta: null },
+    ]);
+  });
+
+  describe("class indices", () => {
+    it("hands out 1, 2, ... on first sight, maps empty to 0 and clears on reset", () => {
+      const d = new Deriver();
+      expect(d.classIndex("")).toBe(0);
+      expect(d.classIndex("Hyper")).toBe(1);
+      expect(d.classIndex("LMGT3")).toBe(2);
+      expect(d.classIndex("Hyper")).toBe(1);
+      d.reset();
+      expect(d.classIndex("LMGT3")).toBe(1);
+    });
+
+    it("keeps LMU class bests and track references apart", () => {
+      const d = new Deriver();
+      const specs = [
+        { idx: 0, name: "Ava Quill", cls: "Hyper", lapS: 60 },
+        { idx: 1, name: "Bo Fenwick", cls: "LMGT3", lapS: 90 },
+      ];
+      for (let t = 0; t <= 200; t += 0.5) {
+        const s = emptySimState("lmu");
+        s.connected = true;
+        s.tickTimeS = 10 + t;
+        s.playerCarIdx = 0;
+        s.session.type = "race";
+        s.session.phase = "racing";
+        s.cars = specs.map(({ idx, name, cls, lapS }) => {
+          const car = emptyCar(idx);
+          car.connected = true;
+          car.driverName = name;
+          car.classId = cls;
+          car.lapsCompleted = Math.floor(t / lapS);
+          car.lapDistPct = (t % lapS) / lapS;
+          car.isOnTrack = true;
+          return car;
+        });
+        d.next(s);
+      }
+      const inputs = (d as unknown as { standingsInputs(): StandingsInputs }).standingsInputs();
+      expect(inputs.classBestLapS("Hyper")).toBeCloseTo(60, 0);
+      expect(inputs.classBestLapS("LMGT3")).toBeCloseTo(90, 0);
+      expect(inputs.trackReference("Hyper")?.lapTimeS).toBeCloseTo(60, 0);
+      expect(inputs.trackReference("LMGT3")?.lapTimeS).toBeCloseTo(90, 0);
+    });
   });
 
   describe("session change", () => {

@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import {
   BrowserWindow,
+  screen,
   MessageChannelMain,
   app,
   globalShortcut,
@@ -9,22 +10,55 @@ import {
   type WebContents,
 } from "electron";
 import pkg from "electron-updater";
+import { parseInstanceId } from "@overlay/overlays/instances";
+import { OVERLAY_MANIFESTS } from "@overlay/overlays/manifests";
+import { TWITCH_CHAT_OVERLAY_ID, twitchChatOptions } from "@overlay/overlays/twitch-chat";
+import { WEBVIEW_OVERLAY_ID } from "@overlay/overlays/webview";
 import { BUILD_INFO } from "../shared/build-info";
-import { IPC, type AppInfo } from "../shared/types";
+import { IPC } from "../shared/types";
+import { AppSettingsStore } from "./app-settings";
 import { CaptureManager } from "./capture-manager";
 import { CaptureSettingsStore } from "./capture-settings";
+import { registerAppSettingsIpc } from "./ipc/app-settings";
+import { createAppStateNotifier, registerAppStateIpc } from "./ipc/app-state";
+import type { TelemetryEvent } from "../shared/telemetry-types";
+import type { IpcContext } from "./ipc/context";
+import { registerDeveloperIpc } from "./ipc/developer";
+import { registerDisplayIpc } from "./ipc/display";
+import { overlaySizes, registerOverlayIpc } from "./ipc/overlays";
+import { registerTelemetryIpc, sourceViewOf } from "./ipc/telemetry";
+import { registerThemeIpc } from "./ipc/theme";
 import { LayoutStore } from "./layout-store";
-import { summarizeMetrics } from "./metrics";
+import {
+  TRAY_NOTICE,
+  clampMainWindowState,
+  decideClose,
+  launchPlan,
+  loadMainWindowState,
+  revealMainWindow,
+  saveMainWindowState,
+  shouldMinimiseOnConnect,
+} from "./main-window";
 import { OverlayManager } from "./overlays";
+import { OverlaySettingsStore } from "./overlay-settings-store";
 import { loadPage, preloadPath } from "./pages";
-import { SettingsStore, isSafeMode, resolveDisplaySettings } from "./settings";
+import {
+  SettingsStore,
+  buildCommandLineSwitches,
+  isSafeMode,
+  resolveDisplaySettings,
+} from "./settings";
 import { recorderForkArgs } from "../recorder/args";
 import { TelemetryManager } from "./telemetry-manager";
 import { TelemetrySettingsStore } from "./telemetry-settings";
+import { ThemeStore } from "./theme-store";
 import { AppTray } from "./tray";
 import { UpdateSettingsStore } from "./update-settings";
+import { ChannelConnection, chatServerUrl, openWebSocket } from "./twitch-chat/connection";
+import { TwitchChatHub, type ChatWatcher } from "./twitch-chat/hub";
+import { WebPageHost, isWebPageContents } from "./web-page/host";
 import { Updater } from "./updater";
-import { buildSettingsWindowOptions } from "./window-options";
+import { buildMainWindowOptions } from "./window-options";
 import { ZOrderKeeper, hwndOf } from "./zorder";
 
 const EDIT_SHORTCUT = "Control+Shift+F10";
@@ -41,36 +75,124 @@ const stored = settingsStore.load();
 const effective = resolveDisplaySettings(stored, safeMode);
 
 if (effective.disableHardwareAcceleration) app.disableHardwareAcceleration();
-if (effective.disableDirectComposition) app.commandLine.appendSwitch("disable-direct-composition");
+for (const { name, value } of buildCommandLineSwitches(effective)) {
+  if (value === undefined) app.commandLine.appendSwitch(name);
+  else app.commandLine.appendSwitch(name, value);
+}
 
-let settingsWindow: BrowserWindow | undefined;
+let mainWindow: BrowserWindow | undefined;
+let lastTelemetryStatus: TelemetryEvent["status"] | null = null;
+let appSettings: AppSettingsStore | undefined;
+/** True once the app is quitting, so closing the main window really closes it. */
+let quitting = false;
 let overlays: OverlayManager | undefined;
 let tray: AppTray | undefined;
 let capture: CaptureManager | undefined;
 let telemetry: TelemetryManager | undefined;
 let updater: Updater | undefined;
+let overlaySettings: OverlaySettingsStore | undefined;
 let shuttingDown = false;
+/** Set once the overlay manager exists; refreshes the tray and tells the windows. */
+let notifyAppState: () => void = () => {};
 let lastRecording = false;
 let lastCaptureError: string | null = null;
 let zorder: ZOrderKeeper | undefined;
+let webPages: WebPageHost | undefined;
+let twitchChat: TwitchChatHub | undefined;
 
-function showSettings(): void {
-  if (settingsWindow && !settingsWindow.isDestroyed()) {
-    settingsWindow.show();
-    settingsWindow.focus();
+/** The open Twitch Chat overlay windows and the channel each one's stored settings name. */
+function twitchChatWatchers(): ChatWatcher[] {
+  const watchers: ChatWatcher[] = [];
+  for (const { id, win } of overlays?.openWindows() ?? []) {
+    if (parseInstanceId(id)?.overlayId !== TWITCH_CHAT_OVERLAY_ID) continue;
+    const settings = overlaySettings?.get(id);
+    watchers.push({
+      id,
+      channel: settings ? twitchChatOptions(settings).channel : null,
+      send: (event) => {
+        if (!win.isDestroyed()) win.webContents.send(IPC.twitchChatEvent, event);
+      },
+    });
+  }
+  return watchers;
+}
+
+/** Connects to the channels the open Twitch Chat windows show, and only those. */
+function syncTwitchChat(): void {
+  twitchChat?.sync(twitchChatWatchers());
+}
+
+const MAIN_WINDOW_FILE = join(userData, "main-window.json");
+
+function saveMainWindowBounds(win: BrowserWindow): void {
+  if (win.isDestroyed() || win.isMinimized()) return;
+  const maximized = win.isMaximized();
+  const { x, y, width, height } = win.getNormalBounds();
+  saveMainWindowState(MAIN_WINDOW_FILE, { x, y, width, height, maximized });
+}
+
+/** Creates the main window if needed, then restores, shows and focuses it. */
+function showMainWindow(): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
     return;
   }
-  const win = new BrowserWindow(buildSettingsWindowOptions(preloadPath));
-  settingsWindow = win;
-  win.once("ready-to-show", () => win.show());
+  const areas = screen.getAllDisplays().map((d) => d.workArea);
+  const state = clampMainWindowState(
+    loadMainWindowState(MAIN_WINDOW_FILE),
+    areas,
+    screen.getPrimaryDisplay().workArea,
+  );
+  const win = new BrowserWindow(buildMainWindowOptions(preloadPath, state));
+  mainWindow = win;
+  win.once("ready-to-show", () => revealMainWindow(win, state.maximized));
+  let saveTimer: NodeJS.Timeout | undefined;
+  const scheduleSave = (): void => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => saveMainWindowBounds(win), 500);
+  };
+  win.on("resize", scheduleSave);
+  win.on("move", scheduleSave);
+  win.on("close", (event) => {
+    clearTimeout(saveTimer);
+    saveMainWindowBounds(win);
+    const settings = appSettings?.load();
+    const decision = decideClose({
+      closeAction: settings?.general.closeAction ?? "tray",
+      quitting: quitting || shuttingDown,
+      trayNoticeShown: settings?.ui.trayNoticeShown ?? true,
+    });
+    if (decision.hide) {
+      event.preventDefault();
+      win.hide();
+      if (decision.showNotice) {
+        tray?.showNotice(TRAY_NOTICE.title, TRAY_NOTICE.content);
+        appSettings?.update({ ui: { trayNoticeShown: true } });
+      }
+    } else if (decision.quit) {
+      app.quit();
+    }
+  });
+  // Windows log-off or shutdown: let the window close instead of hiding it to the tray.
+  win.on("session-end", () => {
+    quitting = true;
+  });
   win.on("closed", () => {
-    settingsWindow = undefined;
+    clearTimeout(saveTimer);
+    mainWindow = undefined;
   });
   void loadPage(win, "settings");
 }
 
-function fromSettings(sender: WebContents): boolean {
-  return !!settingsWindow && !settingsWindow.isDestroyed() && settingsWindow.webContents === sender;
+function fromMain(sender: WebContents): boolean {
+  return !!mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents === sender;
+}
+
+/** Sends to the main window only (when it exists). */
+function sendToMain(channel: string, ...args: unknown[]): void {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, ...args);
 }
 
 function fromOverlay(sender: WebContents): boolean {
@@ -81,37 +203,16 @@ function deny(channel: string): never {
   throw new Error(`Rejected IPC from unexpected sender: ${channel}`);
 }
 
+/** Sends to every open overlay window and the main window. */
+function broadcast(channel: string, ...args: unknown[]): void {
+  const targets = [...(overlays?.getWindows() ?? [])];
+  if (mainWindow) targets.push(mainWindow);
+  for (const win of targets) {
+    if (!win.isDestroyed()) win.webContents.send(channel, ...args);
+  }
+}
+
 function registerIpc(): void {
-  ipcMain.handle(IPC.getAppInfo, (event): AppInfo => {
-    if (!fromSettings(event.sender)) deny(IPC.getAppInfo);
-    return {
-      version: BUILD_INFO.version,
-      build: BUILD_INFO,
-      display: settingsStore.load(),
-      effective,
-      safeMode,
-    };
-  });
-  ipcMain.handle(IPC.setDisplaySettings, (event, patch: unknown) => {
-    if (!fromSettings(event.sender)) deny(IPC.setDisplaySettings);
-    return settingsStore.update(patch);
-  });
-  ipcMain.handle(IPC.getMetrics, (event) => {
-    if (!fromSettings(event.sender)) deny(IPC.getMetrics);
-    return summarizeMetrics(app.getAppMetrics());
-  });
-  ipcMain.handle(IPC.getCaptureStatus, (event) => {
-    if (!fromSettings(event.sender)) deny(IPC.getCaptureStatus);
-    return capture?.getStatus();
-  });
-  ipcMain.handle(IPC.getCaptureSettings, (event) => {
-    if (!fromSettings(event.sender)) deny(IPC.getCaptureSettings);
-    return capture?.getSettings();
-  });
-  ipcMain.handle(IPC.setCaptureSettings, (event, patch: unknown) => {
-    if (!fromSettings(event.sender)) deny(IPC.setCaptureSettings);
-    return capture?.setSettings(patch);
-  });
   ipcMain.on(IPC.telemetrySubscribe, (event, rateHz: unknown) => {
     // Silently ignores senders that are not overlay windows.
     telemetry?.handleSubscribe(event.sender, rateHz);
@@ -119,6 +220,28 @@ function registerIpc(): void {
   ipcMain.handle(IPC.getEditMode, (event) => {
     if (!fromOverlay(event.sender)) deny(IPC.getEditMode);
     return overlays?.isEditMode ?? false;
+  });
+  ipcMain.on(IPC.contentMinSize, (event, size: unknown) => {
+    if (!fromOverlay(event.sender)) return;
+    overlays?.setContentMinFromSender(event.sender, size);
+  });
+  ipcMain.on(IPC.tableMetrics, (event, payload: unknown) => {
+    if (!fromOverlay(event.sender)) return;
+    overlays?.setTableMetricsFromSender(event.sender, payload);
+  });
+  ipcMain.on(IPC.webPageRect, (event, rect: unknown) => {
+    // Only a Webview overlay window places a page, and only its own.
+    const id = overlays?.idOfSender(event.sender);
+    if (id === undefined || parseInstanceId(id)?.overlayId !== WEBVIEW_OVERLAY_ID) return;
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) webPages?.setRect(id, win, rect);
+  });
+  ipcMain.on(IPC.twitchChatHello, (event) => {
+    // Only a Twitch Chat overlay window gets chat, and only its own instance's.
+    const id = overlays?.idOfSender(event.sender);
+    if (id === undefined || parseInstanceId(id)?.overlayId !== TWITCH_CHAT_OVERLAY_ID) return;
+    syncTwitchChat();
+    twitchChat?.hello(id);
   });
   ipcMain.on(IPC.resizeBy, (event, dx: unknown, dy: unknown) => {
     if (!fromOverlay(event.sender)) return;
@@ -128,10 +251,13 @@ function registerIpc(): void {
   });
 }
 
-// Renderers only ever show our own pages: no new windows, no navigation away.
+// Renderers only ever show our own pages: no new windows, no navigation away. The Webview
+// overlay's embedded pages may follow http(s) links; their own guards check every navigation.
 app.on("web-contents-created", (_event, contents) => {
   contents.setWindowOpenHandler(() => ({ action: "deny" }));
-  contents.on("will-navigate", (event) => event.preventDefault());
+  contents.on("will-navigate", (event) => {
+    if (!isWebPageContents(contents)) event.preventDefault();
+  });
   // A reloaded or crashed page has lost its ports; it asks again when it is back.
   contents.on("did-start-loading", () => telemetry?.forgetWindow(contents));
   contents.on("render-process-gone", () => telemetry?.forgetWindow(contents));
@@ -141,17 +267,107 @@ app.on("web-contents-created", (_event, contents) => {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on("second-instance", () => showSettings());
+  app.on("second-instance", () => {
+    if (app.isReady()) showMainWindow();
+  });
 
   void app.whenReady().then(() => {
+    overlaySettings = new OverlaySettingsStore(
+      join(userData, "overlay-settings.json"),
+      OVERLAY_MANIFESTS,
+    );
+    // Read-only, anonymous Twitch chat: the connections live here, never in a page.
+    const chatUrl = chatServerUrl(process.env["OVERLAY_TWITCH_IRC_URL"], app.isPackaged);
+    twitchChat = new TwitchChatHub(
+      (channel, onEvent) =>
+        new ChannelConnection(
+          channel,
+          {
+            url: chatUrl,
+            openSocket: openWebSocket,
+            now: () => Date.now(),
+            random: () => Math.random(),
+            setTimer: (fn, ms) => {
+              const timer = setTimeout(fn, ms);
+              return () => clearTimeout(timer);
+            },
+          },
+          onEvent,
+        ),
+    );
+    const appSettingsStore = new AppSettingsStore(join(userData, "app-settings.json"));
+    appSettings = appSettingsStore;
+    const themes = new ThemeStore(join(userData, "themes.json"));
+    const ctx: IpcContext = {
+      userData,
+      isSettingsSender: fromMain,
+      isOverlaySender: fromOverlay,
+      broadcast,
+      deny,
+    };
     registerIpc();
+    registerOverlayIpc(ctx, overlaySettings, () => overlays?.getLayout() ?? {});
+    registerAppStateIpc(ctx, {
+      source: () => overlays,
+      quit: () => app.quit(),
+    });
+    registerThemeIpc(ctx, themes);
+    registerAppSettingsIpc(ctx, appSettingsStore);
+    registerDisplayIpc(ctx, {
+      settingsStore,
+      effective,
+      safeMode,
+      isPackaged: app.isPackaged,
+      relaunch: (args) => app.relaunch({ args }),
+      quit: () => app.quit(),
+    });
+    registerDeveloperIpc(ctx, {
+      getCapture: () => capture,
+      getAppMetrics: () => app.getAppMetrics(),
+      allOverlayIds: OVERLAY_MANIFESTS.map((m) => m.id),
+      setOverlayOverride: (override) => overlays?.setEnabledOverride(override),
+      getSourceLabel: () => telemetry?.getSettings().source ?? "unknown",
+    });
+    let developerWas = appSettingsStore.load().developer.enabled;
+    appSettingsStore.onChange((next) => {
+      tray?.refresh();
+      if (next.developer.enabled !== developerWas) {
+        developerWas = next.developer.enabled;
+        overlays?.refreshDeveloperMode();
+      }
+    });
 
-    const manager = new OverlayManager(
-      new LayoutStore(join(userData, "layout.json")),
-      effective.opacityWorkaround,
+    const manager = new OverlayManager({
+      layoutStore: new LayoutStore(join(userData, "layout.json")),
+      overlaySettings,
+      manifests: OVERLAY_MANIFESTS,
+      opacityWorkaround: effective.opacityWorkaround,
+      onStateChange: () => {
+        notifyAppState();
+        webPages?.setEditMode(overlays?.isEditMode ?? false);
+        syncTwitchChat();
+      },
+      onLayoutSaved: () => {
+        if (overlays) sendToMain(IPC.overlaysSizesChanged, overlaySizes(overlays.getLayout()));
+      },
+      isDeveloperEnabled: () => appSettingsStore.load().developer.enabled,
+    });
+    overlays = manager;
+    const pages = new WebPageHost({
+      settingsOf: (id) => overlaySettings?.get(id),
+      isEditMode: () => manager.isEditMode,
+    });
+    webPages = pages;
+    overlaySettings.onChange((id, s) => pages.onSettings(id, s));
+    overlaySettings.onRemove((id) => pages.remove(id));
+    overlaySettings.onChange((id) => {
+      if (parseInstanceId(id)?.overlayId === TWITCH_CHAT_OVERLAY_ID) syncTwitchChat();
+    });
+    notifyAppState = createAppStateNotifier(
+      manager,
+      (channel, state) => broadcast(channel, state),
       () => tray?.refresh(),
     );
-    overlays = manager;
     manager.start();
 
     capture = new CaptureManager(
@@ -163,9 +379,7 @@ if (!app.requestSingleInstanceLock()) {
           lastCaptureError = status.error;
           tray?.refresh();
         }
-        if (settingsWindow && !settingsWindow.isDestroyed()) {
-          settingsWindow.webContents.send(IPC.captureStatusChanged, status);
-        }
+        sendToMain(IPC.captureStatusChanged, status);
       },
     );
 
@@ -208,7 +422,46 @@ if (!app.requestSingleInstanceLock()) {
         const timer = setTimeout(fn, ms);
         return () => clearTimeout(timer);
       },
-      onSettingsChange: () => tray?.refresh(),
+      onSettingsChange: (settings) => {
+        tray?.refresh();
+        // Carries the replay path: main window only.
+        sendToMain(IPC.telemetrySourceChanged, sourceViewOf(settings));
+      },
+      onStatusChange: (status) => {
+        broadcast(IPC.telemetryStatusChanged, status);
+        overlays?.setActiveSim(
+          status.source === "iracing" || status.source === "lmu" ? status.source : null,
+        );
+        if (
+          shouldMinimiseOnConnect({
+            previous: lastTelemetryStatus,
+            next: status.status,
+            enabled: appSettings?.load().general.minimiseOnConnect === true,
+          }) &&
+          mainWindow &&
+          !mainWindow.isDestroyed() &&
+          mainWindow.isVisible()
+        ) {
+          mainWindow.minimize();
+        }
+        lastTelemetryStatus = status.status;
+      },
+    });
+    registerTelemetryIpc(ctx, telemetry);
+    // The Fuel overlay's "Keep fuel data" option reaches the telemetry process through the manager.
+    const keepFuelData = (s: { options: Record<string, unknown> } | undefined): boolean =>
+      s?.options["keep-fuel-data"] === true;
+    telemetry.setFuelOptions({ keepFuelData: keepFuelData(overlaySettings.get("fuel")) });
+    // So does the Setup Compare overlay's "Pin baseline": turning it on pins the loaded setup.
+    const pinBaseline = (s: { options: Record<string, unknown> } | undefined): boolean =>
+      s?.options["pin-baseline"] === true;
+    telemetry.setSetupCompareOptions({
+      pinBaseline: pinBaseline(overlaySettings.get("setup-compare")),
+    });
+    overlaySettings.onChange((id, s) => {
+      if (id === "fuel") telemetry?.setFuelOptions({ keepFuelData: keepFuelData(s) });
+      if (id === "setup-compare")
+        telemetry?.setSetupCompareOptions({ pinBaseline: pinBaseline(s) });
     });
     telemetry.start();
 
@@ -216,9 +469,11 @@ if (!app.requestSingleInstanceLock()) {
       getAutoUpdater: () => pkg.autoUpdater,
       prepareToQuit: async () => {
         shuttingDown = true;
+        quitting = true;
         // The installer stops our processes shortly after it starts: finish the recordings first.
         await Promise.allSettled([telemetry?.shutdown(), capture?.shutdown()]);
         overlays?.flushSave();
+        overlaySettings?.flush();
       },
       settings: new UpdateSettingsStore(join(userData, "updates.json")),
       channel: BUILD_INFO.channel,
@@ -234,20 +489,31 @@ if (!app.requestSingleInstanceLock()) {
       onChange: () => tray?.refresh(),
     });
 
-    tray = new AppTray(manager, capture, telemetry, updater, {
-      showSettings,
-      quit: () => app.quit(),
-    });
+    tray = new AppTray(
+      manager,
+      capture,
+      telemetry,
+      updater,
+      {
+        showMainWindow,
+        quit: () => app.quit(),
+      },
+      appSettingsStore,
+    );
     updater.start();
 
     if (!globalShortcut.register(EDIT_SHORTCUT, () => manager.toggleEditMode())) {
       console.warn(`Could not register ${EDIT_SHORTCUT}`);
     }
+
+    // A start by hand shows the window; a login start (--hidden) stays in the tray.
+    if (launchPlan(process.argv, appSettingsStore.load()).showWindow) showMainWindow();
   });
 
-  // Tray app: closing the settings window must not quit.
+  // Tray app: closing the main window hides it (see its close handler); it must not quit.
   app.on("window-all-closed", () => {});
   app.on("before-quit", (event) => {
+    quitting = true;
     if (shuttingDown) return;
     // Both child processes finish their files (the telemetry recorder's last rows and footer, the
     // capture file's gzip trailer and summary) before the app exits.
@@ -264,6 +530,8 @@ if (!app.requestSingleInstanceLock()) {
     updater?.stop();
     globalShortcut.unregisterAll();
     zorder?.dispose();
+    twitchChat?.stopAll();
     overlays?.flushSave();
+    overlaySettings?.flush();
   });
 }

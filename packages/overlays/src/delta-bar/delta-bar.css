@@ -1,0 +1,363 @@
+/* Delta Bar: separate tiles on a transparent, click-through window; tiles are top-aligned. */
+.dl {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  font-family: var(--ov-font-family);
+  /* The theme's text size (14 px, 12 px compact); every em size in this overlay is relative to it. */
+  font-size: var(--ov-font-size, 14px);
+  color: var(--ov-text);
+}
+.dl-tile {
+  position: relative;
+  box-sizing: border-box;
+  min-width: 0;
+  /* A solid surface: the theme tint, never more see-through than 8 %, so text stays readable over any backdrop. */
+  background: rgb(from var(--ov-bg) r g b / max(alpha, 0.92));
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  border-radius: 6px;
+}
+.dl-gain {
+  color: var(--ov-locked-gain);
+}
+.dl-loss {
+  color: var(--ov-locked-loss);
+}
+.dl-fastest {
+  color: var(--ov-locked-fastest);
+}
+.dl-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 118px 118px;
+  gap: 4px;
+  height: 3.15em;
+}
+
+/* Best times */
+.dl-bt {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  padding: 2px 7px;
+  align-items: center;
+  font-size: 0.92em;
+}
+.dl-bt {
+  padding-inline: 6px;
+}
+.dl-bt > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 3.2em;
+  gap: 5px;
+  align-items: baseline;
+  white-space: nowrap;
+}
+.dl-bt .k {
+  color: var(--ov-accent);
+  font-weight: 700;
+  font-size: 0.82em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dl-bt .t {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.dl-bt .d {
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Live delta */
+.dl-delta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.dl-num {
+  font-size: 1.75em;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.dl-trend {
+  display: block;
+  width: 0.8em;
+  height: 0.8em;
+  flex: none;
+}
+
+/* Delta speed: solid locked-colour fill, dark text */
+.dl-spd {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: #0b0f14;
+  font-weight: 800;
+}
+.dl-spd--gain {
+  background: var(--ov-locked-gain);
+  box-shadow: none;
+}
+.dl-spd--loss {
+  background: var(--ov-locked-loss);
+  box-shadow: none;
+}
+.dl-spd--flat {
+  color: var(--ov-text-muted);
+}
+.dl-spd b {
+  font-size: 1.75em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.dl-spd small {
+  font-size: 0.8em;
+  font-weight: 700;
+  align-self: flex-end;
+  margin-bottom: 0.85em;
+}
+
+/* Bar */
+.dl-barrow {
+  padding: 4px 8px 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dl-barline {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.7em;
+  font-weight: 600;
+  color: var(--ov-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.dl-bar {
+  position: relative;
+  height: 7px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--ov-text) 8%, transparent);
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  overflow: hidden;
+}
+.dl-bar > i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+.dl-bar .tick {
+  width: 1px;
+  background: color-mix(in srgb, var(--ov-text) 22%, transparent);
+}
+.dl-bar .fill-gain {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--ov-locked-gain) 40%, transparent),
+    var(--ov-locked-gain)
+  );
+}
+.dl-bar .fill-loss {
+  background: linear-gradient(
+    90deg,
+    var(--ov-locked-loss),
+    color-mix(in srgb, var(--ov-locked-loss) 40%, transparent)
+  );
+}
+.dl-bar .mid {
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ov-text);
+  z-index: 2;
+}
+.dl-times {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8em;
+}
+.dl-times span {
+  color: var(--ov-text-muted);
+}
+.dl-times b {
+  color: var(--ov-text);
+  font-variant-numeric: tabular-nums;
+  margin-left: 4px;
+}
+.dl-times b.dl-gain {
+  color: var(--ov-locked-gain);
+}
+.dl-times b.dl-loss {
+  color: var(--ov-locked-loss);
+}
+.dl-times b.dl-fastest {
+  color: var(--ov-locked-fastest);
+}
+
+/* Lap-complete strip: floats centred over the bar tile */
+.dl-lap {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  height: 1.9em;
+  display: flex;
+  gap: 6px;
+  z-index: 5;
+}
+.dl-lap > span {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.6em;
+  border-radius: 5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+.dl-lap .best {
+  background: var(--ov-locked-fastest);
+  color: #ffffff;
+  letter-spacing: 0.06em;
+}
+.dl-lap .best.dl-blink {
+  animation: dl-blink 1s steps(2, start) 5;
+}
+.dl-lap .time {
+  background: #12151b;
+  box-shadow:
+    inset 0 0 0 1px var(--ov-border),
+    0 2px 8px rgba(0, 0, 0, 0.45);
+  color: #ffffff;
+  font-size: 1.1em;
+  padding: 0 0.7em;
+}
+:root[data-tone="light"] .dl-lap .time {
+  background: #f8fafc;
+  color: #0f172a;
+  box-shadow:
+    inset 0 0 0 1px rgba(15, 23, 42, 0.18),
+    0 2px 8px rgba(15, 23, 42, 0.25);
+}
+.dl-lap .dt {
+  color: #0b0f14;
+}
+.dl-lap .dl-fill-gain {
+  background: var(--ov-locked-gain);
+}
+.dl-lap .dl-fill-loss {
+  background: var(--ov-locked-loss);
+}
+@keyframes dl-blink {
+  to {
+    opacity: 0.35;
+  }
+}
+
+/* Head-to-head */
+.dl-h2h {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.dl-h2h-tile {
+  display: grid;
+  grid-template-columns: 8px auto minmax(0, 1fr) 28px 36px;
+  gap: 3px;
+  align-items: center;
+  height: calc(var(--ov-row-height, 24px) - 2px);
+  padding: 0 6px;
+  font-size: 0.84em;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.dl-h2h-empty {
+  display: block;
+}
+/* A compact number badge: as wide as its digits need, from 1.9em. */
+.dl-h2h-tile .ov-car-num {
+  min-width: 1.9em;
+  padding: 0 0.25em;
+}
+.dl-h2h-tile .nm {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dl-h2h-tile .gp {
+  text-align: right;
+  color: var(--ov-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.dl-h2h-tile .d {
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.dl-dir {
+  width: 0.7em;
+  height: 0.7em;
+  color: var(--ov-text-muted);
+}
+
+/* Sector bar: the track's official sectors in place of the delta bar, the same height as the bar line */
+.dl-sectors {
+  display: flex;
+  gap: 2px;
+  /* One line of the bar line's 0.7em labels, so swapping the two never changes the tile height. */
+  font-size: 0.7em;
+  height: 1lh;
+}
+.dl-sec {
+  position: relative;
+  flex-basis: 0;
+  min-width: 0;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--ov-text) 8%, transparent);
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dl-sec.is-current {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ov-text) 22%, transparent);
+}
+.dl-sec--done {
+  background: color-mix(in srgb, var(--ov-text) 22%, transparent);
+}
+.dl-sec--best {
+  background: var(--ov-locked-fastest);
+  box-shadow: none;
+}
+.dl-sec--gain {
+  background: var(--ov-locked-gain);
+  box-shadow: none;
+}
+.dl-sec--loss {
+  background: var(--ov-locked-sector-slower);
+  box-shadow: none;
+}
+.dl-sec > span {
+  color: #0b0f14;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+}
+.dl-sec-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: #ffffff;
+  z-index: 2;
+}

@@ -1,0 +1,95 @@
+.spotter {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spotter-gap,
+.spotter-slot {
+  flex: none;
+}
+
+/* Capsule housing: the fixed colours are named in the design plan. */
+.spotter-bar {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  padding: 3px;
+  border-radius: 6px;
+  background: rgba(10, 12, 16, 0.78);
+  border: 2px solid rgba(24, 28, 36, 0.92);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.65);
+  overflow: hidden;
+}
+
+.spotter-track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.spotter-block {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-radius: 3px;
+  /* The gradient spans the whole bar, not just the block, so a part-filled bar shows the colour of
+     where the car sits: orange at the top, deep orange at the bottom. */
+  background: linear-gradient(180deg, var(--spotter-top), var(--spotter-bottom));
+  background-size: 100% calc(100% / var(--spotter-fill, 1));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.spotter-block--from-top {
+  top: 0;
+  background-position: top;
+}
+
+.spotter-block--from-bottom {
+  bottom: 0;
+  background-position: bottom;
+}
+
+/* Second, offset outline for two cars on one side. */
+.spotter-block--double {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 0 0 1px var(--spotter-top),
+    inset 0 0 0 4px transparent,
+    inset 0 0 0 5px var(--spotter-top);
+}
+
+.spotter-midpoint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.85);
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* Edit-mode aid; floats so it never moves the bars. */
+.spotter-guide {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 150px;
+  text-align: center;
+  font-size: 0.72em;
+  color: var(--ov-text-muted);
+  pointer-events: none;
+}
+
+:root:not([data-reduced-effects="true"]) .spotter:not(.spotter--editing) .spotter-block {
+  transition: height 120ms linear;
+}

@@ -4,16 +4,20 @@ import {
   lmuClassColour,
   type Car,
   type Flags,
+  type PlayerLap,
   type SessionInfo,
   type SessionPhase,
   type SessionTiming,
   type SessionType,
   type SimState,
+  type TrackSurface,
   type TyreCorner,
   type TyreSet,
   type Vec3,
+  type VehicleDamage,
 } from "../../model";
 import {
+  COMPOUND_KIND_NAMES,
   HEADER,
   LMU_MAX_VEHICLES,
   LMU_USED_BYTES,
@@ -30,6 +34,7 @@ import {
 } from "./layout";
 import { decodeSimText } from "../../sim-text";
 import { applyRestResponse, emptyRestSnapshot, type LmuRestSnapshot } from "./rest";
+import { LmuSectorLearner } from "./sectors";
 
 export interface LmuDecodeResult {
   /** `connected: false` and otherwise empty when `error` is set. */
@@ -48,6 +53,7 @@ export interface LmuDecoderOptions {
 export const LMU_VALIDATED_GAME_VERSIONS: readonly number[] = [14200];
 
 const KELVIN = 273.15;
+const SECONDS_PER_DAY = 86_400;
 /** `maxLaps` and end times at or above these mean "no limit" (the sim writes INT_MAX). */
 const MAX_REAL_LAPS = 1_000_000;
 const MAX_REAL_END_ET_S = 1_000_000;
@@ -77,6 +83,7 @@ const W = {
   fuel: { name: "fuel L", lo: -0.01, hi: 1000 },
   speed: { name: "speed m/s", lo: 0, hi: 200 },
   tyreK: { name: "tyre temp K", lo: 200, hi: 700 },
+  engineC: { name: "engine temp C", lo: -60, hi: 300 },
   pressure: { name: "tyre pressure kPa", lo: 0, hi: 1000 },
   wear: { name: "tyre wear", lo: -0.001, hi: 1.001 },
 } as const satisfies Record<string, Window>;
@@ -115,12 +122,16 @@ function failed(error: string): LmuDecodeResult {
 export class LmuDecoder {
   private rest: LmuRestSnapshot = emptyRestSnapshot();
   private readonly validated: readonly number[];
+  private readonly sectors = new LmuSectorLearner();
 
   constructor(options: LmuDecoderOptions = {}) {
     this.validated = options.validatedGameVersions ?? LMU_VALIDATED_GAME_VERSIONS;
   }
 
-  /** Feeds a recorded REST response (`/rest/watch/standings` or `/rest/watch/sessionInfo`). */
+  /**
+   * Feeds a REST response: `/rest/watch/standings`, `/rest/watch/sessionInfo` or the repair
+   * screen (`LMU_REPAIR_PATH`); others are ignored.
+   */
   observeRest(response: { path: string; status?: number; body: unknown }): void {
     this.rest = applyRestResponse(this.rest, response);
   }
@@ -173,16 +184,37 @@ export class LmuDecoder {
     state.playerCarIdx = playerId;
     state.focusCarIdx = playerId;
     state.session = readSession(f, trackLengthM, count, this.rest);
+    state.session.sectorStartPcts = this.sectors.observe(
+      state.session.trackName === null ? null : `${state.session.trackName}|${trackLengthM}`,
+      playerRow === null ? -1 : f.i8(playerRow + VEHICLE.sector),
+      cars.find((c) => c.isPlayer)?.lapDistPct ?? null,
+    );
     state.conditions = {
+      ...state.conditions,
       airTempC: f.f64(SCORING_BASE + SESSION.ambientTemp),
       trackTempC: f.f64(SCORING_BASE + SESSION.trackTemp),
       wetness: clamp01(f.f64(SCORING_BASE + SESSION.averagePathWetness)),
     };
     state.flags = playerRow === null ? null : readFlags(f, playerRow);
     state.player.worldPos = playerRow === null ? null : readWorldPos(f, playerRow);
+    state.player.yawRad = playerRow === null ? null : readYaw(f, playerRow);
+    if (playerRow !== null) {
+      const inCar = f.u8(TELEMETRY_BASE + TELEMETRY.playerInCar) === 1;
+      const live = f.u8(SCORING_BASE + SESSION.inRealtime) === 1;
+      const stalled = cars.find((c) => c.isPlayer)?.inPitStall === true;
+      state.player.lap = inCar ? readPlayerLap(f, playerRow) : null;
+      state.player.trackSurface = playerSurface(inCar, live, stalled);
+      state.player.isOnTrack = inCar && live;
+    }
 
     const telemetryRow = playerId === null ? null : findTelemetryRow(f, playerId);
     if (telemetryRow !== null) readPlayer(f, telemetryRow, state);
+    const damage = state.player.damage;
+    if (damage) {
+      damage.aero = this.rest.damage?.aero ?? null;
+      const susp = this.rest.damage?.suspension;
+      damage.suspension = susp ? { ...susp } : null;
+    }
     return { state, error: null, warnings };
   }
 }
@@ -344,8 +376,45 @@ function readSession(
     // Neither the scoring block nor REST names the layout.
     trackConfig: null,
     trackLengthM: trackLengthM > 0 ? trackLengthM : null,
+    // No pit speed limit exists in the buffer or the recorded REST bodies (see layout.ts).
     pitSpeedLimitMps: null,
+    incidentLimit: null,
+    incidentPenaltyLimit: null,
+    teamRacing: null,
+    timeOfDayS: timeOfDay(f.f32(s + SESSION.timeOfDay)),
+    typeName: rest.session?.session ?? null,
+    trackUsage: null,
+    // Learned from the player's sector changes by LmuSectorLearner (decode fills it in).
+    sectorStartPcts: null,
   };
+}
+
+/**
+ * The player's lap timing from the scoring row: time into the lap, last and best lap (the sim
+ * writes -1 or 0 until a lap is set). LMU has no live delta channels, so `delta` stays null.
+ */
+function readPlayerLap(f: Frame, row: number): PlayerLap {
+  const into = f.f64(row + VEHICLE.timeIntoLap);
+  return {
+    currentLapS: Number.isFinite(into) && into >= 0 ? into : null,
+    lastLapS: positiveOrNull(f.f64(row + VEHICLE.lastLapTime)),
+    bestLapS: positiveOrNull(f.f64(row + VEHICLE.bestLapTime)),
+    delta: null,
+  };
+}
+
+/**
+ * In the stall, else on track while in real time and in the car, else not in the world. Never
+ * `offTrack` or `approachingPits`: nothing in the buffer proves them.
+ */
+function playerSurface(inCar: boolean, live: boolean, inStall: boolean): TrackSurface {
+  if (inStall) return "inPitStall";
+  return inCar && live ? "onTrack" : "notInWorld";
+}
+
+/** Seconds after midnight; the sim keeps counting past 24 h in long sessions. */
+function timeOfDay(seconds: number): number | null {
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds % SECONDS_PER_DAY : null;
 }
 
 /**
@@ -365,6 +434,9 @@ function readFlags(f: Frame, playerRow: number): Flags {
     white: false,
     checkered: false,
     black: false,
+    disqualified: false,
+    repair: false,
+    furled: false,
   };
 }
 
@@ -424,18 +496,24 @@ function readCar(f: Frame, o: number, trackLengthM: number, rest: LmuRestSnapsho
   car.className = className;
   car.classColour = lmuClassColour(className);
   car.carNumber = extra?.carNumber ?? numberFromVehicleName(vehicleName);
+  car.teamName = extra?.teamName ?? teamFromVehicleName(vehicleName);
+  car.worldPos = readWorldPos(f, o);
+  car.fuelFraction = f.u8(o + VEHICLE.fuelFraction) / 255;
   car.position = f.u8(o + VEHICLE.position) || null;
   car.lapsCompleted = laps;
   car.lapInProgress = laps + 1;
   car.lapDistPct = lapPct(f.f64(o + VEHICLE.lapDistance), trackLengthM);
   car.onPitRoad = inPits;
   car.inPitStall = inPitStall(f, o, inPits, extra?.pitState ?? null);
-  car.isOnTrack = controlKnown ? !inPits : null;
+  // Like iRacing, "on track" means in the world (a car in the pits is), so overlays and the
+  // spotter can tell the pits from a car that is not there.
+  car.isOnTrack = controlKnown ? true : null;
   car.lastLapS = positiveOrNull(f.f64(o + VEHICLE.lastLapTime));
   car.bestLapS = positiveOrNull(f.f64(o + VEHICLE.bestLapTime));
   car.estTimeS = timeIntoLap >= 0 && Number.isFinite(timeIntoLap) ? timeIntoLap : null;
   car.isPlayer = f.u8(o + VEHICLE.player) === 1;
   car.connected = controlKnown;
+  car.flags = readFlags(f, o);
   return car;
 }
 
@@ -462,6 +540,16 @@ function inPitStall(
 
 export function numberFromVehicleName(name: string): string | null {
   return /#(\w+)/.exec(name)?.[1] ?? null;
+}
+
+/**
+ * vehicleName is "<team> <year> #<number>:<livery tag>" for every car in the recording (4,255
+ * rows, one shape), and REST fullTeamName equals the part before the year. Anything that does not
+ * match that shape gives no team rather than a guess.
+ */
+export function teamFromVehicleName(name: string): string | null {
+  const team = /^(.+?)\s+\d{4}\s+#\w+:/.exec(name)?.[1]?.trim();
+  return team === undefined || team.length === 0 ? null : team;
 }
 
 function lapPct(lapDist: number, trackLengthM: number): number | null {
@@ -516,7 +604,47 @@ function readPlayer(f: Frame, o: number, state: SimState): void {
   const energy = f.f32(o + TELEM.veFraction);
   player.energyFraction = energy >= 0 && energy <= 1 ? energy : null;
   player.pitLimiter = f.u8(o + TELEM.pitLimiterOn) === 1;
+  player.redlineRpm = positiveOrNull(f.f64(o + TELEM.rpmLimit));
+  // The row holds the rear share, including live brake migration; SimState wants the front share.
+  const rear = f.f64(o + TELEM.rearBrakeBias);
+  player.brakeBias = rear > 0 && rear < 1 ? 1 - rear : null;
   player.tyres = readTyres(f, o);
+  player.damage = readDamage(f, o);
+  player.waterTempC = engineTemp(f.f64(o + TELEM.waterTempC));
+  player.oilTempC = engineTemp(f.f64(o + TELEM.oilTempC));
+}
+
+/** Engine temperatures are Celsius; exactly 0 means the car does not report them (no engine). */
+function engineTemp(c: number): number | null {
+  return c !== 0 && outside(W.engineC, c) === null ? c : null;
+}
+
+/** Dent bytes, flat tyres and the last impact time of one telemetry row (see layout.ts). */
+function readDamage(f: Frame, row: number): VehicleDamage {
+  const dent = (i: number): number => f.u8(row + TELEM.dentSeverity.offset + i);
+  const dents = [dent(0), dent(1), dent(2), dent(3), dent(4), dent(5), dent(6), dent(7)] as const;
+  const flat = (w: number): boolean => f.u8(wheelOffset(row, w) + WHEEL.tyreFlat) !== 0;
+  const impact = f.f64(row + TELEM.lastImpactTime);
+  return {
+    dents,
+    tyreFlat: { fl: flat(0), fr: flat(1), rl: flat(2), rr: flat(3) },
+    // 0 until the first impact (and again after a reset to the garage).
+    lastImpactS: Number.isFinite(impact) && impact > 0 ? impact : null,
+  };
+}
+
+/**
+ * Heading of the car's nose in the SimState convention for LMU: with the ground plane x/z and north
+ * taken as -z (the way rFactor 2 cars face at yaw 0), the nose direction is (-sin yaw, -cos yaw).
+ * The nose is minus the third column of the orientation matrix, so yaw = atan2(m[0][2], m[2][2]).
+ * Null when the matrix is not finite or the nose points (almost) straight up or down.
+ */
+function readYaw(f: Frame, row: number): number | null {
+  const o = row + VEHICLE.orientation;
+  const m02 = f.f64(o + 2 * 8);
+  const m22 = f.f64(o + 8 * 8);
+  if (!Number.isFinite(m02 + m22) || Math.hypot(m02, m22) < 0.5) return null;
+  return Math.atan2(m02, m22);
 }
 
 function readWorldPos(f: Frame, row: number): Vec3 | null {
@@ -526,6 +654,12 @@ function readWorldPos(f: Frame, row: number): Vec3 | null {
 }
 
 function readTyres(f: Frame, row: number): TyreSet | null {
+  const frontCompound = compound(f, row + TELEM.frontCompound.offset, TELEM.frontCompound.length);
+  const rearCompound = compound(f, row + TELEM.rearCompound.offset, TELEM.rearCompound.length);
+  const axles = [
+    { index: f.u8(row + TELEM.frontCompoundIndex), name: frontCompound },
+    { index: f.u8(row + TELEM.rearCompoundIndex), name: rearCompound },
+  ] as const;
   const corners: TyreCorner[] = [];
   for (let w = 0; w < TYRE_COUNT; w++) {
     const wo = wheelOffset(row, w);
@@ -536,15 +670,63 @@ function readTyres(f: Frame, row: number): TyreSet | null {
     const middle = f.f64(wo + WHEEL.surfaceTempK + 8) - KELVIN;
     const right = f.f64(wo + WHEEL.surfaceTempK + 16) - KELVIN;
     const isLeftWheel = w % 2 === 0;
+    const across = (l: number, m: number, r: number) =>
+      isLeftWheel ? { inner: r, middle: m, outer: l } : { inner: l, middle: m, outer: r };
+    const layer = WHEEL.innerLayerTempK;
+    const layerL = kelvinToC(f.f64(wo + layer));
+    const layerM = kelvinToC(f.f64(wo + layer + 8));
+    const layerR = kelvinToC(f.f64(wo + layer + 16));
     corners.push({
-      temps: isLeftWheel
-        ? { inner: right, middle, outer: left }
-        : { inner: left, middle, outer: right },
+      temps: across(left, middle, right),
+      innerLayerTemps:
+        layerL === null || layerM === null || layerR === null
+          ? null
+          : across(layerL, layerM, layerR),
+      carcassTempC: kelvinToC(f.f64(wo + WHEEL.carcassTempK)),
+      brakeTempC: kelvinToC(f.f64(wo + WHEEL.brakeTempK), BRAKE_K),
       pressureKpa: f.f64(wo + WHEEL.pressureKpa),
       // The sim reports remaining tread (1 = new); SimState wants wear (0 = new).
       wear: clamp01(1 - f.f64(wo + WHEEL.treadRemaining)),
+      compound: wheelCompound(f, wo, w < 2 ? axles : [axles[1], axles[0]]),
     });
   }
   const [fl, fr, rl, rr] = corners;
-  return fl && fr && rl && rr ? { fl, fr, rl, rr } : null;
+  if (!fl || !fr || !rl || !rr) return null;
+  return {
+    fl,
+    fr,
+    rl,
+    rr,
+    frontCompound,
+    rearCompound,
+  };
+}
+
+/**
+ * The name of the compound on one wheel. The wheel gives only a list position and a kind, the
+ * row names the front and rear compounds: the name of the axle with the same list position (its
+ * own axle first), otherwise the name of the kind.
+ */
+function wheelCompound(
+  f: Frame,
+  wo: number,
+  axles: readonly { index: number; name: string | null }[],
+): string | null {
+  const index = f.u8(wo + WHEEL.compoundIndex);
+  const axle = axles.find((a) => a.index === index);
+  if (axle) return axle.name;
+  return COMPOUND_KIND_NAMES[f.u8(wo + WHEEL.compoundKind)] ?? null;
+}
+
+function compound(f: Frame, o: number, length: number): string | null {
+  const name = f.text(o, length).trim();
+  return name === "" ? null : name;
+}
+
+/** Brake discs run far hotter than tyres; this window only rejects garbage. */
+const BRAKE_K: Window = { name: "brake temp K", lo: 200, hi: 2000 };
+
+/** Kelvin to Celsius; null for a value outside the window (zero on a car without the channel). */
+function kelvinToC(k: number, w: Window = W.tyreK): number | null {
+  return outside(w, k) === null ? k - KELVIN : null;
 }

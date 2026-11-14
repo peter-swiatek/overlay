@@ -1,0 +1,21 @@
+.leaderboard {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: var(--ov-font-family);
+  font-size: var(--ov-font-size);
+  color: var(--ov-text);
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+}
+
+.ov-lb-empty {
+  padding: 12px var(--ov-cell-pad-x, 8px);
+  color: var(--ov-text-muted);
+}
+
+/* Rows are display: contents, so the separator goes on the cells. */
+.ov-lb-after-gap > .ov-cell {
+  box-shadow: inset 0 1px 0 var(--ov-border);
+}

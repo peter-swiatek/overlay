@@ -1,0 +1,67 @@
+import type { OverlayManifest } from "../contract";
+
+export const incidentLogManifest: OverlayManifest = {
+  id: "incident-log",
+  title: "Incident Log",
+  description:
+    "The session's incidents, newest first: time, lap, sector, driver and what happened, with your incident points and the session's limits.",
+  sims: ["iracing"],
+  defaultSize: { width: 380, height: 230 },
+  minSize: { width: 240, height: 100 },
+  defaultPosition: { x: 1520, y: 840 },
+  table: false,
+  fields: [],
+  settings: [
+    {
+      key: "field-events",
+      label: "Field events",
+      kind: "toggle",
+      section: "Events",
+      default: true,
+      help: "Other drivers going off track. Off: only your own incidents.",
+    },
+    {
+      key: "corner-labels",
+      label: "Corner labels",
+      kind: "toggle",
+      section: "Events",
+      default: true,
+      help: "Adds the corner, e.g. (T7), on tracks with a corner list. Corners are numbered in driving order and may differ from the official turn numbers.",
+    },
+    {
+      key: "highlight-newest",
+      label: "Highlight new events",
+      kind: "toggle",
+      section: "Events",
+      default: true,
+      help: "The newest row is marked in yellow for a few seconds.",
+    },
+    {
+      key: "rows",
+      label: "Rows listed",
+      kind: "number",
+      section: "Layout",
+      default: 6,
+      min: 1,
+      max: 20,
+      step: 1,
+    },
+    {
+      key: "name-format",
+      label: "Name format",
+      kind: "select",
+      section: "Layout",
+      default: "f-last",
+      options: [
+        { value: "full", label: "Full name" },
+        { value: "f-last", label: "F. Last" },
+        { value: "first-l", label: "First L." },
+        { value: "last", label: "Last only" },
+        { value: "first", label: "First only" },
+        { value: "last-f", label: "Last, F." },
+      ],
+    },
+  ],
+  rateHz: 5,
+  defaultEnabled: false,
+};

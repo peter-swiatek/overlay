@@ -1,3 +1,4 @@
-export function uiName(): string {
-  return "@overlay/ui";
-}
+export * from "./types";
+export * from "./format";
+export * from "./table";
+export * from "./pills";

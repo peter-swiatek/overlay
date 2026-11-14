@@ -6,6 +6,8 @@ import { IracingFuelSampler } from "./testHelpers";
 
 const path = process.env["OVERLAY_IRACING_RECORDING"];
 const RACE_SESSION_NUM = 2;
+/** The exact lap list below belongs to this one recording (a 12-lap Ferrari 296 GT3 race). */
+const KNOWN_RECORDING = "074730Z";
 
 describe("local iRacing recording (Ferrari 296 GT3)", () => {
   it.skipIf(!path)(
@@ -32,14 +34,22 @@ describe("local iRacing recording (Ferrari 296 GT3)", () => {
         `race samples=${samples} laps=${tracker.lapRecords.length} valid=${out.validLapCount} ` +
           `fuelAvgLap=${out.fuelAvgLap} fuelMaxLap=${out.fuelMaxLap}\n${table}`,
       );
-      // Parade lap, 12 racing laps, cooldown lap, then two post-race car resets to the pits.
-      expect(tracker.lapRecords.map((l) => l.reason).filter((r) => r !== null)).toEqual([
-        "paceLap",
-        "cooldown",
-        "reset",
-        "reset",
-      ]);
-      expect(out.validLapCount).toBe(12);
+      if ((path as string).includes(KNOWN_RECORDING)) {
+        // Parade lap, 12 racing laps, cooldown lap, then two post-race car resets to the pits.
+        expect(tracker.lapRecords.map((l) => l.reason).filter((r) => r !== null)).toEqual([
+          "paceLap",
+          "cooldown",
+          "reset",
+          "reset",
+        ]);
+        expect(out.validLapCount).toBe(12);
+      } else {
+        console.log(
+          `recording is not ${KNOWN_RECORDING}: checking only that the race session yields valid laps`,
+        );
+        expect(samples).toBeGreaterThan(0);
+        expect(out.validLapCount).toBeGreaterThan(0);
+      }
       expect(out.fuelAvgLap).toBeGreaterThan(1);
       expect(out.fuelAvgLap).toBeLessThan(6);
     },

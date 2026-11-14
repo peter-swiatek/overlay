@@ -9,6 +9,7 @@ import {
   numberFromVehicleName,
   phaseOf,
   sessionTypeOf,
+  teamFromVehicleName,
   type LmuDecodeResult,
 } from "./decoder";
 import {
@@ -22,7 +23,9 @@ import {
   TELEM,
   TELEMETRY,
   TELEMETRY_BASE,
+  WHEEL,
 } from "./layout";
+import { LMU_REPAIR_PATH } from "./rest";
 
 const dir = fileURLToPath(new URL("../../../../../fixtures/", import.meta.url));
 
@@ -59,6 +62,7 @@ async function load(name: string): Promise<Loaded> {
 
 const onTrack = await load("lmu-hypercar-onpace-10s-5hz.ovfx");
 const burst = await load("lmu-burst-first-5s.ovfx");
+const damaged = await load("lmu-damage-impacts-10s-5hz.ovfx");
 
 describe("LmuDecoder on the on-track slice", () => {
   it("decodes every frame into a valid SimState", () => {
@@ -107,6 +111,55 @@ describe("LmuDecoder on the on-track slice", () => {
         expect(corner?.wear).toBeLessThan(0.05);
       }
     }
+  });
+
+  it("reads the compound, brake, carcass and inner-layer temperatures", () => {
+    const garage = onTrack.rest.find((r) => r.path === "/rest/garage/getPlayerGarageData");
+    const setting = (key: string) =>
+      (garage?.body as Record<string, { stringValue?: string }> | undefined)?.[key]?.stringValue;
+    expect(setting("VM_FRONT_TIRE_COMPOUND")).toBe("Soft");
+    for (const { result } of onTrack.frames) {
+      const t = result.state.player.tyres;
+      expect(t?.frontCompound).toBe(setting("VM_FRONT_TIRE_COMPOUND"));
+      expect(t?.rearCompound).toBe(setting("VM_REAR_TIRE_COMPOUND"));
+      // One set on all four wheels, as the garage's per-wheel settings say.
+      expect([t?.fl, t?.fr, t?.rl, t?.rr].map((c) => c?.compound)).toEqual(
+        ["FL", "FR", "RL", "RR"].map((w) => setting(`WM_COMPOUND-W_${w}`)),
+      );
+      for (const corner of [t?.fl, t?.fr, t?.rl, t?.rr]) {
+        // An early lap: the brakes are still warming up but above the 30 C air.
+        expect(corner?.brakeTempC).toBeGreaterThan(40);
+        expect(corner?.brakeTempC).toBeLessThan(1000);
+        expect(corner?.carcassTempC).toBeGreaterThan(20);
+        expect(corner?.carcassTempC).toBeLessThan(120);
+        const layer = corner?.innerLayerTemps;
+        for (const v of [layer?.inner, layer?.middle, layer?.outer]) {
+          expect(v).toBeGreaterThan(20);
+          expect(v).toBeLessThan(120);
+          expect(Math.abs((v ?? 0) - (corner?.temps.middle ?? 0))).toBeLessThan(40);
+        }
+      }
+      // Fronts carry most of the braking.
+      expect(t?.fl.brakeTempC ?? 0).toBeGreaterThan(t?.rl.brakeTempC ?? 0);
+    }
+  });
+
+  it("orders the inner-layer temperatures like the surface ones", () => {
+    // The car turns both ways in the slice, so compare the sign of the edge difference over it.
+    let agree = 0;
+    let total = 0;
+    for (const { result } of onTrack.frames) {
+      const t = result.state.player.tyres;
+      for (const c of [t?.fl, t?.fr, t?.rl, t?.rr]) {
+        const surface = (c?.temps.inner ?? 0) - (c?.temps.outer ?? 0);
+        const layer = (c?.innerLayerTemps?.inner ?? 0) - (c?.innerLayerTemps?.outer ?? 0);
+        if (Math.abs(surface) < 2) continue;
+        total++;
+        if (Math.sign(surface) === Math.sign(layer)) agree++;
+      }
+    }
+    expect(total).toBeGreaterThan(20);
+    expect(agree / total).toBeGreaterThan(0.8);
   });
 
   it("names the sim and gives the player's world position", () => {
@@ -379,5 +432,386 @@ describe("frame consistency", () => {
     const later = Buffer.from(raw);
     later.writeInt32LE(6, SCORING_BASE + SESSION.sessionCode);
     expect(decoder.decode(later).state.cars.find((c) => c.carIdx === 0)?.carNumber).toBe("83");
+  });
+});
+
+describe("field data for overlays", () => {
+  const raw = onTrack.frames[0]!.raw;
+  const rowOf = (i: number) => VEHICLE_ROWS_OFFSET + i * VEHICLE_STRIDE;
+  const playerTelemetryRow = (buffer: Buffer) =>
+    TELEMETRY_BASE +
+    TELEMETRY.rowsOffset +
+    buffer[TELEMETRY_BASE + TELEMETRY.playerRowIndex]! * TELEMETRY.rowStride;
+
+  it("reads a world position and a fuel fraction for every vehicle in the slice", () => {
+    for (const { result } of onTrack.frames) {
+      const { cars } = result.state;
+      expect(cars.length).toBe(37);
+      for (const car of cars) {
+        expect(car.worldPos).not.toBeNull();
+        expect(Number.isFinite((car.worldPos?.x ?? NaN) + (car.worldPos?.z ?? NaN))).toBe(true);
+        expect(car.fuelFraction).toBeGreaterThanOrEqual(0);
+        expect(car.fuelFraction).toBeLessThanOrEqual(1);
+      }
+      expect(result.state.player.worldPos).toEqual(cars.find((c) => c.isPlayer)?.worldPos);
+    }
+  });
+
+  it("fills the player's brake bias, the time of day and a team for every car in the slice", () => {
+    const { state } = new LmuDecoder().decode(raw);
+    expect(state.player.brakeBias).toBeGreaterThan(0.3);
+    expect(state.player.brakeBias).toBeLessThan(0.7);
+    expect(state.session.timeOfDayS).toBeGreaterThan(0);
+    expect(state.session.timeOfDayS).toBeLessThan(86_400);
+    expect(state.cars.every((c) => c.teamName !== null && c.teamName.length > 0)).toBe(true);
+    expect(state.cars.every((c) => !(c.teamName ?? "").includes("#"))).toBe(true);
+  });
+
+  it("decodes synthetic values at the documented offsets", () => {
+    const edited = Buffer.from(raw);
+    const row = rowOf(2);
+    edited.writeUInt8(204, row + VEHICLE.fuelFraction); // 204 / 255 = 0.8
+    edited.writeDoubleLE(-142.5, row + VEHICLE.worldPos);
+    edited.writeDoubleLE(7.25, row + VEHICLE.worldPos + 8);
+    edited.writeDoubleLE(1155.5, row + VEHICLE.worldPos + 16);
+    edited.writeFloatLE(51_000, SCORING_BASE + SESSION.timeOfDay);
+    edited.writeDoubleLE(0.45, playerTelemetryRow(edited) + TELEM.rearBrakeBias);
+    const { state } = new LmuDecoder().decode(edited);
+    const car = state.cars[2]!;
+    expect(car.fuelFraction).toBeCloseTo(0.8, 6);
+    expect(car.worldPos).toEqual({ x: -142.5, y: 7.25, z: 1155.5 });
+    expect(state.session.timeOfDayS).toBe(51_000);
+    expect(state.player.brakeBias).toBeCloseTo(0.55, 6);
+  });
+
+  it("decodes synthetic tyre values at the documented offsets", () => {
+    const edited = Buffer.from(raw);
+    const row = playerTelemetryRow(edited);
+    const wheel = (w: number) => row + TELEM.tyresOffset + w * TELEM.tyreStride;
+    edited.fill(0, row + TELEM.frontCompound.offset, row + TELEM.rearCompound.offset + 18);
+    edited.write("Wet", row + TELEM.frontCompound.offset, "latin1");
+    edited.writeDoubleLE(773.15, wheel(1) + WHEEL.brakeTempK);
+    edited.writeDoubleLE(353.15, wheel(1) + WHEEL.carcassTempK);
+    // Front right: the left column is the inner edge.
+    edited.writeDoubleLE(363.15, wheel(1) + WHEEL.innerLayerTempK);
+    edited.writeDoubleLE(358.15, wheel(1) + WHEEL.innerLayerTempK + 8);
+    edited.writeDoubleLE(353.15, wheel(1) + WHEEL.innerLayerTempK + 16);
+    // Front left: the left column is the outer edge.
+    edited.writeDoubleLE(343.15, wheel(0) + WHEEL.innerLayerTempK);
+    // A brake value outside any physical window is dropped, not the frame.
+    edited.writeDoubleLE(0, wheel(2) + WHEEL.brakeTempK);
+    const { state, error } = new LmuDecoder().decode(edited);
+    expect(error).toBeNull();
+    const t = state.player.tyres;
+    expect(t?.frontCompound).toBe("Wet");
+    expect(t?.rearCompound).toBeNull();
+    expect(t?.fr.brakeTempC).toBeCloseTo(500, 6);
+    expect(t?.fr.carcassTempC).toBeCloseTo(80, 6);
+    expect(t?.fr.innerLayerTemps?.inner).toBeCloseTo(90, 6);
+    expect(t?.fr.innerLayerTemps?.middle).toBeCloseTo(85, 6);
+    expect(t?.fr.innerLayerTemps?.outer).toBeCloseTo(80, 6);
+    expect(t?.fl.innerLayerTemps?.outer).toBeCloseTo(70, 6);
+    expect(t?.rl.brakeTempC).toBeNull();
+    // Each wheel takes its own axle's name, which the rear no longer has.
+    expect(t?.fl.compound).toBe("Wet");
+    expect(t?.rr.compound).toBeNull();
+  });
+
+  it("reads the player's engine water and oil temperatures in Celsius", () => {
+    for (const { result } of onTrack.frames) {
+      const p = result.state.player;
+      // About 105 s into the run: warming up from the 60 C the car is pre-heated to.
+      expect(p.waterTempC).toBeGreaterThan(60);
+      expect(p.waterTempC).toBeLessThan(90);
+      expect(p.oilTempC).toBeGreaterThan(60);
+      expect(p.oilTempC).toBeLessThan(90);
+    }
+    const edited = Buffer.from(raw);
+    const row = playerTelemetryRow(edited);
+    edited.writeDoubleLE(92.5, row + TELEM.waterTempC);
+    edited.writeDoubleLE(0, row + TELEM.oilTempC);
+    const { state } = new LmuDecoder().decode(edited);
+    expect(state.player.waterTempC).toBe(92.5);
+    // Zero is a car without the channel, not a frozen engine.
+    expect(state.player.oilTempC).toBeNull();
+  });
+
+  it("names each wheel's compound from its list position, else from its kind", () => {
+    const edited = Buffer.from(raw);
+    const row = playerTelemetryRow(edited);
+    const wheel = (w: number) => row + TELEM.tyresOffset + w * TELEM.tyreStride;
+    const name = (o: number, text: string) => {
+      edited.fill(0, row + o, row + o + 18);
+      edited.write(text, row + o, "latin1");
+    };
+    // Soft fronts (list position 0), Medium rears (1).
+    name(TELEM.frontCompound.offset, "Soft");
+    name(TELEM.rearCompound.offset, "Medium");
+    edited.writeUInt8(0, row + TELEM.frontCompoundIndex);
+    edited.writeUInt8(1, row + TELEM.rearCompoundIndex);
+    const fit = (w: number, index: number, kind: number) => {
+      edited.writeUInt8(index, wheel(w) + WHEEL.compoundIndex);
+      edited.writeUInt8(kind, wheel(w) + WHEEL.compoundKind);
+    };
+    fit(0, 0, 0); // the front's own compound
+    fit(1, 1, 1); // the rear compound on a front wheel
+    fit(2, 2, 2); // neither axle's: named by its kind
+    fit(3, 5, 9); // an unknown kind
+    const t = new LmuDecoder().decode(edited).state.player.tyres;
+    expect([t?.fl, t?.fr, t?.rl, t?.rr].map((c) => c?.compound)).toEqual([
+      "Soft",
+      "Medium",
+      "Hard",
+      null,
+    ]);
+  });
+
+  it("wraps a time of day past 24 h and ignores a rear bias outside 0..1", () => {
+    const edited = Buffer.from(raw);
+    edited.writeFloatLE(86_400 + 120, SCORING_BASE + SESSION.timeOfDay);
+    edited.writeDoubleLE(0, playerTelemetryRow(edited) + TELEM.rearBrakeBias);
+    const { state } = new LmuDecoder().decode(edited);
+    expect(state.session.timeOfDayS).toBe(120);
+    expect(state.player.brakeBias).toBeNull();
+  });
+
+  it("leaves what is not proven null", () => {
+    const { state } = new LmuDecoder().decode(raw);
+    expect(state.session.pitSpeedLimitMps).toBeNull();
+    expect(state.session.incidentLimit).toBeNull();
+    expect(state.player.pitStallLapDistPct).toBeNull();
+    expect(state.conditions).toMatchObject({
+      precipitation: null,
+      humidity: null,
+      fogLevel: null,
+      windSpeedMps: null,
+      windDirRad: null,
+    });
+  });
+
+  it("fills the player's lap timing, redline, surface and per-car flags from the slice", () => {
+    const { state } = new LmuDecoder().decode(raw);
+    const lap = state.player.lap;
+    expect(lap).not.toBeNull();
+    expect(lap?.delta).toBeNull();
+    expect(lap?.currentLapS).toBeGreaterThanOrEqual(0);
+    for (const t of [lap?.lastLapS, lap?.bestLapS]) expect(t == null || t > 0).toBe(true);
+    expect(state.player.redlineRpm).toBeGreaterThan(5000);
+    expect(state.player.trackSurface).toBe("onTrack");
+    expect(state.player.isOnTrack).toBe(true);
+    expect(state.player.absActive).toBeNull();
+    expect(state.player.pitLimiter).toBe(false);
+    expect(state.cars.every((c) => c.flags !== null && c.trackSurface === null)).toBe(true);
+  });
+
+  it("decodes synthetic lap times, blue flags and the stall surface", () => {
+    const edited = Buffer.from(raw);
+    const player = new LmuDecoder().decode(raw).state.cars.findIndex((c) => c.isPlayer);
+    const row = rowOf(player);
+    edited.writeDoubleLE(31.5, row + VEHICLE.timeIntoLap);
+    edited.writeDoubleLE(212.25, row + VEHICLE.lastLapTime);
+    edited.writeDoubleLE(-1, row + VEHICLE.bestLapTime);
+    edited.writeUInt8(6, rowOf(3) + VEHICLE.flag);
+    edited.writeUInt8(1, rowOf(4) + VEHICLE.underYellow);
+    const { state } = new LmuDecoder().decode(edited);
+    expect(state.player.lap).toEqual({
+      currentLapS: 31.5,
+      lastLapS: 212.25,
+      bestLapS: null,
+      delta: null,
+    });
+    expect(state.cars[3]!.flags?.blue).toBe(true);
+    expect(state.cars[4]!.flags?.yellow).toBe(true);
+    expect(state.cars[5]!.flags?.blue).toBe(false);
+
+    edited.writeUInt8(0, SCORING_BASE + SESSION.inRealtime);
+    expect(new LmuDecoder().decode(edited).state.player).toMatchObject({
+      trackSurface: "notInWorld",
+      isOnTrack: false,
+    });
+
+    const away = Buffer.from(raw);
+    away.writeUInt8(0, TELEMETRY_BASE + TELEMETRY.playerInCar);
+    expect(new LmuDecoder().decode(away).state.player.lap).toBeNull();
+  });
+
+  it("learns the sector starts from the player's sector changes", () => {
+    const decoder = new LmuDecoder();
+    const player = decoder.decode(raw).state.cars.findIndex((c) => c.isPlayer);
+    const row = rowOf(player);
+    const length = raw.readDoubleLE(SCORING_BASE + SESSION.lapDistance);
+    const frame = (rawSector: number, pct: number) => {
+      const b = Buffer.from(raw);
+      b.writeInt8(rawSector, row + VEHICLE.sector);
+      b.writeDoubleLE(pct * length, row + VEHICLE.lapDistance);
+      return decoder.decode(b).state.session.sectorStartPcts;
+    };
+    expect(frame(1, 0.25)).toBeNull();
+    expect(frame(2, 0.252)).toBeNull();
+    expect(frame(2, 0.6)).toBeNull();
+    const starts = frame(0, 0.602)!;
+    expect(starts[0]).toBe(0);
+    expect(starts[1]!).toBeCloseTo(0.251, 6);
+    expect(starts[2]!).toBeCloseTo(0.601, 6);
+    expect(frame(0, 0.7)).toEqual(starts);
+  });
+
+  it("uses the REST session name as the session type name", () => {
+    const decoder = new LmuDecoder();
+    decoder.observeRest({
+      path: "/rest/watch/sessionInfo",
+      status: 200,
+      body: { session: "PRACTICE1", maxTime: 3600 },
+    });
+    expect(decoder.decode(raw).state.session.typeName).toBe("PRACTICE1");
+    expect(new LmuDecoder().decode(raw).state.session.typeName).toBeNull();
+  });
+
+  it("separates the team from a vehicle name of the observed shape only", () => {
+    expect(teamFromVehicleName("Example Racing Team 2026 #83:LM")).toBe("Example Racing Team");
+    expect(teamFromVehicleName("Zofia Świątkowska Motorsport 2026 #5:A")).toBe(
+      "Zofia Świątkowska Motorsport",
+    );
+    expect(teamFromVehicleName("Some Car")).toBeNull();
+    expect(teamFromVehicleName("2026 #1:X")).toBeNull();
+    expect(teamFromVehicleName("")).toBeNull();
+  });
+
+  it("prefers the REST team name over the one parsed from the vehicle name", () => {
+    const decoder = new LmuDecoder();
+    const parsed = decoder.decode(raw).state.cars[0]?.teamName;
+    expect(parsed).not.toBeNull();
+    decoder.observeRest({
+      path: "/rest/watch/standings",
+      status: 200,
+      body: [{ slotID: raw.readInt32LE(rowOf(0)), fullTeamName: "Max Example Racing" }],
+    });
+    expect(decoder.decode(raw).state.cars[0]?.teamName).toBe("Max Example Racing");
+  });
+
+  it("reads the player's heading from the orientation matrix (nose = minus the third column)", () => {
+    const playerRow = rowOf(onTrack.frames[0]!.result.state.cars.findIndex((c) => c.isPlayer));
+    const withNose = (fx: number, fz: number) => {
+      const edited = Buffer.from(raw);
+      // Rows of the matrix; only the third column matters: column 3 = -(nose).
+      const o = playerRow + VEHICLE.orientation;
+      [1, 0, -fx, 0, 1, 0, 0, 0, -fz].forEach((v, i) => edited.writeDoubleLE(v, o + i * 8));
+      return new LmuDecoder().decode(edited).state.player.yawRad;
+    };
+    const dir = (yaw: number | null) => [-Math.sin(yaw as number), -Math.cos(yaw as number)];
+    // Nose towards -z (yaw 0), towards -x (yaw 90 degrees), towards +z, and a slanted one.
+    expect(withNose(0, -1)).toBeCloseTo(0, 9);
+    expect(withNose(-1, 0)).toBeCloseTo(Math.PI / 2, 9);
+    expect(Math.abs(withNose(0, 1) as number)).toBeCloseTo(Math.PI, 9);
+    const k = Math.SQRT1_2;
+    const [dx, dz] = dir(withNose(k, k));
+    expect(dx).toBeCloseTo(k, 9);
+    expect(dz).toBeCloseTo(k, 9);
+    // A matrix with the nose pointing straight up gives no heading.
+    expect(withNose(0, 0)).toBeNull();
+  });
+
+  it("keeps a car in the pits in the world and tells it from one that is not there", () => {
+    const edited = Buffer.from(raw);
+    edited.writeUInt8(1, rowOf(1) + VEHICLE.pitting);
+    edited.writeInt8(1, rowOf(1) + VEHICLE.inControl);
+    edited.writeInt8(-1, rowOf(2) + VEHICLE.inControl);
+    const { cars } = new LmuDecoder().decode(edited).state;
+    expect(cars[1]).toMatchObject({ onPitRoad: true, isOnTrack: true, connected: true });
+    expect(cars[2]).toMatchObject({ isOnTrack: null, connected: false });
+  });
+
+  it("falls back to the REST team name when the vehicle name has no recognisable shape", () => {
+    const edited = Buffer.from(raw);
+    const at = rowOf(0) + VEHICLE.vehicleName.offset;
+    edited.fill(0, at, at + VEHICLE.vehicleName.length);
+    edited.write("Plain Name", at, "latin1");
+    const decoder = new LmuDecoder();
+    expect(decoder.decode(edited).state.cars[0]?.teamName).toBeNull();
+    decoder.observeRest({
+      path: "/rest/watch/standings",
+      status: 200,
+      body: [{ slotID: edited.readInt32LE(rowOf(0)), fullTeamName: "Max Example Racing" }],
+    });
+    expect(decoder.decode(edited).state.cars[0]?.teamName).toBe("Max Example Racing");
+  });
+});
+
+describe("LmuDecoder on the damage slice", () => {
+  const states = damaged.frames.map((f) => f.result.state);
+  const driving = states.filter((s) => s.player.tyres !== null);
+
+  it("decodes every frame", () => {
+    expect(damaged.frames.length).toBeGreaterThan(40);
+    for (const { result } of damaged.frames) {
+      expect(result.error).toBeNull();
+      expect(isSimState(result.state)).toBe(true);
+    }
+    expect(driving.length).toBeGreaterThan(30);
+  });
+
+  it("reads the dents as they appear: nose, then the left rear quarter, then the tail", () => {
+    const seen: string[] = [];
+    for (const s of driving) {
+      const dents = s.player.damage?.dents.join(",") ?? "none";
+      if (seen.at(-1) !== dents) seen.push(dents);
+    }
+    expect(seen).toEqual([
+      "0,0,0,0,0,0,0,0",
+      "2,0,0,0,0,0,0,0",
+      "2,0,0,2,0,0,0,0",
+      "2,0,0,2,2,0,0,0",
+    ]);
+  });
+
+  it("flags the rear-left tyre, whose pressure and tread read zero", () => {
+    for (const s of driving) {
+      expect(s.player.damage?.tyreFlat).toEqual({ fl: false, fr: false, rl: true, rr: false });
+      expect(s.player.tyres?.rl.pressureKpa).toBe(0);
+      expect(s.player.tyres?.rl.wear).toBe(1);
+      expect(s.player.tyres?.fl.pressureKpa).toBeGreaterThan(100);
+    }
+  });
+
+  it("keeps the last impact time on the session clock", () => {
+    const times = new Set<number>();
+    for (const s of driving) {
+      const at = s.player.damage?.lastImpactS ?? null;
+      expect(at).not.toBeNull();
+      expect(at!).toBeLessThanOrEqual((s.tickTimeS ?? 0) + 0.2);
+      times.add(at!);
+    }
+    expect([...times][0]).toBeCloseTo(343.5, 1);
+    expect([...times].at(-1)).toBeCloseTo(349.72, 2);
+    expect(times.size).toBeGreaterThan(5);
+  });
+
+  it("clears everything when the car is reset to the garage", () => {
+    const last = states.at(-1)!;
+    expect(last.player.tyres).toBeNull();
+    expect(last.player.damage?.dents).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(last.player.damage?.tyreFlat).toEqual({ fl: false, fr: false, rl: false, rr: false });
+    expect(last.player.damage?.lastImpactS).toBeNull();
+  });
+
+  it("adds the aero and suspension damage of the slice's repair screen body", () => {
+    expect(damaged.rest.some((r) => r.path === LMU_REPAIR_PATH)).toBe(true);
+    for (const s of driving) {
+      expect(s.player.damage?.aero).toBeCloseTo(0.0533, 4);
+      const susp = s.player.damage?.suspension;
+      expect(susp?.fl).toBeCloseTo(0.0571, 4);
+      expect(susp?.fr).toBe(0);
+      expect(susp?.rl).toBeCloseTo(0.1377, 4);
+      expect(susp?.rr).toBe(0);
+    }
+  });
+
+  it("has no damage on the clean on-track slice", () => {
+    for (const { result } of onTrack.frames) {
+      expect(result.state.player.damage?.dents).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+      expect(result.state.player.damage?.aero).toBe(0);
+      expect(result.state.player.damage?.suspension).toEqual({ fl: 0, fr: 0, rl: 0, rr: 0 });
+      expect(Object.values(result.state.player.damage?.tyreFlat ?? {})).not.toContain(true);
+    }
   });
 });

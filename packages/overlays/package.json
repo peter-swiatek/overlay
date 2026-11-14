@@ -6,5 +6,33 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./contract": "./src/contract.ts",
+    "./manifests": "./src/manifests.ts",
+    "./fixtures": "./src/shared/fixtures.ts",
+    "./fields": "./src/shared/fields.ts",
+    "./table-fit": "./src/shared/table-fit.ts",
+    "./settings": "./src/settings/index.ts",
+    "./instances": "./src/instances.ts",
+    "./views": "./src/views.ts",
+    "./web-url": "./src/shared/web-url.ts",
+    "./webview": "./src/webview/options.ts",
+    "./twitch-chat": "./src/twitch-chat/options.ts"
+  },
+  "dependencies": {
+    "@overlay/sim-core": "workspace:*",
+    "@overlay/theme": "workspace:*",
+    "@overlay/ui": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   }
 }

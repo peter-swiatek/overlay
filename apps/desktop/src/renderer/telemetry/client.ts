@@ -1,5 +1,9 @@
 import type { TelemetryFrame } from "@overlay/sim-core/types";
-import type { TelemetryAck } from "../../shared/telemetry-types";
+import type {
+  TelemetryAck,
+  TrackOutlineReply,
+  TrackOutlineRequest,
+} from "../../shared/telemetry-types";
 
 /** The part of a `MessagePort` the client uses. */
 export interface ClientPort {
@@ -43,6 +47,9 @@ interface Subscriber {
   cancelTrailing: (() => void) | undefined;
 }
 
+/** An outline request with no reply by then resolves to null. */
+export const OUTLINE_TIMEOUT_MS = 5000;
+
 /** A send may come this much earlier than due, so timer jitter does not skip frames at 60 Hz. */
 const MAX_SLACK_MS = 3;
 
@@ -57,6 +64,8 @@ export class TelemetryClient {
   private requestedHz = 0;
   private stale = false;
   private cancelStale: (() => void) | undefined;
+  private nextRequestId = 1;
+  private readonly pending = new Map<number, (reply: TrackOutlineReply | null) => void>();
 
   constructor(private readonly env: ClientEnv) {
     // Listen before anything asks for a port, so the first one cannot be missed.
@@ -100,6 +109,28 @@ export class TelemetryClient {
     };
   }
 
+  /**
+   * Asks the telemetry process for the outline of `trackKey`. Resolves to its reply, or to null
+   * without a port or when no reply comes within OUTLINE_TIMEOUT_MS.
+   */
+  requestTrackOutline(trackKey: string): Promise<TrackOutlineReply | null> {
+    const port = this.port;
+    if (port === undefined) return Promise.resolve(null);
+    const requestId = this.nextRequestId++;
+    return new Promise((resolve) => {
+      const cancel = this.env.setTimer(() => {
+        this.pending.delete(requestId);
+        resolve(null);
+      }, OUTLINE_TIMEOUT_MS);
+      this.pending.set(requestId, (reply) => {
+        cancel();
+        resolve(reply);
+      });
+      const request: TrackOutlineRequest = { type: "getTrackOutline", requestId, trackKey };
+      port.postMessage(request);
+    });
+  }
+
   private onWindowMessage(event: PortMessageEvent): void {
     if (event.source !== this.env.self) return;
     const data = event.data as { type?: unknown } | null;
@@ -116,7 +147,12 @@ export class TelemetryClient {
   }
 
   private onFrame(from: ClientPort, data: unknown): void {
-    if (from !== this.port || !isFrame(data)) return;
+    if (from !== this.port) return;
+    if (isOutlineReply(data)) {
+      this.onOutlineReply(data);
+      return;
+    }
+    if (!isFrame(data)) return;
     // seq restarts at 1 when the telemetry process restarts, so a lower seq is not stale.
     this.frame = data;
     this.stale = false;
@@ -128,6 +164,14 @@ export class TelemetryClient {
     const ack: TelemetryAck = { type: "ack", seq: data.seq };
     from.postMessage(ack);
     for (const sub of this.subscribers) this.deliver(sub, false);
+  }
+
+  private onOutlineReply(reply: TrackOutlineReply): void {
+    if (typeof reply.requestId !== "number") return;
+    const settle = this.pending.get(reply.requestId);
+    if (settle === undefined) return;
+    this.pending.delete(reply.requestId);
+    settle(reply);
   }
 
   /** Delivers now, or (when throttled) schedules one trailing update so the last change lands. */
@@ -148,6 +192,17 @@ export class TelemetryClient {
     sub.hasValue = true;
     sub.onValue(next);
   }
+}
+
+/** A reply to `requestTrackOutline`; the sender is our own telemetry process. */
+export function isOutlineReply(data: unknown): data is TrackOutlineReply {
+  if (typeof data !== "object" || data === null) return false;
+  const r = data as Partial<Record<keyof TrackOutlineReply, unknown>>;
+  return (
+    r.type === "trackOutline" &&
+    (r.outline === null || (typeof r.outline === "object" && r.outline !== undefined)) &&
+    (r.corners === null || r.corners === undefined || Array.isArray(r.corners))
+  );
 }
 
 const STATUSES: ReadonlySet<unknown> = new Set(["live", "waiting", "error"]);
