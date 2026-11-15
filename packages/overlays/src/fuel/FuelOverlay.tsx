@@ -229,8 +229,13 @@ function LapsLeft({ view, fmt }: { view: FuelView; fmt: Fmt }) {
 }
 
 function PitBanner({ view, layout }: { view: FuelView; layout: Layout }) {
+  // Coloured by pitTone (view.ts): green = pit lap more than two laps away (or no stop), yellow =
+  // within the next two laps, red = this lap, overdue or one stop short; neutral when unknown.
   return (
-    <div className="fuel-banner fuel-banner--gain" data-field="pit-window">
+    <div
+      className={`fuel-banner fuel-banner--${toneName(view.pitWindowState)}`}
+      data-field="pit-window"
+    >
       <span>{layout === "horizontal" ? "PIT" : "PIT WINDOW"}</span>
       <b>{pitWindowText(view)}</b>
     </div>

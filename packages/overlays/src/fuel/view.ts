@@ -60,6 +60,8 @@ export interface FuelView {
   lapsLeftState: { avg: Tone; last: Tone; worst: Tone };
   /** Null until 2 valid laps. */
   pitWindow: FuelPitWindow | null;
+  /** Colour of the pit window / pit lap value (pitTone); null = neutral. */
+  pitWindowState: Tone;
   refuel: number | null;
   usage: { avg10: number | null; avg5: number | null; last: number | null };
   validLapCount: number;
@@ -80,6 +82,34 @@ function tone(value: number | null, lapsToGo: number | null, margin: number): To
   if (value === null || lapsToGo === null) return null;
   if (value >= lapsToGo + margin) return "gain";
   return value >= lapsToGo ? "warn" : "loss";
+}
+
+/** Laps before the last lap you can pit on at which the pit value turns "warn". */
+export const PIT_WARN_LAPS = 2;
+
+/**
+ * Colour of the pit window (the estimated pit lap), with the laps-remaining cells' meaning:
+ * "gain" = fuel to spare, "warn" = just enough, "loss" = short.
+ *  - No stop needed (refuel <= 0): "gain".
+ *  - One stop cannot reach the finish (window not feasible): "loss".
+ *  - Otherwise by the laps the car can still complete before the window's last lap, `end`
+ *    (the last lap the tank reaches on the average use): more than PIT_WARN_LAPS = "gain",
+ *    1..PIT_WARN_LAPS = "warn" (pit within the next two laps), 0 or less = "loss" (pit this lap
+ *    or overdue).
+ * Null (neutral) while the window, the refuel amount or the lap is unknown.
+ */
+export function pitTone(
+  window: FuelPitWindow | null,
+  refuel: number | null,
+  lapsCompleted: number | null,
+): Tone {
+  if (window === null || refuel === null) return null;
+  if (refuel <= 0) return "gain";
+  if (!window.feasible) return "loss";
+  if (lapsCompleted === null) return null;
+  const lapsLeft = window.end - lapsCompleted;
+  if (lapsLeft > PIT_WARN_LAPS) return "gain";
+  return lapsLeft >= 1 ? "warn" : "loss";
 }
 
 /** Share of the max basis a usage figure takes, for bars; 0 when the basis is unknown. */
@@ -128,6 +158,17 @@ export function fuelView(frame: TelemetryFrame | null, options: FuelViewOptions)
     current === null || o.fuelLastLap === null ? null : fuelLapsRemaining(current, o.fuelLastLap);
   const lapsLeftRaw = { avg: o.lapsRemainingAvg, last, worst: o.lapsRemainingConservative };
 
+  const refuel = amount(
+    computeRefuel({
+      lapsToGo: o.lapsToGo,
+      perLap: o.fuelAvgLap,
+      currentFuel: current,
+      safetyMarginLaps: margin,
+      tankCapacity: capacity,
+    }),
+  );
+  const car = playerCar(frame);
+
   const maxBasis = o.fuelMaxLap;
   const history = o.recentLaps
     .map((lap) => ({
@@ -152,7 +193,7 @@ export function fuelView(frame: TelemetryFrame | null, options: FuelViewOptions)
       frame.state.session.timeRemainingS === null
         ? null
         : Math.round(frame.state.session.timeRemainingS),
-    currentLap: playerCar(frame)?.lapInProgress ?? null,
+    currentLap: car?.lapInProgress ?? null,
     consumption: [
       row("LAST", o.fuelLastLap),
       row("AVG 5L", o.fuelAvg5Lap),
@@ -179,15 +220,8 @@ export function fuelView(frame: TelemetryFrame | null, options: FuelViewOptions)
       worst: tone(lapsLeftRaw.worst, o.lapsToGo, margin),
     },
     pitWindow: o.pitWindow,
-    refuel: amount(
-      computeRefuel({
-        lapsToGo: o.lapsToGo,
-        perLap: o.fuelAvgLap,
-        currentFuel: current,
-        safetyMarginLaps: margin,
-        tankCapacity: capacity,
-      }),
-    ),
+    pitWindowState: pitTone(o.pitWindow, refuel, car?.lapsCompleted ?? null),
+    refuel,
     usage: {
       avg10: amount(o.fuelAvg10Lap),
       avg5: amount(o.fuelAvg5Lap),
@@ -253,6 +287,7 @@ export function freezeAtLine(
     lapsLeft: held.lapsLeft,
     lapsLeftState: held.lapsLeftState,
     pitWindow: held.pitWindow,
+    pitWindowState: held.pitWindowState,
     consumption: held.consumption,
   };
 }
@@ -289,6 +324,7 @@ export const SAMPLE_FUEL_VIEW: FuelView = {
   lapsLeft: { avg: 11.8, last: 11.6, worst: 10.4 },
   lapsLeftState: { avg: "warn", last: "gain", worst: "loss" },
   pitWindow: { start: 15, end: 25, feasible: true },
+  pitWindowState: "gain",
   refuel: 12,
   usage: { avg10: 2.76, avg5: 2.78, last: 2.8 },
   validLapCount: 5,

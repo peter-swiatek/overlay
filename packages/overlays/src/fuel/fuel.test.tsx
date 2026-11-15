@@ -13,6 +13,8 @@ import {
   emptyFreezeMemory,
   freezeAtLine,
   fuelView,
+  pitTone,
+  SAMPLE_FUEL_VIEW,
   type FuelView,
   type FuelViewOptions,
 } from "./view";
@@ -196,6 +198,44 @@ describe("fuelView", () => {
   });
 });
 
+describe("pitTone", () => {
+  const w = (end: number, feasible = true) => ({ start: Math.min(5, end), end, feasible });
+  it("is green with laps to spare, yellow within two laps, red this lap or overdue", () => {
+    expect(pitTone(w(19), 10, 10)).toBe("gain"); // 9 laps before the last pit lap
+    expect(pitTone(w(13), 10, 10)).toBe("gain"); // 3
+    expect(pitTone(w(12), 10, 10)).toBe("warn"); // 2
+    expect(pitTone(w(11), 10, 10)).toBe("warn"); // 1
+    expect(pitTone(w(10), 10, 10)).toBe("loss"); // this lap
+    expect(pitTone(w(8), 10, 10)).toBe("loss"); // overdue
+  });
+
+  it("is green with no stop needed and red when one stop cannot reach the finish", () => {
+    expect(pitTone(w(11), 0, 10)).toBe("gain");
+    expect(pitTone({ start: 20, end: 10, feasible: false }, 30, 5)).toBe("loss");
+  });
+
+  it("is neutral while the window, the refuel or the lap is unknown", () => {
+    expect(pitTone(null, 10, 10)).toBeNull();
+    expect(pitTone(w(19), null, 10)).toBeNull();
+    expect(pitTone(w(19), 10, null)).toBeNull();
+  });
+
+  it("is carried on the view from the player's completed laps", () => {
+    const f = frame(outputs({ pitWindow: { start: 14, end: 19, feasible: true } }), {
+      fuelL: 10,
+    });
+    f.state.playerCarIdx = 0;
+    f.state.cars = [{ ...emptyCar(0), lapsCompleted: 18, lapInProgress: 19 }];
+    expect(fuelView(f, OPTS)?.pitWindowState).toBe("warn");
+    f.state.cars = [{ ...emptyCar(0), lapsCompleted: 10, lapInProgress: 11 }];
+    expect(fuelView(f, OPTS)?.pitWindowState).toBe("gain");
+    // Without the player's car the lap is unknown: neutral.
+    expect(view(outputs(), { fuelL: 10 }).pitWindowState).toBeNull();
+    // No stop needed (default 40 L covers the race): green.
+    expect(view().pitWindowState).toBe("gain");
+  });
+});
+
 describe("freezeAtLine", () => {
   const a = view(outputs(), { fuelL: 40 });
   const b = view(outputs({ pitWindow: null, fuelAvg5Lap: 9 }), { fuelL: 30 });
@@ -215,6 +255,7 @@ describe("freezeAtLine", () => {
     expect(held?.refuel).toBe(a.refuel);
     expect(held?.consumption).toBe(a.consumption);
     expect(held?.lapsLeft).toBe(a.lapsLeft);
+    expect(held?.pitWindowState).toBe(a.pitWindowState);
     expect(freezeAtLine(b, 4, memory)).toBe(b);
   });
 
@@ -438,6 +479,57 @@ describe("FuelOverlay layouts", () => {
     expect(noColumn).toContain("fuel-cons--no-refuel");
     const horizontal = render(frame(outputs()), settingsWith({ layout: "horizontal" }, ["refuel"]));
     expect(horizontal).toContain("fuel-banner");
+  });
+
+  it("colours the pit banner by pitTone in both layouts, neutral while unknown", () => {
+    const only = ["pit-window"];
+    const f = frame(outputs({ pitWindow: { start: 14, end: 19, feasible: true } }), {
+      fuelL: 10,
+    });
+    f.state.playerCarIdx = 0;
+    f.state.cars = [{ ...emptyCar(0), lapsCompleted: 19, lapInProgress: 20 }];
+    for (const layout of ["vertical", "horizontal"]) {
+      const html = render(f, settingsWith({ layout }, only));
+      expect(html).toContain("fuel-banner--loss");
+      expect(html).toContain("Lap 14–19");
+    }
+    f.state.cars = [{ ...emptyCar(0), lapsCompleted: 17, lapInProgress: 18 }];
+    expect(render(f, settingsWith({}, only))).toContain("fuel-banner--warn");
+    const unknown = render(frame(outputs({ pitWindow: null })), settingsWith({}, only));
+    expect(unknown).toContain("fuel-banner--none");
+    expect(unknown).not.toMatch(/fuel-banner--(gain|warn|loss)/);
+  });
+
+  it("leaves every laps-remaining cell uncoloured while its value or the laps to go is unknown", () => {
+    for (const layout of ["vertical", "horizontal"]) {
+      const noLapsToGo = render(
+        frame(outputs({ lapsToGo: null })),
+        settingsWith({ layout }, ["laps-left"]),
+      );
+      expect(noLapsToGo.match(/fuel-rem-cell--none/g)).toHaveLength(3);
+      expect(noLapsToGo).not.toMatch(/fuel-rem-cell--(gain|warn|loss)/);
+      const noValues = render(
+        frame(
+          outputs({
+            fuelLastLap: null,
+            lapsRemainingAvg: null,
+            lapsRemainingConservative: null,
+          }),
+        ),
+        settingsWith({ layout }, ["laps-left"]),
+      );
+      expect(noValues.match(/fuel-rem-val">--</g)).toHaveLength(3);
+      expect(noValues).not.toMatch(/fuel-rem-cell--(gain|warn|loss)/);
+    }
+  });
+
+  it("never pairs a coloured cell or pit banner with an unknown value in the edit sample", () => {
+    for (const key of ["last", "avg", "worst"] as const) {
+      expect(SAMPLE_FUEL_VIEW.lapsLeft[key] === null).toBe(
+        SAMPLE_FUEL_VIEW.lapsLeftState[key] === null,
+      );
+    }
+    expect(SAMPLE_FUEL_VIEW.pitWindow === null).toBe(SAMPLE_FUEL_VIEW.pitWindowState === null);
   });
 
   it("folds laps remaining into the tank card in the vertical layout", () => {
