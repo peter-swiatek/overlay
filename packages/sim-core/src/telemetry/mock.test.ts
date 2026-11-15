@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { CAR_MAKES } from "../model/car-make";
+import { NATIONALITY_CODES } from "../model/nationality";
 import { ProximityTracker } from "../calc/proximity";
 import { isSimState } from "../model";
 import { Deriver } from "./derive";
@@ -83,6 +85,21 @@ describe("MockSource", () => {
     expect(delta(9)).toBe(1);
     expect(delta(18)).toBe(-1);
     expect(out.gaps.filter((g) => g.lapDelta !== 0 && g.lapDelta !== null)).toHaveLength(2);
+  });
+
+  it("gives every car a known make for its class and a nationality", () => {
+    const cars = new MockSource().state().cars;
+    for (const car of cars) {
+      expect(car.make).not.toBeNull();
+      expect(CAR_MAKES[car.make!]).toBeDefined();
+      expect(NATIONALITY_CODES).toContain(car.nationality);
+    }
+    const hyper = cars.filter((c) => c.className === cars.find((x) => x.carIdx === 4)?.className);
+    expect(new Set(hyper.map((c) => c.make))).toEqual(
+      new Set(["toyota", "ferrari", "peugeot", "cadillac"]),
+    );
+    expect(new Set(cars.map((c) => c.make)).size).toBeGreaterThanOrEqual(15);
+    expect(new Set(cars.map((c) => c.nationality)).size).toBeGreaterThanOrEqual(10);
   });
 
   it("is deterministic and survives structuredClone", () => {

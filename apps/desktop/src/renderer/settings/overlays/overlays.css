@@ -167,6 +167,12 @@
   flex: 1;
   min-width: 100px;
 }
+.ov-col-help {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.85em;
+  color: var(--muted);
+}
 .ov-col-moves button,
 .ov-col > button,
 .ov-chip button {

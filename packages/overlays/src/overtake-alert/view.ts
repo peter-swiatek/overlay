@@ -195,6 +195,8 @@ const SAMPLE_ROW: DriverRow = {
   driverName: null,
   teamName: null,
   carNumber: null,
+  make: null,
+  nationality: null,
   classKey: "2",
   className: "Hypercar",
   classColour: "#ff5888",

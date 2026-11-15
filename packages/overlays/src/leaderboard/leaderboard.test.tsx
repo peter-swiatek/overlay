@@ -9,6 +9,7 @@ import { LeaderboardOverlay } from "./LeaderboardOverlay";
 import { NOMINAL_TABLE_METRICS } from "@overlay/ui/fit";
 import { tableWidthsFor } from "../shared/table-fit";
 import { leaderboardManifest } from "./manifest";
+import { BUNDLED_LOGOS } from "../shared/make-logos";
 import {
   leaderboardView,
   pickRows,
@@ -698,5 +699,92 @@ describe("Leaderboard iRating pill size", () => {
     const off = render(threeClasses(1), { options: { "show-all": true, "irating-change": false } });
     expect(off).toContain("ov-pill--ir-narrow");
     expect(off).not.toContain("ov-pill--ir-wide");
+  });
+});
+
+describe("Leaderboard Make and Nat. columns", () => {
+  const withColumns = (ids: readonly string[]) => ({
+    common: {
+      fields: defaultInstanceSettings(leaderboardManifest).common.fields.map((f) => ({
+        ...f,
+        visible: ids.includes(f.id) ? true : f.visible,
+      })),
+    },
+    options: { "show-all": true },
+  });
+
+  function makesFrame(sim: "iracing" | "lmu" = "iracing"): TelemetryFrame {
+    const frame = threeClasses(1);
+    frame.state.sim = sim;
+    const makes = [
+      "porsche",
+      "riley",
+      "ferrari",
+      "vanwall",
+      null,
+      "ligier",
+      "oreca",
+      "bmw",
+      "toyota",
+    ];
+    const flags = ["de", "it", "gb-sct", "us", null, "fr", "zz", "au", "jp"];
+    frame.state.cars.forEach((c, i) => {
+      c.make = makes[i] ?? null;
+      c.nationality = flags[i] ?? null;
+    });
+    return frame;
+  }
+
+  it("offers both columns, off by default, and only Make for LMU", () => {
+    const ids = leaderboardManifest.fields.map((f) => f.id);
+    expect(ids).toContain("make");
+    expect(ids).toContain("nationality");
+    const defaults = defaultInstanceSettings(leaderboardManifest).common.fields;
+    expect(defaults.find((f) => f.id === "make")?.visible).toBe(false);
+    expect(defaults.find((f) => f.id === "nationality")?.visible).toBe(false);
+    expect(leaderboardManifest.fields.find((f) => f.id === "make")?.help).toContain("logos");
+    expect(leaderboardManifest.fields.find((f) => f.id === "nationality")?.sims).toEqual([
+      "iracing",
+    ]);
+  });
+
+  it("shows neither column by default", () => {
+    const html = render(makesFrame(), ALL);
+    expect(html).not.toContain("ov-make-logo");
+    expect(html).not.toContain("ov-flag");
+    expect(html).not.toContain(">Make<");
+  });
+
+  it("shows logos, the text code with no logo, and flags with both switched on", () => {
+    const html = render(makesFrame(), withColumns(["make", "nationality"]));
+    expect(html).toContain(">Make<");
+    expect(html).toContain(">Nat.<");
+    expect(html).toContain('alt="Porsche"');
+    expect(html).toContain('alt="Ferrari"');
+    expect(html).toContain('alt="Riley"');
+    expect(html).toContain('<span class="ov-make-code" title="Vanwall">VAN</span>');
+    expect(html).toContain("ov-make-logo--chip"); // Ligier
+    expect(html).toContain('alt="GB-SCT"');
+    expect(html).not.toContain('alt="ZZ"');
+    expect(html.match(/class="ov-flag"/g)).toHaveLength(7);
+  });
+
+  it("uses the user's logo and the light-row variant on a light own row", () => {
+    const own = "data:image/svg+xml;base64,PHN2Zy8+";
+    const html = render(makesFrame(), withColumns(["make"]), {
+      makeLogos: { porsche: own },
+      rowTones: { row: "dark", own: "light" },
+    });
+    expect(html).toContain(`src="${own}"`);
+    // Car 1 is the player and drives the Riley.
+    expect(html).toContain(`src="${BUNDLED_LOGOS["riley"]?.light}"`);
+    expect(html).not.toContain(`src="${BUNDLED_LOGOS["riley"]?.dark}"`);
+  });
+
+  it("drops the Nat. column in LMU, which has no nationality", () => {
+    const html = render(makesFrame("lmu"), withColumns(["make", "nationality"]));
+    expect(html).toContain(">Make<");
+    expect(html).not.toContain(">Nat.<");
+    expect(html).not.toContain("ov-flag");
   });
 });

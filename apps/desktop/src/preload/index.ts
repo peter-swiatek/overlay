@@ -47,6 +47,10 @@ const api: OverlayApi = {
     ipcRenderer.send(IPC.twitchChatHello);
     return off;
   },
+  logos: {
+    get: () => ipcRenderer.invoke(IPC.logosGet),
+    onChanged: (callback) => subscribe(IPC.logosChanged, callback),
+  },
   getCaptureStatus: () => ipcRenderer.invoke(IPC.getCaptureStatus),
   onCaptureStatus: (callback) => {
     const listener = (_event: unknown, status: Parameters<typeof callback>[0]): void =>

@@ -370,6 +370,14 @@ describe("mappings", () => {
     expect(player?.carNumber).toBe("83");
     expect(bare.state.cars.every((c) => c.carName?.includes(" 2026 #"))).toBe(true);
   });
+
+  it("makes every LMP2 car an Oreca", () => {
+    const bare = new LmuDecoder().decode(onTrack.frames[0]!.raw);
+    const lmp2 = bare.state.cars.filter((c) => c.className === "LMP2");
+    expect(lmp2.length).toBeGreaterThan(0);
+    expect(lmp2.every((c) => c.make === "oreca")).toBe(true);
+    expect(bare.state.cars.every((c) => c.nationality === null)).toBe(true);
+  });
 });
 
 describe("pit stall and leader laps", () => {

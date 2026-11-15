@@ -4,6 +4,9 @@ import {
   OverlayRuntimeContext,
   type OverlayModule,
   type OverlayRuntime,
+  DARK_ROWS,
+  rowTones,
+  type RowTones,
 } from "@overlay/overlays";
 import type { TelemetrySelector } from "@overlay/overlays";
 import { displayPrefsOf, type AppSettings } from "../../shared/app-settings-types";
@@ -14,6 +17,7 @@ import { OverlayContent } from "./OverlayContent";
 import { cappedRateHz, hostView } from "./visibility";
 import { useReportTableMetrics } from "./tableMetrics";
 import { useAppSettings, useEditMode, useOverlaySettings } from "./useSettings";
+import { useMakeLogos } from "./useMakeLogos";
 import { useTwitchChat } from "./useTwitchChat";
 
 const HOST_VIEW_HZ = 5;
@@ -29,8 +33,16 @@ function cappedTelemetry(maxHz: number, performanceHz: number): OverlayRuntime["
   };
 }
 
-function runtimeOf(app: AppSettings, module: OverlayModule, editing: boolean): OverlayRuntime {
+function runtimeOf(
+  app: AppSettings,
+  module: OverlayModule,
+  editing: boolean,
+  makeLogos: Readonly<Record<string, string>>,
+  rowTones: RowTones,
+): OverlayRuntime {
   return {
+    makeLogos,
+    rowTones,
     useTelemetry: cappedTelemetry(module.manifest.rateHz, app.performance.telemetryRateHz),
     prefs: displayPrefsOf(app),
     livePositions: app.performance.livePositions,
@@ -66,7 +78,10 @@ export function OverlayHost({
   /** Which instance of the overlay this window shows; instance 1 by default. */
   instanceId?: string;
 }) {
-  useApplyTheme();
+  const theme = useApplyTheme();
+  const makeLogos = useMakeLogos();
+  const tokens = theme?.theme.tokens;
+  const tones = useMemo(() => (tokens === undefined ? DARK_ROWS : rowTones(tokens)), [tokens]);
   const settings = useOverlaySettings(instanceId);
   const app = useAppSettings();
   const editing = useEditMode();
@@ -80,8 +95,8 @@ export function OverlayHost({
   }, [reduced]);
 
   const runtime = useMemo(
-    () => (app === null ? null : runtimeOf(app, module, editing)),
-    [app, module, editing],
+    () => (app === null ? null : runtimeOf(app, module, editing, makeLogos, tones)),
+    [app, module, editing, makeLogos, tones],
   );
 
   if (settings === null || app === null || runtime === null) return null;

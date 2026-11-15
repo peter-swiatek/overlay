@@ -87,6 +87,8 @@ export interface OverlayFieldDef {
    */
   dropPriority?: number;
   sims?: readonly SimName[];
+  /** One line of help shown with the column in the settings. */
+  help?: string;
 }
 
 export interface Size {

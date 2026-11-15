@@ -3,6 +3,8 @@
  * the files, so keep it to the modules named here.
  */
 export * from "./calc/fuel/formulas";
+export { CAR_MAKES, iracingCarMake, lmuCarMake, type CarMake } from "./model/car-make";
+export { NATIONALITY_CODES, nationalityCode } from "./model/nationality";
 export { LMU_CLASS_COLOURS, lmuClassColour, normaliseClassName } from "./model/class-colours";
 export * from "./calc/delta/select";
 export type * from "./calc/delta/types";

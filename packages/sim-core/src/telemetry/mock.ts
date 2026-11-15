@@ -78,6 +78,52 @@ const LAP_DOWN_CAR = 18;
  * Only in fields of more than 19 cars (the default 20).
  */
 const GARAGE_CAR = 19;
+/**
+ * Demo makes and nationalities, by car index: the Hypercars (every fifth car) take the first
+ * list in turn, the GT3 cars the second. The GT3 list also holds makes without a bundled logo
+ * (Dallara) and a few prototype makes, so the Leaderboard's Make column shows every kind of badge.
+ */
+const MOCK_HYPER_MAKES = ["toyota", "ferrari", "peugeot", "cadillac"] as const;
+const MOCK_GT3_MAKES = [
+  "porsche",
+  "bmw",
+  "ferrari",
+  "mercedes",
+  "mclaren",
+  "aston-martin",
+  "lamborghini",
+  "chevrolet",
+  "ford",
+  "ligier",
+  "oreca",
+  "audi",
+  "lexus",
+  "dallara",
+  "alpine",
+  "acura",
+] as const;
+const MOCK_NATIONALITIES = [
+  "gb",
+  "de",
+  "fr",
+  "it",
+  "us",
+  "au",
+  "nl",
+  "es",
+  "jp",
+  "br",
+  "be",
+  "pl",
+  "nz",
+  "ca",
+  "dk",
+  "gb-sct",
+  "at",
+  "fi",
+  "mx",
+  "se",
+] as const;
 /** Car that runs wide once per lap, and the lap fraction range it is off track. */
 const OFF_TRACK_CAR = 5;
 const OFF_TRACK_FROM = 0.3;
@@ -424,6 +470,13 @@ export class MockSource {
     car.connected = true;
     car.flags = this.carFlags(index);
     car.trackSurface = carSurface(index, distance);
+    // Hypercars are indices 4, 9, 14, …: rank within the class picks the make.
+    const hypersBefore = Math.floor((index + 1) / 5);
+    car.make =
+      cls === HYPER
+        ? MOCK_HYPER_MAKES[(hypersBefore - 1) % MOCK_HYPER_MAKES.length]!
+        : MOCK_GT3_MAKES[(index - hypersBefore) % MOCK_GT3_MAKES.length]!;
+    car.nationality = MOCK_NATIONALITIES[index % MOCK_NATIONALITIES.length]!;
     if (index === GARAGE_CAR) {
       car.connected = false;
       car.isOnTrack = false;

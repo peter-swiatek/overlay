@@ -15,6 +15,8 @@ const ALLOWED = new Set([
   "calc/slow-car/types.ts",
   "model/sim-state.ts",
   "model/class-colours.ts",
+  "model/car-make.ts",
+  "model/nationality.ts",
 ]);
 
 /** Module specifiers of imports, `export … from` and bare `import "x"`, across lines. */

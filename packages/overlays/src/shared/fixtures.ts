@@ -58,6 +58,8 @@ function baseCar(carIdx: number): Car {
     p2pActive: null,
     trackSurface: null,
     connected: true,
+    make: null,
+    nationality: null,
   };
 }
 

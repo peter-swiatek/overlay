@@ -39,6 +39,11 @@ export interface IracingDriver {
   isPaceCar: boolean;
   /** DriverInfo TeamName; iRacing fills it for solo drivers too. */
   teamName: string | null;
+  // Optional so driver lists built by hand elsewhere keep compiling.
+  /** DriverInfo CarPath, e.g. "ferrari296gt3"; null when missing. */
+  carPath?: string | null;
+  /** DriverInfo FlairName: the country flair the member picked, e.g. "Australia", "-none-". */
+  flairName?: string | null;
 }
 
 export interface IracingSessionInfo {
@@ -233,6 +238,8 @@ function extractDriver(d: Dict): IracingDriver | null {
     license: str(d["LicString"]),
     isPaceCar: str(d["CarIsPaceCar"]) === "1",
     teamName: str(d["TeamName"]),
+    carPath: str(d["CarPath"]),
+    flairName: str(d["FlairName"]),
   };
 }
 

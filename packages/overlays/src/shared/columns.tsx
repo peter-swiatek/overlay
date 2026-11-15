@@ -28,6 +28,8 @@ import {
   type DriverFieldId,
   type IRatingSize,
 } from "./fields";
+import { DARK_ROWS, type RowTones } from "./make-logos";
+import { MakeBadge, NationalityFlag } from "./MakeBadge";
 import type { DriverRow } from "./rows";
 import "./driver-table.css";
 
@@ -54,6 +56,10 @@ export interface DriverColumnContext {
   inlinePitBadge?: boolean;
   /** Last lap cell reads "IN PIT" (muted) while the car is on pit road. Default false. */
   pitInLastLap?: boolean;
+  /** runtime.makeLogos: the user's own manufacturer logos by make id. */
+  makeLogos?: Readonly<Record<string, string>>;
+  /** runtime.rowTones: picks the logo variant per row. Default dark rows. */
+  rowTones?: RowTones;
   /** Driver name in the muted text colour while the car is not out on track (row.outOnTrack). Default false. */
   muteOffTrackName?: boolean;
 }
@@ -95,6 +101,8 @@ const LAYOUT: Record<DriverFieldId, Layout> = {
   position: { align: "center" },
   "overall-position": { align: "center" },
   "car-number": { align: "center" },
+  make: { align: "center" },
+  nationality: { align: "center" },
   "car-class": { align: "center" },
   driver: { align: "left", grow: true },
   licence: { align: "center" },
@@ -126,10 +134,15 @@ const CELL_CLASS: Partial<Record<DriverFieldId, string>> = {
 
 /** One TableColumn per DriverFieldId, in DRIVER_FIELD_IDS order. Callers pass them all to DataTable; FieldConfig picks and orders. */
 export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[] {
+  const tones = ctx.rowTones ?? DARK_ROWS;
   const renderers: Record<DriverFieldId, (row: DriverRow) => ReactNode> = {
     position: (r) => count(r.position),
     "overall-position": (r) => count(r.overallPosition),
     "car-number": (r) => <CarNumberBadge carNumber={r.carNumber} />,
+    make: (r) => (
+      <MakeBadge make={r.make} tone={r.isFocus ? tones.own : tones.row} overrides={ctx.makeLogos} />
+    ),
+    nationality: (r) => <NationalityFlag code={r.nationality} />,
     "car-class": (r) =>
       r.className === null ? NONE : <ClassBadge name={r.className} colour={r.classColour} />,
     driver: (r) => {

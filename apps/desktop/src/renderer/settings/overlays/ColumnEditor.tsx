@@ -130,6 +130,7 @@ export function ColumnEditor({
                   Hidden: too narrow
                 </em>
               )}
+              {def?.help && <small className="ov-col-help">{def.help}</small>}
             </span>
             <Toggle
               label={`Show ${label}`}

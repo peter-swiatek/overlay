@@ -52,6 +52,9 @@ describe("relative manifest", () => {
     const ids = relativeManifest.fields.map((f) => f.id);
     expect(ids).not.toContain("overall-position");
     expect(ids).not.toContain("car-class");
+    // Make and nationality are Leaderboard-only columns.
+    expect(ids).not.toContain("make");
+    expect(ids).not.toContain("nationality");
     expect(ids).toContain("gap");
   });
 

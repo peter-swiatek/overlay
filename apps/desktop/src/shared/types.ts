@@ -154,6 +154,10 @@ export const IPC = {
   overlaysSizesChanged: "overlays:sizes-changed",
   /** Main window only: quits the whole app (overlays included). */
   appQuit: "app:quit",
+  /** Renderer to main: the user's own manufacturer logos (make id -> data URL). */
+  logosGet: "logos:get",
+  /** Main to every window: the logos changed (carries the whole map). */
+  logosChanged: "logos:changed",
 } as const;
 
 /** The whole surface exposed to renderers through contextBridge. */
@@ -179,6 +183,11 @@ export interface OverlayApi {
    * Main owns the (read-only) connection; returns the unsubscribe function.
    */
   onTwitchChat(callback: (event: ChatEvent) => void): () => void;
+  /** The user's own manufacturer logos (<userData>/logos), make id -> data URL. */
+  logos: {
+    get(): Promise<Record<string, string>>;
+    onChanged(callback: (logos: Record<string, string>) => void): () => void;
+  };
   getCaptureStatus(): Promise<CaptureStatus>;
   onCaptureStatus(callback: (status: CaptureStatus) => void): () => void;
   getCaptureSettings(): Promise<CaptureSettings>;

@@ -1,3 +1,5 @@
+import { iracingCarMake } from "../../model/car-make";
+import { nationalityCode } from "../../model/nationality";
 import {
   emptyCar,
   emptyFlags,
@@ -255,6 +257,8 @@ function buildCar(
     car.license = driver.license;
     car.isPaceCar = driver.isPaceCar;
     car.teamName = driver.teamName;
+    car.make = iracingCarMake(driver.carPath ?? null, driver.carName);
+    car.nationality = nationalityCode(driver.flairName ?? null);
   }
   car.position = atLeast(r.number("CarIdxPosition", carIdx), 1);
   car.classPosition = atLeast(r.number("CarIdxClassPosition", carIdx), 1);

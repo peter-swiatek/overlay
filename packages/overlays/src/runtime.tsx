@@ -1,3 +1,4 @@
+import type { RowTones } from "./shared/make-logos";
 import { createContext, useContext } from "react";
 import type { Corner, TelemetryFrame, TrackOutline } from "@overlay/sim-core/types";
 import { DEFAULT_DISPLAY_PREFS, type DisplayPrefs } from "@overlay/ui/types";
@@ -27,8 +28,15 @@ export interface OverlayRuntime {
   /** Settings > Performance: distance-based live positions instead of official S/F positions. */
   livePositions: boolean;
   reduceVisualEffects: boolean;
-  /** Settings > Appearance: tint the iRating pill with the licence colour. */
+  /** Settings > Appearance: one SR/IR column with the iRating pill in the licence colour. */
   combinedLicencePill: boolean;
+  /**
+   * The user's own manufacturer logos (<userData>/logos/<make>.svg|png) as data URLs, by make id;
+   * they replace the bundled logos. Absent or empty: bundled logos only.
+   */
+  makeLogos?: Readonly<Record<string, string>>;
+  /** Whether the theme's rows (and the own row) are dark or light, for logo variants. Default dark. */
+  rowTones?: RowTones;
   /** Edit mode (overlays unlocked). */
   editing: boolean;
   /**

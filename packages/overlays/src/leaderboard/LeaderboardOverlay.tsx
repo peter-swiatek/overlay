@@ -28,7 +28,8 @@ function sofText(sof: number): string {
 }
 
 export function LeaderboardOverlay({ settings }: OverlayProps) {
-  const { useTelemetry, prefs, livePositions, combinedLicencePill } = useOverlayRuntime();
+  const { useTelemetry, prefs, livePositions, combinedLicencePill, makeLogos, rowTones } =
+    useOverlayRuntime();
   const table = readTableOptions(settings);
   const showAll = optionBoolean(settings, "show-all");
   const iRatingChange = optionBoolean(settings, "irating-change");
@@ -102,9 +103,13 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
         // No PIT tag after the name: a car off track has its name greyed out instead.
         inlinePitBadge: false,
         muteOffTrackName: true,
+        makeLogos,
+        rowTones,
       }),
     [
       prefs,
+      makeLogos,
+      rowTones,
       inlineFlagBadge,
       combinedLicencePill,
       table.nameDisplay,

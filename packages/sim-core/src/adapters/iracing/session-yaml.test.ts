@@ -62,6 +62,8 @@ describe("parseSessionYaml on the committed slices", () => {
       iRating: 1479,
       license: "B 2.82",
       isPaceCar: false,
+      carPath: "chevyvettez06rgt3",
+      flairName: "Australia",
     });
   });
 

@@ -160,6 +160,24 @@ describe("race-start slice (formation to racing)", async () => {
   });
 });
 
+describe("make and nationality from DriverInfo", async () => {
+  const slice = await loadSlice(slicePath("race-start-20s"));
+  const states = toStates(slice);
+
+  it("maps CarPath to a make and FlairName to a flag code", () => {
+    const last = states.at(-1)!;
+    const byIdx = new Map(last.cars.map((c) => [c.carIdx, [c.make, c.nationality]]));
+    expect(byIdx.get(0)).toEqual(["ferrari", "cn"]);
+    expect(byIdx.get(2)).toEqual(["mercedes", "vi"]);
+    expect(byIdx.get(5)).toEqual(["chevrolet", "au"]);
+    expect(byIdx.get(7)).toEqual(["ford", "do"]);
+    expect(byIdx.get(13)).toEqual(["chevrolet", "de"]);
+    // "Global" and "-none-" flair have no flag.
+    expect(byIdx.get(9)).toEqual(["porsche", null]);
+    expect(byIdx.get(64)?.[1]).toBeNull();
+  });
+});
+
 describe("S/F crossing slice (lap increments)", async () => {
   const slice = await loadSlice(slicePath("sf-crossing-20s"));
   const states = toStates(slice);

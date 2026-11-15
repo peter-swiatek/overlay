@@ -16,6 +16,10 @@ export interface DriverRow {
   driverName: string | null;
   teamName: string | null;
   carNumber: string | null;
+  /** Manufacturer id (Car.make); null when unknown. */
+  make: string | null;
+  /** Flag code of the driver's nationality (Car.nationality); null when unknown. */
+  nationality: string | null;
   /** car.classId ?? "" (the standings' class key). */
   classKey: string;
   className: string | null;
@@ -154,6 +158,8 @@ function buildRow(
     driverName: car.driverName,
     teamName: car.teamName,
     carNumber: car.carNumber,
+    make: car.make,
+    nationality: car.nationality,
     classKey: car.classId ?? "",
     className: car.className,
     classColour: car.classColour,

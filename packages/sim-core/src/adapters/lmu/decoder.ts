@@ -1,3 +1,4 @@
+import { lmuCarMake } from "../../model/car-make";
 import {
   emptyCar,
   emptySimState,
@@ -495,6 +496,7 @@ function readCar(f: Frame, o: number, trackLengthM: number, rest: LmuRestSnapsho
   car.classId = className;
   car.className = className;
   car.classColour = lmuClassColour(className);
+  car.make = lmuCarMake(car.carName, className);
   car.carNumber = extra?.carNumber ?? numberFromVehicleName(vehicleName);
   car.teamName = extra?.teamName ?? teamFromVehicleName(vehicleName);
   car.worldPos = readWorldPos(f, o);

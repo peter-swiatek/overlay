@@ -1,3 +1,4 @@
+import { LOGOS_DIR, LogoOverrides, registerLogoIpc, showsMakeColumn } from "./logo-overrides";
 import { join } from "node:path";
 import {
   BrowserWindow,
@@ -313,6 +314,20 @@ if (!app.requestSingleInstanceLock()) {
     });
     registerThemeIpc(ctx, themes);
     registerAppSettingsIpc(ctx, appSettingsStore);
+    const logos = new LogoOverrides(join(userData, LOGOS_DIR));
+    logos.reload();
+    logos.watch();
+    registerLogoIpc(ctx, logos);
+    app.on("will-quit", () => logos.close());
+    // Re-read the folder whenever an overlay's Make column is switched on.
+    const makeShown = new Map<string, boolean>();
+    for (const [id, s] of Object.entries(overlaySettings.getAll()))
+      makeShown.set(id, showsMakeColumn(s));
+    overlaySettings.onChange((id, s) => {
+      const shown = showsMakeColumn(s);
+      if (shown && makeShown.get(id) !== true) logos.reload();
+      makeShown.set(id, shown);
+    });
     registerDisplayIpc(ctx, {
       settingsStore,
       effective,

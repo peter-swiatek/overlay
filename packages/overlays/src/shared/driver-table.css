@@ -64,6 +64,46 @@
   color: var(--ov-text-muted);
 }
 
+/* Manufacturer logo at row height; wide wordmarks may take up to about 2.2 row heights. */
+.ov-make-logo {
+  display: block;
+  height: 1.3em;
+  width: auto;
+  max-width: 3.7em;
+  object-fit: contain;
+}
+
+/* PNG logos made for white pages sit on a small light chip. */
+.ov-make-logo--chip {
+  box-sizing: border-box;
+  height: 1.4em;
+  padding: 0.1em 0.25em;
+  border-radius: 0.25em;
+  background: var(--ov-locked-flag-white);
+}
+
+/* A make without a logo: its short code in a neutral badge. */
+.ov-make-code {
+  display: inline-flex;
+  align-items: center;
+  height: 1.35em;
+  padding: 0 0.3em;
+  border: 1px solid var(--ov-border);
+  border-radius: 0.25em;
+  color: var(--ov-text-muted);
+  font-size: 0.72em;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.ov-flag {
+  display: block;
+  height: 0.95em;
+  width: auto;
+  border-radius: 0.12em;
+  box-shadow: 0 0 0 1px var(--ov-border);
+}
+
 /* In the flag column the badge starts at the cell edge. */
 .ov-cell > .ov-badge-flag:first-child {
   margin-left: 0;

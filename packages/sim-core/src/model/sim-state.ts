@@ -163,6 +163,13 @@ export interface Car {
   /** iRacing CarIdxTrackSurface mapped; LMU null unless derivable. Drives the yellow row. */
   trackSurface: TrackSurface | null;
   connected: boolean;
+  /** Manufacturer id (model/car-make.ts), e.g. "porsche"; null when unknown. */
+  make: string | null;
+  /**
+   * Flag code of the driver's nationality (model/nationality.ts), e.g. "au", "gb-sct"; null when
+   * unknown. iRacing: DriverInfo FlairName. LMU gives none for the cars in a session.
+   */
+  nationality: string | null;
 }
 
 export interface PlayerInputs {
@@ -427,6 +434,8 @@ export function emptyCar(carIdx: number): Car {
     p2pActive: null,
     trackSurface: null,
     connected: false,
+    make: null,
+    nationality: null,
   };
 }
 

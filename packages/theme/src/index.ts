@@ -1,7 +1,14 @@
 export * from "./types";
 export * from "./presets";
 export { LOCKED_COLOURS } from "./locked";
-export { contrastRatio, compositeOver, overBlack, contrastOfRgb, themeTone } from "./colour";
+export {
+  contrastRatio,
+  compositeOver,
+  overBlack,
+  contrastOfRgb,
+  luminance,
+  themeTone,
+} from "./colour";
 export {
   sanitizeTheme,
   sanitizeTypography,
