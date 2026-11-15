@@ -556,7 +556,8 @@ describe("IracingAdapter on synthetic buffers", () => {
       estTimeS: 0,
       isPlayer: true,
       driverName: "Me",
-      classColour: null,
+      // The only car: a single-class session keeps iRacing's class colour.
+      classColour: "#ffda59",
     });
     const noInfo = run(
       {
@@ -711,7 +712,7 @@ describe("IracingAdapter on synthetic buffers", () => {
     expect(by(2)?.classColour).toBe("#33ceff");
   });
 
-  it("shows no class colour in a single-class session", () => {
+  it("keeps iRacing's class colour in a single-class session", () => {
     const single: IracingSessionInfo = {
       ...info,
       drivers: [1, 2].map((carIdx) => ({
@@ -724,7 +725,7 @@ describe("IracingAdapter on synthetic buffers", () => {
     };
     const s = run({ CarIdxTrackSurface: [-1, 3, 3] }, single);
     expect(s.cars.length).toBe(2);
-    expect(s.cars.every((c) => c.classColour === null)).toBe(true);
+    expect(s.cars.every((c) => c.classColour === "#ffffff")).toBe(true);
   });
 
   it("reports nulls for everything the sim does not provide", () => {

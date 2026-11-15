@@ -186,12 +186,12 @@
   padding-left: calc(var(--ov-cell-pad-x, 7px) - 2px);
   justify-content: center;
   font-weight: 700;
-  border-left: 3px solid var(--class-color, var(--ov-accent));
+  border-left: 3px solid var(--class-color, var(--ov-text-muted));
   background:
     linear-gradient(
       90deg,
-      color-mix(in srgb, var(--class-color, var(--ov-accent)) 36%, transparent) 0%,
-      color-mix(in srgb, var(--class-color, var(--ov-accent)) 12%, transparent) 100%
+      color-mix(in srgb, var(--class-color, var(--ov-text-muted)) 36%, transparent) 0%,
+      color-mix(in srgb, var(--class-color, var(--ov-text-muted)) 12%, transparent) 100%
     ),
     var(--row-base-bg) !important;
 }
@@ -200,7 +200,7 @@
   background:
     linear-gradient(
       90deg,
-      color-mix(in srgb, var(--class-color, var(--ov-accent)) 12%, transparent) 0%,
+      color-mix(in srgb, var(--class-color, var(--ov-text-muted)) 12%, transparent) 0%,
       transparent 95%
     ),
     var(--row-base-bg) !important;
@@ -228,8 +228,8 @@
   white-space: nowrap;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--class-color, var(--ov-accent)) 28%, var(--ov-header)) 0%,
-    color-mix(in srgb, var(--class-color, var(--ov-accent)) 8%, var(--ov-header)) 65%,
+    color-mix(in srgb, var(--class-color, var(--ov-text-muted)) 28%, var(--ov-header)) 0%,
+    color-mix(in srgb, var(--class-color, var(--ov-text-muted)) 8%, var(--ov-header)) 65%,
     var(--ov-header) 100%
   );
   border-top: 1px solid var(--ov-border);
@@ -242,7 +242,7 @@
   align-items: center;
   height: 100%;
   padding: 0 1em 0 0.57em;
-  background: var(--class-color, var(--ov-accent));
+  background: var(--class-color, var(--ov-text-muted));
   color: #0b0d12;
   font-size: 0.82em;
   font-weight: 800;

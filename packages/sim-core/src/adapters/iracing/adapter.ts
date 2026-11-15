@@ -230,11 +230,8 @@ function buildCars(r: VarReader, info: IracingSessionInfo | null, playerCarIdx: 
     if (carIdx >= count) continue;
     cars.push(buildCar(r, carIdx, byIdx.get(carIdx), playerCarIdx));
   }
-  // A single-class session has nothing to tell apart (iRacing reports plain white); show no colour.
-  const classIds = new Set(
-    cars.filter((c) => !c.isPaceCar && c.classId !== null).map((c) => c.classId),
-  );
-  if (classIds.size <= 1) for (const c of cars) c.classColour = null;
+  // The class colour is passed through as iRacing gives it, single-class sessions included
+  // (a GT3-only field is white); overlays fall back to a neutral colour only when it is missing.
   return cars;
 }
 

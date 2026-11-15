@@ -229,7 +229,7 @@
   height: 1.35em;
   padding: 0 0.32em;
   border: 1px solid color-mix(in srgb, var(--ov-text) 16%, transparent);
-  border-left: 2.5px solid var(--class-color, var(--ov-accent));
+  border-left: 2.5px solid var(--class-color, var(--ov-text-muted));
   border-radius: 2px;
   background: rgba(15, 18, 24, 0.55);
   color: #ffffff;

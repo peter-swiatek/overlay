@@ -306,9 +306,20 @@ function fuelCapacity(driver: Dict): number | null {
 }
 
 /** "0xffda59" -> "#ffda59". */
-function hexColour(value: string | null): string | null {
-  const match = value === null ? null : /^0x([0-9a-f]{1,6})$/i.exec(value);
-  return match?.[1] === undefined ? null : `#${match[1].toLowerCase().padStart(6, "0")}`;
+/**
+ * iRacing's CarClassColor as "#rrggbb": hex with a 0x prefix ("0xffda59", "0xff" = "#0000ff",
+ * "0x0"), a bare decimal integer ("16767577"), or "#rrggbb". Hex longer than six digits keeps
+ * the low 24 bits (an alpha byte, if one is ever sent, is dropped). Null for anything else.
+ */
+export function hexColour(value: string | null): string | null {
+  if (value === null) return null;
+  const text = value.trim();
+  let rgb: number | null = null;
+  const hex = /^(?:0x|#)([0-9a-f]{1,8})$/i.exec(text);
+  if (hex?.[1] !== undefined) rgb = parseInt(hex[1], 16);
+  else if (/^[0-9]{1,10}$/.test(text)) rgb = Number(text);
+  if (rgb === null || !Number.isFinite(rgb) || rgb > 0xffffffff) return null;
+  return `#${(rgb & 0xffffff).toString(16).padStart(6, "0")}`;
 }
 
 function lengthToMetres(value: string | null): number | null {

@@ -75,12 +75,12 @@
   display: inline-flex;
   align-items: center;
   padding: 0.12em 0.55em 0.12em 0.45em;
-  border-left: 3px solid var(--class-color, var(--ov-accent));
+  border-left: 3px solid var(--class-color, var(--ov-text-muted));
   border-radius: 2px;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--class-color, var(--ov-accent)) 36%, transparent) 0%,
-    color-mix(in srgb, var(--class-color, var(--ov-accent)) 6%, transparent) 75%,
+    color-mix(in srgb, var(--class-color, var(--ov-text-muted)) 36%, transparent) 0%,
+    color-mix(in srgb, var(--class-color, var(--ov-text-muted)) 6%, transparent) 75%,
     transparent 100%
   );
   font-size: 1.25em;

@@ -3,7 +3,7 @@ import { FIXTURE_DIR, loadSlice } from "./slice-support";
 import { performance } from "node:perf_hooks";
 import { IracingDecoder, VarType, decodeSessionYaml } from "./decoder";
 import { syntheticLayout } from "./synthetic";
-import { SessionInfoCache, mapSessionType, parseSessionYaml } from "./session-yaml";
+import { SessionInfoCache, hexColour, mapSessionType, parseSessionYaml } from "./session-yaml";
 
 function yamlWithDrivers(driverLines: string[], extra = ""): string {
   return [
@@ -119,6 +119,20 @@ describe("parseSessionYaml quirks (synthetic)", () => {
     const [a, b] = parseSessionYaml(text).drivers;
     expect(a?.classColour).toBe("#0000ff");
     expect(b?.classColour).toBeNull();
+  });
+
+  it("reads every class colour format iRacing writes", () => {
+    expect(hexColour("0xffffff")).toBe("#ffffff");
+    expect(hexColour("0xFFDA59")).toBe("#ffda59");
+    expect(hexColour("0x0")).toBe("#000000");
+    expect(hexColour("0xff")).toBe("#0000ff");
+    expect(hexColour("0xff33ceff")).toBe("#33ceff");
+    expect(hexColour("16767577")).toBe("#ffda59");
+    expect(hexColour("#33CEFF")).toBe("#33ceff");
+    expect(hexColour(" 0x00ff0a ")).toBe("#00ff0a");
+    for (const bad of [null, "", "red", "0x", "0xgg", "0x123456789", "-1", "1.5"]) {
+      expect(hexColour(bad)).toBeNull();
+    }
   });
 
   it("converts units for length and pit speed, and handles unlimited laps and time", () => {
