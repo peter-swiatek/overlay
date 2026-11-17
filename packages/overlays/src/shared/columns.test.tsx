@@ -44,7 +44,8 @@ describe("driverColumns", () => {
     expect(cols.map((c) => c.label)).toHaveLength(DRIVER_FIELDS.length);
     // A header must fit at the column floor: floor chars cover the label length.
     for (const c of cols) {
-      expect(c.label.length).toBeGreaterThan(0);
+      // Only the manufacturer logo column is headerless, so it can stay as narrow as a logo.
+      if (c.id !== "make") expect(c.label.length).toBeGreaterThan(0);
       expect(c.minChars ?? c.chars).toBeGreaterThanOrEqual(c.label.length);
     }
     expect(cols.find((c) => c.id === "driver")?.grow).toBe(true);

@@ -72,8 +72,8 @@ const SPECS: Record<DriverFieldId, FieldSpec> = {
   make: {
     label: "Manufacturer",
     defaultVisible: false,
-    defaultWidthPct: 6,
-    chars: 4,
+    defaultWidthPct: 3,
+    chars: 3,
     help: "The car maker's logo. To use your own, put <make>.svg or <make>.png (e.g. porsche.png, aston-martin.svg; SVG wins) in the logos folder of the app's data folder (Windows: %APPDATA%\\Overlay\\logos).",
   },
   nationality: {
@@ -152,7 +152,7 @@ export const SHORT_LABEL: Record<DriverFieldId, string> = {
   position: "Pos",
   "overall-position": "Ovr",
   "car-number": "Car",
-  make: "Make",
+  make: "",
   nationality: "Nat.",
   "car-class": "Class",
   driver: "Driver",
@@ -221,7 +221,7 @@ export function columnFloorChars(fieldId: string): number | undefined {
  * Header floors measured rather than estimated: the small uppercase "POS" label fits in the
  * 3 characters the position digits need, so the column stays as narrow as the design's.
  */
-const LABEL_FLOOR_CHARS: Readonly<Record<string, number>> = { position: 3 };
+const LABEL_FLOOR_CHARS: Readonly<Record<string, number>> = { position: 3, make: 0 };
 
 /** Every driver column, in this order, with the reference labels and default widths. defaultVisible = Leaderboard defaults. */
 export const DRIVER_FIELDS: readonly OverlayFieldDef[] = DRIVER_FIELD_IDS.map((id) => ({

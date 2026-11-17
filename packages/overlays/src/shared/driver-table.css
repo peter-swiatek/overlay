@@ -64,12 +64,11 @@
   color: var(--ov-text-muted);
 }
 
-/* Manufacturer logo at row height; wide wordmarks may take up to about 2.2 row heights. */
+/* Manufacturer logo in a fixed small box so the column stays narrow; wide wordmarks shrink to fit. */
 .ov-make-logo {
   display: block;
   height: 1.3em;
-  width: auto;
-  max-width: 3.7em;
+  width: 1.9em;
   object-fit: contain;
 }
 

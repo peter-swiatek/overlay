@@ -757,7 +757,7 @@ describe("Leaderboard Make and Nat. columns", () => {
 
   it("shows logos, the text code with no logo, and flags with both switched on", () => {
     const html = render(makesFrame(), withColumns(["make", "nationality"]));
-    expect(html).toContain(">Make<");
+    expect(html).not.toContain(">Make<"); // the logo column has no header, to stay narrow
     expect(html).toContain(">Nat.<");
     expect(html).toContain('alt="Porsche"');
     expect(html).toContain('alt="Ferrari"');
@@ -783,7 +783,7 @@ describe("Leaderboard Make and Nat. columns", () => {
 
   it("drops the Nat. column in LMU, which has no nationality", () => {
     const html = render(makesFrame("lmu"), withColumns(["make", "nationality"]));
-    expect(html).toContain(">Make<");
+    expect(html).toContain("ov-make-logo");
     expect(html).not.toContain(">Nat.<");
     expect(html).not.toContain("ov-flag");
   });
