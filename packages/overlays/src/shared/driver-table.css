@@ -68,17 +68,9 @@
 .ov-make-logo {
   display: block;
   height: 1.3em;
-  width: 1.9em;
+  /* The bundled logos are fitted to a 200 x 115 frame; the same box keeps them all one size. */
+  width: 2.26em;
   object-fit: contain;
-}
-
-/* PNG logos made for white pages sit on a small light chip. */
-.ov-make-logo--chip {
-  box-sizing: border-box;
-  height: 1.4em;
-  padding: 0.1em 0.25em;
-  border-radius: 0.25em;
-  background: var(--ov-locked-flag-white);
 }
 
 /* A make without a logo: its short code in a neutral badge. */

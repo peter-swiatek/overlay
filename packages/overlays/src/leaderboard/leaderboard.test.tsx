@@ -755,15 +755,15 @@ describe("Leaderboard Make and Nat. columns", () => {
     expect(html).not.toContain(">Make<");
   });
 
-  it("shows logos, the text code with no logo, and flags with both switched on", () => {
+  it("shows logos and flags with both switched on", () => {
     const html = render(makesFrame(), withColumns(["make", "nationality"]));
     expect(html).not.toContain(">Make<"); // the logo column has no header, to stay narrow
     expect(html).toContain(">Nat.<");
     expect(html).toContain('alt="Porsche"');
     expect(html).toContain('alt="Ferrari"');
     expect(html).toContain('alt="Riley"');
-    expect(html).toContain('<span class="ov-make-code" title="Vanwall">VAN</span>');
-    expect(html).toContain("ov-make-logo--chip"); // Ligier
+    expect(html).toContain('alt="Vanwall"');
+    expect(html).toContain('alt="Ligier"');
     expect(html).toContain('alt="GB-SCT"');
     expect(html).not.toContain('alt="ZZ"');
     expect(html.match(/class="ov-flag"/g)).toHaveLength(7);

@@ -24,21 +24,6 @@ export interface MakeLogoFiles {
   light?: string;
 }
 
-/**
- * Logos that come as PNGs made for white pages: drawn on a small light chip so they read on any
- * row and look alike.
- */
-export const CHIP_LOGOS: ReadonlySet<string> = new Set([
-  "alpine",
-  "ginetta",
-  "holden",
-  "ktm",
-  "ligier",
-  "peugeot",
-  "radical",
-  "renault",
-]);
-
 /** Make id -> files, from the bundled folder. */
 export function bundledLogos(
   files: Readonly<Record<string, string>>,
@@ -64,8 +49,6 @@ export const BUNDLED_LOGOS: Readonly<Record<string, MakeLogoFiles>> = bundledLog
 
 export interface ResolvedLogo {
   src: string;
-  /** Draw on a light chip (CHIP_LOGOS); never for the user's own files. */
-  chip: boolean;
 }
 
 /**
@@ -80,13 +63,10 @@ export function resolveLogo(
   bundled: Readonly<Record<string, MakeLogoFiles>> = BUNDLED_LOGOS,
 ): ResolvedLogo | null {
   const own = overrides[make];
-  if (own !== undefined) return { src: own, chip: false };
+  if (own !== undefined) return { src: own };
   const files = bundled[make];
   if (files === undefined) return null;
-  return {
-    src: tone === "light" && files.light !== undefined ? files.light : files.dark,
-    chip: CHIP_LOGOS.has(make),
-  };
+  return { src: tone === "light" && files.light !== undefined ? files.light : files.dark };
 }
 
 /**

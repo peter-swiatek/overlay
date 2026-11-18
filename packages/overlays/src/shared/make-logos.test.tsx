@@ -4,7 +4,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   BUNDLED_LOGOS,
-  CHIP_LOGOS,
   DARK_LUMINANCE,
   DARK_ROWS,
   bundledLogos,
@@ -39,9 +38,9 @@ describe("bundledLogos", () => {
 });
 
 describe("the bundled logo set", () => {
-  it("has a logo for every make but Vanwall", () => {
+  it("has a logo for every make", () => {
     const missing = Object.keys(CAR_MAKES).filter((id) => BUNDLED_LOGOS[id] === undefined);
-    expect(missing).toEqual(["vanwall"]);
+    expect(missing).toEqual([]);
   });
 
   it("has no logo for a make sim-core does not know", () => {
@@ -54,10 +53,6 @@ describe("the bundled logo set", () => {
     for (const id of ["oreca", "isotta-fraschini", "dallara", "glickenhaus", "riley", "duqueine"])
       expect(BUNDLED_LOGOS[id]).toBeDefined();
   });
-
-  it("draws only bundled makes on a chip", () => {
-    for (const id of CHIP_LOGOS) expect(BUNDLED_LOGOS[id]).toBeDefined();
-  });
 });
 
 describe("resolveLogo", () => {
@@ -68,19 +63,15 @@ describe("resolveLogo", () => {
   };
 
   it("picks the light-row variant only on light rows", () => {
-    expect(resolveLogo("riley", "dark", {}, bundled)).toEqual({ src: "white.png", chip: false });
-    expect(resolveLogo("riley", "light", {}, bundled)).toEqual({ src: "black.png", chip: false });
+    expect(resolveLogo("riley", "dark", {}, bundled)).toEqual({ src: "white.png" });
+    expect(resolveLogo("riley", "light", {}, bundled)).toEqual({ src: "black.png" });
     expect(resolveLogo("porsche", "light", {}, bundled)?.src).toBe("porsche.svg");
   });
 
-  it("puts chip logos on a chip", () => {
-    expect(resolveLogo("ligier", "dark", {}, bundled)).toEqual({ src: "ligier.png", chip: true });
-  });
-
-  it("lets the user's file win on any row, never on a chip", () => {
+  it("lets the user's file win on any row", () => {
     const own = { riley: "data:image/png;base64,AAAA", ligier: "data:image/svg+xml;base64,BBBB" };
-    expect(resolveLogo("riley", "light", own, bundled)).toEqual({ src: own.riley, chip: false });
-    expect(resolveLogo("ligier", "dark", own, bundled)).toEqual({ src: own.ligier, chip: false });
+    expect(resolveLogo("riley", "light", own, bundled)).toEqual({ src: own.riley });
+    expect(resolveLogo("ligier", "dark", own, bundled)).toEqual({ src: own.ligier });
   });
 
   it("is null for a make with neither", () => {
@@ -131,10 +122,6 @@ describe("MakeBadge", () => {
     );
   });
 
-  it("puts PNG logos made for white pages on a chip", () => {
-    expect(html(<MakeBadge make="ligier" tone="dark" />)).toContain("ov-make-logo--chip");
-  });
-
   it("uses the user's file over the bundled one", () => {
     const out = html(
       <MakeBadge make="porsche" tone="dark" overrides={{ porsche: "data:image/png;base64,AA" }} />,
@@ -143,10 +130,9 @@ describe("MakeBadge", () => {
   });
 
   it("shows the text code when there is no logo, and nothing for no make", () => {
-    expect(html(<MakeBadge make="vanwall" tone="dark" />)).toBe(
-      '<span class="ov-make-code" title="Vanwall">VAN</span>',
+    expect(html(<MakeBadge make="zenvo" tone="dark" />)).toBe(
+      '<span class="ov-make-code" title="zenvo">ZEN</span>',
     );
-    expect(html(<MakeBadge make="zenvo" tone="dark" />)).toContain(">ZEN<");
     expect(html(<MakeBadge make={null} tone="dark" />)).toBe("");
   });
 });

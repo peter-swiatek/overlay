@@ -27,15 +27,7 @@ export function MakeBadge({
       </span>
     );
   }
-  return (
-    <img
-      className={logo.chip ? "ov-make-logo ov-make-logo--chip" : "ov-make-logo"}
-      src={logo.src}
-      alt={name}
-      title={name}
-      draggable={false}
-    />
-  );
+  return <img className="ov-make-logo" src={logo.src} alt={name} title={name} draggable={false} />;
 }
 
 /** The nationality cell: the country's flag; empty when the code is unknown. */
