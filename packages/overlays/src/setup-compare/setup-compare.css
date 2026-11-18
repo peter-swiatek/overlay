@@ -1,0 +1,146 @@
+.sc {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--ov-bg);
+  color: var(--ov-text);
+  font-family: var(--ov-font-family, inherit);
+  font-weight: var(--ov-font-weight, 500);
+  font-size: var(--ov-font-size, 14px);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 1 px inset border drawn above the rows, like the kit panel. */
+.sc::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  pointer-events: none;
+}
+
+.sc-waiting {
+  padding: 0.57em var(--ov-cell-pad-x, 7px);
+  color: var(--ov-text-muted);
+}
+
+/* Header and footer strips: `label value` pairs at both ends. */
+.sc-strip {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.66em;
+  box-sizing: border-box;
+  min-height: 1.83em;
+  padding: 0.17em var(--ov-cell-pad-x, 7px);
+  overflow: hidden;
+  white-space: nowrap;
+  background: var(--ov-header);
+  font-size: 0.86em;
+}
+
+.sc-strip--top {
+  border-bottom: 1px solid var(--ov-border);
+}
+
+.sc-strip--footer {
+  margin-top: auto;
+  border-top: 1px solid var(--ov-border);
+}
+
+.sc-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.33em;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sc-label-muted {
+  flex: none;
+  color: var(--ov-text-muted);
+  font-weight: 500;
+}
+
+.sc-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 700;
+}
+
+.sc-active {
+  color: var(--ov-accent);
+}
+
+/* Metrics table: plain zebra rows (no own-row tint). */
+.sc-table {
+  display: grid;
+  flex: 0 1 auto;
+  grid-template-columns: 5.6em minmax(0, 1fr) minmax(0, 1fr) 5.4em;
+  grid-auto-rows: var(--ov-row-height, 24px);
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sc-row {
+  display: contents;
+}
+
+.sc-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0 var(--ov-cell-pad-x, 7px);
+  overflow: hidden;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--ov-row) calc(var(--ov-row-opacity, 1) * 100%), transparent);
+}
+
+.sc-row--alt > .sc-cell {
+  background: color-mix(
+    in srgb,
+    var(--ov-row-alt) calc(var(--ov-row-opacity, 1) * 100%),
+    transparent
+  );
+}
+
+.sc-row--header > .sc-cell {
+  border-bottom: 1px solid var(--ov-border);
+  background: var(--ov-header);
+  color: var(--ov-text-muted);
+  font-size: 0.82em;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.sc-cell--right {
+  justify-content: flex-end;
+}
+
+.sc-label {
+  text-overflow: ellipsis;
+}
+
+.sc-fastest {
+  color: var(--ov-locked-fastest);
+  font-weight: 700;
+}
+
+.sc-gain {
+  color: var(--ov-locked-gain);
+}
+
+.sc-loss {
+  color: var(--ov-locked-loss);
+}

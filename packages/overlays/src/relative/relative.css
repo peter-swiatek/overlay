@@ -1,0 +1,47 @@
+.ov-rel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--ov-bg);
+  color: var(--ov-text);
+  font-family: var(--ov-font-family, inherit);
+  font-size: var(--ov-font-size, 14px);
+}
+
+/* 1 px inset border drawn above the strips and rows, like the kit panel. */
+.ov-rel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  pointer-events: none;
+}
+
+.ov-rel-empty {
+  padding: 8px var(--ov-cell-pad-x, 8px);
+  color: var(--ov-text-muted);
+}
+
+/* One status colour per car, on the driver name and the Rel gap only. In pits (any session) is
+   muted and beats lap status; races only: red for a car that has lapped or is lapping you, blue
+   for one you have lapped or are lapping. Same lap stays in the normal text colour. */
+.ov-rel-status--pit > .ov-rel-name,
+.ov-rel-status--pit > .ov-rel-gap {
+  color: var(--ov-text-muted);
+}
+
+.ov-rel-status--ahead > .ov-rel-name,
+.ov-rel-status--ahead > .ov-rel-gap {
+  color: var(--ov-locked-lap-ahead);
+}
+
+.ov-rel-status--behind > .ov-rel-name,
+.ov-rel-status--behind > .ov-rel-gap {
+  color: var(--ov-locked-lap-behind);
+}

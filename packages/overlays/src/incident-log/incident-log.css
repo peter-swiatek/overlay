@@ -1,0 +1,167 @@
+.il {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--ov-bg);
+  color: var(--ov-text);
+  font-family: var(--ov-font-family, inherit);
+  font-weight: var(--ov-font-weight, 500);
+  font-size: var(--ov-font-size, 14px);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 1 px inset border drawn above the rows, like the kit panel. */
+.il::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  pointer-events: none;
+}
+
+.il-waiting {
+  padding: 0.57em var(--ov-cell-pad-x, 7px);
+  color: var(--ov-text-muted);
+}
+
+/* Header and footer strips. */
+.il-strip {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.66em;
+  box-sizing: border-box;
+  min-height: 1.83em;
+  padding: 0.17em var(--ov-cell-pad-x, 7px);
+  overflow: hidden;
+  white-space: nowrap;
+  background: var(--ov-header);
+  font-size: 0.86em;
+}
+
+.il-strip--top {
+  border-bottom: 1px solid var(--ov-border);
+}
+
+.il-strip--footer {
+  margin-top: auto;
+  border-top: 1px solid var(--ov-border);
+}
+
+.il-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.33em;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.il-item--fixed {
+  flex: none;
+}
+
+.il-label {
+  flex: none;
+  color: var(--ov-text-muted);
+  font-weight: 500;
+}
+
+.il-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 700;
+}
+
+/* Events table: plain zebra rows (the log never marks the player's own row). */
+.il-table {
+  display: grid;
+  flex: 0 1 auto;
+  grid-template-columns: minmax(3.43em, max-content) 2.57em 2.43em minmax(0, 1fr) 3.14em;
+  grid-auto-rows: var(--ov-row-height, 24px);
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.il-row {
+  display: contents;
+}
+
+.il-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0 var(--ov-cell-pad-x, 7px);
+  overflow: hidden;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--ov-row) calc(var(--ov-row-opacity, 1) * 100%), transparent);
+  transition:
+    background-color 1s ease-out,
+    box-shadow 1s ease-out;
+}
+
+.il-row--alt > .il-cell {
+  background: color-mix(
+    in srgb,
+    var(--ov-row-alt) calc(var(--ov-row-opacity, 1) * 100%),
+    transparent
+  );
+}
+
+.il-row--header > .il-cell {
+  border-bottom: 1px solid var(--ov-border);
+  background: var(--ov-header);
+  color: var(--ov-text-muted);
+  font-size: 0.82em;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  transition: none;
+}
+
+/* The newest event, for a few seconds: the kit's yellow row; it fades back when it ends. */
+.il-row--new > .il-cell {
+  background: color-mix(in srgb, var(--ov-locked-flag-yellow) 30%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--ov-locked-flag-yellow) 52%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--ov-locked-flag-yellow) 52%, transparent);
+}
+
+.il-cell--center {
+  justify-content: center;
+}
+
+.il-cell--right {
+  justify-content: flex-end;
+}
+
+.il-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.il-pts--warn {
+  color: var(--ov-locked-flag-yellow);
+}
+
+.il-pts--loss {
+  color: var(--ov-locked-loss);
+}
+
+.il-pts--none {
+  color: var(--ov-text-muted);
+}
+
+.il-empty {
+  color: var(--ov-text-muted);
+}

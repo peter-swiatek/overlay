@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { uiName } from "./index";
+import { DEFAULT_DISPLAY_PREFS } from "./index";
 
 describe("ui", () => {
-  it("returns its package name", () => {
-    expect(uiName()).toBe("@overlay/ui");
+  it("defaults to metric units and a 24 hour clock", () => {
+    expect(DEFAULT_DISPLAY_PREFS).toEqual({
+      units: "metric",
+      speedInMph: false,
+      timeFormat: "24h",
+    });
   });
 });

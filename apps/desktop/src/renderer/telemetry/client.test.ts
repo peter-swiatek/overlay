@@ -1,8 +1,10 @@
 import { emptySimState, type TelemetryFrame } from "@overlay/sim-core";
 import { describe, expect, it } from "vitest";
 import {
+  OUTLINE_TIMEOUT_MS,
   TelemetryClient,
   isFrame,
+  isOutlineReply,
   structurallyEqual,
   type ClientPort,
   type PortMessageEvent,
@@ -32,7 +34,26 @@ function frame(seq: number, patch: Partial<TelemetryFrame> = {}): TelemetryFrame
     status: "live",
     error: null,
     state: emptySimState("mock"),
-    derived: { fuel: null, gaps: [], track: { trackKey: null, outlineReady: false } },
+    derived: {
+      fuel: null,
+      gaps: [],
+      track: {
+        trackKey: null,
+        outlineReady: false,
+        pitExitLapDistPct: null,
+        pitExitDistanceM: null,
+      },
+      standings: null,
+      proximity: null,
+      delta: null,
+      slowCar: null,
+      laps: null,
+      tyreStint: null,
+      incidentLog: null,
+      incidentAhead: null,
+      setupCompare: null,
+      energy: null,
+    },
     ...patch,
   };
 }
@@ -318,6 +339,41 @@ describe("TelemetryClient", () => {
     );
     port.receive(frame(1, { status: "waiting" }));
     expect(seen).toEqual([null]);
+  });
+});
+
+describe("TelemetryClient.requestTrackOutline", () => {
+  it("resolves null without a port", async () => {
+    const t = setup();
+    await expect(t.client.requestTrackOutline("k")).resolves.toBeNull();
+  });
+
+  it("asks on the port and resolves with the matching reply, without acking it", async () => {
+    const t = setup();
+    const port = new FakePort();
+    t.deliverPort(port);
+    const first = t.client.requestTrackOutline("k");
+    const second = t.client.requestTrackOutline("k");
+    expect(port.posted).toEqual([
+      { type: "getTrackOutline", requestId: 1, trackKey: "k" },
+      { type: "getTrackOutline", requestId: 2, trackKey: "k" },
+    ]);
+    const reply = { type: "trackOutline", requestId: 2, outline: null, corners: null };
+    port.receive(reply);
+    port.receive({ type: "trackOutline", requestId: 99, outline: null, corners: null });
+    await expect(second).resolves.toEqual(reply);
+    t.advance(OUTLINE_TIMEOUT_MS);
+    await expect(first).resolves.toBeNull();
+    expect(port.posted).toHaveLength(2);
+    expect(t.client.latest()).toBeNull();
+  });
+
+  it("recognises replies", () => {
+    expect(
+      isOutlineReply({ type: "trackOutline", requestId: 1, outline: null, corners: null }),
+    ).toBe(true);
+    expect(isOutlineReply({ type: "trackOutline", requestId: 1, outline: "x" })).toBe(false);
+    expect(isOutlineReply(frame(1))).toBe(false);
   });
 });
 

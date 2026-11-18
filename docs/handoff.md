@@ -1,6 +1,6 @@
 # Handoff
 
-Last updated 2026-10-30.
+Last updated 2026-10-31.
 
 - Release 1 architecture approved; M0 starting.
 - Repo was empty; `main` holds only README and docs until the M0 PRs merge.
@@ -34,3 +34,11 @@ Needs a manual check on Windows (everything else runs on Linux CI with fakes and
 - Renderer: `renderer/telemetry/` (`TelemetryClient`, `useTelemetry`, `views.ts`). Renderers import
   frame types from `@overlay/sim-core/types` (type-only, no Node modules).
 - Windows checks are listed in `docs/m1-acceptance.md`.
+
+## M2 state (core five overlays, theme, settings)
+
+- Integration branch: `claude/m2-integration`. All ticket branches (M2-0a to M2-20) and the wave A, B1 and B2 review fixes are merged into it. Nothing is on `main` yet; Peter approves the M2 PRs together after the acceptance list passes.
+- Done: overlay host with per-overlay settings, scale and layout memory; Leaderboard, Relative, Spotter, Pit Speed and Fuel Calculator; theme presets, editor and share codes; Overlays, Appearance, General, Performance, Display and Developer pages; display fallbacks and safe mode; keep-fuel-data history.
+- In progress: M2-21 (Developer page "Measure CPU", 3 % budget), built in parallel. M2-22 (visual snapshot tests) is deferred to M6.
+- Needs Peter: work through `docs/m2-acceptance.md` on Windows with both sims and record the CPU numbers. Section 14 lists the guessed defaults he must confirm or change (fuel bar scale, pit stop info, LMU "Limit not reported", Fuel "Max basis", refuel basis).
+- Known open points (also in the checklist): the LMU spotter left/right sign was verified on a recording only; the LMU per-car value is fuel, not virtual energy; LMU pit stall and stop counting, iRacing grid positions and timed-race finish order need a live check. Options left out of M2 are listed per overlay in the checklist and go to M3 to M5 as planned.
