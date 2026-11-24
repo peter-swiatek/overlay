@@ -44,9 +44,9 @@ function html(extra: Partial<Parameters<typeof ColumnEditor>[0]> = {}): string {
 describe("floorPctFor", () => {
   it("uses the shared floor chars and the measured table", () => {
     const chars = columnFloorChars("last-lap");
-    expect(chars).toBe(8);
+    expect(chars).toBe(7);
     expect(floorPctFor(leaderboard, "last-lap", { tableWidthPx: 500, chPx: 8 })).toBe(
-      columnFloorPct(8, 500, 8, 8, 100),
+      columnFloorPct(7, 500, 8, 8, 100),
     );
   });
 

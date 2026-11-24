@@ -46,7 +46,10 @@ describe("driverColumns", () => {
     for (const c of cols) {
       // Only the manufacturer logo column is headerless, so it can stay as narrow as a logo.
       if (c.id !== "make") expect(c.label.length).toBeGreaterThan(0);
-      expect(c.minChars ?? c.chars).toBeGreaterThanOrEqual(c.label.length);
+      // The flag column's small uppercase "NAT." header was measured to fit its 3 characters.
+      if (c.id !== "nationality") {
+        expect(c.minChars ?? c.chars).toBeGreaterThanOrEqual(c.label.length);
+      }
     }
     expect(cols.find((c) => c.id === "driver")?.grow).toBe(true);
   });
@@ -278,7 +281,7 @@ describe("column floors", () => {
       expect(col.minChars).toBe(columnFloorChars(col.id));
     }
     expect(columnFloorChars("driver")).toBe(10);
-    expect(columnFloorChars("last-lap")).toBe(8);
+    expect(columnFloorChars("last-lap")).toBe(7);
     expect(columnFloorChars("pos-change")).toBe(4);
     expect(columnFloorChars("nope")).toBeUndefined();
   });

@@ -32,7 +32,7 @@ const DEFAULT_VISIBLE: readonly DriverFieldId[] = [
  * 400 wide with 2-decimal lap times; the 3-decimal Last column needs the extra width).
  * battle-box.test.tsx asserts it equals the computed fit.
  */
-const DEFAULT_WIDTH = 437;
+const DEFAULT_WIDTH = 420;
 
 export const battleBoxManifest: OverlayManifest = {
   id: "battle-box",

@@ -18,7 +18,7 @@ const COLUMN_IDS: readonly DriverFieldId[] = [
  * 320 wide; the Relative's columns need more). overtake-alert.test.tsx asserts it equals the
  * computed fit.
  */
-const DEFAULT_WIDTH = 428;
+const DEFAULT_WIDTH = 416;
 
 export const overtakeAlertManifest: OverlayManifest = {
   id: "overtake-alert",

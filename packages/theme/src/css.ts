@@ -46,7 +46,7 @@ export function typographyToCssVars(typography: Typography): Record<string, stri
     // and the space between columns.
     "--ov-font-size": "14px",
     "--ov-row-height": compact ? "20px" : "28px",
-    "--ov-cell-pad-x": compact ? "3px" : "5px",
+    "--ov-cell-pad-x": compact ? "1px" : "2px",
   };
 }
 

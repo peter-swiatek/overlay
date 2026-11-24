@@ -81,7 +81,7 @@ const SPECS: Record<DriverFieldId, FieldSpec> = {
     defaultVisible: false,
     defaultWidthPct: 5,
     sims: ["iracing"],
-    chars: 4,
+    chars: 3,
     help: "The driver's country flag (iRacing only).",
   },
   "car-class": { label: "Car class", defaultVisible: false, defaultWidthPct: 9, chars: 6 },
@@ -97,7 +97,7 @@ const SPECS: Record<DriverFieldId, FieldSpec> = {
     defaultVisible: true,
     defaultWidthPct: 9,
     sims: ["iracing"],
-    chars: 7,
+    chars: 6.5,
   },
   irating: {
     label: "iRating",
@@ -106,11 +106,11 @@ const SPECS: Record<DriverFieldId, FieldSpec> = {
     sims: ["iracing"],
     chars: 8,
   },
-  gap: { label: "Gap", defaultVisible: true, defaultWidthPct: 9, chars: 6 },
-  interval: { label: "Interval", defaultVisible: true, defaultWidthPct: 9, chars: 6 },
-  "last-lap": { label: "Last lap", defaultVisible: true, defaultWidthPct: 10, chars: 8 },
-  "best-lap": { label: "Best lap", defaultVisible: true, defaultWidthPct: 10, chars: 8 },
-  "avg-lap": { label: "Avg lap", defaultVisible: false, defaultWidthPct: 10, chars: 8 },
+  gap: { label: "Gap", defaultVisible: true, defaultWidthPct: 9, chars: 5 },
+  interval: { label: "Interval", defaultVisible: true, defaultWidthPct: 9, chars: 5 },
+  "last-lap": { label: "Last lap", defaultVisible: true, defaultWidthPct: 10, chars: 7 },
+  "best-lap": { label: "Best lap", defaultVisible: true, defaultWidthPct: 10, chars: 7 },
+  "avg-lap": { label: "Avg lap", defaultVisible: false, defaultWidthPct: 10, chars: 7 },
   "last-lap-delta": {
     label: "Last lap delta",
     defaultVisible: false,
@@ -221,7 +221,11 @@ export function columnFloorChars(fieldId: string): number | undefined {
  * Header floors measured rather than estimated: the small uppercase "POS" label fits in the
  * 3 characters the position digits need, so the column stays as narrow as the design's.
  */
-const LABEL_FLOOR_CHARS: Readonly<Record<string, number>> = { position: 3, make: 0 };
+const LABEL_FLOOR_CHARS: Readonly<Record<string, number>> = {
+  position: 3,
+  make: 0,
+  nationality: 3,
+};
 
 /** Every driver column, in this order, with the reference labels and default widths. defaultVisible = Leaderboard defaults. */
 export const DRIVER_FIELDS: readonly OverlayFieldDef[] = DRIVER_FIELD_IDS.map((id) => ({

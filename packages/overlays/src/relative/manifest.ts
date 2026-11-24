@@ -24,7 +24,7 @@ const DEFAULT_VISIBLE: readonly DriverFieldId[] = [
  * Window width that fits the default columns at the nominal metrics, rounded up.
  * relative.test.tsx asserts it equals the computed fit.
  */
-const DEFAULT_WIDTH = 485;
+const DEFAULT_WIDTH = 473;
 
 export const relativeManifest: OverlayManifest = {
   id: "relative",

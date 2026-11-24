@@ -14,7 +14,7 @@
   --ov-font-weight: 500;
   --ov-font-size: 14px;
   --ov-row-height: 28px;
-  --ov-cell-pad-x: 5px;
+  --ov-cell-pad-x: 2px;
   --ov-locked-gain: #22c55e;
   --ov-locked-loss: #ef4444;
   --ov-locked-fastest: #a855f7;
@@ -47,5 +47,5 @@
 :root[data-compact="true"] {
   --ov-font-size: 14px;
   --ov-row-height: 20px;
-  --ov-cell-pad-x: 3px;
+  --ov-cell-pad-x: 1px;
 }
