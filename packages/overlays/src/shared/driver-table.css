@@ -71,9 +71,11 @@
 /* Manufacturer logo in a fixed small box so the column stays narrow; wide wordmarks shrink to fit. */
 .ov-make-logo {
   display: block;
+  /* The bundled logos are cropped to their artwork: round badges take the full height and wide
+     logos stop at the maximum width, so every make reads about the same size. */
   height: 1.3em;
-  /* The bundled logos are fitted to a 200 x 115 frame; the same box keeps them all one size. */
-  width: 2.26em;
+  width: auto;
+  max-width: 1.6em;
   object-fit: contain;
 }
 
