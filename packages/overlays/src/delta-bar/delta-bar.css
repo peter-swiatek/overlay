@@ -283,7 +283,8 @@
   grid-template-columns: 8px auto minmax(0, 1fr) 28px 36px;
   gap: 3px;
   align-items: center;
-  height: calc(var(--ov-row-height, 24px) - 2px);
+  /* Capped at the compact-era 24px: the roomier table rows are for tables only. */
+  height: calc(min(var(--ov-row-height, 24px), 24px) - 2px);
   padding: 0 6px;
   font-size: 0.84em;
   white-space: nowrap;
