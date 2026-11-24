@@ -29,7 +29,7 @@ import {
 import "./overlays.css";
 import {
   FALLBACK_COLOUR,
-  HEADER_FOOTER_SECTION,
+  headerSectionTitle,
   fromDisplay,
   isSegmentedSelect,
   multiFields,
@@ -266,7 +266,7 @@ export function OverlayPanel({
         />
       )}
       {multiFields(manifest).length > 0 && (
-        <Collapsible title={HEADER_FOOTER_SECTION}>
+        <Collapsible title={headerSectionTitle(manifest)}>
           {multiFields(manifest).map((field) => (
             <SettingRow
               key={field.key}

@@ -281,7 +281,7 @@ describe("page layout and sections", () => {
       ">Appearance<",
       ">Visibility<",
       ">Columns<",
-      ">Header and footer<",
+      ">Header<",
       ">Layout<",
       "Reset to defaults",
     ].map((t) => html.indexOf(t));
@@ -289,10 +289,16 @@ describe("page layout and sections", () => {
     expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 
-  it("puts every multi setting in Header and footer, not in its manifest section", () => {
+  it("puts every multi setting in its own section, not in its manifest section", () => {
     const html = render({});
-    expect(html).toContain(">Header and footer<");
-    expect(html.indexOf(">Header and footer<")).toBeLessThan(html.indexOf(">Layout<"));
+    expect(html).toContain(">Header<");
+    expect(html.indexOf(">Header<")).toBeLessThan(html.indexOf(">Layout<"));
+  });
+
+  it("names the section Header and footer only for an overlay with a footer picker", () => {
+    const relative = OVERLAY_MANIFESTS.find((m) => m.id === "relative");
+    if (!relative) throw new Error("no relative manifest");
+    expect(render({ manifests: [relative] })).toContain(">Header and footer<");
   });
 });
 

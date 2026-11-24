@@ -86,12 +86,20 @@ export interface PanelSection {
 }
 
 export const HEADER_FOOTER_SECTION = "Header and footer";
+export const HEADER_SECTION = "Header";
 
 type MultiSettingField = Extract<SettingField, { kind: "multi" }>;
 
 /** The header and footer pickers (every `multi` setting), in manifest order. */
 export function multiFields(manifest: OverlayManifest): MultiSettingField[] {
   return manifest.settings.filter((f): f is MultiSettingField => f.kind === "multi");
+}
+
+/** Title of the multi-settings section: "Header" when the overlay has no footer picker. */
+export function headerSectionTitle(manifest: OverlayManifest): string {
+  return multiFields(manifest).some((f) => f.key.includes("footer"))
+    ? HEADER_FOOTER_SECTION
+    : HEADER_SECTION;
 }
 
 /**

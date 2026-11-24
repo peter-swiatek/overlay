@@ -40,11 +40,9 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
   const rowLabels = optionBoolean(settings, "row-labels");
   const showDqLimit = optionBoolean(settings, "show-dq-limit");
   const headerIds = optionStrings(settings, "header-fields");
-  const sessionFooter = optionBoolean(settings, "session-footer");
-  const footerIds = optionStrings(settings, "footer-fields");
 
   const previous = useRef<LeaderboardView | null>(null);
-  const { view, header, footer, sim } = useTelemetry((frame) => {
+  const { view, header, sim } = useTelemetry((frame) => {
     const next = reuseView(
       previous.current,
       leaderboardView(frame, {
@@ -69,7 +67,6 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
       view: next,
       sim: frame?.state.sim ?? null,
       header: sessionHeader ? infoItems(frame, headerIds, infoContext) : [],
-      footer: sessionFooter ? infoItems(frame, footerIds, infoContext) : [],
     };
   }, 5);
 
@@ -161,7 +158,6 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
       ) : (
         <DataTable<DriverRow> {...common} rows={view.sections[0]?.rows ?? []} />
       )}
-      {footer.length > 0 ? <InfoStrip variant="footer" items={footer} /> : null}
     </div>
   );
 }
