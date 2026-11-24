@@ -105,17 +105,7 @@ export const leaderboardManifest: OverlayManifest = {
       label: "Header fields",
       kind: "multi",
       section: "Layout",
-      // The former footer's fields (session best, brake bias, air temp) moved into the header.
-      default: [
-        "current-lap",
-        "session-remaining",
-        "sof",
-        "incidents",
-        "track-temp",
-        "session-best",
-        "brake-bias",
-        "air-temp",
-      ],
+      default: ["current-lap", "session-remaining", "sof", "incidents", "track-temp"],
       options: HEADER_FIELD_OPTIONS,
       max: 8,
     },

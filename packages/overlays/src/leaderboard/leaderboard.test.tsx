@@ -347,7 +347,7 @@ describe("manifest", () => {
     expect(leaderboardManifest.defaultSize.width).toBe(Math.ceil(widths.fitPx));
   });
 
-  it("has eight header fields by default, up to eight, and no footer", () => {
+  it("has the board's header fields by default, up to eight, and no footer", () => {
     const settings = defaultInstanceSettings(leaderboardManifest);
     expect(settings.options["header-fields"]).toEqual([
       "current-lap",
@@ -355,9 +355,6 @@ describe("manifest", () => {
       "sof",
       "incidents",
       "track-temp",
-      "session-best",
-      "brake-bias",
-      "air-temp",
     ]);
     const header = leaderboardManifest.settings.find((s) => s.key === "header-fields");
     expect(header?.kind === "multi" ? header.max : null).toBe(8);
@@ -562,12 +559,25 @@ describe("LeaderboardOverlay restyle", () => {
     if (entry === undefined || best === undefined) throw new Error("fixture");
     entry.sessionBest = true;
     best.bestLapS = 83.456;
-    const html = render(frame, ALL);
+    const eight = [
+      "current-lap",
+      "session-remaining",
+      "sof",
+      "incidents",
+      "track-temp",
+      "session-best",
+      "brake-bias",
+      "air-temp",
+    ];
+    const html = render(frame, { options: { "show-all": true, "header-fields": eight } });
     expect(html.match(/class="ov-info-group"/g)).toHaveLength(2);
+    expect(html.match(/class="ov-info-item/g)).toHaveLength(8);
     expect(html).not.toContain("ov-info-strip--footer");
     expect(html).toContain("ov-fastest");
     expect(html).toContain("1:23.456");
-    const off = render(frame, { options: { "show-all": true, "session-header": false } });
+    const off = render(frame, {
+      options: { "show-all": true, "header-fields": eight, "session-header": false },
+    });
     expect(off).not.toContain("ov-fastest");
   });
 

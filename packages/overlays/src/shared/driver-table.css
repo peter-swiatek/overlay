@@ -3,7 +3,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.66em;
+  gap: 0.1em 0.66em;
+  /* Too many fields for the width wrap onto a second line instead of being cut off. */
+  flex-wrap: wrap;
+  flex-shrink: 0;
   min-height: 1.83em;
   padding: 0.17em var(--ov-cell-pad-x, 7px);
   overflow: hidden;
@@ -28,8 +31,9 @@
 
 .ov-info-group {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.83em;
+  gap: 0.1em 0.83em;
   min-width: 0;
   overflow: hidden;
 }
