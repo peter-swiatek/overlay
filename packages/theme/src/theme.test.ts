@@ -380,7 +380,7 @@ describe("css variables", () => {
     expect(vars["--ov-font-weight"]).toBe("500");
     expect([vars["--ov-font-size"], vars["--ov-row-height"], vars["--ov-cell-pad-x"]]).toEqual([
       "14px",
-      "32px",
+      "28px",
       "5px",
     ]);
     const compact = themeToCssVars(graphite, {
