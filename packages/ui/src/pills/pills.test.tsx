@@ -74,9 +74,9 @@ describe("pills", () => {
     expect(css).toMatch(
       /\.ov-pill--lic-c \.ov-lic-ltr,\s*\.ov-pill--lic-d \.ov-lic-ltr\s*\{\s*color: #0b0d12;/,
     );
-    expect(css).toContain("padding: 0 0.34em 0 0.44em");
+    expect(css).toContain("padding-inline: 0.44em 0.34em");
     expect(css).toContain("min-width: 1.62em");
-    expect(css).toContain("padding: 0 0.5em 0 0.4em");
+    expect(css).toContain("padding-inline: 0.4em 0.5em");
     expect(css).not.toContain("0.62em");
   });
   it("draws flag badges as 3px rounded rectangles, not pills", () => {
