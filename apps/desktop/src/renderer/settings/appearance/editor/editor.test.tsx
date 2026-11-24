@@ -233,7 +233,7 @@ describe("editor render", () => {
     };
     const html = render(state);
     expect(html).toContain("--ov-font-weight:800");
-    expect(html).toContain("--ov-font-size:12px");
+    expect(html).toContain("--ov-row-height:20px");
   });
 
   it("shows a warning next to Text", () => {

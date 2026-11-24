@@ -26,7 +26,7 @@
   display: flex;
   align-items: center;
   min-width: 0;
-  padding: 0 var(--ov-cell-pad-x, 7px);
+  padding: 0 var(--ov-cell-pad-x, 5px);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -42,7 +42,7 @@
 }
 
 .ov-table--compact .ov-cell {
-  padding: 0 calc(var(--ov-cell-pad-x, 7px) / 2);
+  padding: 0 calc(var(--ov-cell-pad-x, 5px) / 2);
 }
 
 .ov-cell--right {
@@ -183,7 +183,7 @@
 
 /* Position cell: class-colour gradient over the row background. */
 .ov-cell--pos {
-  padding-left: calc(var(--ov-cell-pad-x, 7px) - 2px);
+  padding-left: calc(var(--ov-cell-pad-x, 5px) - 2px);
   justify-content: center;
   font-weight: 700;
   border-left: 3px solid var(--class-color, var(--ov-text-muted));
@@ -223,7 +223,7 @@
   box-sizing: border-box;
   min-width: 0;
   height: var(--ov-row-height, 24px);
-  padding-right: var(--ov-cell-pad-x, 7px);
+  padding-right: var(--ov-cell-pad-x, 5px);
   overflow: hidden;
   white-space: nowrap;
   background: linear-gradient(

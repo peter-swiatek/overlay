@@ -326,7 +326,7 @@ describe("ThemeScope", () => {
     );
     expect(html).toContain(`--ov-accent:${GRAPHITE.tokens.accent}`);
     expect(html).toContain("--ov-font-weight:700");
-    expect(html).toContain("--ov-font-size:12px");
+    expect(html).toContain("--ov-row-height:20px");
     expect(html).toContain("Oswald");
     expect(html).toContain("--ov-locked-gain:#22c55e");
   });

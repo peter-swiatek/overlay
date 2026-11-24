@@ -381,7 +381,7 @@ describe("css variables", () => {
     expect([vars["--ov-font-size"], vars["--ov-row-height"], vars["--ov-cell-pad-x"]]).toEqual([
       "14px",
       "24px",
-      "7px",
+      "5px",
     ]);
     const compact = themeToCssVars(graphite, {
       ...DEFAULT_TYPOGRAPHY,
@@ -392,15 +392,15 @@ describe("css variables", () => {
       compact["--ov-font-size"],
       compact["--ov-row-height"],
       compact["--ov-cell-pad-x"],
-    ]).toEqual(["12px", "20px", "5px"]);
+    ]).toEqual(["14px", "20px", "3px"]);
     expect(compact["--ov-font-family"]).toContain('"Barlow Condensed"');
   });
 
   it("pins the default and compact cell padding", () => {
-    expect(themeToCssVars(graphite, DEFAULT_TYPOGRAPHY)["--ov-cell-pad-x"]).toBe("7px");
+    expect(themeToCssVars(graphite, DEFAULT_TYPOGRAPHY)["--ov-cell-pad-x"]).toBe("5px");
     expect(
       themeToCssVars(graphite, { ...DEFAULT_TYPOGRAPHY, compact: true })["--ov-cell-pad-x"],
-    ).toBe("5px");
+    ).toBe("3px");
   });
 
   it("never carries a locked variable", () => {

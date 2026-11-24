@@ -166,7 +166,7 @@ describe("withHidden", () => {
 });
 
 describe("agreement with gridTemplate", () => {
-  // Evaluates "calc(Nch + 2 * var(--ov-cell-pad-x, 7px))" and bare "Nch" tracks at metrics M.
+  // Evaluates "calc(Nch + 2 * var(--ov-cell-pad-x, 5px))" and bare "Nch" tracks at metrics M.
   function minimumsPx(template: string): number {
     const tracks = template.match(
       /minmax\([^()]*(?:\([^()]*(?:\([^()]*\)[^()]*)*\)[^()]*)*\)|\S+/g,

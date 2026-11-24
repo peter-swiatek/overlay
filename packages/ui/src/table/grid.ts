@@ -46,7 +46,7 @@ function round(n: number): string {
 /** The smallest track size of a column: its minimum characters plus the cell padding both sides. */
 function minTrack<Row>(column: TableColumn<Row>, scale: number): string {
   const chars = (column.minChars ?? column.chars) * scale;
-  return `calc(${round(chars)}ch + 2 * var(--ov-cell-pad-x, 7px))`;
+  return `calc(${round(chars)}ch + 2 * var(--ov-cell-pad-x, 5px))`;
 }
 
 /**

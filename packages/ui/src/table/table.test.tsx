@@ -45,7 +45,7 @@ describe("orderedColumns", () => {
 });
 
 /** The floor of a column: its characters plus the cell padding on both sides. */
-const floor = (chars: number): string => `calc(${chars}ch + 2 * var(--ov-cell-pad-x, 7px))`;
+const floor = (chars: number): string => `calc(${chars}ch + 2 * var(--ov-cell-pad-x, 5px))`;
 
 describe("gridTemplate", () => {
   it("custom: widths times scale; grow column takes the rest when the sum is under 100", () => {
@@ -253,7 +253,7 @@ describe("DataTable markup", () => {
 describe("columnFloorPct", () => {
   /** Evaluates the first (floor) argument of a `minmax(calc(Nch + 2 * var(...)), ...)` track. */
   function drawnFloorPx(track: string, chPx: number, padPx: number): number {
-    const m = /^minmax\(calc\(([\d.]+)ch \+ 2 \* var\(--ov-cell-pad-x, 7px\)\)/.exec(track);
+    const m = /^minmax\(calc\(([\d.]+)ch \+ 2 \* var\(--ov-cell-pad-x, 5px\)\)/.exec(track);
     if (!m) throw new Error(`unexpected track ${track}`);
     return Number(m[1]) * chPx + 2 * padPx;
   }

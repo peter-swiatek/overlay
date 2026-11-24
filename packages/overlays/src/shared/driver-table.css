@@ -8,7 +8,7 @@
   flex-wrap: wrap;
   flex-shrink: 0;
   min-height: 1.83em;
-  padding: 0.17em var(--ov-cell-pad-x, 7px);
+  padding: 0.17em var(--ov-cell-pad-x, 5px);
   overflow: hidden;
   white-space: nowrap;
   box-sizing: border-box;

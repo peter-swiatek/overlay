@@ -42,9 +42,10 @@ export function typographyToCssVars(typography: Typography): Record<string, stri
   return {
     "--ov-font-family": FONT_FAMILIES[typography.font],
     "--ov-font-weight": String(typography.weight),
-    "--ov-font-size": compact ? "12px" : "14px",
+    // Compact keeps the text size and tightens the rows and the space between columns.
+    "--ov-font-size": "14px",
     "--ov-row-height": compact ? "20px" : "24px",
-    "--ov-cell-pad-x": compact ? "5px" : "7px",
+    "--ov-cell-pad-x": compact ? "3px" : "5px",
   };
 }
 

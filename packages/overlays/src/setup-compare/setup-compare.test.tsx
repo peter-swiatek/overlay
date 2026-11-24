@@ -168,7 +168,7 @@ describe("Setup Compare CSS", () => {
 
   it("sizes in em, not px", () => {
     expect(
-      css.match(/\d+px/g)?.filter((p) => !["1px", "6px", "7px", "14px", "24px"].includes(p)),
+      css.match(/\d+px/g)?.filter((p) => !["1px", "5px", "6px", "14px", "24px"].includes(p)),
     ).toEqual([]);
   });
 });

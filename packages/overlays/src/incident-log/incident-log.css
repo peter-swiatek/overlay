@@ -26,7 +26,7 @@
 }
 
 .il-waiting {
-  padding: 0.57em var(--ov-cell-pad-x, 7px);
+  padding: 0.57em var(--ov-cell-pad-x, 5px);
   color: var(--ov-text-muted);
 }
 
@@ -39,7 +39,7 @@
   gap: 0.66em;
   box-sizing: border-box;
   min-height: 1.83em;
-  padding: 0.17em var(--ov-cell-pad-x, 7px);
+  padding: 0.17em var(--ov-cell-pad-x, 5px);
   overflow: hidden;
   white-space: nowrap;
   background: var(--ov-header);
@@ -101,7 +101,7 @@
   align-items: center;
   min-width: 0;
   box-sizing: border-box;
-  padding: 0 var(--ov-cell-pad-x, 7px);
+  padding: 0 var(--ov-cell-pad-x, 5px);
   overflow: hidden;
   white-space: nowrap;
   background: color-mix(in srgb, var(--ov-row) calc(var(--ov-row-opacity, 1) * 100%), transparent);

@@ -84,7 +84,10 @@ export function AppearanceForm(props: AppearanceFormProps) {
             onChange={(next) => props.onTypography({ weight: Number(next) as ThemeWeight })}
           />
         </Row>
-        <Row label="Compact mode" help="Smaller text and rows in every overlay.">
+        <Row
+          label="Compact mode"
+          help="Tighter rows and less space between columns in every overlay. Text stays the same size."
+        >
           <Toggle
             label="Compact mode"
             checked={typography.compact}
