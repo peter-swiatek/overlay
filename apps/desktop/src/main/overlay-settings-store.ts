@@ -73,13 +73,14 @@ export class OverlaySettingsStore {
   /**
    * Adds an instance of the overlay that `sourceId` is an instance of, with a copy of the
    * source's settings (see `newInstanceSettings`), switched on. Returns the new id, or undefined
-   * for an unknown source or when the overlay already has the most instances. Listeners hear
+   * for an unknown source, an overlay that takes one window only (`instances` not set) or when
+   * the overlay already has the most instances. Listeners hear
    * about it as a change.
    */
   addInstance(sourceId: string): string | undefined {
     const manifest = manifestForInstance(sourceId, this.manifests);
     const source = this.items.get(sourceId);
-    if (!manifest || !source) return undefined;
+    if (!manifest?.instances || !source) return undefined;
     const id = nextInstanceId(manifest.id, this.items.keys());
     if (id === null) return undefined;
     this.commit(id, newInstanceSettings(manifest, source, id));

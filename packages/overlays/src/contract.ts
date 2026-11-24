@@ -163,6 +163,12 @@ export interface OverlayManifest {
    */
   fitContentOffWhen?: { key: string; value: SettingValue };
   /**
+   * True when the user can add more windows of this overlay ("Add instance"), each with its own
+   * settings. Absent: one window only. Instances saved before this existed still open and can be
+   * removed.
+   */
+  instances?: boolean;
+  /**
    * Options an added instance starts with, by instance number - 1 (entry 0 is instance 1, whose
    * values should equal the manifest defaults). An added instance copies the instance it was added
    * from and then takes these, so a second Data Frames tile does not repeat the first metric.

@@ -10,6 +10,7 @@ export const testManifest: OverlayManifest = {
   minSize: { width: 100, height: 100 },
   defaultPosition: { x: 0, y: 0 },
   table: false,
+  instances: true,
   fields: [
     { id: "a", label: "Alpha", defaultVisible: true },
     { id: "b", label: "Bravo", defaultVisible: true, defaultWidthPct: 25 },

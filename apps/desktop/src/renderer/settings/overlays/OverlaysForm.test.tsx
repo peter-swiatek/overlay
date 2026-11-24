@@ -79,6 +79,16 @@ describe("OverlaysForm instances", () => {
     expect(added).toContain('value="Rear view"');
   });
 
+  it("offers Add instance only for overlays that take more windows", () => {
+    const single = { ...testManifest, instances: undefined };
+    expect(render({ manifests: [single] })).not.toContain("Add instance");
+    expect(render({ manifests: [single] })).not.toContain(">Instances<");
+    // An instance saved before the rule still shows its name and Remove, without Add.
+    const old = render({ manifests: [single], extra, selected: "test-panel:3" });
+    expect(old).toContain("Remove instance");
+    expect(old).not.toContain("Add instance");
+  });
+
   it("disables Add instance once the overlay has the most instances", () => {
     const full: Record<string, OverlayInstanceSettings> = {};
     for (let n = 2; n <= MAX_INSTANCES; n++) full[instanceId("test-panel", n)] = on;

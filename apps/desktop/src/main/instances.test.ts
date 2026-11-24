@@ -34,13 +34,22 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-const make = () => new OverlaySettingsStore(file, OVERLAY_MANIFESTS, timer);
+// Only Data Frames takes more windows; the Relative is opened up here to test the general mechanics.
+const MULTI = OVERLAY_MANIFESTS.map((m) => (m.id === "relative" ? { ...m, instances: true } : m));
+const make = () => new OverlaySettingsStore(file, MULTI, timer);
 const saved = () =>
   JSON.parse(readFileSync(file, "utf8")) as {
     overlays: Record<string, OverlayInstanceSettings>;
   };
 
 describe("overlay instances in the settings store", () => {
+  it("adds windows only for overlays that take more than one", () => {
+    const store = new OverlaySettingsStore(file, OVERLAY_MANIFESTS, timer);
+    expect(OVERLAY_MANIFESTS.filter((m) => m.instances).map((m) => m.id)).toEqual(["data-frames"]);
+    expect(store.addInstance("relative")).toBeUndefined();
+    expect(store.addInstance("data-frames")).toBe("data-frames:2");
+  });
+
   it("adds a switched-on copy of the source and tells listeners", () => {
     const store = make();
     store.update("relative", { common: { scalePct: 130 }, options: { "drivers-ahead": 2 } });

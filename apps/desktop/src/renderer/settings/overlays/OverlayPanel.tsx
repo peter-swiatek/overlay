@@ -117,7 +117,7 @@ export function OverlayPanel({
   return (
     <div className="ov-panel">
       <h3 className="ov-panel-title">{title}</h3>
-      {onAddInstance && (
+      {onAddInstance && (manifest.instances || added) && (
         <Collapsible title="Instances">
           <Row
             label="Name"
@@ -136,14 +136,16 @@ export function OverlayPanel({
               }}
             />
           </Row>
-          <Row
-            label="Another window"
-            help={`Adds another ${manifest.title} with a copy of these settings. Each one has its own settings, position and size.`}
-          >
-            <Button disabled={!canAddInstance} onClick={onAddInstance}>
-              Add instance
-            </Button>
-          </Row>
+          {manifest.instances && (
+            <Row
+              label="Another window"
+              help={`Adds another ${manifest.title} with a copy of these settings. Each one has its own settings, position and size.`}
+            >
+              <Button disabled={!canAddInstance} onClick={onAddInstance}>
+                Add instance
+              </Button>
+            </Row>
+          )}
           {added && onRemoveInstance && (
             <div className="ov-reset">
               {confirmingRemove ? (

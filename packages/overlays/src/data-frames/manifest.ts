@@ -13,6 +13,7 @@ export const dataFramesManifest: OverlayManifest = {
   minSize: { width: 80, height: 40 },
   defaultPosition: { x: 1100, y: 560 },
   table: false,
+  instances: true,
   fields: [],
   settings: [
     {
