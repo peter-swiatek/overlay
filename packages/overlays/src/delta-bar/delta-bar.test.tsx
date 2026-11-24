@@ -342,6 +342,16 @@ describe("Delta Bar CSS", () => {
     expect(rule(".dl-sec--loss")).toContain("var(--ov-locked-sector-slower)");
   });
 
+  it("leaves no tile behind the lap-time flash, at the same size", () => {
+    const css = readFileSync(join(__dirname, "delta-bar.css"), "utf8");
+    const start = css.indexOf(".dl--lap .dl-tile.dl-barrow {");
+    expect(start).toBeGreaterThan(-1);
+    const rule = css.slice(start, css.indexOf("}", start));
+    expect(rule).toContain("background: transparent;");
+    expect(rule).toContain("box-shadow: none;");
+    expect(rule).not.toMatch(/height|width|padding|display/);
+  });
+
   it("sizes its text from the theme font size so the tiles match the 480 x 108 design", () => {
     const css = readFileSync(join(__dirname, "delta-bar.css"), "utf8");
     const start = css.indexOf(".dl {");

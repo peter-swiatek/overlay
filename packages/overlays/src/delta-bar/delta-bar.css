@@ -207,6 +207,12 @@
 .dl--lap .dl-h2h {
   visibility: hidden;
 }
+/* The bar tile itself goes too: only the chips float where they are. Its size stays, so nothing moves. */
+.dl--lap .dl-tile.dl-barrow {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
 
 .dl-lap {
   position: absolute;
