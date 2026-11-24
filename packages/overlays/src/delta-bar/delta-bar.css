@@ -202,6 +202,12 @@
 }
 
 /* Lap-complete strip: floats centred over the bar tile */
+/* A new lap time is flashing: hide everything behind it and the head-to-head row. */
+.dl--lap .dl-barrow > :not(.dl-lap),
+.dl--lap .dl-h2h {
+  visibility: hidden;
+}
+
 .dl-lap {
   position: absolute;
   left: 50%;

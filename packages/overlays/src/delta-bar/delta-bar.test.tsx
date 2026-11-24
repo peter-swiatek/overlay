@@ -165,6 +165,7 @@ describe("DeltaBarOverlay markup", () => {
     const d = deltaOutputs({ lastCompletion: completion, lapCompleteVisible: true });
     const html = render(liveFrame(d));
     expect(html).toContain("dl-lap");
+    expect(html).toContain('class="dl dl--lap"'); // hides the bar, times and head-to-head rows
     expect(html).toContain("BEST");
     expect(html).toContain("best dl-blink");
     expect(html).toContain("1:39.50");

@@ -138,7 +138,9 @@ export function DeltaBarOverlay({ settings }: OverlayProps) {
   const h2h = v.headToHead;
 
   return (
-    <div className="dl">
+    // While a new lap time flashes, only it shows over the middle row: the bar, the times row and
+    // the head-to-head tiles are hidden (kept in place, so the overlay does not change size).
+    <div className={lap !== null ? "dl dl--lap" : "dl"}>
       <div className="dl-top" style={{ gridTemplateColumns: cols }}>
         {options.showBestTimes && (
           <div
