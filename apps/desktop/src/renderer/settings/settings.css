@@ -67,11 +67,12 @@ h2 {
 }
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
-  height: 48px;
+  gap: 6px 16px;
+  min-height: 48px;
   flex: none;
-  padding: 0 16px;
+  padding: 6px 16px;
   box-sizing: border-box;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
@@ -80,6 +81,7 @@ h2 {
   display: flex;
   align-items: baseline;
   gap: 8px;
+  white-space: nowrap;
 }
 .topbar-brand .muted {
   margin: 0;
@@ -262,9 +264,10 @@ h2 {
 }
 .ctl-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 8px 16px;
   padding: 8px 0;
   border-top: 1px solid var(--border);
 }
@@ -274,9 +277,12 @@ h2 {
 .ctl-row[aria-disabled="true"] {
   opacity: 0.55;
 }
+/* The label takes the room it needs (at least 10em); when the control no longer fits beside it,
+   the control moves onto its own line below the label, aligned right. */
 .ctl-row-text {
   display: flex;
   flex-direction: column;
+  flex: 1 1 10em;
   min-width: 0;
 }
 .ctl-row-text small {
@@ -293,6 +299,8 @@ h2 {
 }
 .ctl-row-control {
   flex: none;
+  max-width: 100%;
+  margin-left: auto;
 }
 .ctl-toggle {
   appearance: none;
@@ -392,6 +400,8 @@ input:disabled {
 }
 .ctl-segmented {
   display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
   border: 1px solid var(--border);
   border-radius: 6px;
   overflow: hidden;
@@ -447,4 +457,14 @@ section > h2 {
 }
 .stats-table .total td {
   font-weight: 600;
+}
+
+/* Narrow windows: a slimmer rail and less padding leave more room for the page. */
+@media (max-width: 900px) {
+  .rail {
+    width: 150px;
+  }
+  .content {
+    padding: 16px;
+  }
 }

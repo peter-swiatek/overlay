@@ -40,6 +40,19 @@
     padding-bottom: 8px;
   }
 }
+/* Under about 640px the page is one column: the list, then the preview, then the settings. */
+@container (max-width: 640px) {
+  .ov-page {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "list"
+      "preview"
+      "settings";
+  }
+  .ov-preview {
+    position: static;
+  }
+}
 .ovs-section > summary {
   cursor: pointer;
   list-style: none;
