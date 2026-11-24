@@ -9,6 +9,8 @@ export const weatherManifest: OverlayManifest = {
   minSize: { width: 160, height: 120 },
   defaultPosition: { x: 1640, y: 200 },
   table: false,
+  // Sections switched on or off decide the height; the user sets the width.
+  fitContent: "height",
   fields: [
     { id: "compass", label: "Wind compass", defaultVisible: true, sims: ["iracing"] },
     { id: "track-temp", label: "Track temp", defaultVisible: true },

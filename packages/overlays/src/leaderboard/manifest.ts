@@ -28,6 +28,10 @@ export const leaderboardManifest: OverlayManifest = {
   minSize: { width: 300, height: 160 },
   defaultPosition: { x: 40, y: 40 },
   table: true,
+  // Rows come from the settings, so they decide the height; the column fit sets the width. With
+  // Show all the user sizes the window instead: its height picks how many rows show.
+  fitContent: "height",
+  fitContentOffWhen: { key: "show-all", value: true },
   fields: driverFields(DRIVER_FIELD_IDS, LEADERBOARD_DEFAULT_VISIBLE),
   settings: [
     ...TABLE_OPTION_FIELDS,

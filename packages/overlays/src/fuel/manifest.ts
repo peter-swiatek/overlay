@@ -22,6 +22,8 @@ export const fuelManifest: OverlayManifest = {
   },
   defaultPosition: { x: 1360, y: 560 },
   table: false,
+  // The sections switched on decide the height; the layout option sets the width.
+  fitContent: "height",
   fields: [
     { id: "fuel-level", label: "Fuel level", defaultVisible: true },
     { id: "laps-remaining", label: "Laps remaining", defaultVisible: true },

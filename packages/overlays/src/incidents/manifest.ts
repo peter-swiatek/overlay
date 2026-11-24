@@ -10,6 +10,8 @@ export const incidentsManifest: OverlayManifest = {
   minSize: { width: 96, height: 52 },
   defaultPosition: { x: 1640, y: 560 },
   table: false,
+  // Sections switched on or off decide the height; the user sets the width.
+  fitContent: "height",
   fields: [],
   settings: [
     {

@@ -93,8 +93,13 @@ export function planOptionSize(input: {
   area: Bounds;
   /** In-flow title bar height to add (TITLE_BAR_PX when showTitleBar), else 0. */
   chromePx: number;
+  /**
+   * The height follows the content (manifest `fitContent`): only the width is set here and the
+   * height stays, so a content fit that lands first is not undone. Default false.
+   */
+  keepHeight?: boolean;
 }): { bounds: Bounds | null; sizedFor: string | undefined } {
-  const { manifest, settings, sizedFor, bounds, area, chromePx } = input;
+  const { manifest, settings, sizedFor, bounds, area, chromePx, keepHeight = false } = input;
   const spec = manifest.sizeByOption;
   if (!spec) return { bounds: null, sizedFor };
   const value = settings.options[spec.key];
@@ -106,7 +111,12 @@ export function planOptionSize(input: {
   const scaled = scaleSize(size, scalePct);
   const min = scaleSize(manifest.minSize, scalePct);
   const next = placeInWorkArea(
-    { x: bounds.x, y: bounds.y, width: scaled.width, height: scaled.height + chromePx },
+    {
+      x: bounds.x,
+      y: bounds.y,
+      width: scaled.width,
+      height: keepHeight ? bounds.height : scaled.height + chromePx,
+    },
     area,
     min,
   );

@@ -576,6 +576,14 @@ describe("fuel gauge well CSS", () => {
     expect(row).toContain("height: 2.43em;");
   });
 
+  it("packs the sections at the designed gap instead of spreading them over the window", () => {
+    expect(rule(".fuel")).toContain("justify-content: flex-start;");
+    expect(rule(".fuel")).not.toContain("space-between");
+    expect(rule(".fuel-cons")).toContain("flex: none;");
+    expect(rule(".fuel-cons-body")).toContain("flex: none;");
+    expect(rule(".fuel-split-col")).not.toContain("space-between");
+  });
+
   it("flattens the vertical laps-remaining block so its header sits midway between targets and cards", () => {
     expect(css).toContain(
       ".fuel--vertical .fuel-slot:has(> .fuel-rem),\n.fuel--vertical .fuel-rem {\n  display: contents;",

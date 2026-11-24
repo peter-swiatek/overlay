@@ -10,6 +10,8 @@ export const deltaBarManifest: OverlayManifest = {
   minSize: { width: 320, height: 82 },
   defaultPosition: { x: 680, y: 190 },
   table: false,
+  // Sections switched on or off decide the height; the user sets the width.
+  fitContent: "height",
   fields: [],
   settings: [
     {

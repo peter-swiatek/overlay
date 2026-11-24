@@ -91,6 +91,11 @@ export const IPC = {
   resizeBy: "overlay:resize-by",
   /** Overlay renderer to main: the smallest size its content needs, in CSS px (= window DIPs). */
   contentMinSize: "overlays:content-min-size",
+  /**
+   * Overlay renderer to main: the natural size of its content (window DIPs, title bar included),
+   * for overlays whose manifest `fitContent` makes the window follow the content.
+   */
+  contentFitSize: "overlays:content-fit-size",
   /** Overlay renderer to main: the table font measured at zoom 1, for the window fit. */
   tableMetrics: "overlays:table-metrics",
   /**
@@ -174,6 +179,8 @@ export interface OverlayApi {
   resizeBy(dx: number, dy: number): void;
   /** Overlay windows only: reports the smallest window size the content needs (CSS px). */
   reportContentMinSize(size: Size): void;
+  /** The natural size of the content, for overlays whose window fits it (see `contentFitSize`). */
+  reportContentFitSize(size: Size): void;
   /** Overlay windows only: the table font measured at zoom 1, for the window fit. */
   reportTableMetrics(metrics: TableMetrics): void;
   /** Webview overlay windows only: where the embedded page goes, or null to hide it. */

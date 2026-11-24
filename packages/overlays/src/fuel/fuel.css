@@ -3,7 +3,8 @@
   padding: 0.36em 0;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  /* Sections pack at the designed gap; the window height follows them (manifest fitContent). */
+  justify-content: flex-start;
   gap: 0.36em;
   overflow: hidden;
   font-family: var(--ov-font-family);
@@ -157,10 +158,9 @@
 /* Consumption table: red left bar, refuel pills */
 .fuel-cons {
   padding: 0.14em 0.43em 0;
-  flex: 1;
+  flex: none;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
 }
 
 .fuel-cons-header,
@@ -190,10 +190,9 @@
 }
 
 .fuel-cons-body {
-  flex: 1;
+  flex: none;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   border-left: 3px solid var(--ov-locked-loss);
   background: var(--fuel-surface);
   border-top: 1px solid var(--ov-border);
@@ -485,7 +484,7 @@
 .fuel-split-col {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.21em;
   min-width: 0;
 }
@@ -549,8 +548,7 @@
 }
 
 /* Vertical: lift the laps-remaining header into the panel's own flow so the
-   space-between gaps above and below it are equal, centring it between the
-   targets strip and the laps-remaining cards. */
+   gaps above and below it are the panel's gap, like every other section. */
 .fuel--vertical .fuel-slot:has(> .fuel-rem),
 .fuel--vertical .fuel-rem {
   display: contents;

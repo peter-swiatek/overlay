@@ -44,6 +44,8 @@ export const battleBoxManifest: OverlayManifest = {
   minSize: { width: 260, height: 80 },
   defaultPosition: { x: 680, y: 320 },
   table: true,
+  // Rows and strips come from the settings, so they decide the height; the column fit sets the width.
+  fitContent: "height",
   fields: driverFields(COLUMN_IDS, DEFAULT_VISIBLE),
   settings: [
     ...TABLE_OPTION_FIELDS,

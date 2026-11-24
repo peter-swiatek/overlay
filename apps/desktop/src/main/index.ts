@@ -226,6 +226,10 @@ function registerIpc(): void {
     if (!fromOverlay(event.sender)) return;
     overlays?.setContentMinFromSender(event.sender, size);
   });
+  ipcMain.on(IPC.contentFitSize, (event, size: unknown) => {
+    if (!fromOverlay(event.sender)) return;
+    overlays?.setContentFitFromSender(event.sender, size);
+  });
   ipcMain.on(IPC.tableMetrics, (event, payload: unknown) => {
     if (!fromOverlay(event.sender)) return;
     overlays?.setTableMetricsFromSender(event.sender, payload);

@@ -19,6 +19,8 @@ export const lapTimesManifest: OverlayManifest = {
   minSize: { width: 220, height: 100 },
   defaultPosition: { x: 1360, y: 200 },
   table: false,
+  // Sections switched on or off decide the height; the user sets the width.
+  fitContent: "height",
   fields: [],
   settings: [
     toggle(

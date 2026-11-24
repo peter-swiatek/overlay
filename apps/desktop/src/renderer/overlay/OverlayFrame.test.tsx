@@ -84,3 +84,23 @@ describe("OverlayFrame for table overlays", () => {
     expect(html).toContain("<i>rows</i>");
   });
 });
+
+describe("OverlayFrame content fit", () => {
+  const common = defaultInstanceSettings(manifest).common;
+  it("marks the edges that follow the content", () => {
+    const html = renderToStaticMarkup(
+      <OverlayFrame manifest={manifest} common={common} editing={false} fit="height">
+        <i>content</i>
+      </OverlayFrame>,
+    );
+    expect(html).toContain('data-fit="height"');
+  });
+  it("has no mark when the user sizes the window", () => {
+    const html = renderToStaticMarkup(
+      <OverlayFrame manifest={manifest} common={common} editing={false}>
+        <i>content</i>
+      </OverlayFrame>,
+    );
+    expect(html).not.toContain("data-fit");
+  });
+});

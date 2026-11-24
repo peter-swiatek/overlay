@@ -104,6 +104,9 @@ export interface PageRect {
   height: number;
 }
 
+/** See `OverlayManifest.fitContent`. */
+export type FitContent = "height" | "both" | "none";
+
 export interface OverlayManifest {
   /** kebab-case and stable: used as a key in settings and layout files. */
   id: string;
@@ -144,6 +147,21 @@ export interface OverlayManifest {
    * keeping x/y and clamping to the work area. `defaultSize` equals sizes[the option's default].
    */
   sizeByOption?: { key: string; sizes: Readonly<Record<string, Size>> };
+  /**
+   * Which window edges follow the content. "height": the window height is
+   * the content's natural height at the current width, so switching sections on or off grows or
+   * shrinks the window and leaves no gap; the user still sets the width. "both": the width is the
+   * content's natural (max-content) width as well. "none" (default): the user sets the size, for
+   * content that scales with the window (maps, traces, rows placed by the window height). Table
+   * overlays take "height" at most: their width has its own column fit. Read it with
+   * `fitContentOf` (shared/fit-content), which applies `fitContentOffWhen`.
+   */
+  fitContent?: FitContent;
+  /**
+   * Turns `fitContent` off while this option has this value: the user sizes the window then
+   * (Leaderboard "Show all": the window height picks how many rows show).
+   */
+  fitContentOffWhen?: { key: string; value: SettingValue };
   /**
    * Options an added instance starts with, by instance number - 1 (entry 0 is instance 1, whose
    * values should equal the manifest defaults). An added instance copies the instance it was added

@@ -14,6 +14,7 @@
     "./fixtures": "./src/shared/fixtures.ts",
     "./fields": "./src/shared/fields.ts",
     "./table-fit": "./src/shared/table-fit.ts",
+    "./fit-content": "./src/shared/fit-content.ts",
     "./settings": "./src/settings/index.ts",
     "./instances": "./src/instances.ts",
     "./views": "./src/views.ts",

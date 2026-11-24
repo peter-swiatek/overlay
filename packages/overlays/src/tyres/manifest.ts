@@ -77,6 +77,8 @@ export const tyresManifest: OverlayManifest = {
   minSize: { width: 200, height: 150 },
   defaultPosition: { x: 1640, y: 640 },
   table: false,
+  // Sections switched on or off decide the height; the user sets the width.
+  fitContent: "height",
   fields: [],
   settings: [
     TYRE_TEMP_SOURCE_SETTING,

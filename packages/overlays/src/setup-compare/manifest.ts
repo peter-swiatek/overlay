@@ -11,6 +11,8 @@ export const setupCompareManifest: OverlayManifest = {
   minSize: { width: 240, height: 110 },
   defaultPosition: { x: 1360, y: 470 },
   table: false,
+  // Sections switched on or off decide the height; the user sets the width.
+  fitContent: "height",
   fields: [],
   settings: [
     {

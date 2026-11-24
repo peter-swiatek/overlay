@@ -35,6 +35,8 @@ export const relativeManifest: OverlayManifest = {
   minSize: { width: 260, height: 140 },
   defaultPosition: { x: 40, y: 600 },
   table: true,
+  // Rows and strips come from the settings, so they decide the height; the column fit sets the width.
+  fitContent: "height",
   fields: driverFields(COLUMN_IDS, DEFAULT_VISIBLE),
   settings: [
     ...TABLE_OPTION_FIELDS,

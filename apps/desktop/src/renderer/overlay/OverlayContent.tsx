@@ -1,5 +1,6 @@
 import type { OverlayInstanceSettings } from "@overlay/overlays/contract";
 import type { OverlayModule } from "@overlay/overlays";
+import { fitContentOf } from "@overlay/overlays/fit-content";
 import { OverlayErrorBoundary } from "./ErrorBoundary";
 import { OverlayFrame } from "./OverlayFrame";
 import { overlayVisibility, unsupportedNote, type HostView } from "./visibility";
@@ -35,6 +36,7 @@ export function OverlayContent({ module, settings, autoHide, view, editing, titl
       manifest={manifest}
       common={settings.common}
       editing={editing}
+      fit={visibility === "show" ? fitContentOf(manifest, settings.options) : "none"}
       {...(title === undefined ? {} : { title })}
     >
       {visibility === "notice" && <div className="panel notice">{view.notice ?? "No data"}</div>}

@@ -40,6 +40,7 @@ const api: OverlayApi = {
   },
   resizeBy: (dx, dy) => ipcRenderer.send(IPC.resizeBy, dx, dy),
   reportContentMinSize: (size) => ipcRenderer.send(IPC.contentMinSize, size),
+  reportContentFitSize: (size) => ipcRenderer.send(IPC.contentFitSize, size),
   reportTableMetrics: (metrics) => ipcRenderer.send(IPC.tableMetrics, metrics),
   reportWebPageRect: (rect) => ipcRenderer.send(IPC.webPageRect, rect),
   onTwitchChat: (callback) => {

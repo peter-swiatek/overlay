@@ -16,12 +16,12 @@ import {
   planOptionSize,
   retargetScale,
 } from "./auto-width";
+import { fitAxisOf, fitMinSize, fitsHeight, gripDelta, planContentFit } from "./content-fit";
 import {
   boundsNextTo,
   clampToWorkArea,
   defaultBounds,
   INSTANCE_GAP_PX,
-  effectiveMinSize,
   growToMin,
   placeInWorkArea,
   initialBounds,
@@ -269,12 +269,7 @@ export class OverlayManager {
     const prevFit = this.layout[id]?.fitWidth;
     if (entry && !entry.win.isDestroyed()) {
       entry.tableMinWidth = target.minWidth;
-      const min = effectiveMinSize(
-        manifest.minSize,
-        entry.scalePct,
-        entry.contentMin,
-        target.minWidth,
-      );
+      const min = this.minOf(entry);
       entry.win.setMinimumSize(...minArgs(min));
       const bounds = entry.win.getBounds();
       const plan = planAutoWidth({
@@ -325,6 +320,7 @@ export class OverlayManager {
       bounds,
       area: screen.getDisplayMatching(bounds).workArea,
       chromePx: this.chromeFor(id),
+      keepHeight: fitsHeight(fitAxisOf(manifest, settings.options)),
     });
     if (plan.bounds) {
       live?.setBounds(plan.bounds);
@@ -445,7 +441,17 @@ export class OverlayManager {
       metrics: null,
       tableMinWidth: 0,
     });
-    win.setMinimumSize(...minArgs(scaleSize(manifest.minSize, scalePct)));
+    win.setMinimumSize(
+      ...minArgs(
+        fitMinSize(
+          manifest.minSize,
+          scalePct,
+          { width: 0, height: 0 },
+          0,
+          fitAxisOf(manifest, settings.options),
+        ),
+      ),
+    );
     win.setAlwaysOnTop(true, "screen-saver");
     win.setVisibleOnAllWorkspaces(true);
     // On Windows any setOpacity call makes the window layered, so only call it for the workaround.
@@ -506,7 +512,13 @@ export class OverlayManager {
     entry.tableMinWidth = target
       ? target.minWidth
       : Math.round((entry.tableMinWidth * toPct) / entry.scalePct);
-    const min = effectiveMinSize(manifest.minSize, toPct, entry.contentMin, entry.tableMinWidth);
+    const min = fitMinSize(
+      manifest.minSize,
+      toPct,
+      entry.contentMin,
+      entry.tableMinWidth,
+      fitAxisOf(manifest, settings.options),
+    );
     const next = clampToWorkArea(
       growToMin(
         scaleBoundsWithChrome(current, entry.scalePct, toPct, manifest.minSize, chrome),
@@ -570,15 +582,12 @@ export class OverlayManager {
     const id = this.idOfSender(sender);
     const entry = id === undefined ? undefined : this.open.get(id);
     if (id === undefined || !entry || entry.win.isDestroyed()) return;
-    const min = effectiveMinSize(
-      entry.manifest.minSize,
-      entry.scalePct,
-      entry.contentMin,
-      entry.tableMinWidth,
-    );
+    const min = this.minOf(entry);
     const current = entry.win.getBounds();
     const area = screen.getDisplayMatching(current).workArea;
-    const next = clampToWorkArea(resizeBounds(current, dx, dy, min), area, min);
+    // Edges that follow the content ignore the drag (they would snap back on the next fit).
+    const delta = gripDelta(fitAxisOf(entry.manifest, this.optionsOf(entry.id)), dx, dy);
+    const next = clampToWorkArea(resizeBounds(current, delta.dx, delta.dy, min), area, min);
     entry.win.setBounds(next);
     this.store(id, next, entry.scalePct);
     this.scheduleSave();
@@ -591,17 +600,56 @@ export class OverlayManager {
     const entry = id === undefined ? undefined : this.open.get(id);
     if (!reported || id === undefined || !entry || entry.win.isDestroyed()) return;
     entry.contentMin = reported;
-    const min = effectiveMinSize(
-      entry.manifest.minSize,
-      entry.scalePct,
-      reported,
-      entry.tableMinWidth,
-    );
+    const min = this.minOf(entry);
     entry.win.setMinimumSize(...minArgs(min));
     const current = entry.win.getBounds();
     if (current.width >= min.width && current.height >= min.height) return;
     const area = screen.getDisplayMatching(current).workArea;
     const next = growToMin(current, min, area);
+    entry.win.setBounds(next);
+    this.store(id, next, entry.scalePct);
+    this.scheduleSave();
+  }
+
+  private optionsOf(id: string): OverlayInstanceSettings["options"] | undefined {
+    return this.effectiveSettings()[id]?.options;
+  }
+
+  /** The window minimum of an open overlay (manifest, content and column minimums, fit-aware). */
+  private minOf(entry: OpenOverlay): Size {
+    return fitMinSize(
+      entry.manifest.minSize,
+      entry.scalePct,
+      entry.contentMin,
+      entry.tableMinWidth,
+      fitAxisOf(entry.manifest, this.optionsOf(entry.id)),
+    );
+  }
+
+  /**
+   * Handles the content's reported natural size (overlays with a manifest `fitContent`): sets the
+   * window's content-driven edges to it, keeping the top-left. Only a report moves the window, and
+   * the renderer reports only when the content's own size changed by 1 px or more (it does not
+   * depend on the window size), so a fit never feeds back into another fit.
+   */
+  setContentFitFromSender(sender: Electron.WebContents, payload: unknown): void {
+    const natural = parseContentMin(payload);
+    const id = this.idOfSender(sender);
+    const entry = id === undefined ? undefined : this.open.get(id);
+    if (!natural || id === undefined || !entry || entry.win.isDestroyed()) return;
+    const axis = fitAxisOf(entry.manifest, this.optionsOf(entry.id));
+    if (axis === "none") return;
+    const min = this.minOf(entry);
+    entry.win.setMinimumSize(...minArgs(min));
+    const current = entry.win.getBounds();
+    const next = planContentFit({
+      axis,
+      bounds: current,
+      natural,
+      min,
+      area: screen.getDisplayMatching(current).workArea,
+    });
+    if (!next) return;
     entry.win.setBounds(next);
     this.store(id, next, entry.scalePct);
     this.scheduleSave();

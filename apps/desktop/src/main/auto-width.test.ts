@@ -201,7 +201,7 @@ describe("planOptionSize", () => {
   const plan = (
     layout: string,
     sizedFor: string | undefined,
-    over: { b?: typeof bounds; chromePx?: number; scalePct?: number } = {},
+    over: { b?: typeof bounds; chromePx?: number; scalePct?: number; keepHeight?: boolean } = {},
   ) =>
     planOptionSize({
       manifest,
@@ -210,6 +210,7 @@ describe("planOptionSize", () => {
       bounds: over.b ?? bounds,
       area,
       chromePx: over.chromePx ?? 0,
+      keepHeight: over.keepHeight ?? false,
     });
 
   it("switches vertical to horizontal and back, keeping x and y", () => {
@@ -231,6 +232,13 @@ describe("planOptionSize", () => {
   it("scales the size and adds the title bar chrome", () => {
     const next = plan("horizontal", "vertical", { chromePx: 20, scalePct: 150 });
     expect(next.bounds).toEqual({ x: 40, y: 30, width: 720, height: 294 + 20 });
+  });
+  it("sets only the width when the height follows the content", () => {
+    const next = plan("horizontal", "vertical", { keepHeight: true, chromePx: 20 });
+    expect(next).toEqual({
+      bounds: { x: 40, y: 30, width: 480, height: 360 },
+      sizedFor: "horizontal",
+    });
   });
   it("moves left to stay inside the work area, keeping the size", () => {
     const next = plan("horizontal", "vertical", { b: { ...bounds, x: 1600 } });
