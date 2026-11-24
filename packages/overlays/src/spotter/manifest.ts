@@ -17,7 +17,7 @@ export const spotterManifest: OverlayManifest = {
       kind: "number",
       default: 246,
       min: 20,
-      max: 600,
+      max: 900,
       step: 10,
       unit: "px",
       section: "Bars",
