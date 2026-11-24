@@ -145,8 +145,9 @@ describe("pills", () => {
     expect(css).toMatch(/\.ov-pill--ir-wide\s*\{[^}]*width:/);
     expect(css).toMatch(/\.ov-ir-delta--fixed\s*\{[^}]*justify-content:\s*flex-end/);
   });
-  it("renders the car count with a decorative helmet", () => {
+  it("renders the car count with a decorative helmet before the number", () => {
     const html = renderToStaticMarkup(<CarCount count={12} />);
+    expect(html).toMatch(/<\/svg>12<\/span>$/);
     expect(html).toContain('aria-label="12 cars"');
     expect(html).toContain('<svg class="ov-helmet" viewBox="0 0 362 376" aria-hidden="true"');
     expect(html).toContain(HELMET_PATH.slice(0, 20));

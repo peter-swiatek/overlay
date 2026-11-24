@@ -81,10 +81,10 @@ export function IRatingPill({
 export function CarCount({ count }: { count: number }): JSX.Element {
   return (
     <span className="ov-car-count" aria-label={`${count} ${count === 1 ? "car" : "cars"}`}>
-      {count}
       <svg className="ov-helmet" viewBox="0 0 362 376" aria-hidden="true" focusable="false">
         <path fillRule="evenodd" d={HELMET_PATH} />
       </svg>
+      {count}
     </span>
   );
 }

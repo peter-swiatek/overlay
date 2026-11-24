@@ -256,6 +256,7 @@
   align-items: center;
   gap: 0.7em;
   font-size: 0.8em;
-  color: var(--ov-text-muted);
+  /* The band's own text colour, like the headers: the car count, helmet and SoF read as figures. */
+  color: var(--ov-text);
   font-weight: 600;
 }
