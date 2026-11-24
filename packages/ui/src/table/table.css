@@ -223,7 +223,7 @@
   box-sizing: border-box;
   min-width: 0;
   height: var(--ov-row-height, 24px);
-  padding-right: var(--ov-cell-pad-x, 5px);
+  padding-right: var(--ov-panel-pad-x, 7px);
   overflow: hidden;
   white-space: nowrap;
   background: linear-gradient(

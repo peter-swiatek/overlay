@@ -24,7 +24,7 @@
 }
 
 .ov-bb-empty {
-  padding: 8px var(--ov-cell-pad-x, 8px);
+  padding: 8px var(--ov-panel-pad-x, 8px);
   color: var(--ov-text-muted);
 }
 

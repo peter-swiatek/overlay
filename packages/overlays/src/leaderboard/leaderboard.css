@@ -11,7 +11,7 @@
 }
 
 .ov-lb-empty {
-  padding: 12px var(--ov-cell-pad-x, 8px);
+  padding: 12px var(--ov-panel-pad-x, 8px);
   color: var(--ov-text-muted);
 }
 

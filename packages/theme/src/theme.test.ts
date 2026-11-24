@@ -371,6 +371,7 @@ describe("css variables", () => {
       "--ov-font-size",
       "--ov-row-height",
       "--ov-cell-pad-x",
+      "--ov-panel-pad-x",
     ]);
   });
 

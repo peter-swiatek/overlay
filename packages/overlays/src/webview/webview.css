@@ -27,7 +27,7 @@
   gap: 0.57em;
   box-sizing: border-box;
   min-height: 1.86em;
-  padding: 0.21em var(--ov-cell-pad-x, 5px);
+  padding: 0.21em var(--ov-panel-pad-x, 7px);
   overflow: hidden;
   white-space: nowrap;
   background: var(--ov-header);

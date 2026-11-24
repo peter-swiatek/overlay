@@ -47,6 +47,8 @@ export function typographyToCssVars(typography: Typography): Record<string, stri
     "--ov-font-size": "14px",
     "--ov-row-height": compact ? "20px" : "28px",
     "--ov-cell-pad-x": compact ? "1px" : "2px",
+    // Headers, footers and panel edges keep their own padding; only the columns are tight.
+    "--ov-panel-pad-x": compact ? "5px" : "7px",
   };
 }
 

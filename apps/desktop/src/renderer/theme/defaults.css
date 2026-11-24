@@ -15,6 +15,7 @@
   --ov-font-size: 14px;
   --ov-row-height: 28px;
   --ov-cell-pad-x: 2px;
+  --ov-panel-pad-x: 7px;
   --ov-locked-gain: #22c55e;
   --ov-locked-loss: #ef4444;
   --ov-locked-fastest: #a855f7;
@@ -48,4 +49,5 @@
   --ov-font-size: 14px;
   --ov-row-height: 20px;
   --ov-cell-pad-x: 1px;
+  --ov-panel-pad-x: 5px;
 }

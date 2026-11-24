@@ -33,7 +33,7 @@
   gap: 0.66em;
   box-sizing: border-box;
   min-height: 1.83em;
-  padding: 0.17em var(--ov-cell-pad-x, 5px);
+  padding: 0.17em var(--ov-panel-pad-x, 7px);
   overflow: hidden;
   white-space: nowrap;
   background: var(--ov-header);
