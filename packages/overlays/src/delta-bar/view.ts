@@ -257,7 +257,7 @@ export const EDIT_SAMPLE: DeltaBarView = {
       carNumber: "12",
       name: "A. Sample",
       gapText: "-1.2",
-      lastLapDiffS: 0.31,
+      lastLapDiffS: -0.31,
     },
     behind: {
       classPosition: 4,
@@ -265,7 +265,7 @@ export const EDIT_SAMPLE: DeltaBarView = {
       carNumber: "27",
       name: "B. Example",
       gapText: "+0.9",
-      lastLapDiffS: -0.18,
+      lastLapDiffS: 0.18,
     },
   },
   sectors: null,

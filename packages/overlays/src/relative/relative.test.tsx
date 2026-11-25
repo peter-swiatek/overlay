@@ -243,18 +243,18 @@ describe("RelativeOverlay", () => {
       ],
     });
 
-    it("is an iRacing-only toggle in Drivers, off by default", () => {
+    it("is an iRacing-only toggle in Drivers, on by default", () => {
       const field = relativeManifest.settings.find((s) => s.key === "irating-change");
       expect(field).toMatchObject({
         kind: "toggle",
         section: "Drivers",
-        default: false,
+        default: true,
         sims: ["iracing"],
       });
     });
 
     it("off: narrow fixed pill without the change, even when the entry has one", () => {
-      const html = render(f);
+      const html = render(f, { "irating-change": false });
       expect(html).toContain(">2.0k<");
       expect(html).toContain("ov-pill--ir-narrow");
       expect(html).not.toContain("ov-pill--ir-wide");

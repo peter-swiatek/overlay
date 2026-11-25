@@ -112,8 +112,8 @@ describe("driverRows", () => {
 
   it("compares lap times with the focus car", () => {
     const rows = driverRows(frame(), OPTS);
-    expect(rows[0]?.lastLapDeltaS).toBe(-0.9);
-    expect(rows[0]?.bestLapDeltaS).toBe(-0.5);
+    expect(rows[0]?.lastLapDeltaS).toBe(0.9);
+    expect(rows[0]?.bestLapDeltaS).toBe(0.5);
     expect(rows[2]?.lastLapDeltaS).toBeNull();
     expect(rows[2]?.energyFraction).toBe(0.5);
   });

@@ -57,7 +57,7 @@ function H2hTile({ car, direction }: { car: HeadToHeadCar | null; direction: "ah
   const style =
     car.classColour === null ? undefined : ({ "--class-color": car.classColour } as CSSProperties);
   const diff = car.lastLapDiffS;
-  const diffTone: Tone = diff === null || diff === 0 ? null : diff > 0 ? "gain" : "loss";
+  const diffTone: Tone = diff === null || diff === 0 ? null : diff < 0 ? "gain" : "loss";
   return (
     <div className="dl-tile dl-h2h-tile" style={style} data-side={direction}>
       <Triangle className="dl-dir" rotate={direction === "ahead" ? 0 : 180} />

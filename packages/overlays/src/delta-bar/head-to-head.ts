@@ -9,7 +9,7 @@ export interface HeadToHeadCar {
   name: string;
   /** Gap at the timing line: "-1.2" ahead / "+0.9" behind, "1L" in laps, "--" unknown. */
   gapText: string;
-  /** Their last lap minus yours; positive = you were faster (gain). */
+  /** Your last lap minus theirs; negative = you were faster (gain). */
   lastLapDiffS: number | null;
 }
 
@@ -82,7 +82,7 @@ export function headToHead(
       carNumber: hit.car.carNumber,
       name: formatDriverName(hit.car.driverName, nameFormat),
       gapText: text,
-      lastLapDiffS: theirs === null || mine === null ? null : theirs - mine,
+      lastLapDiffS: theirs === null || mine === null ? null : mine - theirs,
     };
   };
 

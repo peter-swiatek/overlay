@@ -87,9 +87,9 @@ describe("headToHead", () => {
       classColour: "#ff0000",
     });
     expect(h?.behind).toMatchObject({ classPosition: 4, carNumber: "4", gapText: "+0.9" });
-    // their last lap minus yours: ahead was slower than you (you were faster), behind was faster
-    expect(h?.ahead?.lastLapDiffS).toBeCloseTo(0.4, 6);
-    expect(h?.behind?.lastLapDiffS).toBeCloseTo(-0.3, 6);
+    // your last lap minus theirs: ahead was slower than you (you were faster), behind was faster
+    expect(h?.ahead?.lastLapDiffS).toBeCloseTo(-0.4, 6);
+    expect(h?.behind?.lastLapDiffS).toBeCloseTo(0.3, 6);
   });
 
   it("formats the names in the chosen name format", () => {

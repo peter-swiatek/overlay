@@ -181,8 +181,8 @@ function buildRow(
     bestLapS: round(bestLap, lapDecimals),
     avgLapS: round(entry?.avgLapS ?? null, lapDecimals),
     // No reference formula for the lap deltas: we compare with the focus car.
-    lastLapDeltaS: difference(lastLap, focusCar?.lastLapS ?? null, gapDecimals),
-    bestLapDeltaS: difference(bestLap, focusCar?.bestLapS ?? null, gapDecimals),
+    lastLapDeltaS: difference(focusCar?.lastLapS ?? null, lastLap, gapDecimals),
+    bestLapDeltaS: difference(focusCar?.bestLapS ?? null, bestLap, gapDecimals),
     fastest: (entry?.sessionBest ?? false) || (entry?.classBest ?? false),
     lap: car.lapInProgress,
     onPitRoad: car.onPitRoad === true,
