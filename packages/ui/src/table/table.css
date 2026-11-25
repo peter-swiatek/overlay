@@ -3,7 +3,8 @@
   width: 100%;
   font-family: var(--ov-font-family, inherit);
   font-weight: var(--ov-font-weight, 500);
-  font-size: var(--ov-font-size, 14px);
+  /* Data values sit 1px under the theme size; headers, bands and rating pills keep it. */
+  font-size: calc(var(--ov-font-size, 14px) - 1px);
   color: var(--ov-text);
   grid-auto-rows: var(--ov-row-height, 24px);
   /* Derived here, not on :root, so a scoped preview theme resolves them from its own tokens. */
@@ -174,7 +175,7 @@
   --row-base-bg: var(--ov-header);
   background: var(--ov-header);
   color: var(--ov-text-muted);
-  font-size: 0.82em;
+  font-size: calc(var(--ov-font-size, 14px) * 0.82);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -224,6 +225,7 @@
   min-width: 0;
   height: var(--ov-row-height, 24px);
   padding-right: var(--ov-panel-pad-x, 7px);
+  font-size: var(--ov-font-size, 14px);
   overflow: hidden;
   white-space: nowrap;
   background: linear-gradient(
@@ -259,4 +261,9 @@
   /* The band's own text colour, like the headers: the car count, helmet and SoF read as figures. */
   color: var(--ov-text);
   font-weight: 600;
+}
+
+/* Rating pills keep the theme size while the values around them are 1px smaller. */
+.ov-table .ov-pill {
+  font-size: calc(var(--ov-font-size, 14px) * 0.82);
 }

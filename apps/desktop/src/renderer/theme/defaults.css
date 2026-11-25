@@ -14,7 +14,7 @@
   --ov-font-weight: 500;
   --ov-font-size: 14px;
   --ov-row-height: 28px;
-  --ov-cell-pad-x: 2px;
+  --ov-cell-pad-x: 2.5px;
   --ov-panel-pad-x: 7px;
   --ov-locked-gain: #22c55e;
   --ov-locked-loss: #ef4444;
@@ -48,6 +48,6 @@
 :root[data-compact="true"] {
   --ov-font-size: 14px;
   --ov-row-height: 20px;
-  --ov-cell-pad-x: 1px;
+  --ov-cell-pad-x: 1.5px;
   --ov-panel-pad-x: 5px;
 }
