@@ -35,6 +35,8 @@ const WRAP_FROM = 0.9;
 const WRAP_TO = 0.1;
 /** The sample at a crossing only belongs to the new lap when it is this close after the line. */
 const CROSSING_MAX_PCT = 0.5;
+/** The sim's lap clock is used while it is within this of the tracker's own lap clock. */
+const LAP_CLOCK_TOLERANCE_S = 1;
 
 const KINDS: readonly DeltaReferenceKind[] = [
   "allTimeBest",
@@ -309,8 +311,15 @@ export class DeltaTracker {
     return input.lapsCompleted === null ? null : input.lapsCompleted + 1;
   }
 
+  /**
+   * Seconds into the lap. The sim's lap clock when it agrees with ours: right after the line
+   * iRacing's clock keeps counting the old lap for a second or two before it resets, and a stale
+   * value there would pin the whole trace to the previous lap's time.
+   */
   private elapsedOf(input: DeltaTickInput): number {
-    return input.currentLapS ?? Math.max(0, input.tickS - this.lapStartS);
+    const own = Math.max(0, input.tickS - this.lapStartS);
+    const sim = input.currentLapS;
+    return sim !== null && Math.abs(sim - own) <= LAP_CLOCK_TOLERANCE_S ? sim : own;
   }
 
   private cleanSample(input: DeltaTickInput) {

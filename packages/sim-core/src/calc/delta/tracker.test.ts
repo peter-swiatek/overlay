@@ -629,6 +629,38 @@ describe("optimal lap", () => {
     expect(at(outs, 350).optimalLapS!).toBeCloseTo(200 / 3, 0);
   });
 
+  it("keeps counting laps when the sim's lap clock runs on past the line", () => {
+    const states = scriptStates(
+      [
+        { lapTimeS: 100 },
+        { lapTimeS: 100, speedAt: fastFirst },
+        { lapTimeS: 100, speedAt: fastSecond },
+        { lapTimeS: 100 },
+      ],
+      { ...IR, lapTimeDelayS: 1 },
+    );
+    // For 2 s after each line the sim still counts the old lap (as iRacing does).
+    let lapEnd = 0;
+    let since = Number.POSITIVE_INFINITY;
+    let prevLaps: number | null = null;
+    const stale = states.map((s): SimState => {
+      const laps = s.cars[0]!.lapsCompleted;
+      const cur = s.player!.lap!.currentLapS ?? 0;
+      if (prevLaps !== null && laps !== prevLaps) since = 0;
+      prevLaps = laps;
+      if (since > 2) {
+        lapEnd = cur;
+        return s;
+      }
+      since += 0.1;
+      const lap = { ...s.player!.lap!, currentLapS: lapEnd + since };
+      return { ...s, player: { ...s.player!, lap } };
+    });
+    const outs = feed(new DeltaTracker(), stale);
+    expect(at(outs, 250).optimalLapS!).toBeCloseTo(100, 0);
+    expect(at(outs, 350).optimalLapS!).toBeCloseTo(200 / 3, 0);
+  });
+
   it("ignores unclean laps", () => {
     const { outs } = replay(
       [
