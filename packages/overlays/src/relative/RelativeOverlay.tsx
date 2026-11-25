@@ -44,7 +44,7 @@ export function RelativeOverlay({ settings }: OverlayProps) {
   const iRatingChange = optionBoolean(settings, "irating-change");
   const previous = useRef<readonly RelativeRow[]>([]);
 
-  const { prefs, livePositions, combinedLicencePill } = runtime;
+  const { prefs, livePositions, combinedLicencePill, makeLogos, rowTones } = runtime;
   const { gapDecimals, lapDecimals, sessionDisplay } = table;
 
   const selected = runtime.useTelemetry<Selected>((frame) => {
@@ -94,6 +94,8 @@ export function RelativeOverlay({ settings }: OverlayProps) {
       inlineFlagBadge: false,
       inlinePitBadge: false,
       pitInLastLap: false,
+      makeLogos,
+      rowTones,
     });
     // The status colour goes on the driver name and the Rel gap only (see relative.css).
     const tag = <C extends { cellClassName?: string }>(column: C, cell: string): C => ({
@@ -113,6 +115,8 @@ export function RelativeOverlay({ settings }: OverlayProps) {
     lapDecimals,
     combinedLicencePill,
     iRatingChange,
+    makeLogos,
+    rowTones,
   ]);
 
   const fit = useFittedFields(fields, columns, table.widthMode, table.widthScalePct);

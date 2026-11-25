@@ -52,8 +52,8 @@ describe("relative manifest", () => {
     const ids = relativeManifest.fields.map((f) => f.id);
     expect(ids).not.toContain("overall-position");
     expect(ids).not.toContain("car-class");
-    // Make and nationality are Leaderboard-only columns.
-    expect(ids).not.toContain("make");
+    // Nationality is a Leaderboard-only column; the manufacturer logo is offered, off by default.
+    expect(ids).toContain("make");
     expect(ids).not.toContain("nationality");
     expect(ids).toContain("gap");
   });

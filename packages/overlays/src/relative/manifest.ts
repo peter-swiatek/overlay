@@ -4,9 +4,10 @@ import { HEADER_FIELD_OPTIONS } from "../shared/info";
 import { TABLE_OPTION_FIELDS } from "../shared/options";
 
 // Reference: "as Leaderboard, minus class and overall columns", in kit order.
-// The manufacturer and nationality columns are offered on the Leaderboard only, for now.
+// The nationality column is offered on the Leaderboard only, for now; the manufacturer logo is
+// offered here too (off by default).
 const COLUMN_IDS: readonly DriverFieldId[] = DRIVER_FIELD_IDS.filter(
-  (id) => id !== "overall-position" && id !== "car-class" && id !== "make" && id !== "nationality",
+  (id) => id !== "overall-position" && id !== "car-class" && id !== "nationality",
 );
 
 const DEFAULT_VISIBLE: readonly DriverFieldId[] = [
