@@ -368,6 +368,8 @@ export class DeltaTracker {
     const wrapped =
       this.prevPct !== null && this.prevPct > WRAP_FROM && pct < WRAP_TO && !this.forceBroken;
     if (wrapped) return; // the line was seen before the lap count moved
+    // The lap count moved a few ticks before the position wrapped: the new lap starts at the wrap.
+    if (this.prevPct === null && pct > WRAP_FROM && !this.forceBroken) return;
     this.prevPct = pct;
     this.sectorTimer.sample(
       pct,

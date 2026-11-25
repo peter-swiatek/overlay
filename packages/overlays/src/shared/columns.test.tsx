@@ -112,6 +112,10 @@ describe("driverColumns", () => {
     expect(cell("gap", row({ relativeGapS: 1.2 }), rel)).toBe("+1.2");
     expect(cell("gap", row({ relativeGapS: -0.8 }), rel)).toBe("-0.8");
     expect(cell("gap", row({ relativeGapS: 0 }), rel)).toBe("0.0");
+    const ahead = { ...rel, aheadPositive: true };
+    expect(cell("gap", row({ relativeGapS: -0.8 }), ahead)).toBe("+0.8");
+    expect(cell("gap", row({ relativeGapS: 1.2 }), ahead)).toBe("-1.2");
+    expect(cell("gap", row({ relativeGapS: 0 }), ahead)).toBe("0.0");
     expect(cell("gap", row({ gapToClassLeader: { laps: 1, seconds: 3 } }))).toBe("+1 L");
     expect(cell("interval", row({ interval: { laps: 0, seconds: 3.4 } }))).toBe("+3.4");
   });

@@ -135,9 +135,10 @@ describe("RelativeOverlay", () => {
 
   it("prints signed gaps and never colours them by time", () => {
     const html = render(frame());
-    expect(html).toContain("-1.2");
-    expect(html).toContain("+0.8");
-    expect(html).toContain("+1.6");
+    // Cars ahead read +, cars behind -.
+    expect(html).toContain("+1.2");
+    expect(html).toContain("-0.8");
+    expect(html).toContain("-1.6");
     expect(html).not.toContain("threat");
     expect(html).not.toContain("ov-rel-status--");
     const css = readFileSync(join(__dirname, "relative.css"), "utf8");

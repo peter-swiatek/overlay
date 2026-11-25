@@ -87,6 +87,8 @@ export function RelativeOverlay({ settings }: OverlayProps) {
       lapDecimals,
       combinedLicencePill,
       gapMode: "relative",
+      // Cars ahead read +, cars behind -.
+      aheadPositive: true,
       showIRatingChange: iRatingChange,
       iRatingSize: iRatingChange ? "wide" : "narrow",
       // Nothing after the name: flags have the Flag column, pit road the muted name colour (and

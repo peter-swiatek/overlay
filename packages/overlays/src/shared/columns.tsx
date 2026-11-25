@@ -46,6 +46,8 @@ export interface DriverColumnContext {
   combinedLicencePill: boolean;
   /** "standings": gap = gap to the class leader with formatGap; "relative": gap = relativeGapS with formatDelta. */
   gapMode: "standings" | "relative";
+  /** "relative" only: show the gap as + for cars ahead and - for cars behind (Relative overlay). */
+  aheadPositive?: boolean;
   /** Show the projected change in the iRating pill. Default true. */
   showIRatingChange?: boolean;
   /** iRating pill size: "auto" (content-sized, default), or a fixed "narrow" / "wide" width. */
@@ -172,7 +174,12 @@ export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[
     ),
     gap: (r) =>
       ctx.gapMode === "relative"
-        ? formatDelta(r.relativeGapS, ctx.gapDecimals)
+        ? formatDelta(
+            ctx.aheadPositive === true && r.relativeGapS !== null && r.relativeGapS !== 0
+              ? -r.relativeGapS
+              : r.relativeGapS,
+            ctx.gapDecimals,
+          )
         : formatGap(r.gapToClassLeader, ctx.gapDecimals),
     interval: (r) => formatGap(r.interval, ctx.gapDecimals),
     "last-lap": (r) =>

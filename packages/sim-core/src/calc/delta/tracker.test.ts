@@ -608,6 +608,27 @@ describe("optimal lap", () => {
     expect(at(outs, 350).optimalLapS!).toBeCloseTo(200 / 3, 0);
   });
 
+  it("keeps counting laps when the lap count moves before the position wraps", () => {
+    const states = scriptStates(
+      [
+        { lapTimeS: 100 },
+        { lapTimeS: 100, speedAt: fastFirst },
+        { lapTimeS: 100, speedAt: fastSecond },
+        { lapTimeS: 100 },
+      ],
+      { ...IR, lapTimeDelayS: 1 },
+    );
+    // Each state takes the lap count of three ticks later (0.3 s before the line).
+    const early = states.map((s, i) => {
+      const lapsCompleted = states[Math.min(states.length - 1, i + 3)]!.cars[0]!.lapsCompleted;
+      const car = { ...s.cars[0]!, lapsCompleted };
+      return { ...s, cars: [car, ...s.cars.slice(1)] };
+    });
+    const outs = feed(new DeltaTracker(), early);
+    expect(at(outs, 250).optimalLapS!).toBeCloseTo(100, 0);
+    expect(at(outs, 350).optimalLapS!).toBeCloseTo(200 / 3, 0);
+  });
+
   it("ignores unclean laps", () => {
     const { outs } = replay(
       [
