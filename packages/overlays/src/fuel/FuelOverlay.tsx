@@ -78,11 +78,18 @@ const percentText = (view: FuelView): string =>
 const levelText = (view: FuelView, fmt: Fmt): string =>
   `${fmt.amount(view.current, 2)} (${percentText(view)})`;
 
+/** Tank level band: green from 50 %, orange below 50 %, red below 25 %. */
+export function gaugeLevel(fraction: number | null): "ok" | "low" | "critical" {
+  if (fraction === null || fraction >= 0.5) return "ok";
+  return fraction < 0.25 ? "critical" : "low";
+}
+
 function Gauge({ view }: { view: FuelView }) {
   return (
     <div className="fuel-gauge-well" role="img" aria-label="Fuel level">
       <div
         className="fuel-gauge-fill"
+        data-level={gaugeLevel(view.levelFraction)}
         style={{ width: `${((view.levelFraction ?? 0) * 100).toFixed(0)}%` }}
       />
     </div>

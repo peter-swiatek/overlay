@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { OverlayInstanceSettings } from "../contract";
 import { OverlayRuntimeContext, staticRuntime, type OverlayRuntime } from "../runtime";
 import { applySettingsPatch, defaultInstanceSettings } from "../settings";
-import { FuelOverlay } from "./FuelOverlay";
+import { FuelOverlay, gaugeLevel } from "./FuelOverlay";
 import { fuelManifest } from "./manifest";
 import {
   emptyFreezeMemory,
@@ -600,5 +600,15 @@ describe("Fuel table units", () => {
     const targets = html.match(/class="fuel-target-val">([^<]*)</g) ?? [];
     for (const t of targets) expect(t).not.toMatch(/ L</);
     expect(html).toMatch(/30\.00 L/);
+  });
+});
+
+describe("tank gauge colour", () => {
+  it("is green from half a tank, orange below 50 % and red below 25 %", () => {
+    expect(gaugeLevel(null)).toBe("ok");
+    expect(gaugeLevel(0.5)).toBe("ok");
+    expect(gaugeLevel(0.49)).toBe("low");
+    expect(gaugeLevel(0.25)).toBe("low");
+    expect(gaugeLevel(0.24)).toBe("critical");
   });
 });

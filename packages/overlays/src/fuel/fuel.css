@@ -110,14 +110,24 @@
 }
 
 .fuel-gauge-fill {
+  --gauge-color: var(--ov-locked-gain);
   height: 100%;
   border-radius: 3px;
   background: linear-gradient(
     180deg,
-    var(--ov-locked-gain),
-    color-mix(in srgb, var(--ov-locked-gain) 78%, #000)
+    var(--gauge-color),
+    color-mix(in srgb, var(--gauge-color) 78%, #000)
   );
   transition: width 120ms linear;
+}
+
+/* Below half a tank orange, below a quarter red. */
+.fuel-gauge-fill[data-level="low"] {
+  --gauge-color: var(--ov-locked-flag-meatball);
+}
+
+.fuel-gauge-fill[data-level="critical"] {
+  --gauge-color: var(--ov-locked-loss);
 }
 
 .fuel-gauge-meta {
