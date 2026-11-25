@@ -1,4 +1,5 @@
 import type { OverlayManifest } from "../contract";
+import { tableOptionFields } from "../shared/options";
 
 export const deltaBarManifest: OverlayManifest = {
   id: "delta-bar",
@@ -36,6 +37,11 @@ export const deltaBarManifest: OverlayManifest = {
       help: "Races only, from lap 2",
       default: true,
     },
+    ...tableOptionFields(["name-format"]).map((f) => ({
+      ...f,
+      section: "Layout",
+      help: "Driver names on the head-to-head tiles",
+    })),
     {
       key: "bar-style",
       kind: "select",

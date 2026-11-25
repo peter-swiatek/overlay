@@ -253,11 +253,13 @@ describe("readDeltaBarOptions", () => {
     s.options["bar-range"] = "5";
     s.options["hide-below"] = 60;
     s.options["show-head-to-head"] = false;
+    s.options["name-format"] = "first-l";
     expect(readDeltaBarOptions(s)).toMatchObject({
       mode: "lastLap",
       rangeS: 5,
       hideBelowKmh: 60,
       showHeadToHead: false,
+      nameFormat: "first-l",
     });
     s.options["reference"] = "nonsense";
     s.options["bar-range"] = "3";

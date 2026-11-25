@@ -18,6 +18,7 @@ describe("delta-bar manifest", () => {
       "show-delta-speed": true,
       "show-best-times": true,
       "show-head-to-head": true,
+      "name-format": "f-last",
       "bar-style": "delta",
       reference: "auto",
       "bar-range": "2",

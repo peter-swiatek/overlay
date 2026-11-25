@@ -1,5 +1,6 @@
 import type { Car, SimState, Standings, StandingsEntry } from "@overlay/sim-core/types";
 import { formatDriverName } from "@overlay/ui/format";
+import type { NameFormat } from "@overlay/ui/types";
 
 export interface HeadToHeadCar {
   classPosition: number;
@@ -41,6 +42,7 @@ export function headToHead(
   standings: Standings | null,
   lapNumber: number | null,
   livePositions: boolean,
+  nameFormat: NameFormat = "f-last",
 ): HeadToHead | null {
   if (standings === null || state.session.type !== "race") return null;
   if (lapNumber === null || lapNumber < 2) return null;
@@ -78,7 +80,7 @@ export function headToHead(
       classPosition: target,
       classColour: hit.car.classColour,
       carNumber: hit.car.carNumber,
-      name: formatDriverName(hit.car.driverName, "f-last"),
+      name: formatDriverName(hit.car.driverName, nameFormat),
       gapText: text,
       lastLapDiffS: theirs === null || mine === null ? null : theirs - mine,
     };

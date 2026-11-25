@@ -1,3 +1,4 @@
+import type { NameFormat } from "@overlay/ui/types";
 import { parseReferenceMode, resolveReferenceKind } from "@overlay/sim-core/pure";
 import type {
   BestTime,
@@ -39,6 +40,7 @@ export interface DeltaBarOptions {
   showDeltaSpeed: boolean;
   showBestTimes: boolean;
   showHeadToHead: boolean;
+  nameFormat: NameFormat;
   barStyle: BarStyle;
 }
 
@@ -199,11 +201,20 @@ export function deltaBarView(
     bestDeltasHidden: delta.closingLap || delta.outLap,
     lapComplete,
     headToHead: options.showHeadToHead
-      ? headToHead(state, derived.standings, delta.lapNumber, livePositions)
+      ? headToHead(state, derived.standings, delta.lapNumber, livePositions, options.nameFormat)
       : null,
     sectors: options.barStyle === "sectors" ? sectorSegments(delta.sectors ?? null, kind) : null,
   };
 }
+
+const NAME_FORMATS: readonly NameFormat[] = [
+  "full",
+  "f-last",
+  "first-l",
+  "last",
+  "first",
+  "last-f",
+];
 
 const RANGES: readonly (1 | 2 | 5)[] = [1, 2, 5];
 
@@ -216,6 +227,7 @@ export function readDeltaBarOptions(settings: OverlayInstanceSettings): DeltaBar
     showDeltaSpeed: optionBoolean(settings, "show-delta-speed"),
     showBestTimes: optionBoolean(settings, "show-best-times"),
     showHeadToHead: optionBoolean(settings, "show-head-to-head"),
+    nameFormat: NAME_FORMATS.find((f) => f === optionString(settings, "name-format")) ?? "f-last",
     barStyle: optionString(settings, "bar-style") === "sectors" ? "sectors" : "delta",
   };
 }

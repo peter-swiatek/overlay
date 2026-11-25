@@ -92,6 +92,17 @@ describe("headToHead", () => {
     expect(h?.behind?.lastLapDiffS).toBeCloseTo(-0.3, 6);
   });
 
+  it("formats the names in the chosen name format", () => {
+    const f = field();
+    expect(headToHead(f.state, f.derived.standings, 5, true)?.ahead?.name).toBe("B. Ahead");
+    expect(headToHead(f.state, f.derived.standings, 5, true, "full")?.ahead?.name).toMatch(
+      / Ahead$/,
+    );
+    expect(headToHead(f.state, f.derived.standings, 5, true, "first-l")?.ahead?.name).toMatch(
+      / A\.$/,
+    );
+  });
+
   it("ignores other classes", () => {
     const f = field();
     // car 5 is class B with live class position 1; the player's class leader is car 1

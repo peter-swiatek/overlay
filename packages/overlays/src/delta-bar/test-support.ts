@@ -10,6 +10,7 @@ export const OPTIONS: DeltaBarOptions = {
   showDeltaSpeed: true,
   showBestTimes: true,
   showHeadToHead: true,
+  nameFormat: "f-last",
   barStyle: "delta",
 };
 
