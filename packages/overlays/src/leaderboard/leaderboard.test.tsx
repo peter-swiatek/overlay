@@ -416,6 +416,16 @@ describe("LeaderboardOverlay", () => {
     expect(html).toMatch(/ov-name-stack__top">Team 0</);
     expect(html.match(/ov-name-stack__bottom/g)?.length).toBe(frame.state.cars.length);
     expect(render(frame, ALL)).not.toContain("ov-name-stack");
+    const car0 = frame.state.cars.find((c) => c.carIdx === 0);
+    if (car0 === undefined) throw new Error("fixture");
+    car0.driverName = "Max Example";
+    const stacked = (format: string): string =>
+      render(frame, {
+        options: { "show-all": true, "name-display": "team-over-driver", "name-format": format },
+      });
+    expect(stacked("f-last")).toContain('ov-name-stack__bottom">M. Example<');
+    expect(stacked("full")).toContain('ov-name-stack__bottom">Max Example<');
+    expect(stacked("last-f")).toContain('ov-name-stack__bottom">Example, M.<');
   });
 
   it("draws a class bar per class in multi-class sessions", () => {

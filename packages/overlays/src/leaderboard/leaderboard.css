@@ -26,7 +26,16 @@
   color: color-mix(in srgb, var(--ov-text) 60%, var(--ov-text-muted));
 }
 
-/* Team over driver: two lines per row, so the rows grow to fit them. */
-.leaderboard--stacked-names {
-  --ov-row-height: calc(var(--ov-font-size, 14px) * 2.6);
+/* Team over driver: driver rows grow to fit two lines; the header row and class bands keep
+   the theme row height. */
+.leaderboard--stacked-names .ov-table {
+  grid-auto-rows: auto;
+}
+
+.leaderboard--stacked-names .ov-row--header > .ov-cell {
+  height: var(--ov-row-height, 24px);
+}
+
+.leaderboard--stacked-names .ov-row:not(.ov-row--header) > .ov-cell {
+  height: calc(var(--ov-font-size, 14px) * 2.6);
 }
