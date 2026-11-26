@@ -3,11 +3,12 @@ import { AppearancePage } from "./AppearancePage";
 import { DeveloperPage } from "./DeveloperPage";
 import { DisplayPage } from "./DisplayPage";
 import { GeneralPage } from "./GeneralPage";
+import { LayoutsPage } from "./LayoutsPage";
 import { OverlaysPage } from "./OverlaysPage";
 import { PerformancePage } from "./PerformancePage";
 
 export type SettingsPageId =
-  "overlays" | "appearance" | "general" | "performance" | "display" | "developer";
+  "overlays" | "layouts" | "appearance" | "general" | "performance" | "display" | "developer";
 
 export interface SettingsPage {
   id: SettingsPageId;
@@ -20,6 +21,7 @@ export interface SettingsPage {
 
 export const SETTINGS_PAGES: readonly SettingsPage[] = [
   { id: "overlays", label: "Overlays", Component: OverlaysPage, group: "main" },
+  { id: "layouts", label: "Layouts", Component: LayoutsPage, group: "main" },
   { id: "appearance", label: "Appearance", Component: AppearancePage, group: "main" },
   { id: "general", label: "General", Component: GeneralPage, group: "settings" },
   { id: "performance", label: "Performance", Component: PerformancePage, group: "settings" },

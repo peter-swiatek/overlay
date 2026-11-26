@@ -14,6 +14,7 @@ describe("shell model", () => {
   it("hides developer-only pages unless developer tools are on", () => {
     expect(visiblePages(SETTINGS_PAGES, false).map((p) => p.id)).toEqual([
       "overlays",
+      "layouts",
       "appearance",
       "general",
       "performance",
@@ -56,7 +57,7 @@ describe("shell model", () => {
   it("groups the rail into main pages and a Settings group", () => {
     const groups = railGroups(visiblePages(SETTINGS_PAGES, false));
     expect(groups.map((g) => [g.title, g.pages.map((p) => p.id)])).toEqual([
-      [null, ["overlays", "appearance"]],
+      [null, ["overlays", "layouts", "appearance"]],
       ["Settings", ["general", "performance", "display"]],
     ]);
     const dev = railGroups(visiblePages(SETTINGS_PAGES, true));

@@ -1,0 +1,136 @@
+/* Layouts page */
+.lay-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.lay-item {
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.lay-item:first-child {
+  border-top: 0;
+}
+.lay-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.lay-name {
+  font-weight: 600;
+}
+.lay-active {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.lay-count {
+  margin: 0 0 0 auto;
+}
+.lay-summary {
+  margin: 2px 0 8px;
+}
+.lay-actions,
+.lay-confirm,
+.lay-footer,
+.lay-car-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.lay-confirm {
+  margin-top: 8px;
+  font-size: 13px;
+}
+.lay-footer {
+  margin-top: 10px;
+}
+.lay-tags {
+  margin-top: 10px;
+  padding: 2px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+.lay-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  justify-content: flex-end;
+}
+.lay-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.lay-check input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+.lay-cars {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.lay-car-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.lay-car-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: 13px;
+}
+.lay-car-remove {
+  font: inherit;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  cursor: pointer;
+}
+.lay-car-remove:hover {
+  color: var(--err);
+}
+.lay-input {
+  font: inherit;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+.lay-car-add .lay-input {
+  width: 200px;
+}
+.lay-tags .lay-input {
+  background: var(--panel);
+}
+.lay-name-input {
+  width: 220px;
+}
+.lay-value {
+  font-weight: 600;
+}

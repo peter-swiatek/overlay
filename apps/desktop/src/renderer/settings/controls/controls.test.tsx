@@ -155,6 +155,7 @@ describe("settings controls", () => {
   it("lists the settings pages in order with only developer marked dev-only", () => {
     expect(SETTINGS_PAGES.map((p) => p.id)).toEqual([
       "overlays",
+      "layouts",
       "appearance",
       "general",
       "performance",
