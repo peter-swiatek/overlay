@@ -22,7 +22,7 @@ export type NameFormat =
   | "last-f"; //    Example, M.
 
 /** Leaderboard and Relative "Name display". */
-export type NameDisplay = "driver" | "team" | "driver-team";
+export type NameDisplay = "driver" | "team" | "driver-team" | "team-over-driver";
 
 /** Leaderboard and Relative "Column width". */
 export type ColumnWidthMode = "custom" | "auto" | "compact";

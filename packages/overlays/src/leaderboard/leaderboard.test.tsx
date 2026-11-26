@@ -403,6 +403,21 @@ function render(
 const ALL = { options: { "show-all": true } };
 
 describe("LeaderboardOverlay", () => {
+  it("offers team over driver and draws the team above a smaller driver line", () => {
+    const field = leaderboardManifest.settings.find((f) => f.key === "name-display");
+    if (field?.kind !== "select") throw new Error("name-display");
+    expect(field.options.map((o) => o.value)).toContain("team-over-driver");
+    const frame = threeClasses(1);
+    for (const car of frame.state.cars) car.teamName = `Team ${car.carIdx}`;
+    const html = render(frame, {
+      options: { "show-all": true, "name-display": "team-over-driver" },
+    });
+    expect(html).toContain("leaderboard--stacked-names");
+    expect(html).toMatch(/ov-name-stack__top">Team 0</);
+    expect(html.match(/ov-name-stack__bottom/g)?.length).toBe(frame.state.cars.length);
+    expect(render(frame, ALL)).not.toContain("ov-name-stack");
+  });
+
   it("draws a class bar per class in multi-class sessions", () => {
     const html = render(threeClasses(1), ALL);
     expect(html.match(/ov-section-bar/g)).toHaveLength(3);

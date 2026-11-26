@@ -14,6 +14,7 @@ import {
   formatLapTime,
   formatNameDisplay,
   formatPercent,
+  stackedNames,
 } from "@overlay/ui/format";
 import type { Decimals, DisplayPrefs, NameDisplay, NameFormat } from "@overlay/ui/types";
 import type { CSSProperties, ReactNode } from "react";
@@ -148,12 +149,26 @@ export function driverColumns(ctx: DriverColumnContext): TableColumn<DriverRow>[
     "car-class": (r) =>
       r.className === null ? NONE : <ClassBadge name={r.className} colour={r.classColour} />,
     driver: (r) => {
-      const name = formatNameDisplay(r.driverName, r.teamName, ctx.nameDisplay, ctx.nameFormat);
-      const text = name === "" ? NONE : name;
       const muted = ctx.muteOffTrackName === true && !r.outOnTrack;
       let badge: FlagBadgeKind | null = null;
       if (ctx.inlineFlagBadge === true && r.badge !== null) badge = r.badge;
       else if (ctx.inlinePitBadge === true && r.onPitRoad) badge = "pit";
+      if (ctx.nameDisplay === "team-over-driver") {
+        const { top, bottom } = stackedNames(r.driverName, r.teamName, ctx.nameFormat);
+        return (
+          <>
+            <span className={muted ? "ov-name-stack ov-name--off-track" : "ov-name-stack"}>
+              <span className="ov-cell-text ov-name-stack__top">{top === "" ? NONE : top}</span>
+              {bottom === "" ? null : (
+                <span className="ov-cell-text ov-name-stack__bottom">{bottom}</span>
+              )}
+            </span>
+            {badge === null ? null : <FlagBadge kind={badge} />}
+          </>
+        );
+      }
+      const name = formatNameDisplay(r.driverName, r.teamName, ctx.nameDisplay, ctx.nameFormat);
+      const text = name === "" ? NONE : name;
       if (badge === null && !muted) return text;
       return (
         <>

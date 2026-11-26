@@ -134,7 +134,11 @@ export function readTableOptions(settings: OverlayInstanceSettings): TableOption
     widthScalePct: num("width-fine-tune"),
     gapDecimals: toDecimals(num("gap-decimals")),
     lapDecimals: toDecimals(num("lap-decimals")),
-    nameDisplay: oneOf(str("name-display"), ["driver", "team", "driver-team"], "driver"),
+    nameDisplay: oneOf(
+      str("name-display"),
+      ["driver", "team", "driver-team", "team-over-driver"],
+      "driver",
+    ),
     nameFormat: oneOf(
       str("name-format"),
       ["full", "f-last", "first-l", "last", "first", "last-f"],

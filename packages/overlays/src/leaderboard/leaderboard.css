@@ -25,3 +25,8 @@
 .ov-lb-off-track > .ov-cell {
   color: color-mix(in srgb, var(--ov-text) 60%, var(--ov-text-muted));
 }
+
+/* Team over driver: two lines per row, so the rows grow to fit them. */
+.leaderboard--stacked-names {
+  --ov-row-height: calc(var(--ov-font-size, 14px) * 2.6);
+}

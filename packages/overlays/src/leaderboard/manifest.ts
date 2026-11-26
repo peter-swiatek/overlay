@@ -1,4 +1,4 @@
-import type { OverlayManifest } from "../contract";
+import type { OverlayManifest, SettingField } from "../contract";
 // Pure files only: the desktop main process type-checks manifests without JSX.
 import { DRIVER_FIELD_IDS, driverFields, type DriverFieldId } from "../shared/fields";
 import { HEADER_FIELD_OPTIONS } from "../shared/info";
@@ -19,6 +19,22 @@ const LEADERBOARD_DEFAULT_VISIBLE: readonly DriverFieldId[] = [
   "last-lap",
 ];
 
+/**
+ * The shared table options, with an extra name layout for team races: the team on top and the
+ * driver in smaller text underneath, on taller rows.
+ */
+const LEADERBOARD_TABLE_FIELDS: SettingField[] = TABLE_OPTION_FIELDS.map((f) =>
+  f.key === "name-display" && f.kind === "select"
+    ? {
+        ...f,
+        options: [
+          ...f.options,
+          { value: "team-over-driver", label: "Team over driver (endurance)", sims: ["iracing"] },
+        ],
+      }
+    : f,
+);
+
 export const leaderboardManifest: OverlayManifest = {
   id: "leaderboard",
   title: "Leaderboard",
@@ -34,7 +50,7 @@ export const leaderboardManifest: OverlayManifest = {
   fitContentOffWhen: { key: "show-all", value: true },
   fields: driverFields(DRIVER_FIELD_IDS, LEADERBOARD_DEFAULT_VISIBLE),
   settings: [
-    ...TABLE_OPTION_FIELDS,
+    ...LEADERBOARD_TABLE_FIELDS,
     {
       key: "irating-change",
       label: "iRating change",

@@ -148,7 +148,15 @@ export function LeaderboardOverlay({ settings }: OverlayProps) {
   }));
 
   return (
-    <div ref={fit.ref} className="panel leaderboard" data-hidden-columns={fit.hiddenIds.join(" ")}>
+    <div
+      ref={fit.ref}
+      className={
+        table.nameDisplay === "team-over-driver"
+          ? "panel leaderboard leaderboard--stacked-names"
+          : "panel leaderboard"
+      }
+      data-hidden-columns={fit.hiddenIds.join(" ")}
+    >
       <ChProbe />
       <InfoStrip items={header} leftCount={Math.ceil(header.length / 2)} />
       {rowCount === 0 ? (

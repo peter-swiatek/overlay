@@ -9,6 +9,7 @@ import {
   formatIRating,
   formatLapTime,
   formatNameDisplay,
+  stackedNames,
   formatPercent,
   formatPressure,
   formatSessionTime,
@@ -166,6 +167,16 @@ describe("names", () => {
     expect(formatNameDisplay("Max Example", null, "team", "last")).toBe("Example");
     expect(formatNameDisplay(null, "Team Name", "driver-team", "full")).toBe("Team Name");
     expect(formatNameDisplay(null, null, "driver-team", "full")).toBe("");
+  });
+  it("stacks the team over the driver, moving the driver up without a team", () => {
+    expect(stackedNames("Max Example", " Team  Name ", "f-last")).toEqual({
+      top: "Team Name",
+      bottom: "M. Example",
+    });
+    expect(stackedNames("Max Example", null, "full")).toEqual({ top: "Max Example", bottom: "" });
+    expect(formatNameDisplay("Max Example", "Team Name", "team-over-driver", "full")).toBe(
+      "Team Name",
+    );
   });
 });
 

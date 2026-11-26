@@ -38,6 +38,20 @@ export function formatNameDisplay(
   const d = driver === null ? "" : formatDriverName(driver, format);
   const t = team === null ? "" : team.trim().replace(/\s+/g, " ");
   if (display === "driver") return d || t;
-  if (display === "team") return t || d;
+  if (display === "team" || display === "team-over-driver") return t || d;
   return d && t ? `${d} · ${t}` : d || t;
+}
+
+/**
+ * The two lines of the "team over driver" layout: the team on top, the driver underneath.
+ * Without a team name the driver moves up and the second line is empty.
+ */
+export function stackedNames(
+  driver: string | null,
+  team: string | null,
+  format: NameFormat,
+): { top: string; bottom: string } {
+  const d = driver === null ? "" : formatDriverName(driver, format);
+  const t = team === null ? "" : team.trim().replace(/\s+/g, " ");
+  return t === "" ? { top: d, bottom: "" } : { top: t, bottom: d };
 }
