@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { SimContext } from "../shared/layout-types";
 import type { TelemetryCommand, TelemetryEvent } from "../shared/telemetry-types";
 import {
   RESTART_BASE_MS,
@@ -51,6 +52,7 @@ interface Harness {
   timers: { fn: () => void; ms: number; cancelled: boolean }[];
   settingsChanges: TelemetrySettings[];
   statuses: TelemetryEvent[];
+  contexts: SimContext[];
   overlays: Set<object>;
   clock: { now: number };
   window(): object;
@@ -63,6 +65,7 @@ function harness(initial: Partial<TelemetrySettings> = {}): Harness {
   const timers: Harness["timers"] = [];
   const settingsChanges: TelemetrySettings[] = [];
   const statuses: TelemetryEvent[] = [];
+  const contexts: SimContext[] = [];
   const overlays = new Set<object>();
   let portNo = 0;
   const clock = { now: 1000 };
@@ -93,6 +96,7 @@ function harness(initial: Partial<TelemetrySettings> = {}): Harness {
       },
       onSettingsChange: (s) => settingsChanges.push(s),
       onStatusChange: (status) => statuses.push(status),
+      onContextChange: (context) => contexts.push(context),
     },
   );
   return {
@@ -102,6 +106,7 @@ function harness(initial: Partial<TelemetrySettings> = {}): Harness {
     timers,
     settingsChanges,
     statuses,
+    contexts,
     overlays,
     clock,
     window: () => {
@@ -412,5 +417,24 @@ describe("TelemetryManager", () => {
     h.children[0]?.emit({ type: "unrelated" });
     h.children[0]?.exit();
     expect(h.statuses.map((s) => s.status)).toEqual(["waiting", "live"]);
+  });
+
+  it("passes on well-formed context messages and clears the context when the process exits", () => {
+    const h = harness();
+    h.manager.start();
+    const context: SimContext = { sim: "lmu", carName: "Oreca 07", sessionType: "race" };
+    h.children[0]?.emit({ type: "context", context });
+    h.children[0]?.emit({
+      type: "context",
+      context: { sim: "rf2", carName: null, sessionType: null },
+    });
+    h.children[0]?.emit({ type: "context", context: { sim: null, carName: 3, sessionType: null } });
+    h.children[0]?.emit({ type: "context" });
+    expect(h.contexts).toEqual([context]);
+    expect(h.manager.getContext()).toEqual(context);
+    expect(h.statuses).toEqual([]);
+    h.children[0]?.exit();
+    expect(h.contexts.at(-1)).toEqual({ sim: null, carName: null, sessionType: null });
+    expect(h.manager.getContext().sim).toBeNull();
   });
 });

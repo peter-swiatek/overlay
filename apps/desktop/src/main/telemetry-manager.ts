@@ -1,4 +1,15 @@
-import { clampRateHz, type TelemetryCommand, type TelemetryEvent } from "../shared/telemetry-types";
+import {
+  EMPTY_SIM_CONTEXT,
+  LAYOUT_SESSION_TYPES,
+  isEmptySimContext,
+  type SimContext,
+} from "../shared/layout-types";
+import {
+  clampRateHz,
+  type TelemetryCommand,
+  type TelemetryContextEvent,
+  type TelemetryEvent,
+} from "../shared/telemetry-types";
 import type { TelemetrySettings, TelemetrySettingsStorage } from "./telemetry-settings";
 
 /** The part of Electron's `UtilityProcess` the manager uses. */
@@ -29,6 +40,8 @@ export interface TelemetryManagerDeps {
   onSettingsChange?: (settings: TelemetrySettings) => void;
   /** Called on every status message from the child (not on exit). */
   onStatusChange?: (status: TelemetryEvent) => void;
+  /** Called when the (sim, car, session type) context changes; empty once the process exits. */
+  onContextChange?: (context: SimContext) => void;
 }
 
 /** How long quitting waits for the telemetry process to finish writing. */
@@ -53,6 +66,7 @@ export class TelemetryManager {
   private child: TelemetryChild | undefined;
   private settings: TelemetrySettings;
   private status: TelemetryEvent | undefined;
+  private context: SimContext = EMPTY_SIM_CONTEXT;
   /** Rate (Hz) of the newest port brokered to each window (or asked for, while no child runs). */
   private readonly rates = new Map<object, number>();
   /** The Fuel overlay's options, once main has told us; resent to every new child. */
@@ -81,6 +95,11 @@ export class TelemetryManager {
     return this.status;
   }
 
+  /** The newest (sim, car, session type) context; empty while nothing is live. */
+  getContext(): SimContext {
+    return this.context;
+  }
+
   get isRunning(): boolean {
     return this.child !== undefined;
   }
@@ -91,7 +110,12 @@ export class TelemetryManager {
     this.child = child;
     this.startedAtMs = this.deps.nowMs();
     child.on("message", (message) => {
-      if (this.child !== child || !isStatusEvent(message)) return;
+      if (this.child !== child) return;
+      if (isContextEvent(message)) {
+        this.setContext(message.context);
+        return;
+      }
+      if (!isStatusEvent(message)) return;
       this.status = message;
       this.deps.onStatusChange?.(message);
     });
@@ -216,10 +240,16 @@ export class TelemetryManager {
     });
   }
 
+  private setContext(context: SimContext): void {
+    this.context = context;
+    this.deps.onContextChange?.(context);
+  }
+
   private onExit(child: TelemetryChild): void {
     if (this.child !== child) return;
     this.child = undefined;
     this.status = undefined;
+    if (!isEmptySimContext(this.context)) this.setContext(EMPTY_SIM_CONTEXT);
     if (this.quitting) return;
     if (this.deps.nowMs() - this.startedAtMs >= STABLE_UPTIME_MS) this.restartAttempt = 0;
     const delay = restartDelayMs(this.restartAttempt);
@@ -236,5 +266,18 @@ function isStatusEvent(message: unknown): message is TelemetryEvent {
     typeof message === "object" &&
     message !== null &&
     (message as { type?: unknown }).type === "status"
+  );
+}
+
+/** A well-formed context message from the child (anything else in it is ignored). */
+function isContextEvent(message: unknown): message is TelemetryContextEvent {
+  if (typeof message !== "object" || message === null) return false;
+  const { type, context } = message as { type?: unknown; context?: unknown };
+  if (type !== "context" || typeof context !== "object" || context === null) return false;
+  const { sim, carName, sessionType } = context as Record<string, unknown>;
+  return (
+    (sim === null || sim === "iracing" || sim === "lmu") &&
+    (carName === null || typeof carName === "string") &&
+    (sessionType === null || (LAYOUT_SESSION_TYPES as readonly unknown[]).includes(sessionType))
   );
 }

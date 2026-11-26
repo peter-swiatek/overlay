@@ -1,6 +1,7 @@
 import { cornersFor, Deriver } from "@overlay/sim-core";
 import type {
   TelemetryCommand,
+  TelemetryContextEvent,
   TelemetryEvent,
   TrackOutlineReply,
   TrackOutlineRequest,
@@ -8,10 +9,10 @@ import type {
 import { TelemetryEngine, type EngineDeps } from "./engine";
 import { TelemetryPublisher, type PortLike } from "./publisher";
 
-export interface ServiceDeps extends Omit<EngineDeps, "publish" | "onStatus"> {
+export interface ServiceDeps extends Omit<EngineDeps, "publish" | "onStatus" | "onContext"> {
   /** Reads the monotonic clock in milliseconds. */
   monoMs(): number;
-  sendToMain(event: TelemetryEvent): void;
+  sendToMain(event: TelemetryEvent | TelemetryContextEvent): void;
   /** Called after `stop`, once everything is closed; the process entry exits here. */
   onStopped(): void;
 }
@@ -32,6 +33,7 @@ export class TelemetryService {
       publish: (frame) => this.publisher.publish(frame, deps.monoMs()),
       onStatus: (status, source, error) =>
         deps.sendToMain({ type: "status", status, source, error }),
+      onContext: (context) => deps.sendToMain({ type: "context", context }),
     });
   }
 

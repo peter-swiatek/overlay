@@ -15,10 +15,12 @@
  * subscriber that only handles frames ignores it. The outline is large, so frames carry only
  * `derived.track` (the key and whether an outline is ready).
  *
- * Telemetry process -> main (`process.parentPort`): `TelemetryEvent`.
+ * Telemetry process -> main (`process.parentPort`): `TelemetryEvent`, and a
+ * `TelemetryContextEvent` whenever the (sim, car, session type) context changes.
  */
 
 import type { Corner, TrackOutline } from "@overlay/sim-core";
+import type { SimContext } from "./layout-types";
 
 export type TelemetrySourceChoice = "auto" | "iracing" | "lmu" | "replay" | "mock";
 
@@ -84,6 +86,12 @@ export type TelemetryEvent = {
   source: "iracing" | "lmu" | "replay" | "mock" | null;
   error: string | null;
 };
+
+/** Telemetry process to main: the context the automatic layout switch follows changed. */
+export interface TelemetryContextEvent {
+  type: "context";
+  context: SimContext;
+}
 
 export function clampRateHz(value: unknown): number {
   const n = typeof value === "number" && Number.isFinite(value) ? value : DEFAULT_TELEMETRY_RATE_HZ;

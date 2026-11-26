@@ -6,14 +6,14 @@ import {
   type TrackOutline,
   type TrackOutlineStore,
 } from "@overlay/sim-core";
-import type { TelemetryEvent } from "../shared/telemetry-types";
+import type { TelemetryContextEvent, TelemetryEvent } from "../shared/telemetry-types";
 import { MockTelemetrySource } from "./mock";
 import { ReplayTelemetrySource } from "./replay";
 import { TelemetryService } from "./service";
 import { FakePort, IRACING_RACE_START, outlineFor } from "./testing";
 
 function makeService() {
-  const events: TelemetryEvent[] = [];
+  const events: (TelemetryEvent | TelemetryContextEvent)[] = [];
   const stopped = vi.fn();
   const service = new TelemetryService({
     live: {},
@@ -48,6 +48,12 @@ describe("TelemetryService", () => {
     const seqs = port.seqs;
     expect(seqs).toEqual([...seqs].sort((a, b) => a - b));
     expect(events[0]).toEqual({ type: "status", status: "live", source: "mock", error: null });
+    // The context of the frames is sent once, not with every frame.
+    const contexts = events.filter((e) => e.type === "context");
+    expect(contexts).toHaveLength(1);
+    expect(contexts[0]?.type === "context" && contexts[0].context.carName).toEqual(
+      expect.any(String),
+    );
   });
 
   it("replays a recording end to end through the engine and publisher", async () => {
