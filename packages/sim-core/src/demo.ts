@@ -2,7 +2,6 @@
  * Browser-safe demo telemetry for the settings preview (`@overlay/sim-core/demo`).
  * Must stay free of `node:` modules and adapters; `pure.test.ts` checks the import graph.
  */
-import type { SimState } from "./model";
 import { Deriver } from "./telemetry/derive";
 import type { TelemetryFrame } from "./telemetry/frame";
 import { MockSource } from "./telemetry/mock";
@@ -22,37 +21,6 @@ const PLAYER_LAP_S = 100;
 /** Warm-up step. Small enough for the lap and gap trackers, large enough to start fast. */
 const WARM_UP_STEP_S = 0.25;
 
-/** Invented names, so the demo never shows a real driver. Index 0 is the player. */
-const DRIVER_NAMES = [
-  "Alex Marlow",
-  "Jonas Verhoek",
-  "Mira Castellan",
-  "Dario Okonkwo",
-  "Elin Strand",
-  "Tomas Brightwell",
-  "Yuki Aramaki",
-  "Lena Fontaine",
-  "Pavel Drozdov",
-  "Nadia Quill",
-  "Hugo Ferreira",
-  "Sofia Lindqvist",
-  "Ruben Achterberg",
-  "Ines Valcourt",
-  "Kasper Holm",
-  "Amara Nwosu",
-  "Luca Benedetti",
-  "Freya Ashdown",
-  "Mateo Quintero",
-  "Greta Halvorsen",
-];
-
-function withInventedNames(state: SimState): SimState {
-  for (const car of state.cars) {
-    car.driverName = DRIVER_NAMES[car.carIdx % DRIVER_NAMES.length] ?? `Driver ${car.carIdx}`;
-  }
-  return state;
-}
-
 /**
  * A deterministic demo race: the mock source run through the real deriver, fast-forwarded at
  * creation. The same sequence of `next` calls always gives the same frames.
@@ -64,7 +32,7 @@ export function createDemoFeed(options: DemoFeedOptions = {}): DemoFeed {
   let seq = 0;
 
   const advance = (dtS: number): TelemetryFrame => {
-    const state = withInventedNames(source.step(dtS));
+    const state = source.step(dtS);
     return {
       seq: ++seq,
       source: "mock",

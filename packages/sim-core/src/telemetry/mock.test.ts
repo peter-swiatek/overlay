@@ -7,6 +7,15 @@ import { Deriver } from "./derive";
 import { MOCK_TOUCH_S, MockSource, mockPlayerFlags } from "./mock";
 
 describe("MockSource", () => {
+  it("gives every car an invented driver name and a team name", () => {
+    const state = new MockSource().step(0.1);
+    for (const car of state.cars) {
+      expect(car.driverName).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+$/);
+      expect(car.teamName).toBeTruthy();
+    }
+    expect(new Set(state.cars.map((c) => c.driverName)).size).toBe(state.cars.length);
+  });
+
   it("gives the player a class rival ahead and behind with line gaps and sector times", () => {
     const mock = new MockSource();
     const deriver = new Deriver();

@@ -21,6 +21,52 @@ const GT3 = { id: "1", name: "GT3", colour: "#ffda59", lapS: 100 };
 const HYPER = { id: "2", name: "Hypercar", colour: "#ff5888", lapS: 86 };
 /** Spread of iRatings (incl. a five-digit one) so the projected changes differ in size and sign. */
 const MOCK_IRATINGS: readonly number[] = [2400, 3100, 1850, 10400, 2050, 1500, 2700, 1980];
+/** Invented driver names, so test data never shows a real driver. Index 0 is the player. */
+export const MOCK_DRIVER_NAMES: readonly string[] = [
+  "Alex Marlow",
+  "Jonas Verhoek",
+  "Mira Castellan",
+  "Dario Okonkwo",
+  "Elin Strand",
+  "Tomas Brightwell",
+  "Yuki Aramaki",
+  "Lena Fontaine",
+  "Pavel Drozdov",
+  "Nadia Quill",
+  "Hugo Ferreira",
+  "Sofia Lindqvist",
+  "Ruben Achterberg",
+  "Ines Valcourt",
+  "Kasper Holm",
+  "Amara Nwosu",
+  "Luca Benedetti",
+  "Freya Ashdown",
+  "Mateo Quintero",
+  "Greta Halvorsen",
+];
+/** Invented team names of mixed lengths; some teams run two cars. */
+export const MOCK_TEAM_NAMES: readonly string[] = [
+  "Apex Motorsport",
+  "Redline Racing",
+  "Northgate GT",
+  "Blue Flag Racing",
+  "Velocity Works",
+  "Kerb Hoppers",
+  "Late Apex Team",
+  "Slipstream SRT",
+  "Apex Motorsport",
+  "Coldbrake Endurance",
+  "Harbourside Racing",
+  "Redline Racing",
+  "Trailbrake Collective",
+  "Night Stint Motorsport",
+  "Velocity Works",
+  "Pit Lane Pirates",
+  "Grid Walk Racing",
+  "Ironbark Motorsport",
+  "Overcut Racing",
+  "Chequered Owls",
+];
 const TRACK_LENGTH_M = 5000;
 /** Four sectors of unequal length, so the sector bar can be previewed. */
 const MOCK_SECTOR_STARTS: readonly number[] = [0, 0.27, 0.53, 0.78];
@@ -444,7 +490,8 @@ export class MockSource {
     const cls = classOf(index);
     const car = emptyCar(index);
     const lapsCompleted = Math.max(0, Math.floor(distance));
-    car.driverName = `Mock Driver ${index}`;
+    car.driverName = MOCK_DRIVER_NAMES[index % MOCK_DRIVER_NAMES.length] ?? `Driver ${index}`;
+    car.teamName = MOCK_TEAM_NAMES[index % MOCK_TEAM_NAMES.length] ?? null;
     car.carName = cls.name;
     car.classId = cls.id;
     car.className = cls.name;
