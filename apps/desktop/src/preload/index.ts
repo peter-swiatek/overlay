@@ -107,6 +107,17 @@ const api: OverlayApi = {
     onStatus: (callback) => subscribe(IPC.telemetryStatusChanged, callback),
     onSourceChanged: (callback) => subscribe(IPC.telemetrySourceChanged, callback),
   },
+  layouts: {
+    get: () => ipcRenderer.invoke(IPC.layoutsGet),
+    activate: (id) => ipcRenderer.invoke(IPC.layoutsActivate, id),
+    create: () => ipcRenderer.invoke(IPC.layoutsCreate),
+    duplicate: (id) => ipcRenderer.invoke(IPC.layoutsDuplicate, id),
+    rename: (id, name) => ipcRenderer.invoke(IPC.layoutsRename, id, name),
+    remove: (id) => ipcRenderer.invoke(IPC.layoutsRemove, id),
+    setMatch: (id, patch) => ipcRenderer.invoke(IPC.layoutsSetMatch, id, patch),
+    setAutoSwitch: (on) => ipcRenderer.invoke(IPC.layoutsSetAutoSwitch, on),
+    onChanged: (callback) => subscribe(IPC.layoutsChanged, callback),
+  },
   restartApp: () => ipcRenderer.invoke(IPC.appRestart),
   quit: () => ipcRenderer.invoke(IPC.appQuit),
 };

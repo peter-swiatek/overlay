@@ -15,6 +15,7 @@ import type {
 import type { TableMetrics } from "@overlay/ui/fit";
 import type { AppSettings, AppSettingsPatch } from "./app-settings-types";
 import type { CaptureSettings, CaptureStatus } from "./capture-types";
+import type { LayoutMatch, LayoutsState } from "./layout-types";
 import type { PerfCheckOutcome, PerfProgress } from "./perf-types";
 import type { TelemetryEvent, TelemetrySourceChoice, TelemetrySourceView } from "./telemetry-types";
 
@@ -163,6 +164,20 @@ export const IPC = {
   logosGet: "logos:get",
   /** Main to every window: the logos changed (carries the whole map). */
   logosChanged: "logos:changed",
+  /** Main window only: returns `LayoutsState`. */
+  layoutsGet: "layouts:get",
+  /** Main window only: applies a layout; returns `LayoutsState`. */
+  layoutsActivate: "layouts:activate",
+  /** Main window only: a new layout copying the active one, made active; returns `LayoutsState`. */
+  layoutsCreate: "layouts:create",
+  layoutsDuplicate: "layouts:duplicate",
+  layoutsRename: "layouts:rename",
+  layoutsRemove: "layouts:remove",
+  /** Main window only: takes a layout id and a `Partial<LayoutMatch>`. */
+  layoutsSetMatch: "layouts:set-match",
+  layoutsSetAutoSwitch: "layouts:set-auto-switch",
+  /** Main to the main window: carries the new `LayoutsState`. */
+  layoutsChanged: "layouts:changed",
 } as const;
 
 /** The whole surface exposed to renderers through contextBridge. */
@@ -259,6 +274,18 @@ export interface OverlayApi {
     getStatus(): Promise<TelemetryEvent | null>;
     onStatus(callback: (status: TelemetryEvent) => void): () => void;
     onSourceChanged(callback: (view: TelemetrySourceView) => void): () => void;
+  };
+  /** Main window only: the saved layouts and the automatic switch. Each call returns the new state. */
+  layouts: {
+    get(): Promise<LayoutsState>;
+    activate(id: string): Promise<LayoutsState>;
+    create(): Promise<LayoutsState>;
+    duplicate(id: string): Promise<LayoutsState>;
+    rename(id: string, name: string): Promise<LayoutsState>;
+    remove(id: string): Promise<LayoutsState>;
+    setMatch(id: string, patch: Partial<LayoutMatch>): Promise<LayoutsState>;
+    setAutoSwitch(on: boolean): Promise<LayoutsState>;
+    onChanged(callback: (state: LayoutsState) => void): () => void;
   };
   restartApp(): Promise<void>;
   /** Main window only: quits the app. */

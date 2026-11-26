@@ -26,10 +26,13 @@ import type { TelemetryEvent } from "../shared/telemetry-types";
 import type { IpcContext } from "./ipc/context";
 import { registerDeveloperIpc } from "./ipc/developer";
 import { registerDisplayIpc } from "./ipc/display";
+import { registerLayoutIpc } from "./ipc/layouts";
 import { overlaySizes, registerOverlayIpc } from "./ipc/overlays";
 import { registerTelemetryIpc, sourceViewOf } from "./ipc/telemetry";
 import { registerThemeIpc } from "./ipc/theme";
 import { LayoutStore } from "./layout-store";
+import { LayoutSwitcher } from "./layout-switcher";
+import { LayoutsStore } from "./layouts-store";
 import {
   TRAY_NOTICE,
   clampMainWindowState,
@@ -63,6 +66,8 @@ import { buildMainWindowOptions } from "./window-options";
 import { ZOrderKeeper, hwndOf } from "./zorder";
 
 const EDIT_SHORTCUT = "Control+Shift+F10";
+/** How long a new (sim, car, session type) must hold before the layout switch acts on it. */
+const CONTEXT_SETTLE_MS = 1000;
 
 console.info(
   `[overlay] version ${BUILD_INFO.displayVersion} (${BUILD_INFO.channel}, built ${BUILD_INFO.buildDate})`,
@@ -361,8 +366,22 @@ if (!app.requestSingleInstanceLock()) {
       }
     });
 
+    // layouts.json holds every saved layout; layout.json keeps the active one's bounds so an
+    // older version still finds them (and the first run with layouts migrates from it).
+    const legacyLayout = new LayoutStore(join(userData, "layout.json"));
+    const instanceSettings = overlaySettings;
+    const layouts = new LayoutsStore({
+      file: join(userData, "layouts.json"),
+      manifests: OVERLAY_MANIFESTS,
+      loadLegacyBounds: () => legacyLayout.load(OVERLAY_MANIFESTS),
+      saveLegacyBounds: (bounds) => legacyLayout.save(bounds),
+      currentSettings: () => instanceSettings.getAll(),
+    });
     const manager = new OverlayManager({
-      layoutStore: new LayoutStore(join(userData, "layout.json")),
+      layoutStore: {
+        load: () => structuredClone(layouts.active().bounds),
+        save: (bounds) => layouts.saveActiveBounds(bounds),
+      },
       overlaySettings,
       manifests: OVERLAY_MANIFESTS,
       opacityWorkaround: effective.opacityWorkaround,
@@ -394,6 +413,15 @@ if (!app.requestSingleInstanceLock()) {
       () => tray?.refresh(),
     );
     manager.start();
+    const switcher = new LayoutSwitcher({
+      store: layouts,
+      overlays: manager,
+      settings: instanceSettings,
+      onStateChange: (state) => sendToMain(IPC.layoutsChanged, state),
+    });
+    switcher.start();
+    registerLayoutIpc(ctx, switcher);
+    let contextTimer: NodeJS.Timeout | undefined;
 
     capture = new CaptureManager(
       new CaptureSettingsStore(join(userData, "capture-settings.json")),
@@ -451,6 +479,11 @@ if (!app.requestSingleInstanceLock()) {
         tray?.refresh();
         // Carries the replay path: main window only.
         sendToMain(IPC.telemetrySourceChanged, sourceViewOf(settings));
+      },
+      onContextChange: (context) => {
+        // Sims fill in the car and session one after another while loading: let it settle.
+        clearTimeout(contextTimer);
+        contextTimer = setTimeout(() => switcher.setContext(context), CONTEXT_SETTLE_MS);
       },
       onStatusChange: (status) => {
         broadcast(IPC.telemetryStatusChanged, status);

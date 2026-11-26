@@ -78,6 +78,29 @@ describe("preload API", () => {
     expect(ipc.removeListener).toHaveBeenCalledWith(IPC.twitchChatEvent, expect.any(Function));
   });
 
+  it("wires the layouts calls to their channels", async () => {
+    const api = await loadApi();
+    await api.layouts.get();
+    await api.layouts.activate("layout-1");
+    await api.layouts.create();
+    await api.layouts.duplicate("layout-1");
+    await api.layouts.rename("layout-1", "Race");
+    await api.layouts.remove("layout-1");
+    await api.layouts.setMatch("layout-1", { sims: ["lmu"] });
+    await api.layouts.setAutoSwitch(false);
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC.layoutsGet);
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC.layoutsActivate, "layout-1");
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC.layoutsCreate);
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC.layoutsDuplicate, "layout-1");
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC.layoutsRename, "layout-1", "Race");
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC.layoutsRemove, "layout-1");
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC.layoutsSetMatch, "layout-1", { sims: ["lmu"] });
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC.layoutsSetAutoSwitch, false);
+    api.layouts.onChanged(() => undefined);
+    const channels = ipc.on.mock.calls.map((call) => (call as unknown[])[0]);
+    expect(channels).toContain(IPC.layoutsChanged);
+  });
+
   it("uses the agreed channel names", () => {
     expect(IPC.appStateGet).toBe("app-state:get");
     expect(IPC.appStateSet).toBe("app-state:set");

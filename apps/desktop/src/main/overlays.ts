@@ -37,15 +37,20 @@ import {
   type Layout,
   type StoredBounds,
 } from "./layout";
-import type { LayoutStore } from "./layout-store";
 import type { OverlaySettingsStore } from "./overlay-settings-store";
 import { loadPage, preloadPath } from "./pages";
 import { OPACITY_WORKAROUND_VALUE, buildOverlayWindowOptions } from "./window-options";
 
 const SAVE_DEBOUNCE_MS = 300;
 
+/** Where the manager loads and saves the bounds of the active layout. */
+export interface BoundsStore {
+  load(manifests: readonly OverlayManifest[]): Layout;
+  save(layout: Layout): void;
+}
+
 export interface OverlayManagerDeps {
-  layoutStore: LayoutStore;
+  layoutStore: BoundsStore;
   overlaySettings: OverlaySettingsStore;
   manifests: readonly OverlayManifest[];
   opacityWorkaround: boolean;
@@ -83,7 +88,8 @@ function minArgs(size: Size): [number, number] {
  */
 export class OverlayManager {
   private readonly open = new Map<string, OpenOverlay>();
-  private readonly layout: Layout;
+  /** Bounds of the active layout; replaced when another layout is applied. */
+  private layout: Layout;
   private editMode = false;
   private visible = true;
   /** In-memory enabled states that win over the stored settings (never saved); null when off. */
@@ -493,6 +499,43 @@ export class OverlayManager {
     }
     this.flushSave();
     this.deps.onStateChange();
+  }
+
+  /**
+   * Applies another layout's bounds: open windows move and resize to them (scaled when the
+   * layout was saved at another scale) and later saves go to the new bounds. A window the layout
+   * has no bounds for stays where it is and is recorded there. Pending saves of the old bounds
+   * must be flushed first (see LayoutSwitcher).
+   */
+  replaceLayout(next: Layout): void {
+    clearTimeout(this.saveTimer);
+    this.saveTimer = undefined;
+    this.layout = structuredClone(next);
+    const workAreas = screen.getAllDisplays().map((d) => d.workArea);
+    const primary = screen.getPrimaryDisplay().workArea;
+    for (const entry of this.open.values()) {
+      const { id, win, manifest, scalePct } = entry;
+      if (win.isDestroyed()) continue;
+      const stored = this.layout[id];
+      if (!stored) {
+        this.store(id, win.getBounds(), scalePct);
+        continue;
+      }
+      const sized =
+        stored.scalePct === scalePct
+          ? stored
+          : { ...stored, ...scaleBounds(stored, stored.scalePct, scalePct, manifest.minSize) };
+      const placed = initialBounds(manifest, sized, scalePct, workAreas, primary);
+      const min = this.minOf(entry);
+      const bounds = growToMin(placed, min, screen.getDisplayMatching(placed).workArea);
+      win.setBounds(bounds);
+      this.store(id, bounds, scalePct);
+    }
+    for (const id of this.open.keys()) {
+      this.applyFit(id);
+      this.applyOptionSize(id);
+    }
+    this.flushSave();
   }
 
   private rescale(entry: OpenOverlay, settings: OverlayInstanceSettings): void {
