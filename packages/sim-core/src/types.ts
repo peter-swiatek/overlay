@@ -10,6 +10,7 @@ export type {
   PlayerLapDeltas,
   PlayerSetup,
   SessionInfo,
+  SessionType,
   ShiftLightRpm,
   SimName,
   SimState,
