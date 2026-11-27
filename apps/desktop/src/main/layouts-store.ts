@@ -1,12 +1,17 @@
 import type { OverlayInstanceSettings, OverlayManifest } from "@overlay/overlays/contract";
 import { manifestForInstance } from "@overlay/overlays/instances";
+import type { SimName } from "@overlay/sim-core/types";
 import {
+  CAR_TYPES,
   DEFAULT_LAYOUT_ID,
+  FALLBACK_GROUP_NAME,
   LAYOUT_SESSION_TYPES,
   LAYOUT_SIMS,
   MAX_CAR_NAME,
   MAX_LAYOUT_CARS,
   MAX_LAYOUT_NAME,
+  SIM_LABELS,
+  offeredForGame,
   type LayoutMatch,
   type LayoutView,
 } from "../shared/layout-types";
@@ -14,33 +19,36 @@ import { readJsonFile, writeJsonFileAtomic } from "./json-file";
 import { parseLayout, type Layout } from "./layout";
 import { sameCarName } from "./layout-match";
 
-/** One saved layout: where every placed instance sits and which instances are on. */
+/**
+ * One overlay group (stored as a layout): where every placed instance sits, which instances are
+ * on, and when the group is picked.
+ */
 export interface StoredLayout {
   id: string;
   name: string;
   match: LayoutMatch;
-  /** Instance id to on/off. An instance missing here is off in this layout. */
+  /** Instance id to on/off. An instance missing here is off in this group. */
   enabled: Record<string, boolean>;
   bounds: Layout;
 }
 
-/** The contents of layouts.json. */
+/** The contents of layouts.json. Version 2 added games, car types and the starter groups. */
 export interface LayoutsFile {
-  version: 1;
+  version: 2;
   activeId: string;
   autoSwitch: boolean;
-  /** The Default layout is always present (and always first). */
+  /** The fallback group is always present (and stored first; the page lists it last). */
   layouts: StoredLayout[];
 }
 
-export const DEFAULT_LAYOUT_NAME = "Default";
+export const LAYOUTS_FILE_VERSION = 2;
 
 function isObj(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function emptyMatch(): LayoutMatch {
-  return { sims: [], cars: [], sessions: [] };
+  return { game: null, sessions: [], carTypes: [], cars: [] };
 }
 
 /** A trimmed name of at most MAX_LAYOUT_NAME characters; undefined when empty or not a string. */
@@ -70,24 +78,42 @@ export function parseCars(value: unknown): string[] {
   return cars;
 }
 
-export function parseMatch(value: unknown): LayoutMatch {
-  if (!isObj(value)) return emptyMatch();
-  return {
-    sims: pickKnown(value["sims"], LAYOUT_SIMS),
-    cars: parseCars(value["cars"]),
-    sessions: pickKnown(value["sessions"], LAYOUT_SESSION_TYPES),
-  };
+function parseGame(value: unknown): SimName | null {
+  return LAYOUT_SIMS.find((s) => s === value) ?? null;
 }
 
-/** Applies the parts of `patch` that are present (each one replaces that list). */
+/** Car types are iRacing only: a Le Mans Ultimate group has none. */
+function withoutLmuCarTypes(match: LayoutMatch): LayoutMatch {
+  return match.game === "lmu" && match.carTypes.length > 0 ? { ...match, carTypes: [] } : match;
+}
+
+/**
+ * Reads a group's conditions. Version 1 files had a `sims` list instead of `game`: one sim
+ * becomes that game, none or both become "any".
+ */
+export function parseMatch(value: unknown): LayoutMatch {
+  if (!isObj(value)) return emptyMatch();
+  const legacySims = pickKnown(value["sims"], LAYOUT_SIMS);
+  const game =
+    "game" in value ? parseGame(value["game"]) : legacySims.length === 1 ? legacySims[0]! : null;
+  return withoutLmuCarTypes({
+    game,
+    sessions: pickKnown(value["sessions"], LAYOUT_SESSION_TYPES),
+    carTypes: pickKnown(value["carTypes"], CAR_TYPES),
+    cars: parseCars(value["cars"]),
+  });
+}
+
+/** Applies the parts of `patch` that are present (each one replaces that condition). */
 export function patchMatch(current: LayoutMatch, patch: unknown): LayoutMatch {
   if (!isObj(patch)) return current;
-  const parsed = parseMatch(patch);
-  return {
-    sims: "sims" in patch ? parsed.sims : current.sims,
-    cars: "cars" in patch ? parsed.cars : current.cars,
+  const parsed = parseMatch({ game: null, ...patch });
+  return withoutLmuCarTypes({
+    game: "game" in patch ? parsed.game : current.game,
     sessions: "sessions" in patch ? parsed.sessions : current.sessions,
-  };
+    carTypes: "carTypes" in patch ? parsed.carTypes : current.carTypes,
+    cars: "cars" in patch ? parsed.cars : current.cars,
+  });
 }
 
 function parseEnabled(
@@ -112,8 +138,8 @@ function parseStoredLayout(
   const isDefault = id === DEFAULT_LAYOUT_ID;
   return {
     id,
-    name: isDefault ? DEFAULT_LAYOUT_NAME : (parseLayoutName(value["name"]) ?? "Layout"),
-    // The Default layout is the fallback; it carries no tags.
+    name: isDefault ? FALLBACK_GROUP_NAME : (parseLayoutName(value["name"]) ?? "Group"),
+    // The fallback group is used when nothing else matches; it has no conditions.
     match: isDefault ? emptyMatch() : parseMatch(value["match"]),
     enabled: parseEnabled(value["enabled"], manifests),
     bounds: parseLayout(value["bounds"], manifests),
@@ -127,34 +153,71 @@ export function enabledOf(
   return Object.fromEntries(Object.entries(settings).map(([id, s]) => [id, s.enabled]));
 }
 
+/** Whether instance `id` is on in `layout`: switched on there and offered for the group's game. */
+export function isOnIn(
+  layout: Pick<StoredLayout, "enabled" | "match">,
+  id: string,
+  manifests: readonly OverlayManifest[],
+): boolean {
+  const manifest = manifestForInstance(id, manifests);
+  return (
+    layout.enabled[id] === true &&
+    manifest !== undefined &&
+    offeredForGame(manifest.sims, layout.match.game)
+  );
+}
+
 /**
- * First run with layouts: the single layout so far (layout.json) and the overlays that are on
- * now become the Default layout, which is active. Automatic switching starts on.
+ * The two groups a user starts with, one per game, each a copy of `source` (positions and the
+ * overlays that are on) with the overlays the game does not offer turned off.
+ */
+export function starterGroups(
+  source: StoredLayout,
+  manifests: readonly OverlayManifest[],
+  ids: Iterable<string>,
+): StoredLayout[] {
+  const taken = new Set(ids);
+  return LAYOUT_SIMS.map((game) => {
+    const id = nextLayoutId(taken);
+    taken.add(id);
+    const match: LayoutMatch = { ...emptyMatch(), game };
+    const enabled = Object.fromEntries(
+      Object.keys(source.enabled).map((key) => [key, isOnIn({ ...source, match }, key, manifests)]),
+    );
+    return { id, name: SIM_LABELS[game], match, enabled, bounds: structuredClone(source.bounds) };
+  });
+}
+
+/**
+ * First run with groups: the single layout so far (layout.json) and the overlays that are on now
+ * become the fallback group, which is active, plus one starter group per game. Automatic
+ * switching starts on.
  */
 export function migrateLayouts(
   bounds: Layout,
   settings: Record<string, OverlayInstanceSettings>,
+  manifests: readonly OverlayManifest[],
 ): LayoutsFile {
+  const fallback: StoredLayout = {
+    id: DEFAULT_LAYOUT_ID,
+    name: FALLBACK_GROUP_NAME,
+    match: emptyMatch(),
+    enabled: enabledOf(settings),
+    bounds: structuredClone(bounds),
+  };
   return {
-    version: 1,
+    version: LAYOUTS_FILE_VERSION,
     activeId: DEFAULT_LAYOUT_ID,
     autoSwitch: true,
-    layouts: [
-      {
-        id: DEFAULT_LAYOUT_ID,
-        name: DEFAULT_LAYOUT_NAME,
-        match: emptyMatch(),
-        enabled: enabledOf(settings),
-        bounds: structuredClone(bounds),
-      },
-    ],
+    layouts: [fallback, ...starterGroups(fallback, manifests, [DEFAULT_LAYOUT_ID])],
   };
 }
 
 /**
  * Reads layouts.json. Returns undefined when the file holds no layouts at all (missing or
  * unreadable: the caller migrates). Invalid layouts and duplicate ids are dropped; a missing
- * Default layout is rebuilt from `fallback`; an unknown active id falls back to Default.
+ * fallback group is rebuilt from `fallback`; an unknown active id falls back to it. A version 1
+ * file that holds only the fallback gets the starter groups.
  */
 export function parseLayoutsFile(
   raw: unknown,
@@ -168,11 +231,14 @@ export function parseLayoutsFile(
     if (layout && !layouts.some((l) => l.id === layout.id)) layouts.push(layout);
   }
   const defaultIndex = layouts.findIndex((l) => l.id === DEFAULT_LAYOUT_ID);
-  const def = defaultIndex >= 0 ? layouts.splice(defaultIndex, 1)[0] : undefined;
-  layouts.unshift(def ?? fallback());
+  const def = (defaultIndex >= 0 ? layouts.splice(defaultIndex, 1)[0] : undefined) ?? fallback();
+  layouts.unshift(def);
+  if (raw["version"] !== LAYOUTS_FILE_VERSION && layouts.length === 1) {
+    layouts.push(...starterGroups(def, manifests, [def.id]));
+  }
   const activeId = raw["activeId"];
   return {
-    version: 1,
+    version: LAYOUTS_FILE_VERSION,
     activeId:
       typeof activeId === "string" && layouts.some((l) => l.id === activeId)
         ? activeId
@@ -190,10 +256,10 @@ export function nextLayoutId(ids: Iterable<string>): string {
   return `layout-${n}`;
 }
 
-/** "Layout 2", "Layout 3", ... : the first such name nobody uses yet. */
-export function nextLayoutName(names: Iterable<string>, base = "Layout"): string {
+/** "Group 1", "Group 2", ... : the first such name nobody uses yet. */
+export function nextLayoutName(names: Iterable<string>, base = "Group"): string {
   const taken = new Set([...names].map((n) => n.toLowerCase()));
-  let n = 2;
+  let n = 1;
   while (taken.has(`${base} ${n}`.toLowerCase())) n += 1;
   return `${base} ${n}`;
 }
@@ -210,7 +276,7 @@ export function layoutView(layout: StoredLayout): LayoutView {
     name: layout.name,
     isDefault: layout.id === DEFAULT_LAYOUT_ID,
     match: structuredClone(layout.match),
-    overlayCount: Object.values(layout.enabled).filter(Boolean).length,
+    enabled: { ...layout.enabled },
   };
 }
 
@@ -237,15 +303,16 @@ export class LayoutsStore {
 
   constructor(private readonly options: LayoutsStoreOptions) {
     const migrate = (): LayoutsFile =>
-      migrateLayouts(options.loadLegacyBounds(), options.currentSettings());
+      migrateLayouts(options.loadLegacyBounds(), options.currentSettings(), options.manifests);
     const fallback = (): StoredLayout => {
       const first = migrate().layouts[0];
-      if (!first) throw new Error("migration made no Default layout");
+      if (!first) throw new Error("migration made no fallback group");
       return first;
     };
-    const parsed = parseLayoutsFile(readJsonFile(options.file), options.manifests, fallback);
+    const raw = readJsonFile(options.file);
+    const parsed = parseLayoutsFile(raw, options.manifests, fallback);
     this.data = parsed ?? migrate();
-    if (!parsed) this.write();
+    if (!parsed || (raw as { version?: unknown }).version !== LAYOUTS_FILE_VERSION) this.write();
   }
 
   get activeId(): string {
@@ -270,8 +337,16 @@ export class LayoutsStore {
     return active;
   }
 
+  /** The groups as the page lists them: the fallback group last. */
   views(): LayoutView[] {
-    return this.data.layouts.map(layoutView);
+    const views = this.data.layouts.map(layoutView);
+    return [...views.filter((v) => !v.isDefault), ...views.filter((v) => v.isDefault)];
+  }
+
+  /** Whether instance `id` is on in group `layoutId` (offered for its game and switched on). */
+  isOn(layoutId: string, id: string): boolean {
+    const layout = this.get(layoutId);
+    return layout !== undefined && isOnIn(layout, id, this.options.manifests);
   }
 
   onChange(listener: () => void): () => void {
@@ -315,7 +390,7 @@ export class LayoutsStore {
     return id;
   }
 
-  /** A new layout that copies the active one, with a fresh name and no tags. */
+  /** A new group that copies the active one, with a fresh name and no conditions. */
   createFromActive(): string | undefined {
     const id = this.duplicate(
       this.data.activeId,
@@ -329,7 +404,7 @@ export class LayoutsStore {
     return id;
   }
 
-  /** Renames a layout (not Default). Returns false when nothing changed. */
+  /** Renames a group (not the fallback). Returns false when nothing changed. */
   rename(id: string, name: unknown): boolean {
     const layout = this.get(id);
     const next = parseLayoutName(name);
@@ -341,7 +416,7 @@ export class LayoutsStore {
     return true;
   }
 
-  /** Deletes a layout (never Default). The caller switches away first when it is the active one. */
+  /** Deletes a group (never the fallback). The caller switches away first when it is the active one. */
   remove(id: string): boolean {
     if (id === DEFAULT_LAYOUT_ID || id === this.data.activeId) return false;
     const index = this.data.layouts.findIndex((l) => l.id === id);
@@ -351,7 +426,7 @@ export class LayoutsStore {
     return true;
   }
 
-  /** Changes a layout's tags (not Default's); each list present in `patch` replaces the old one. */
+  /** Changes a group's conditions (not the fallback's); each one present in `patch` replaces the old one. */
   setMatch(id: string, patch: unknown): boolean {
     const layout = this.get(id);
     if (!layout || id === DEFAULT_LAYOUT_ID) return false;
@@ -374,18 +449,30 @@ export class LayoutsStore {
     }
   }
 
-  /** An instance was turned on or off: the active layout remembers it. */
+  /** An instance was turned on or off: the active group remembers it. */
   setEnabled(instanceId: string, on: boolean): void {
-    const active = this.active();
-    if (active.enabled[instanceId] === on) return;
-    active.enabled[instanceId] = on;
+    this.setEnabledIn(this.data.activeId, instanceId, on);
+  }
+
+  /** Turns an instance on or off in one group (no windows change here). */
+  setEnabledIn(layoutId: string, instanceId: string, on: boolean): boolean {
+    const layout = this.get(layoutId);
+    if (!layout || !manifestForInstance(instanceId, this.options.manifests)) return false;
+    if (layout.enabled[instanceId] === on) return true;
+    layout.enabled[instanceId] = on;
     this.commit();
+    return true;
   }
 
   /** Records every instance's current on/off state in the active layout (at start). */
   captureEnabled(settings: Record<string, OverlayInstanceSettings>): void {
     const active = this.active();
-    const next = enabledOf(settings);
+    const next = { ...active.enabled };
+    for (const [id, on] of Object.entries(enabledOf(settings))) {
+      // An overlay the group's game does not offer keeps its stored state (it is off here anyway).
+      const manifest = manifestForInstance(id, this.options.manifests);
+      if (manifest && offeredForGame(manifest.sims, active.match.game)) next[id] = on;
+    }
     if (JSON.stringify(next) === JSON.stringify(active.enabled)) return;
     active.enabled = next;
     this.commit();

@@ -52,6 +52,14 @@ export function createLayoutIpcHandlers(
     [IPC.layoutsSetAutoSwitch]: handle(IPC.layoutsSetAutoSwitch, (on) => {
       if (typeof on === "boolean") switcher.setAutoSwitch(on);
     }),
+    [IPC.layoutsSetEnabled]: handle(
+      IPC.layoutsSetEnabled,
+      withId((id, instanceId, on) => {
+        if (typeof instanceId === "string" && typeof on === "boolean") {
+          switcher.setEnabled(id, instanceId, on);
+        }
+      }),
+    ),
   };
 }
 

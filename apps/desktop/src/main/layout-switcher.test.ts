@@ -15,7 +15,9 @@ const at = (x: number): Layout => ({
 const ctx = (c: Partial<SimContext> = {}): SimContext => ({
   sim: "iracing",
   carName: "Dallara P217",
+  carType: "sports",
   sessionType: "race",
+  testData: false,
   ...c,
 });
 
@@ -119,7 +121,12 @@ describe("LayoutSwitcher", () => {
     switcher.setContext(ctx());
     expect(switcher.state().activeId).toBe(id);
     expect(switcher.state().context).toEqual(ctx());
+    // The iRacing starter group beats the fallback.
     switcher.setContext(ctx({ sessionType: "practice" }));
+    expect(switcher.state().activeId).toBe("layout-1");
+    switcher.setContext(ctx({ sim: "lmu", carType: null, sessionType: "practice" }));
+    expect(switcher.state().activeId).toBe("layout-2");
+    switcher.setContext(ctx({ sim: null, sessionType: "practice", testData: true }));
     expect(switcher.state().activeId).toBe("default");
   });
 
@@ -162,11 +169,32 @@ describe("LayoutSwitcher", () => {
     expect(store.get(id)?.enabled).toEqual(store.get("default")?.enabled);
   });
 
+  it("turns an overlay on or off in the active group at once, and only in the data otherwise", () => {
+    settings.update("weather", { enabled: false });
+    expect(switcher.setEnabled("layout-1", "weather", true)).toBe(true);
+    expect(store.get("layout-1")?.enabled["weather"]).toBe(true);
+    expect(settings.get("weather")?.enabled).toBe(false);
+    expect(switcher.setEnabled("default", "weather", true)).toBe(true);
+    expect(settings.get("weather")?.enabled).toBe(true);
+    expect(store.get("default")?.enabled["weather"]).toBe(true);
+    expect(switcher.setEnabled("nope", "weather", true)).toBe(false);
+  });
+
+  it("opens only what the group's game offers", () => {
+    settings.update("compact-hud", { enabled: true });
+    switcher.setEnabled("layout-2", "compact-hud", true);
+    switcher.activate("layout-2");
+    expect(settings.get("compact-hud")?.enabled).toBe(false);
+    // Changing the active group's game closes and opens windows to fit.
+    switcher.setMatch("layout-2", { game: null });
+    expect(settings.get("compact-hud")?.enabled).toBe(true);
+  });
+
   it("reports state changes", () => {
     switcher.setContext(ctx());
     expect(onState).toHaveBeenCalled();
     const last = onState.mock.calls.at(-1)?.[0] as ReturnType<LayoutSwitcher["state"]>;
     expect(last.context).toEqual(ctx());
-    expect(last.layouts[0]?.isDefault).toBe(true);
+    expect(last.layouts.at(-1)?.isDefault).toBe(true);
   });
 });

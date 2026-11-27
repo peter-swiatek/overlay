@@ -70,28 +70,45 @@ export class LayoutSwitcher {
 
   /** Makes `id` the active layout and applies it. Returns false for an unknown id. */
   activate(id: string): boolean {
-    const { store, overlays, settings } = this.deps;
+    const { store, overlays } = this.deps;
     const target = store.get(id);
     if (!target) return false;
     if (store.activeId === id) return true;
     overlays.flushSave();
     store.setActive(id);
     overlays.replaceLayout(target.bounds);
+    this.applyEnabled();
+    return true;
+  }
+
+  /**
+   * Turns an instance on or off in one group. In the active group the window opens or closes
+   * at once (through the overlay settings, which saves it here); otherwise only the group changes.
+   */
+  setEnabled(layoutId: string, instanceId: string, on: boolean): boolean {
+    const { store, settings } = this.deps;
+    if (!store.get(layoutId)) return false;
+    if (layoutId !== store.activeId) return store.setEnabledIn(layoutId, instanceId, on);
+    if (!settings.getAll()[instanceId]) return false;
+    settings.update(instanceId, { enabled: on });
+    return true;
+  }
+
+  /** Opens and closes windows so they match the active group (switched on and offered for its game). */
+  private applyEnabled(): void {
+    const { store, settings } = this.deps;
     this.applying = true;
     try {
       for (const [instanceId, current] of Object.entries(settings.getAll())) {
-        const on = target.enabled[instanceId] ?? false;
+        const on = store.isOn(store.activeId, instanceId);
         if (current.enabled !== on) settings.update(instanceId, { enabled: on });
       }
     } finally {
       this.applying = false;
     }
-    // Instances the layout did not know yet are recorded as off.
-    store.captureEnabled(settings.getAll());
-    return true;
   }
 
-  /** A new layout copying the active one; it becomes active (nothing moves). */
+  /** A new group copying the active one; it becomes active (nothing moves). */
   create(): string | undefined {
     const id = this.deps.store.createFromActive();
     if (id !== undefined) this.activate(id);
@@ -114,8 +131,11 @@ export class LayoutSwitcher {
     return store.remove(id);
   }
 
+  /** Changes a group's conditions; a new game on the active group opens and closes windows to fit. */
   setMatch(id: string, patch: unknown): boolean {
-    return this.deps.store.setMatch(id, patch);
+    const changed = this.deps.store.setMatch(id, patch);
+    if (changed && id === this.deps.store.activeId) this.applyEnabled();
+    return changed;
   }
 
   /** Turning the switch on applies the best layout for the current context right away. */

@@ -27,6 +27,7 @@ function fakeSwitcher() {
     remove: vi.fn(),
     setMatch: vi.fn(),
     setAutoSwitch: vi.fn(),
+    setEnabled: vi.fn(),
   };
 }
 
@@ -36,7 +37,7 @@ describe("layout IPC", () => {
     for (const channel of Object.keys(handlers)) {
       expect(() => handlers[channel]?.(from("overlay"))).toThrow(/Rejected IPC/);
     }
-    expect(Object.keys(handlers)).toHaveLength(8);
+    expect(Object.keys(handlers)).toHaveLength(9);
   });
 
   it("passes valid arguments on and answers with the new state", () => {
@@ -44,12 +45,16 @@ describe("layout IPC", () => {
     const handlers = createLayoutIpcHandlers(ctx, sw as unknown as LayoutSwitcher);
     expect(handlers[IPC.layoutsActivate]?.(from("settings"), "layout-1")).toEqual(sw.state());
     handlers[IPC.layoutsRename]?.(from("settings"), "layout-1", "Race");
-    handlers[IPC.layoutsSetMatch]?.(from("settings"), "layout-1", { sims: ["lmu"] });
+    handlers[IPC.layoutsSetMatch]?.(from("settings"), "layout-1", { game: "lmu" });
     handlers[IPC.layoutsSetAutoSwitch]?.(from("settings"), false);
     handlers[IPC.layoutsCreate]?.(from("settings"));
+    handlers[IPC.layoutsSetEnabled]?.(from("settings"), "layout-1", "relative", true);
+    handlers[IPC.layoutsSetEnabled]?.(from("settings"), "layout-1", "relative", "on");
+    expect(sw.setEnabled).toHaveBeenCalledTimes(1);
+    expect(sw.setEnabled).toHaveBeenCalledWith("layout-1", "relative", true);
     expect(sw.activate).toHaveBeenCalledWith("layout-1");
     expect(sw.rename).toHaveBeenCalledWith("layout-1", "Race");
-    expect(sw.setMatch).toHaveBeenCalledWith("layout-1", { sims: ["lmu"] });
+    expect(sw.setMatch).toHaveBeenCalledWith("layout-1", { game: "lmu" });
     expect(sw.setAutoSwitch).toHaveBeenCalledWith(false);
     expect(sw.create).toHaveBeenCalled();
   });

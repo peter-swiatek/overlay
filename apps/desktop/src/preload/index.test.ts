@@ -86,7 +86,8 @@ describe("preload API", () => {
     await api.layouts.duplicate("layout-1");
     await api.layouts.rename("layout-1", "Race");
     await api.layouts.remove("layout-1");
-    await api.layouts.setMatch("layout-1", { sims: ["lmu"] });
+    await api.layouts.setMatch("layout-1", { game: "lmu" });
+    await api.layouts.setEnabled("layout-1", "relative", false);
     await api.layouts.setAutoSwitch(false);
     expect(ipc.invoke).toHaveBeenCalledWith(IPC.layoutsGet);
     expect(ipc.invoke).toHaveBeenCalledWith(IPC.layoutsActivate, "layout-1");
@@ -94,7 +95,8 @@ describe("preload API", () => {
     expect(ipc.invoke).toHaveBeenCalledWith(IPC.layoutsDuplicate, "layout-1");
     expect(ipc.invoke).toHaveBeenCalledWith(IPC.layoutsRename, "layout-1", "Race");
     expect(ipc.invoke).toHaveBeenCalledWith(IPC.layoutsRemove, "layout-1");
-    expect(ipc.invoke).toHaveBeenCalledWith(IPC.layoutsSetMatch, "layout-1", { sims: ["lmu"] });
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC.layoutsSetMatch, "layout-1", { game: "lmu" });
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC.layoutsSetEnabled, "layout-1", "relative", false);
     expect(ipc.invoke).toHaveBeenCalledWith(IPC.layoutsSetAutoSwitch, false);
     api.layouts.onChanged(() => undefined);
     const channels = ipc.on.mock.calls.map((call) => (call as unknown[])[0]);

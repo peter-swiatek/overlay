@@ -5,8 +5,8 @@ import {
   type SimContext,
 } from "../shared/layout-types";
 
-/** What each tag adds to a layout's score when it is set and matches: the car is the most specific. */
-export const MATCH_WEIGHTS = { car: 4, session: 2, sim: 1 } as const;
+/** What each condition adds to a group's score when it is set and matches: the car counts most. */
+export const MATCH_WEIGHTS = { car: 8, carType: 4, session: 2, game: 1 } as const;
 
 /** Car names compare without case and surrounding spaces. */
 export function sameCarName(a: string, b: string): boolean {
@@ -14,9 +14,9 @@ export function sameCarName(a: string, b: string): boolean {
 }
 
 /**
- * How well a layout's tags fit the context: the sum of the weights of the tags that are set, or
- * null when any set tag does not match (an unknown car, sim or session matches no set tag).
- * A layout with no tags scores 0.
+ * How well a group's conditions fit the context: the sum of the weights of the conditions that
+ * are set, or null when any set condition does not match (an unknown car, car type, game or
+ * session matches no set condition). A group with no conditions scores 0.
  */
 export function matchScore(match: LayoutMatch, context: SimContext): number | null {
   let score = 0;
@@ -25,13 +25,17 @@ export function matchScore(match: LayoutMatch, context: SimContext): number | nu
     if (car === null || !match.cars.some((c) => sameCarName(c, car))) return null;
     score += MATCH_WEIGHTS.car;
   }
+  if (match.carTypes.length > 0) {
+    if (context.carType === null || !match.carTypes.includes(context.carType)) return null;
+    score += MATCH_WEIGHTS.carType;
+  }
   if (match.sessions.length > 0) {
     if (context.sessionType === null || !match.sessions.includes(context.sessionType)) return null;
     score += MATCH_WEIGHTS.session;
   }
-  if (match.sims.length > 0) {
-    if (context.sim === null || !match.sims.includes(context.sim)) return null;
-    score += MATCH_WEIGHTS.sim;
+  if (match.game !== null) {
+    if (context.sim !== match.game) return null;
+    score += MATCH_WEIGHTS.game;
   }
   return score;
 }
@@ -42,8 +46,8 @@ export interface MatchableLayout {
 }
 
 /**
- * The most specific layout that matches the context: highest score wins, ties go to the first in
- * list order. The Default layout never competes; it is the answer when nothing else matches.
+ * The most specific group that matches the context: highest score wins, ties go to the first in
+ * list order. The fallback group never competes; it is the answer when nothing else matches.
  */
 export function pickLayout(
   layouts: readonly MatchableLayout[],
@@ -61,10 +65,10 @@ export function pickLayout(
 }
 
 /**
- * Decides when the automatic switch looks again: only when the (sim, car, session type) context
- * differs from the one it last acted on, so a layout picked by hand stays until the context next
- * changes. An empty context (no sim connected) is ignored, so leaving the sim and coming back to
- * the same car and session keeps the layout too.
+ * Decides when the automatic switch looks again: only when the (game, car, car type, session
+ * type) context differs from the one it last acted on, so a group picked by hand stays until the
+ * context next changes. An empty context (no sim connected) is ignored, so leaving the sim and
+ * coming back to the same car and session keeps the group too.
  */
 export class ContextChangeTracker {
   private last: SimContext | null = null;

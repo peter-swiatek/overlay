@@ -116,6 +116,8 @@ const api: OverlayApi = {
     remove: (id) => ipcRenderer.invoke(IPC.layoutsRemove, id),
     setMatch: (id, patch) => ipcRenderer.invoke(IPC.layoutsSetMatch, id, patch),
     setAutoSwitch: (on) => ipcRenderer.invoke(IPC.layoutsSetAutoSwitch, on),
+    setEnabled: (id, instanceId, on) =>
+      ipcRenderer.invoke(IPC.layoutsSetEnabled, id, instanceId, on),
     onChanged: (callback) => subscribe(IPC.layoutsChanged, callback),
   },
   restartApp: () => ipcRenderer.invoke(IPC.appRestart),

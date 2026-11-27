@@ -37,7 +37,7 @@ afterEach(() => {
 });
 
 const fallback = (): StoredLayout => {
-  const first = migrateLayouts(bounds(5), {}).layouts[0];
+  const first = migrateLayouts(bounds(5), {}, OVERLAY_MANIFESTS).layouts[0];
   if (!first) throw new Error("no default");
   return first;
 };
@@ -59,43 +59,71 @@ function makeStore(legacy: Layout = bounds(100)) {
 const readLayouts = (): unknown => JSON.parse(readFileSync(join(dir, "layouts.json"), "utf8"));
 
 describe("migrateLayouts", () => {
-  it("turns the old bounds and the current on/off states into the active Default layout", () => {
+  it("makes the old bounds and on/off states the active fallback group, plus one group per game", () => {
+    settings.update("compact-hud", { enabled: true });
+    settings.update("car-status", { enabled: true });
     const all: Record<string, OverlayInstanceSettings> = settings.getAll();
-    const file = migrateLayouts(bounds(42), all);
+    const file = migrateLayouts(bounds(42), all, OVERLAY_MANIFESTS);
+    expect(file.version).toBe(2);
     expect(file.activeId).toBe(DEFAULT_LAYOUT_ID);
     expect(file.autoSwitch).toBe(true);
-    expect(file.layouts).toHaveLength(1);
-    const def = file.layouts[0];
-    expect(def?.id).toBe(DEFAULT_LAYOUT_ID);
-    expect(def?.name).toBe("Default");
-    expect(def?.match).toEqual({ sims: [], cars: [], sessions: [] });
+    expect(file.layouts.map((l) => [l.id, l.name, l.match.game])).toEqual([
+      ["default", "Everything else", null],
+      ["layout-1", "iRacing", "iracing"],
+      ["layout-2", "Le Mans Ultimate", "lmu"],
+    ]);
+    const [def, iracing, lmu] = file.layouts;
+    expect(def?.match).toEqual({ game: null, sessions: [], carTypes: [], cars: [] });
     expect(def?.bounds).toEqual(bounds(42));
     expect(def?.enabled["relative"]).toBe(all["relative"]?.enabled);
     expect(Object.keys(def?.enabled ?? {})).toEqual(Object.keys(all));
+    // Each starter copies the positions and keeps only what its game offers on.
+    expect(iracing?.bounds).toEqual(bounds(42));
+    expect(iracing?.enabled["compact-hud"]).toBe(true);
+    expect(iracing?.enabled["car-status"]).toBe(false);
+    expect(lmu?.enabled["compact-hud"]).toBe(false);
+    expect(lmu?.enabled["car-status"]).toBe(true);
+    expect(lmu?.enabled["relative"]).toBe(all["relative"]?.enabled);
   });
 });
 
 describe("parseMatch / patchMatch", () => {
-  it("keeps known sims and sessions in canonical order and cleans car names", () => {
+  it("keeps known values in canonical order and cleans car names", () => {
     expect(
       parseMatch({
-        sims: ["lmu", "bogus", "iracing", "lmu"],
+        game: "iracing",
         sessions: ["race", "qualifying", 3, "other"],
+        carTypes: ["oval", "formula", "kart"],
         cars: [" Ferrari 296 GT3 ", "ferrari 296 gt3", "", 7, "BMW M4 GT3"],
       }),
     ).toEqual({
-      sims: ["iracing", "lmu"],
+      game: "iracing",
       sessions: ["qualifying", "race", "other"],
+      carTypes: ["formula", "oval"],
       cars: ["Ferrari 296 GT3", "BMW M4 GT3"],
     });
-    expect(parseMatch(null)).toEqual({ sims: [], cars: [], sessions: [] });
+    expect(parseMatch(null)).toEqual({ game: null, sessions: [], carTypes: [], cars: [] });
+    expect(parseMatch({ game: "rf2" }).game).toBeNull();
     expect(parseCars(Array.from({ length: 80 }, (_, i) => `Car ${i}`))).toHaveLength(50);
   });
 
-  it("replaces only the lists present in a patch", () => {
-    const current = { sims: ["iracing" as const], cars: ["A"], sessions: ["race" as const] };
+  it("reads the version 1 sims list as a game", () => {
+    expect(parseMatch({ sims: ["lmu"] }).game).toBe("lmu");
+    expect(parseMatch({ sims: ["iracing", "lmu"] }).game).toBeNull();
+    expect(parseMatch({ sims: [] }).game).toBeNull();
+  });
+
+  it("drops car types from a Le Mans Ultimate group", () => {
+    expect(parseMatch({ game: "lmu", carTypes: ["formula"] }).carTypes).toEqual([]);
+    const current = parseMatch({ game: "iracing", carTypes: ["formula"] });
+    expect(patchMatch(current, { game: "lmu" })).toMatchObject({ game: "lmu", carTypes: [] });
+  });
+
+  it("replaces only the conditions present in a patch", () => {
+    const current = parseMatch({ game: "iracing", cars: ["A"], sessions: ["race"] });
     expect(patchMatch(current, { cars: ["B"] })).toEqual({ ...current, cars: ["B"] });
-    expect(patchMatch(current, { sims: [] })).toEqual({ ...current, sims: [] });
+    expect(patchMatch(current, { game: null })).toEqual({ ...current, game: null });
+    expect(patchMatch(current, { carTypes: ["dirt"] })).toEqual({ ...current, carTypes: ["dirt"] });
     expect(patchMatch(current, "nope")).toBe(current);
   });
 });
@@ -106,10 +134,10 @@ describe("parseLayoutsFile", () => {
     expect(parseLayoutsFile({ layouts: "x" }, OVERLAY_MANIFESTS, fallback)).toBeUndefined();
   });
 
-  it("drops invalid layouts, duplicate ids and unknown instances; Default goes first", () => {
+  it("drops invalid groups, duplicate ids and unknown instances; the fallback goes first", () => {
     const parsed = parseLayoutsFile(
       {
-        version: 1,
+        version: 2,
         activeId: "layout-1",
         autoSwitch: false,
         layouts: [
@@ -123,7 +151,7 @@ describe("parseLayoutsFile", () => {
           { id: "layout-1", name: "Dupe" },
           { name: "No id" },
           "junk",
-          { id: "default", name: "Renamed", match: { sims: ["lmu"] }, enabled: {}, bounds: {} },
+          { id: "default", name: "Renamed", match: { game: "lmu" }, enabled: {}, bounds: {} },
         ],
       },
       OVERLAY_MANIFESTS,
@@ -133,9 +161,8 @@ describe("parseLayoutsFile", () => {
     expect(parsed?.activeId).toBe("layout-1");
     expect(parsed?.layouts.map((l) => l.id)).toEqual(["default", "layout-1"]);
     const [def, endurance] = parsed?.layouts ?? [];
-    // Default keeps its name and carries no tags.
-    expect(def?.name).toBe("Default");
-    expect(def?.match.sims).toEqual([]);
+    expect(def?.name).toBe("Everything else");
+    expect(def?.match.game).toBeNull();
     expect(endurance?.name).toBe("Endurance");
     expect(endurance?.match.sessions).toEqual(["race"]);
     expect(endurance?.enabled).toEqual({ relative: true });
@@ -144,9 +171,24 @@ describe("parseLayoutsFile", () => {
     });
   });
 
-  it("rebuilds a missing Default and falls back to it for an unknown active id", () => {
+  it("adds the starter groups to a version 1 file that holds only the fallback", () => {
+    const v1 = { version: 1, activeId: "default", layouts: [{ id: "default", name: "Default" }] };
+    const parsed = parseLayoutsFile(v1, OVERLAY_MANIFESTS, fallback);
+    expect(parsed?.layouts.map((l) => l.name)).toEqual([
+      "Everything else",
+      "iRacing",
+      "Le Mans Ultimate",
+    ]);
+    // Not to a version 1 file with groups of the user's own, nor to a version 2 file.
+    const own = { ...v1, layouts: [...v1.layouts, { id: "layout-1", name: "Mine" }] };
+    expect(parseLayoutsFile(own, OVERLAY_MANIFESTS, fallback)?.layouts).toHaveLength(2);
+    const v2 = { ...v1, version: 2 };
+    expect(parseLayoutsFile(v2, OVERLAY_MANIFESTS, fallback)?.layouts).toHaveLength(1);
+  });
+
+  it("rebuilds a missing fallback and falls back to it for an unknown active id", () => {
     const parsed = parseLayoutsFile(
-      { activeId: "gone", layouts: [{ id: "layout-3", name: "Mine" }] },
+      { version: 2, activeId: "gone", layouts: [{ id: "layout-3", name: "Mine" }] },
       OVERLAY_MANIFESTS,
       fallback,
     );
@@ -161,21 +203,21 @@ describe("naming helpers", () => {
   it("finds free ids and names", () => {
     expect(nextLayoutId(["default"])).toBe("layout-1");
     expect(nextLayoutId(["layout-1", "layout-3"])).toBe("layout-2");
-    expect(nextLayoutName(["Default"])).toBe("Layout 2");
-    expect(nextLayoutName(["Default", "layout 2"])).toBe("Layout 3");
+    expect(nextLayoutName(["Everything else"])).toBe("Group 1");
+    expect(nextLayoutName(["Everything else", "group 1"])).toBe("Group 2");
     expect(copyName("Race")).toBe("Race copy");
     expect(copyName("x".repeat(40))).toHaveLength(40);
   });
 
-  it("counts the overlays a layout turns on", () => {
+  it("lists a group with its on/off states", () => {
     const view = layoutView({
       id: "layout-1",
       name: "A",
-      match: { sims: [], cars: [], sessions: [] },
-      enabled: { relative: true, inputs: false, fuel: true },
+      match: { game: null, sessions: [], carTypes: [], cars: [] },
+      enabled: { relative: true, inputs: false },
       bounds: {},
     });
-    expect(view.overlayCount).toBe(2);
+    expect(view.enabled).toEqual({ relative: true, inputs: false });
     expect(view.isDefault).toBe(false);
   });
 });
@@ -185,92 +227,138 @@ describe("LayoutsStore", () => {
     const { store, legacyFile } = makeStore(bounds(77));
     expect(store.activeId).toBe("default");
     expect(store.active().bounds).toEqual(bounds(77));
-    expect(readLayouts()).toMatchObject({ version: 1, activeId: "default", autoSwitch: true });
+    expect(store.list().map((l) => l.name)).toEqual([
+      "Everything else",
+      "iRacing",
+      "Le Mans Ultimate",
+    ]);
+    expect(readLayouts()).toMatchObject({ version: 2, activeId: "default", autoSwitch: true });
     expect(JSON.parse(readFileSync(legacyFile, "utf8"))).toEqual(bounds(77));
+  });
+
+  it("upgrades a version 1 file on disk once", () => {
+    writeFileSync(
+      join(dir, "layouts.json"),
+      JSON.stringify({
+        version: 1,
+        activeId: "default",
+        autoSwitch: true,
+        layouts: [{ id: "default", name: "Default", match: {}, enabled: {}, bounds: bounds(3) }],
+      }),
+      "utf8",
+    );
+    const { store } = makeStore();
+    expect(store.list()).toHaveLength(3);
+    expect(store.get("layout-1")?.bounds).toEqual(bounds(3));
+    expect(readLayouts()).toMatchObject({ version: 2 });
+    store.remove("layout-1");
+    expect(makeStore().store.list()).toHaveLength(2);
   });
 
   it("reads back what it wrote", () => {
     const { store } = makeStore();
-    const id = store.createFromActive();
-    expect(id).toBe("layout-1");
-    store.setMatch("layout-1", { sims: ["lmu"], cars: ["BMW M4 GT3"] });
-    store.setActive("layout-1");
+    const id = store.createFromActive() ?? "";
+    expect(id).toBe("layout-3");
+    store.setMatch(id, { game: "iracing", carTypes: ["formula"], cars: ["Dallara F3"] });
+    store.setActive(id);
     store.saveActiveBounds(bounds(300));
     store.setAutoSwitch(false);
     const again = makeStore(bounds(1)).store;
-    expect(again.activeId).toBe("layout-1");
+    expect(again.activeId).toBe(id);
     expect(again.autoSwitch).toBe(false);
-    expect(again.get("layout-1")?.match).toEqual({
-      sims: ["lmu"],
-      cars: ["BMW M4 GT3"],
+    expect(again.get(id)?.match).toEqual({
+      game: "iracing",
       sessions: [],
+      carTypes: ["formula"],
+      cars: ["Dallara F3"],
     });
-    expect(again.get("layout-1")?.bounds).toEqual(bounds(300));
+    expect(again.get(id)?.bounds).toEqual(bounds(300));
     expect(again.get("default")?.bounds).toEqual(bounds(100));
   });
 
   it("migrates again when layouts.json cannot be parsed (and keeps the bad file aside)", () => {
     writeFileSync(join(dir, "layouts.json"), "{ not json", "utf8");
     const { store } = makeStore(bounds(9));
-    expect(store.list()).toHaveLength(1);
+    expect(store.list()).toHaveLength(3);
     expect(store.active().bounds).toEqual(bounds(9));
   });
 
-  it("mirrors the active layout's bounds into layout.json", () => {
+  it("mirrors the active group's bounds into layout.json", () => {
     const { store, legacyFile } = makeStore();
     store.saveActiveBounds(bounds(555));
     expect(JSON.parse(readFileSync(legacyFile, "utf8"))).toEqual(bounds(555));
   });
 
-  it("creates, duplicates, renames and deletes layouts; Default cannot be renamed or deleted", () => {
+  it("lists the fallback group last", () => {
     const { store } = makeStore();
-    const created = store.createFromActive();
-    expect(store.get(created ?? "")?.name).toBe("Layout 2");
-    store.setMatch(created ?? "", { sessions: ["race"] });
-    const copy = store.duplicate(created ?? "");
-    expect(store.get(copy ?? "")?.name).toBe("Layout 2 copy");
-    expect(store.get(copy ?? "")?.match.sessions).toEqual(["race"]);
-    expect(store.rename(copy ?? "", "  Sprint ")).toBe(true);
-    expect(store.get(copy ?? "")?.name).toBe("Sprint");
-    expect(store.rename(copy ?? "", "   ")).toBe(false);
+    expect(store.views().map((v) => v.id)).toEqual(["layout-1", "layout-2", "default"]);
+  });
+
+  it("creates, duplicates, renames and deletes groups; the fallback cannot be renamed or deleted", () => {
+    const { store } = makeStore();
+    const created = store.createFromActive() ?? "";
+    expect(store.get(created)?.name).toBe("Group 1");
+    store.setMatch(created, { sessions: ["race"] });
+    const copy = store.duplicate(created) ?? "";
+    expect(store.get(copy)?.name).toBe("Group 1 copy");
+    expect(store.get(copy)?.match.sessions).toEqual(["race"]);
+    expect(store.rename(copy, "  Sprint ")).toBe(true);
+    expect(store.get(copy)?.name).toBe("Sprint");
+    expect(store.rename(copy, "   ")).toBe(false);
     expect(store.rename("default", "Mine")).toBe(false);
     expect(store.remove("default")).toBe(false);
-    expect(store.setMatch("default", { sims: ["lmu"] })).toBe(false);
-    expect(store.remove(copy ?? "")).toBe(true);
-    expect(store.list().map((l) => l.id)).toEqual(["default", created]);
+    expect(store.setMatch("default", { game: "lmu" })).toBe(false);
+    expect(store.remove(copy)).toBe(true);
+    expect(store.list().map((l) => l.id)).toEqual(["default", "layout-1", "layout-2", created]);
   });
 
-  it("copies the active layout without its tags for New layout", () => {
+  it("copies the active group without its conditions for New group", () => {
     const { store } = makeStore();
-    const first = store.createFromActive() ?? "";
-    store.setMatch(first, { sims: ["iracing"] });
-    store.setActive(first);
+    store.setActive("layout-1");
     const second = store.createFromActive() ?? "";
-    expect(store.get(second)?.match.sims).toEqual([]);
-    expect(store.get(second)?.bounds).toEqual(store.get(first)?.bounds);
+    expect(store.get(second)?.match.game).toBeNull();
+    expect(store.get(second)?.enabled).toEqual(store.get("layout-1")?.enabled);
   });
 
-  it("will not delete the active layout (the switcher moves to Default first)", () => {
+  it("will not delete the active group (the switcher moves to the fallback first)", () => {
     const { store } = makeStore();
-    const id = store.createFromActive() ?? "";
-    store.setActive(id);
-    expect(store.remove(id)).toBe(false);
+    store.setActive("layout-1");
+    expect(store.remove("layout-1")).toBe(false);
   });
 
-  it("records on/off states in the active layout and forgets removed instances everywhere", () => {
+  it("turns overlays on or off per group, honouring the group's game", () => {
     const { store } = makeStore();
-    const id = store.duplicate("default") ?? "";
-    store.setEnabled("relative:2", true);
+    expect(store.setEnabledIn("layout-2", "car-status", true)).toBe(true);
+    expect(store.isOn("layout-2", "car-status")).toBe(true);
+    expect(store.isOn("default", "car-status")).toBe(false);
+    // An iRacing-only overlay is never on in a Le Mans Ultimate group.
+    store.setEnabledIn("layout-2", "compact-hud", true);
+    expect(store.isOn("layout-2", "compact-hud")).toBe(false);
+    expect(store.setEnabledIn("layout-2", "no-such-overlay", true)).toBe(false);
+  });
+
+  it("records on/off states in the active group and forgets removed instances everywhere", () => {
+    const { store } = makeStore();
+    store.setEnabled("data-frames:2", true);
     store.saveActiveBounds({
       ...bounds(1),
-      "relative:2": { x: 0, y: 0, width: 100, height: 100, scalePct: 100 },
+      "data-frames:2": { x: 0, y: 0, width: 100, height: 100, scalePct: 100 },
     });
-    store.setActive(id);
-    store.setEnabled("relative:2", false);
-    store.forgetInstance("relative:2");
-    expect("relative:2" in (store.get("default")?.enabled ?? {})).toBe(false);
-    expect("relative:2" in (store.get("default")?.bounds ?? {})).toBe(false);
-    expect("relative:2" in (store.get(id)?.enabled ?? {})).toBe(false);
+    store.setActive("layout-1");
+    store.setEnabled("data-frames:2", false);
+    expect(store.get("default")?.enabled["data-frames:2"]).toBe(true);
+    store.forgetInstance("data-frames:2");
+    expect("data-frames:2" in (store.get("default")?.enabled ?? {})).toBe(false);
+    expect("data-frames:2" in (store.get("default")?.bounds ?? {})).toBe(false);
+    expect("data-frames:2" in (store.get("layout-1")?.enabled ?? {})).toBe(false);
+  });
+
+  it("does not overwrite an overlay the active group's game hides when capturing states", () => {
+    const { store } = makeStore();
+    store.setActive("layout-2");
+    store.setEnabledIn("layout-2", "compact-hud", true);
+    store.captureEnabled(settings.getAll());
+    expect(store.get("layout-2")?.enabled["compact-hud"]).toBe(true);
   });
 
   it("tells listeners about changes", () => {

@@ -166,9 +166,9 @@ export const IPC = {
   logosChanged: "logos:changed",
   /** Main window only: returns `LayoutsState`. */
   layoutsGet: "layouts:get",
-  /** Main window only: applies a layout; returns `LayoutsState`. */
+  /** Main window only: applies a group; returns `LayoutsState`. */
   layoutsActivate: "layouts:activate",
-  /** Main window only: a new layout copying the active one, made active; returns `LayoutsState`. */
+  /** Main window only: a new group copying the active one, made active; returns `LayoutsState`. */
   layoutsCreate: "layouts:create",
   layoutsDuplicate: "layouts:duplicate",
   layoutsRename: "layouts:rename",
@@ -176,6 +176,8 @@ export const IPC = {
   /** Main window only: takes a layout id and a `Partial<LayoutMatch>`. */
   layoutsSetMatch: "layouts:set-match",
   layoutsSetAutoSwitch: "layouts:set-auto-switch",
+  /** Main window only: takes a group id, an instance id and on/off. */
+  layoutsSetEnabled: "layouts:set-enabled",
   /** Main to the main window: carries the new `LayoutsState`. */
   layoutsChanged: "layouts:changed",
 } as const;
@@ -275,7 +277,7 @@ export interface OverlayApi {
     onStatus(callback: (status: TelemetryEvent) => void): () => void;
     onSourceChanged(callback: (view: TelemetrySourceView) => void): () => void;
   };
-  /** Main window only: the saved layouts and the automatic switch. Each call returns the new state. */
+  /** Main window only: the overlay groups and the automatic switch. Each call returns the new state. */
   layouts: {
     get(): Promise<LayoutsState>;
     activate(id: string): Promise<LayoutsState>;
@@ -285,6 +287,8 @@ export interface OverlayApi {
     remove(id: string): Promise<LayoutsState>;
     setMatch(id: string, patch: Partial<LayoutMatch>): Promise<LayoutsState>;
     setAutoSwitch(on: boolean): Promise<LayoutsState>;
+    /** Turns an overlay instance on or off in one group (at once on screen for the active group). */
+    setEnabled(id: string, instanceId: string, on: boolean): Promise<LayoutsState>;
     onChanged(callback: (state: LayoutsState) => void): () => void;
   };
   restartApp(): Promise<void>;
