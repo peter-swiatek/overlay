@@ -7,22 +7,33 @@ function stateWith(patch: Partial<SimState>, cars: Partial<Car>[] = []): SimStat
   return {
     ...base,
     ...patch,
-    cars: cars.map((c, i) => ({ ...(base.cars[0] ?? ({} as Car)), carIdx: i, ...c }) as Car),
+    cars: cars.map((c, i) => ({ carIdx: i, ...c }) as Car),
   };
 }
 
 describe("simContextOf", () => {
-  it("takes the sim, the player's car name and the session type", () => {
+  it("takes the sim, the player's car, its car type and the session type", () => {
     const state = stateWith({ sim: "iracing", playerCarIdx: 1, focusCarIdx: 0 }, [
       { carName: "Other car" },
-      { carName: " Mercedes-AMG GT3 2020 " },
+      { carName: " Mercedes-AMG GT3 2020 ", className: "GT3", carPath: "mercedesamgevogt3" },
     ]);
-    state.session = { ...state.session, type: "qualifying" };
+    state.session = { ...state.session, type: "qualifying", trackCategory: "road" };
     expect(simContextOf(state)).toEqual({
       sim: "iracing",
       carName: "Mercedes-AMG GT3 2020",
+      carType: "sports",
       sessionType: "qualifying",
+      testData: false,
     });
+  });
+
+  it("derives Formula, Oval and Dirt for iRacing", () => {
+    const f3 = stateWith({ sim: "iracing", playerCarIdx: 0 }, [{ carName: "Dallara F3" }]);
+    expect(simContextOf(f3).carType).toBe("formula");
+    f3.session = { ...f3.session, trackCategory: "oval" };
+    expect(simContextOf(f3).carType).toBe("oval");
+    f3.session = { ...f3.session, trackCategory: "dirtRoad" };
+    expect(simContextOf(f3).carType).toBe("dirt");
   });
 
   it("uses the car the camera is on when the player has none", () => {
@@ -32,8 +43,19 @@ describe("simContextOf", () => {
     expect(simContextOf(state).carName).toBe("Porsche 963");
   });
 
-  it("gives null for an unknown car", () => {
+  it("gives no car type for Le Mans Ultimate and null for an unknown car", () => {
     const state = stateWith({ sim: "lmu", playerCarIdx: 4, focusCarIdx: null }, [{ carName: "" }]);
-    expect(simContextOf(state)).toEqual({ sim: "lmu", carName: null, sessionType: null });
+    expect(simContextOf(state)).toEqual({
+      sim: "lmu",
+      carName: null,
+      carType: null,
+      sessionType: null,
+      testData: false,
+    });
+  });
+
+  it("marks mock and replayed frames as test data", () => {
+    expect(simContextOf({ ...emptySimState("mock"), sim: null }).testData).toBe(true);
+    expect(simContextOf({ ...emptySimState("replay"), sim: "iracing" }).testData).toBe(true);
   });
 });

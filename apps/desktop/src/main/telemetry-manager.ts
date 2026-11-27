@@ -1,4 +1,5 @@
 import {
+  CAR_TYPES,
   EMPTY_SIM_CONTEXT,
   LAYOUT_SESSION_TYPES,
   isEmptySimContext,
@@ -274,10 +275,12 @@ function isContextEvent(message: unknown): message is TelemetryContextEvent {
   if (typeof message !== "object" || message === null) return false;
   const { type, context } = message as { type?: unknown; context?: unknown };
   if (type !== "context" || typeof context !== "object" || context === null) return false;
-  const { sim, carName, sessionType } = context as Record<string, unknown>;
+  const { sim, carName, carType, sessionType, testData } = context as Record<string, unknown>;
   return (
     (sim === null || sim === "iracing" || sim === "lmu") &&
     (carName === null || typeof carName === "string") &&
-    (sessionType === null || (LAYOUT_SESSION_TYPES as readonly unknown[]).includes(sessionType))
+    (carType === null || (CAR_TYPES as readonly unknown[]).includes(carType)) &&
+    (sessionType === null || (LAYOUT_SESSION_TYPES as readonly unknown[]).includes(sessionType)) &&
+    typeof testData === "boolean"
   );
 }

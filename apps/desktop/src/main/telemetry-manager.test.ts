@@ -422,19 +422,34 @@ describe("TelemetryManager", () => {
   it("passes on well-formed context messages and clears the context when the process exits", () => {
     const h = harness();
     h.manager.start();
-    const context: SimContext = { sim: "lmu", carName: "Oreca 07", sessionType: "race" };
+    const context: SimContext = {
+      sim: "lmu",
+      carName: "Oreca 07",
+      carType: null,
+      sessionType: "race",
+      testData: false,
+    };
     h.children[0]?.emit({ type: "context", context });
     h.children[0]?.emit({
       type: "context",
-      context: { sim: "rf2", carName: null, sessionType: null },
+      context: { sim: "rf2", carName: null, carType: null, sessionType: null, testData: false },
     });
-    h.children[0]?.emit({ type: "context", context: { sim: null, carName: 3, sessionType: null } });
+    h.children[0]?.emit({
+      type: "context",
+      context: { sim: null, carName: null, carType: "kart", sessionType: null, testData: false },
+    });
     h.children[0]?.emit({ type: "context" });
     expect(h.contexts).toEqual([context]);
     expect(h.manager.getContext()).toEqual(context);
     expect(h.statuses).toEqual([]);
     h.children[0]?.exit();
-    expect(h.contexts.at(-1)).toEqual({ sim: null, carName: null, sessionType: null });
+    expect(h.contexts.at(-1)).toEqual({
+      sim: null,
+      carName: null,
+      carType: null,
+      sessionType: null,
+      testData: false,
+    });
     expect(h.manager.getContext().sim).toBeNull();
   });
 });
