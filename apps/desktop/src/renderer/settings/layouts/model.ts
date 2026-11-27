@@ -1,35 +1,77 @@
+import type { OverlayInstanceSettings, OverlayManifest } from "@overlay/overlays/contract";
+import { instanceNumber, instanceTitle, manifestForInstance } from "@overlay/overlays/instances";
+import type { SimName } from "@overlay/sim-core/types";
 import {
-  LAYOUT_SESSION_TYPES,
-  LAYOUT_SIMS,
+  CAR_TYPE_LABELS,
   SESSION_TYPE_LABELS,
   SIM_LABELS,
-  type LayoutMatch,
-  type LayoutView,
+  offeredForGame,
   type SimContext,
 } from "../../../shared/layout-types";
 
-/** One line on when a layout is used, e.g. "iRacing · Qualifying, Race · 2 cars". */
-export function tagsSummary(layout: Pick<LayoutView, "isDefault" | "match">): string {
-  if (layout.isDefault) return "Used when no other layout matches";
-  const { sims, sessions, cars } = layout.match;
-  const parts: string[] = [];
-  if (sims.length > 0) parts.push(sims.map((s) => SIM_LABELS[s]).join(", "));
-  if (sessions.length > 0) parts.push(sessions.map((s) => SESSION_TYPE_LABELS[s]).join(", "));
-  if (cars.length === 1 && cars[0] !== undefined) parts.push(cars[0]);
-  else if (cars.length > 1) parts.push(`${cars.length} cars`);
-  return parts.length > 0 ? parts.join(" · ") : "No tags: any sim, session and car";
+/** One overlay window a group can switch on: an overlay or one of its extra copies. */
+export interface GroupOverlay {
+  /** Instance id ("relative", "relative:2"). */
+  id: string;
+  title: string;
+  sims: readonly SimName[];
 }
 
-export function overlayCountLabel(count: number): string {
-  if (count === 0) return "No overlays";
-  return count === 1 ? "1 overlay" : `${count} overlays`;
+/**
+ * Every overlay instance with its title, in manifest order then by copy number. Developer-only
+ * overlays are listed only while developer tools are on.
+ */
+export function groupOverlays(
+  manifests: readonly OverlayManifest[],
+  settings: Record<string, OverlayInstanceSettings>,
+  developerEnabled: boolean,
+): GroupOverlay[] {
+  const order = (id: string): number =>
+    manifests.findIndex((m) => m.id === manifestForInstance(id, manifests)?.id);
+  return Object.entries(settings)
+    .flatMap(([id, s]): GroupOverlay[] => {
+      const manifest = manifestForInstance(id, manifests);
+      if (!manifest || (manifest.dev === true && !developerEnabled)) return [];
+      return [{ id, title: instanceTitle(manifest, id, s.name), sims: manifest.sims }];
+    })
+    .sort((a, b) => order(a.id) - order(b.id) || instanceNumber(a.id) - instanceNumber(b.id));
+}
+
+/** The overlays a group for `game` offers (each overlay's own list of sims decides). */
+export function overlaysForGame(
+  overlays: readonly GroupOverlay[],
+  game: SimName | null,
+): GroupOverlay[] {
+  return overlays.filter((o) => offeredForGame(o.sims, game));
+}
+
+/** How many of the offered overlays are on in a group. */
+export function countOn(
+  offered: readonly GroupOverlay[],
+  enabled: Record<string, boolean>,
+): number {
+  return offered.filter((o) => enabled[o.id] === true).length;
 }
 
 /** The current context in words, for the top of the page. */
-export function contextLabels(context: SimContext): { sim: string; car: string; session: string } {
+export function contextLabels(context: SimContext): {
+  game: string;
+  car: string;
+  carType: string;
+  session: string;
+} {
+  const sim = context.sim === null ? null : SIM_LABELS[context.sim];
+  let game = sim ?? "Not connected";
+  if (context.testData) game = sim === null ? "Test data" : `Test data (${sim})`;
   return {
-    sim: context.sim === null ? "Not connected" : SIM_LABELS[context.sim],
+    game,
     car: context.carName ?? "Unknown",
+    carType:
+      context.carType !== null
+        ? CAR_TYPE_LABELS[context.carType]
+        : context.sim === "lmu"
+          ? "Not used in Le Mans Ultimate"
+          : "Unknown",
     session: context.sessionType === null ? "Unknown" : SESSION_TYPE_LABELS[context.sessionType],
   };
 }
@@ -38,20 +80,6 @@ export function contextLabels(context: SimContext): { sim: string; car: string; 
 export function toggleIn<T extends string>(list: readonly T[], value: T, all: readonly T[]): T[] {
   const on = !list.includes(value);
   return all.filter((v) => (v === value ? on : list.includes(v)));
-}
-
-export function toggleSim(
-  match: LayoutMatch,
-  sim: LayoutMatch["sims"][number],
-): LayoutMatch["sims"] {
-  return toggleIn(match.sims, sim, LAYOUT_SIMS);
-}
-
-export function toggleSession(
-  match: LayoutMatch,
-  session: LayoutMatch["sessions"][number],
-): LayoutMatch["sessions"] {
-  return toggleIn(match.sessions, session, LAYOUT_SESSION_TYPES);
 }
 
 /** True when the list already holds the car (case and surrounding spaces ignored). */

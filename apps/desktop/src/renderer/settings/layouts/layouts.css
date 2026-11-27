@@ -1,106 +1,151 @@
-/* Layouts page */
-.lay-list {
+/* Overlay groups page */
+.grp-intro {
+  margin: -8px 0 14px;
+}
+.grp-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
 }
-.lay-item {
-  padding: 10px 0;
-  border-top: 1px solid var(--border);
+.grp-card[data-active] {
+  border-color: var(--accent);
 }
-.lay-item:first-child {
-  border-top: 0;
-}
-.lay-head {
+.grp-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
-.lay-name {
-  font-weight: 600;
+.grp-name {
+  margin: 0;
+  font-size: 15px;
 }
-.lay-active {
+.grp-active,
+.grp-inactive {
   font-size: 11px;
   font-weight: 600;
-  padding: 1px 7px;
+  padding: 1px 8px;
   border-radius: 999px;
+}
+.grp-active {
   background: var(--accent);
   color: var(--accent-text);
 }
-.lay-count {
-  margin: 0 0 0 auto;
+.grp-inactive {
+  color: var(--muted);
+  border: 1px solid var(--border);
 }
-.lay-summary {
-  margin: 2px 0 8px;
+.grp-actions {
+  display: inline-flex;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
 }
-.lay-actions,
-.lay-confirm,
-.lay-footer,
-.lay-car-add {
+.grp-confirm,
+.grp-footer,
+.grp-car-add {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
-.lay-confirm {
-  margin-top: 8px;
+.grp-confirm {
+  margin-top: 10px;
   font-size: 13px;
 }
-.lay-footer {
-  margin-top: 10px;
+.grp-footer {
+  margin-bottom: 14px;
 }
-.lay-tags {
-  margin-top: 10px;
-  padding: 2px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
+.grp-fallback {
+  margin: 10px 0 0;
 }
-.lay-checks {
-  display: flex;
+.grp-block {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.grp-block-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.grp-block-title small {
+  font-weight: 400;
+  margin-left: 6px;
+}
+.grp-chips {
+  display: inline-flex;
   flex-wrap: wrap;
-  gap: 6px 14px;
   justify-content: flex-end;
+  gap: 6px;
 }
-.lay-check {
+.grp-chip {
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 12px;
+  cursor: pointer;
+}
+.grp-chip[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: transparent;
+  font-weight: 600;
+}
+.grp-overlays {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 4px 16px;
+  padding: 4px 0;
+}
+.grp-check {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   cursor: pointer;
+  min-width: 0;
 }
-.lay-check input {
+.grp-check input {
   margin: 0;
   accent-color: var(--accent);
 }
-.lay-cars {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
+.grp-cars {
+  padding: 6px 0 2px;
+  border-top: 1px solid var(--border);
 }
-.lay-car-list {
+.grp-cars > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+}
+.grp-cars > summary small {
+  font-weight: 400;
+}
+.grp-cars[open] > summary {
+  margin-bottom: 8px;
+}
+.grp-car-list {
   list-style: none;
-  margin: 0;
+  margin: 0 0 8px;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
   gap: 6px;
 }
-.lay-car-list li {
+.grp-car-list li {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 2px 4px 2px 10px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: var(--panel);
+  background: var(--bg);
   font-size: 13px;
 }
-.lay-car-remove {
+.grp-car-remove {
   font: inherit;
   color: var(--muted);
   background: none;
@@ -111,10 +156,10 @@
   padding: 0;
   cursor: pointer;
 }
-.lay-car-remove:hover {
+.grp-car-remove:hover {
   color: var(--err);
 }
-.lay-input {
+.grp-input {
   font: inherit;
   color: inherit;
   background: var(--bg);
@@ -122,15 +167,13 @@
   border-radius: 6px;
   padding: 5px 8px;
 }
-.lay-car-add .lay-input {
-  width: 200px;
+.grp-car-add .grp-input {
+  width: 240px;
 }
-.lay-tags .lay-input {
-  background: var(--panel);
-}
-.lay-name-input {
+.grp-name-input {
   width: 220px;
+  font-weight: 600;
 }
-.lay-value {
+.grp-value {
   font-weight: 600;
 }

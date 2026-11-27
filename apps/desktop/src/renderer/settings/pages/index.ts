@@ -21,7 +21,7 @@ export interface SettingsPage {
 
 export const SETTINGS_PAGES: readonly SettingsPage[] = [
   { id: "overlays", label: "Overlays", Component: OverlaysPage, group: "main" },
-  { id: "layouts", label: "Layouts", Component: LayoutsPage, group: "main" },
+  { id: "layouts", label: "Overlay groups", Component: LayoutsPage, group: "main" },
   { id: "appearance", label: "Appearance", Component: AppearancePage, group: "main" },
   { id: "general", label: "General", Component: GeneralPage, group: "settings" },
   { id: "performance", label: "Performance", Component: PerformancePage, group: "settings" },

@@ -1,15 +1,18 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { LayoutView, LayoutsState } from "../../../shared/layout-types";
+import { OVERLAY_MANIFESTS } from "@overlay/overlays/manifests";
+import type { OverlayInstanceSettings } from "@overlay/overlays/contract";
+import type { LayoutView, LayoutsState, SimContext } from "../../../shared/layout-types";
 import { LayoutsView, type LayoutActions } from "./LayoutsView";
 import {
   addCar,
   contextLabels,
+  countOn,
+  groupOverlays,
   hasCar,
-  overlayCountLabel,
-  tagsSummary,
-  toggleSession,
-  toggleSim,
+  overlaysForGame,
+  toggleIn,
+  type GroupOverlay,
 } from "./model";
 
 const noop = () => undefined;
@@ -21,140 +24,193 @@ const actions: LayoutActions = {
   remove: noop,
   setMatch: noop,
   setAutoSwitch: noop,
+  setEnabled: noop,
 };
-const view = (patch: Partial<LayoutView> & { id: string }): LayoutView => ({
+const OVERLAYS: GroupOverlay[] = [
+  { id: "relative", title: "Relative", sims: ["iracing", "lmu"] },
+  { id: "relative:2", title: "Relative 2", sims: ["iracing", "lmu"] },
+  { id: "compact-hud", title: "Compact HUD", sims: ["iracing"] },
+  { id: "car-status", title: "Car Status", sims: ["lmu"] },
+];
+const group = (patch: Partial<LayoutView> & { id: string }): LayoutView => ({
   name: patch.id,
   isDefault: false,
-  match: { sims: [], cars: [], sessions: [] },
-  overlayCount: 0,
+  match: { game: null, sessions: [], carTypes: [], cars: [] },
+  enabled: {},
   ...patch,
+});
+const context = (c: Partial<SimContext> = {}): SimContext => ({
+  sim: "iracing",
+  carName: "Dallara F3",
+  carType: "formula",
+  sessionType: "race",
+  testData: false,
+  ...c,
 });
 const state = (patch: Partial<LayoutsState> = {}): LayoutsState => ({
   layouts: [
-    view({ id: "default", name: "Default", isDefault: true, overlayCount: 4 }),
-    view({
+    group({
       id: "layout-1",
-      name: "Endurance",
-      overlayCount: 1,
-      match: {
-        sims: ["iracing"],
-        sessions: ["qualifying", "race"],
-        cars: ["Porsche 963", "BMW M Hybrid V8"],
-      },
+      name: "iRacing formula",
+      match: { game: "iracing", sessions: ["race"], carTypes: ["formula"], cars: ["Dallara F3"] },
+      enabled: { relative: true, "compact-hud": true, "car-status": true },
     }),
+    group({
+      id: "layout-2",
+      name: "Le Mans Ultimate",
+      match: { game: "lmu", sessions: [], carTypes: [], cars: [] },
+      enabled: { "car-status": true },
+    }),
+    group({ id: "default", name: "Everything else", isDefault: true, enabled: { relative: true } }),
   ],
   activeId: "layout-1",
   autoSwitch: true,
-  context: { sim: "iracing", carName: "Porsche 963", sessionType: "other" },
+  context: context(),
   ...patch,
 });
-const render = (s: LayoutsState, editingId?: string) =>
-  renderToStaticMarkup(<LayoutsView state={s} actions={actions} editingId={editingId} />);
+const render = (s: LayoutsState) =>
+  renderToStaticMarkup(<LayoutsView state={s} overlays={OVERLAYS} actions={actions} />);
+/** The markup of one group's card. */
+const card = (html: string, name: string): string => {
+  const cards = html.split('<li class="ctl-section grp-card"').slice(1);
+  return cards.find((c) => c.includes(`value="${name}"`) || c.includes(`>${name}</h3>`)) ?? "";
+};
 
-describe("layouts model", () => {
-  it("summarises the tags", () => {
-    expect(tagsSummary(view({ id: "x", isDefault: true }))).toBe(
-      "Used when no other layout matches",
-    );
-    expect(tagsSummary(view({ id: "x" }))).toBe("No tags: any sim, session and car");
-    expect(
-      tagsSummary(
-        view({
-          id: "x",
-          match: { sims: ["iracing"], sessions: ["qualifying", "race"], cars: ["A", "B"] },
-        }),
-      ),
-    ).toBe("iRacing · Qualifying, Race · 2 cars");
-    expect(
-      tagsSummary(
-        view({ id: "x", match: { sims: ["lmu"], sessions: ["other"], cars: ["Oreca 07"] } }),
-      ),
-    ).toBe("Le Mans Ultimate · Testing / other · Oreca 07");
+describe("overlay groups model", () => {
+  it("lists every instance with its title in manifest order, developer overlays only with tools on", () => {
+    const settings = {
+      "data-frames:2": { name: "" },
+      relative: { name: "" },
+      "data-frames": { name: "Fuel tile" },
+    } as unknown as Record<string, OverlayInstanceSettings>;
+    const list = groupOverlays(OVERLAY_MANIFESTS, settings, false);
+    const relativeAt = list.findIndex((o) => o.id === "relative");
+    const framesAt = list.findIndex((o) => o.id === "data-frames");
+    expect(list.find((o) => o.id === "data-frames")?.title).toBe("Fuel tile");
+    expect(list[framesAt + 1]?.id).toBe("data-frames:2");
+    expect(relativeAt).toBeGreaterThanOrEqual(0);
+    const dev = OVERLAY_MANIFESTS.find((m) => m.dev === true);
+    if (dev) {
+      const withDev = { ...settings, [dev.id]: { name: "" } } as typeof settings;
+      expect(groupOverlays(OVERLAY_MANIFESTS, withDev, false).some((o) => o.id === dev.id)).toBe(
+        false,
+      );
+      expect(groupOverlays(OVERLAY_MANIFESTS, withDev, true).some((o) => o.id === dev.id)).toBe(
+        true,
+      );
+    }
   });
 
-  it("words the overlay count and the context", () => {
-    expect(overlayCountLabel(0)).toBe("No overlays");
-    expect(overlayCountLabel(1)).toBe("1 overlay");
-    expect(overlayCountLabel(5)).toBe("5 overlays");
-    expect(contextLabels({ sim: null, carName: null, sessionType: null })).toEqual({
-      sim: "Not connected",
+  it("offers each overlay only in groups for its games", () => {
+    expect(overlaysForGame(OVERLAYS, null)).toHaveLength(4);
+    expect(overlaysForGame(OVERLAYS, "iracing").map((o) => o.id)).not.toContain("car-status");
+    expect(overlaysForGame(OVERLAYS, "lmu").map((o) => o.id)).not.toContain("compact-hud");
+    expect(countOn(overlaysForGame(OVERLAYS, "lmu"), { "compact-hud": true, relative: true })).toBe(
+      1,
+    );
+  });
+
+  it("words the current session, test data included", () => {
+    expect(contextLabels(context())).toEqual({
+      game: "iRacing",
+      car: "Dallara F3",
+      carType: "Formula",
+      session: "Race",
+    });
+    const none = { sim: null, carName: null, carType: null, sessionType: null, testData: false };
+    expect(contextLabels(none)).toEqual({
+      game: "Not connected",
       car: "Unknown",
+      carType: "Unknown",
       session: "Unknown",
     });
-    expect(contextLabels({ sim: "lmu", carName: "Oreca 07", sessionType: "other" })).toEqual({
-      sim: "Le Mans Ultimate",
-      car: "Oreca 07",
-      session: "Testing / other",
+    expect(contextLabels({ ...none, testData: true, sessionType: "other" })).toMatchObject({
+      game: "Test data",
+      session: "Testing",
     });
+    expect(contextLabels(context({ testData: true })).game).toBe("Test data (iRacing)");
+    expect(contextLabels(context({ sim: "lmu", carType: null })).carType).toBe(
+      "Not used in Le Mans Ultimate",
+    );
   });
 
-  it("toggles tags in canonical order and adds cars once", () => {
-    const match = { sims: [], cars: [], sessions: ["race" as const] };
-    expect(toggleSession(match, "practice")).toEqual(["practice", "race"]);
-    expect(toggleSession(match, "race")).toEqual([]);
-    expect(toggleSim({ ...match, sims: ["lmu"] }, "iracing")).toEqual(["iracing", "lmu"]);
+  it("toggles in canonical order and adds cars once", () => {
+    expect(toggleIn(["race"], "practice", ["practice", "qualifying", "race"])).toEqual([
+      "practice",
+      "race",
+    ]);
+    expect(toggleIn(["race"], "race", ["practice", "race"])).toEqual([]);
     expect(addCar(["A"], " a ")).toEqual(["A"]);
-    expect(addCar(["A"], "  ")).toEqual(["A"]);
     expect(addCar(["A"], " B ")).toEqual(["A", "B"]);
     expect(hasCar(["Porsche 963"], "porsche 963")).toBe(true);
   });
 });
 
 describe("LayoutsView", () => {
-  it("shows the current context and the automatic switch", () => {
+  it("explains groups in one line and shows the current session with its car type", () => {
     const html = render(state());
+    expect(html).toContain("Groups switch automatically by game, session and car type.");
     expect(html).toContain("Current session");
-    expect(html).toContain("iRacing");
-    expect(html).toContain("Porsche 963");
-    expect(html).toContain("Testing / other");
-    expect(html).toMatch(/aria-label="Switch layouts automatically" checked=""/);
+    expect(html).toContain("Formula");
+    expect(html).toMatch(/aria-label="Switch groups automatically" checked=""/);
     expect(render(state({ autoSwitch: false }))).not.toMatch(
-      /aria-label="Switch layouts automatically" checked=""/,
+      /aria-label="Switch groups automatically" checked=""/,
     );
   });
 
-  it("lists each layout with its badge, summary, count and actions", () => {
+  it("shows each group as a card with everything visible, the fallback last", () => {
     const html = render(state());
-    expect(html).toContain("Default");
-    expect(html).toContain("Endurance");
-    expect(html.match(/class="lay-active"/g)).toHaveLength(1);
-    expect(html).toContain("iRacing · Qualifying, Race · 2 cars");
-    expect(html).toContain("4 overlays");
-    expect(html).toContain("1 overlay");
-    expect(html).toContain("New layout");
-    // Default cannot be renamed, tagged or deleted.
-    expect(html.match(/>Rename</g)).toHaveLength(1);
-    expect(html.match(/>Delete</g)).toHaveLength(1);
-    expect(html.match(/>Edit tags</g)).toHaveLength(1);
-    expect(html.match(/>Duplicate</g)).toHaveLength(2);
+    expect(html.indexOf("Everything else")).toBeGreaterThan(html.indexOf("Le Mans Ultimate"));
+    expect(html.match(/class="grp-active"/g)).toHaveLength(1);
+    expect(html.match(/>Not active</g)).toHaveLength(2);
+    expect(html.match(/>Active when</g)).toHaveLength(2);
+    expect(html.match(/>Overlays in this group/g)).toHaveLength(3);
+    expect(html).toContain("New group");
+    // Names are edited in place; the fallback's name is fixed and it cannot be deleted.
+    expect(html.match(/aria-label="Group name"/g)).toHaveLength(2);
+    expect(html.match(/>Delete</g)).toHaveLength(2);
+    expect(card(html, "Everything else")).toContain("Used when no other group matches.");
   });
 
-  it("disables Activate for the active layout only", () => {
+  it("marks the game, sessions and car types of a group", () => {
+    const html = card(render(state()), "iRacing formula");
+    expect(html).toMatch(/aria-pressed="true"[^>]*>iRacing</);
+    expect(html).toMatch(/aria-pressed="false"[^>]*>Any</);
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Race</);
+    expect(html).toMatch(/aria-pressed="false"[^>]*>Testing</);
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Formula</);
+    expect(html).toMatch(/aria-pressed="false"[^>]*>Sports car</);
+    expect(html).toContain("Specific cars (1)");
+    expect(html).toContain('aria-label="Remove Dallara F3"');
+    // The current car is already listed.
+    expect(html).toMatch(/disabled="">Add current car</);
+  });
+
+  it("hides car types for a Le Mans Ultimate group", () => {
+    const html = card(render(state()), "Le Mans Ultimate");
+    expect(html).toContain(">Sessions<");
+    expect(html).not.toContain(">Car type<");
+    expect(html).not.toMatch(/disabled="">Add current car</);
+  });
+
+  it("lists only the overlays the group's game offers, with this group's on/off", () => {
+    const html = render(state());
+    const formula = card(html, "iRacing formula");
+    expect(formula).toContain("Compact HUD");
+    expect(formula).not.toContain("Car Status");
+    expect(formula).toContain("2 of 3 on");
+    const lmu = card(html, "Le Mans Ultimate");
+    expect(lmu).toContain("Car Status");
+    expect(lmu).not.toContain("Compact HUD");
+    expect(lmu).toContain("1 of 3 on");
+    const fallback = card(html, "Everything else");
+    expect(fallback).toContain("Relative 2");
+    expect(fallback).toContain("1 of 4 on");
+  });
+
+  it("disables Activate for the active group only", () => {
     const html = render(state());
     expect(html.match(/disabled="">Activate</g)).toHaveLength(1);
-    expect(html.match(/>Activate</g)).toHaveLength(2);
-  });
-
-  it("edits tags inline with sim and session boxes and the car list", () => {
-    const html = render(state(), "layout-1");
-    expect(html).toContain("Done");
-    for (const label of ["Le Mans Ultimate", "Practice", "Qualifying", "Race", "Warmup"]) {
-      expect(html).toContain(label);
-    }
-    expect(html).toContain('aria-label="Remove Porsche 963"');
-    expect(html).toContain('aria-label="Remove BMW M Hybrid V8"');
-    // The current car is already listed, so it cannot be added again.
-    expect(html).toMatch(/disabled="">Add current car</);
-    expect(html.match(/type="checkbox" checked=""/g)).toHaveLength(3);
-  });
-
-  it("offers Add current car only when a car is known and not listed", () => {
-    const other = state({
-      context: { sim: "iracing", carName: "Cadillac V-Series.R", sessionType: "race" },
-    });
-    expect(render(other, "layout-1")).not.toMatch(/disabled="">Add current car</);
-    const none = state({ context: { sim: null, carName: null, sessionType: null } });
-    expect(render(none, "layout-1")).toMatch(/disabled="">Add current car</);
-    expect(render(none)).toContain("Not connected");
+    expect(html.match(/>Activate</g)).toHaveLength(3);
   });
 });
