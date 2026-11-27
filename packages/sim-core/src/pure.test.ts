@@ -16,6 +16,7 @@ const ALLOWED = new Set([
   "model/sim-state.ts",
   "model/class-colours.ts",
   "model/car-make.ts",
+  "model/car-type.ts",
   "model/nationality.ts",
 ]);
 

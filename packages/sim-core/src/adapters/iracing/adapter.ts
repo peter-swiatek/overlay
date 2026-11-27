@@ -139,6 +139,7 @@ function fillSession(state: SimState, r: VarReader, info: IracingSessionInfo | n
   s.incidentLimit = info?.incidentLimit ?? null;
   s.incidentPenaltyLimit = info?.incidentPenaltyLimit ?? null;
   s.teamRacing = info?.teamRacing ?? null;
+  s.trackCategory = info?.trackCategory ?? null;
   s.timeOfDayS = nonNegativeBelow(r.number("SessionTimeOfDay"), SECONDS_PER_DAY + 1);
   s.typeName = entry?.typeName ?? null;
   s.trackUsage = entry?.trackRubberState ?? null;
@@ -258,6 +259,7 @@ function buildCar(
     car.isPaceCar = driver.isPaceCar;
     car.teamName = driver.teamName;
     car.make = iracingCarMake(driver.carPath ?? null, driver.carName);
+    car.carPath = driver.carPath ?? null;
     car.nationality = nationalityCode(driver.flairName ?? null);
   }
   car.position = atLeast(r.number("CarIdxPosition", carIdx), 1);

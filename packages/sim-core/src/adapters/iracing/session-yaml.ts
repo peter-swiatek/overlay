@@ -1,5 +1,6 @@
 import { parse } from "yaml";
 import type { SessionType, ShiftLightRpm } from "../../model/sim-state";
+import { parseTrackCategory, type TrackCategory } from "../../model/car-type";
 
 /**
  * iRacing's session info is a YAML-looking text (Windows-1252, see decodeSessionYaml) that is not always valid YAML:
@@ -59,6 +60,8 @@ export interface IracingSessionInfo {
   incidentPenaltyLimit?: number | null;
   /** WeekendInfo TeamRacing ("1" in team events); null when missing. */
   teamRacing?: boolean | null;
+  /** WeekendInfo Category: road, oval, dirt road or dirt oval; null when missing or unknown. */
+  trackCategory?: TrackCategory | null;
   /** DriverInfo DriverPitTrkPct: lap distance (0..1) of the player's pit stall. */
   pitStallLapDistPct?: number | null;
   /** DriverInfo DriverSetupName: the loaded setup's file name; null when missing or empty. */
@@ -109,6 +112,7 @@ export function parseSessionYaml(text: string): IracingSessionInfo {
       asDict(weekend["WeekendOptions"])["IncidentWarningInitialLimit"],
     ),
     teamRacing: flag(weekend["TeamRacing"]),
+    trackCategory: parseTrackCategory(str(weekend["Category"])),
     pitStallLapDistPct: fraction(driver["DriverPitTrkPct"]),
     setupName: str(trimmed(driver["DriverSetupName"])),
     setupModified: flag(driver["DriverSetupIsModified"]),

@@ -17,6 +17,9 @@
  *   {@link SIM_STATE_VERSION}. Update `emptySimState`, `isSimState` and every consumer in the same
  *   change; recorded or persisted snapshots carry `version` so old data can be recognised.
  */
+
+import type { TrackCategory } from "./car-type";
+
 export const SIM_STATE_VERSION = 1;
 
 export type SimSource = "iracing" | "lmu" | "replay" | "mock";
@@ -35,6 +38,11 @@ export type SessionTiming = "laps" | "time" | "laps-or-time";
 
 export interface SessionInfo {
   type: SessionType | null;
+  /**
+   * iRacing WeekendInfo Category (road, oval, dirt road, dirt oval); null when unknown or LMU.
+   * Absent in states recorded before it.
+   */
+  trackCategory?: TrackCategory | null;
   phase: SessionPhase | null;
   timing: SessionTiming | null;
   /** Seconds left; null when the session is lap-limited or unknown. */
@@ -165,6 +173,8 @@ export interface Car {
   connected: boolean;
   /** Manufacturer id (model/car-make.ts), e.g. "porsche"; null when unknown. */
   make: string | null;
+  /** iRacing DriverInfo CarPath, e.g. "dallaraf3"; null or absent when unknown (LMU). */
+  carPath?: string | null;
   /**
    * Flag code of the driver's nationality (model/nationality.ts), e.g. "au", "gb-sct"; null when
    * unknown. iRacing: DriverInfo FlairName. LMU gives none for the cars in a session.
@@ -456,6 +466,7 @@ export function emptySimState(source: SimSource = "mock"): SimState {
       lapsTotal: null,
       trackName: null,
       trackConfig: null,
+      trackCategory: null,
       trackLengthM: null,
       pitSpeedLimitMps: null,
       incidentLimit: null,

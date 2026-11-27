@@ -1,4 +1,5 @@
 /** Type-only entry for renderers: nothing here pulls in Node modules. */
+export type { CarType, TrackCategory } from "./model/car-type";
 export type { Derived, DerivedGap, TelemetryFrame, TelemetryStatus } from "./telemetry/frame";
 export type {
   Car,

@@ -354,6 +354,24 @@ describe("parseSessionYaml field data (synthetic)", () => {
     expect(parseSessionYaml(yaml).teamRacing).toBe(expected);
   });
 
+  it.each([
+    ["Road", "road"],
+    ["Oval", "oval"],
+    ["DirtRoad", "dirtRoad"],
+    ["DirtOval", "dirtOval"],
+    ["Ice", null],
+  ])("Category %j gives track category %s", (value, expected) => {
+    const yaml = yamlWithDrivers([]).replace(
+      "WeekendInfo:\n",
+      `WeekendInfo:\n Category: ${value}\n`,
+    );
+    expect(parseSessionYaml(yaml).trackCategory).toBe(expected);
+  });
+
+  it("gives no track category when Category is missing", () => {
+    expect(parseSessionYaml(yamlWithDrivers([])).trackCategory).toBeNull();
+  });
+
   it("gives no team flag when TeamRacing is missing", () => {
     expect(parseSessionYaml(yamlWithDrivers([])).teamRacing).toBeNull();
   });
