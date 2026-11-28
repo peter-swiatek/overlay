@@ -532,14 +532,14 @@ describe("projected iRating change", () => {
   it("rates a team car on every driver who has driven it in a team event", () => {
     // A 12-car endurance class. Our car (1) runs 8th; a 3000 driver started it and a 1600
     // teammate is in it now. The sim only reports the driver in the car.
-    const field = (ourDriver: CarSpec): CarSpec[] => [
+    const field = (ourDriver: Partial<CarSpec>): CarSpec[] => [
       ...[2, 3, 4, 5, 6, 7, 8].map((i) => ({
         carIdx: i,
         driverName: `Driver ${i}`,
         iRating: 2200,
         lapDistPct: 0.95 - i * 0.05,
       })),
-      { carIdx: 1, lapDistPct: 0.5, ...ourDriver },
+      { ...ourDriver, carIdx: 1, lapDistPct: 0.5 },
       ...[9, 10, 11, 12].map((i) => ({
         carIdx: i,
         driverName: `Driver ${i}`,
@@ -552,14 +552,14 @@ describe("projected iRating change", () => {
     t.next(mkState(field({ driverName: "Starter", iRating: 3000 }), team), mkInputs());
     const s = t.next(mkState(field({ driverName: "Teammate", iRating: 1600 }), team), mkInputs());
     const teamRating = strengthOfField([3000, 1600]) as number;
-    const ratings = new Map(field({}).map((c) => [c.carIdx, c.iRating ?? teamRating]));
     const expected = projectIRatingChanges(
-      [...ratings].map(([carIdx, iRating]) => ({
-        carIdx,
-        iRating: iRating ?? teamRating,
-        position: (s?.entries.find((e) => e.carIdx === carIdx)?.liveClassPosition ?? 0) as number,
+      field({ iRating: teamRating }).map((c) => ({
+        carIdx: c.carIdx,
+        iRating: c.iRating as number,
+        position: s?.entries.find((e) => e.carIdx === c.carIdx)?.liveClassPosition as number,
       })),
     ).get(1);
+    expect(expected).toBeDefined();
     expect(s?.entries.find((e) => e.carIdx === 1)?.iRatingChange).toBe(expected);
     // Rated on the starter alone, the projected loss would be far bigger.
     const solo = new StandingsTracker().next(
