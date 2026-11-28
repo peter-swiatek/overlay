@@ -89,6 +89,8 @@ export class StandingsTracker {
   /** The track's sector starts (validated); null without sector data. */
   private sectorStarts: number[] | null = null;
   private sectorLogs = new Map<number, SectorLog>();
+  /** Team events: every driver seen in each car this session, name -> iRating. */
+  private teamDrivers = new Map<number, Map<string, number>>();
 
   reset(): void {
     this.pit.clear();
@@ -105,6 +107,21 @@ export class StandingsTracker {
     this.prevTickS = null;
     this.sectorStarts = null;
     this.sectorLogs.clear();
+    this.teamDrivers.clear();
+  }
+
+  /**
+   * The rating a car races on. In a team event the sim reports only the driver in the car, but the
+   * result counts for the whole team, so the team's rating is the strength-of-field style average
+   * of every driver seen in that car this session. Otherwise the driver's own rating.
+   */
+  private raceRating(car: Car, teamRacing: boolean): number | null {
+    if (car.iRating === null || !(car.iRating > 0)) return null;
+    if (!teamRacing) return car.iRating;
+    let drivers = this.teamDrivers.get(car.carIdx);
+    if (!drivers) this.teamDrivers.set(car.carIdx, (drivers = new Map()));
+    drivers.set(car.driverName ?? `#${car.carIdx}`, car.iRating);
+    return strengthOfField([...drivers.values()]);
   }
 
   /** New sector starts forget every car's sector log. */
@@ -471,11 +488,12 @@ export class StandingsTracker {
       for (let i = 0; i < n; i++) {
         const car = cars[i] as Car;
         const pos = (entries[i] as StandingsEntry).liveClassPosition;
-        if (pos === null || car.iRating === null || !(car.iRating > 0)) continue;
+        const rating = this.raceRating(car, state.session.teamRacing === true);
+        if (pos === null || rating === null) continue;
         const key = car.classId ?? "";
         let list = byClass.get(key);
         if (!list) byClass.set(key, (list = []));
-        list.push({ carIdx: car.carIdx, iRating: car.iRating, position: pos });
+        list.push({ carIdx: car.carIdx, iRating: rating, position: pos });
       }
       for (const list of byClass.values()) {
         const changes = projectIRatingChanges(list);

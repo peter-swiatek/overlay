@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SimState } from "../../model";
-import { StandingsTracker, strengthOfField } from "./index";
+import { StandingsTracker, projectIRatingChanges, strengthOfField } from "./index";
 import { newPitHistory, stepPit } from "./pit";
 import { linearReference, mkInputs, mkState, type CarSpec } from "./testHelpers";
 
@@ -527,6 +527,62 @@ describe("projected iRating change", () => {
   it("is null outside races", () => {
     const s = run(cars, { type: "practice" });
     expect(s.entries.every((e) => e.iRatingChange === null)).toBe(true);
+  });
+
+  it("rates a team car on every driver who has driven it in a team event", () => {
+    // A 12-car endurance class. Our car (1) runs 8th; a 3000 driver started it and a 1600
+    // teammate is in it now. The sim only reports the driver in the car.
+    const field = (ourDriver: CarSpec): CarSpec[] => [
+      ...[2, 3, 4, 5, 6, 7, 8].map((i) => ({
+        carIdx: i,
+        driverName: `Driver ${i}`,
+        iRating: 2200,
+        lapDistPct: 0.95 - i * 0.05,
+      })),
+      { carIdx: 1, lapDistPct: 0.5, ...ourDriver },
+      ...[9, 10, 11, 12].map((i) => ({
+        carIdx: i,
+        driverName: `Driver ${i}`,
+        iRating: 1800,
+        lapDistPct: 0.45 - (i - 9) * 0.05,
+      })),
+    ];
+    const team = { teamRacing: true };
+    const t = new StandingsTracker();
+    t.next(mkState(field({ driverName: "Starter", iRating: 3000 }), team), mkInputs());
+    const s = t.next(mkState(field({ driverName: "Teammate", iRating: 1600 }), team), mkInputs());
+    const teamRating = strengthOfField([3000, 1600]) as number;
+    const ratings = new Map(field({}).map((c) => [c.carIdx, c.iRating ?? teamRating]));
+    const expected = projectIRatingChanges(
+      [...ratings].map(([carIdx, iRating]) => ({
+        carIdx,
+        iRating: iRating ?? teamRating,
+        position: (s?.entries.find((e) => e.carIdx === carIdx)?.liveClassPosition ?? 0) as number,
+      })),
+    ).get(1);
+    expect(s?.entries.find((e) => e.carIdx === 1)?.iRatingChange).toBe(expected);
+    // Rated on the starter alone, the projected loss would be far bigger.
+    const solo = new StandingsTracker().next(
+      mkState(field({ driverName: "Starter", iRating: 3000 }), team),
+      mkInputs(),
+    );
+    const soloChange = solo?.entries.find((e) => e.carIdx === 1)?.iRatingChange as number;
+    expect(soloChange).toBeLessThan((expected as number) - 20);
+  });
+
+  it("uses the current driver's own rating outside team events", () => {
+    const t = new StandingsTracker();
+    const two = (r: number): CarSpec[] => [
+      { carIdx: 1, driverName: "A", iRating: r, lapDistPct: 0.9 },
+      { carIdx: 2, driverName: "B", iRating: 2000, lapDistPct: 0.5 },
+    ];
+    t.next(mkState(two(3000), { teamRacing: false }), mkInputs());
+    const s = t.next(mkState(two(1600), { teamRacing: false }), mkInputs());
+    const want = projectIRatingChanges([
+      { carIdx: 1, iRating: 1600, position: 1 },
+      { carIdx: 2, iRating: 2000, position: 2 },
+    ]).get(1);
+    expect(s?.entries.find((e) => e.carIdx === 1)?.iRatingChange).toBe(want);
   });
 
   it("is null for a class with fewer than two rated cars", () => {
