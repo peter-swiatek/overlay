@@ -7,7 +7,7 @@ import {
 } from "./index";
 import { FakeDriver, feed } from "./testHelpers";
 
-describe("The reference doc example", () => {
+describe("reference doc example", () => {
   it("2.5 L/lap with fuel for 3 laps targets 1.875 L/lap to make 4", () => {
     const t = new FuelTracker();
     feed(t, new FakeDriver(12.5, 2.5), 2);
@@ -227,6 +227,40 @@ describe("S/F crossing detection", () => {
     }
     expect(t.lapRecords).toHaveLength(3);
     expect(t.lapRecords.every((l) => l.valid)).toBe(true);
+  });
+});
+
+describe("lap numbers and stint laps", () => {
+  it("numbers a lap by the counter after it ticks when pct wraps first", () => {
+    const t = new FuelTracker();
+    feed(t, new FakeDriver(50, 2), 3, true);
+    expect(t.lapRecords.map((l) => l.lapNumber)).toEqual([1, 2, 3]);
+    const u = new FuelTracker();
+    feed(u, new FakeDriver(50, 2), 3, false);
+    expect(u.lapRecords.map((l) => l.lapNumber)).toEqual([1, 2, 3]);
+  });
+
+  it("counts a 12-lap race from a grid start (counter -1) as 12 stint laps", () => {
+    const t = new FuelTracker();
+    const d = new FakeDriver(50, 2);
+    d.lap = -1;
+    d.pct = 0.98;
+    t.update(d.sample());
+    for (let i = 0; i < 125; i++) t.update(d.step());
+    expect(d.lap).toBe(12);
+    expect(t.snapshot({ lapsToGo: 1 }).stintLaps).toBe(12);
+  });
+
+  it("leaves a pit-lane start at the counter it began with", () => {
+    const t = new FuelTracker();
+    const d = new FakeDriver(50, 2);
+    d.lap = -1;
+    d.pct = 0.5;
+    d.onPitRoad = true;
+    t.update(d.sample());
+    d.lap = 2;
+    t.update(d.sample());
+    expect(t.snapshot({ lapsToGo: 1 }).stintLaps).toBe(3);
   });
 });
 

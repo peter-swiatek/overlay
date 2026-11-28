@@ -1,0 +1,77 @@
+/* Frameless: no panel, the rows are the only thing drawn. The root is a size container so a row
+   can be placed by the window height (cqh). */
+.ov-oa {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  container-type: size;
+  background: transparent;
+  color: var(--ov-text);
+  font-family: var(--ov-font-family, inherit);
+  font-size: var(--ov-font-size, 14px);
+}
+
+/* Every row's cells share the first grid row, so the columns line up across rows and a row's
+   place never depends on its index; --oa-top (set per row) moves it down from the top. */
+.ov-oa .ov-row > .ov-cell {
+  grid-row: 1;
+  transform: translateY(var(--oa-top, 0));
+  transition: transform 0.12s linear;
+}
+.ov-oa .ov-row > .ov-cell:nth-child(1) {
+  grid-column: 1;
+}
+.ov-oa .ov-row > .ov-cell:nth-child(2) {
+  grid-column: 2;
+}
+.ov-oa .ov-row > .ov-cell:nth-child(3) {
+  grid-column: 3;
+}
+.ov-oa .ov-row > .ov-cell:nth-child(4) {
+  grid-column: 4;
+}
+.ov-oa .ov-row > .ov-cell:nth-child(5) {
+  grid-column: 5;
+}
+.ov-oa .ov-row > .ov-cell:nth-child(6) {
+  grid-column: 6;
+}
+
+/* No panel behind the rows, so each row draws the panel background itself (Row opacity still
+   applies), with a hairline outline and rounded ends. Alternate-row shading means nothing here. */
+.ov-oa .ov-row > .ov-cell {
+  --row-base-bg: color-mix(
+    in srgb,
+    var(--ov-bg) calc(var(--ov-row-opacity, 1) * 100%),
+    transparent
+  );
+  background: var(--row-base-bg);
+}
+.ov-oa .ov-row:not(.ov-row--yellow) > .ov-cell {
+  box-shadow:
+    inset 0 1px 0 var(--ov-border),
+    inset 0 -1px 0 var(--ov-border);
+}
+.ov-oa .ov-row--yellow > .ov-cell {
+  --row-base-bg: color-mix(in srgb, var(--ov-locked-flag-yellow) 30%, var(--ov-bg));
+}
+.ov-oa .ov-row > .ov-cell:first-child {
+  border-radius: 0.29em 0 0 0.29em;
+}
+.ov-oa .ov-row > .ov-cell:last-child {
+  border-radius: 0 0.29em 0.29em 0;
+}
+.ov-oa .ov-row:not(.ov-row--yellow) > .ov-cell:last-child {
+  box-shadow:
+    inset 0 1px 0 var(--ov-border),
+    inset 0 -1px 0 var(--ov-border),
+    inset -1px 0 0 var(--ov-border);
+}
+
+/* Gap behind: plain text colour, no closeness colouring. */
+.ov-oa-gap {
+  color: var(--ov-text);
+  font-weight: 700;
+}

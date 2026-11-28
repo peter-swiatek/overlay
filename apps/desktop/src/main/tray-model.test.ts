@@ -1,15 +1,45 @@
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_TELEMETRY_SETTINGS } from "./telemetry-settings";
-import { buildAboutItem, buildDataSourceMenu, buildUpdateItems, trayTooltip } from "./tray-model";
+import {
+  buildAboutItem,
+  buildDataSourceMenu,
+  buildOverlayStateItems,
+  buildUpdateItems,
+  trayTooltip,
+} from "./tray-model";
 import type { UpdateState } from "./updater";
 
 const actions = () => ({ select: vi.fn(), pickReplayFile: vi.fn() });
 
+const labels = (menu: { label: string }[]) => menu.map((i) => i.label);
+const checked = (menu: { label: string; checked: boolean }[]) =>
+  menu.filter((i) => i.checked).map((i) => i.label);
+
 describe("data source menu", () => {
-  it("lists Auto, iRacing, LMU, Replay file, Mock as radio items", () => {
+  it("shows three items with developer tools off", () => {
     const menu = buildDataSourceMenu(DEFAULT_TELEMETRY_SETTINGS, actions());
-    expect(menu.map((i) => i.label)).toEqual(["Auto", "iRacing", "LMU", "Replay file...", "Mock"]);
+    expect(labels(menu)).toEqual(["Auto", "iRacing", "LMU"]);
     expect(menu.every((i) => i.type === "radio")).toBe(true);
+  });
+
+  it("shows five items with developer tools on", () => {
+    const menu = buildDataSourceMenu(DEFAULT_TELEMETRY_SETTINGS, actions(), true);
+    expect(labels(menu)).toEqual(["Auto", "iRacing", "LMU", "Mock", "Replay file..."]);
+  });
+
+  it("keeps Mock visible and checked when current, with developer tools off", () => {
+    const menu = buildDataSourceMenu({ ...DEFAULT_TELEMETRY_SETTINGS, source: "mock" }, actions());
+    expect(labels(menu)).toEqual(["Auto", "iRacing", "LMU", "Mock"]);
+    expect(checked(menu)).toEqual(["Mock"]);
+  });
+
+  it("keeps Replay file visible and checked when current, with developer tools off", () => {
+    const menu = buildDataSourceMenu(
+      { ...DEFAULT_TELEMETRY_SETTINGS, source: "replay" },
+      actions(),
+    );
+    expect(labels(menu)).toEqual(["Auto", "iRacing", "LMU", "Replay file..."]);
+    expect(checked(menu)).toEqual(["Replay file..."]);
   });
 
   it("checks exactly the current choice", () => {
@@ -20,14 +50,14 @@ describe("data source menu", () => {
       ["replay", "Replay file..."],
       ["mock", "Mock"],
     ] as const) {
-      const menu = buildDataSourceMenu({ ...DEFAULT_TELEMETRY_SETTINGS, source }, actions());
-      expect(menu.filter((i) => i.checked).map((i) => i.label)).toEqual([label]);
+      const menu = buildDataSourceMenu({ ...DEFAULT_TELEMETRY_SETTINGS, source }, actions(), true);
+      expect(checked(menu)).toEqual([label]);
     }
   });
 
   it("selects directly, but asks for a file for replay", () => {
     const a = actions();
-    const menu = buildDataSourceMenu(DEFAULT_TELEMETRY_SETTINGS, a);
+    const menu = buildDataSourceMenu(DEFAULT_TELEMETRY_SETTINGS, a, true);
     const click = (label: string): void => menu.find((i) => i.label === label)?.click();
     click("iRacing");
     click("LMU");
@@ -113,5 +143,46 @@ describe("update items", () => {
     expect(list[0]?.enabled).toBe(false);
     list[2]?.click?.();
     expect(a.restartToUpdate).toHaveBeenCalledOnce();
+  });
+});
+
+describe("overlay state items", () => {
+  const actions = () => ({
+    showMainWindow: vi.fn(),
+    toggleVisible: vi.fn(),
+    toggleLocked: vi.fn(),
+  });
+
+  it("opens the window and shows the Visible and Locked checkboxes from the state", () => {
+    const items = buildOverlayStateItems(
+      { overlaysVisible: true, overlaysLocked: false },
+      actions(),
+    );
+    expect(items.map((i) => i.label)).toEqual([
+      "Open Overlay",
+      "Overlays visible",
+      "Overlays locked (Ctrl+Shift+F10)",
+    ]);
+    expect(items[0]?.type).toBeUndefined();
+    expect(items[1]).toMatchObject({ type: "checkbox", checked: true });
+    expect(items[2]).toMatchObject({ type: "checkbox", checked: false });
+  });
+
+  it("reflects the opposite state", () => {
+    const items = buildOverlayStateItems(
+      { overlaysVisible: false, overlaysLocked: true },
+      actions(),
+    );
+    expect(items[1]?.checked).toBe(false);
+    expect(items[2]?.checked).toBe(true);
+  });
+
+  it("wires each item to its action", () => {
+    const a = actions();
+    const items = buildOverlayStateItems({ overlaysVisible: true, overlaysLocked: true }, a);
+    items.forEach((i) => i.click());
+    expect(a.showMainWindow).toHaveBeenCalledOnce();
+    expect(a.toggleVisible).toHaveBeenCalledOnce();
+    expect(a.toggleLocked).toHaveBeenCalledOnce();
   });
 });

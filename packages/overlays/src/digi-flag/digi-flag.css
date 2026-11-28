@@ -1,0 +1,96 @@
+.df {
+  --df-colour: var(--ov-text-muted);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  padding: 0.57em;
+  border-radius: 6px;
+  /* A near-black panel so the LEDs glow, as on a trackside board. */
+  background: color-mix(in srgb, var(--ov-bg) 20%, var(--ov-locked-flag-black));
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  color: var(--ov-text);
+  font-family: var(--ov-font-family, inherit);
+  font-weight: var(--ov-font-weight, 500);
+  font-size: var(--ov-font-size, 14px);
+}
+
+.df--red {
+  --df-colour: var(--ov-locked-flag-red);
+}
+
+.df--yellow {
+  --df-colour: var(--ov-locked-flag-yellow);
+}
+
+.df--blue {
+  --df-colour: var(--ov-locked-flag-blue);
+}
+
+.df--green {
+  --df-colour: var(--ov-locked-flag-green);
+}
+
+.df--white {
+  --df-colour: var(--ov-locked-flag-white);
+}
+
+.df--meatball {
+  --df-colour: var(--ov-locked-flag-meatball);
+}
+
+.df-grid {
+  display: grid;
+  flex: 1;
+  /* Round LEDs with the same spacing across and down. */
+  grid-template-columns: repeat(5, 0.95em);
+  grid-auto-rows: 0.95em;
+  align-content: center;
+  justify-content: center;
+  gap: 0.36em;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.29em 0;
+}
+
+/* An unlit LED: a faint round dot, so the grid still reads while no flag is out. */
+.df-led {
+  justify-self: center;
+  width: 0.95em;
+  height: 0.95em;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ov-text) 8%, transparent);
+}
+
+.df-led--on {
+  background: var(--df-colour);
+  box-shadow: 0 0 0.43em var(--df-colour);
+}
+
+.df-caption {
+  min-height: 1.2em;
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--df-colour);
+  font-size: 0.78em;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+:root:not([data-reduced-effects="true"]) .df--blink .df-led--on {
+  animation: df-blink 1s steps(1, end) infinite;
+}
+
+@keyframes df-blink {
+  50% {
+    opacity: 0.2;
+  }
+}

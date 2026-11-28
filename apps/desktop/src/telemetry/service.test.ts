@@ -1,13 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Deriver, isSimState, type TrackOutline, type TrackOutlineStore } from "@overlay/sim-core";
-import type { TelemetryEvent } from "../shared/telemetry-types";
+import {
+  cornersFor,
+  Deriver,
+  isSimState,
+  type TrackOutline,
+  type TrackOutlineStore,
+} from "@overlay/sim-core";
+import type { TelemetryContextEvent, TelemetryEvent } from "../shared/telemetry-types";
 import { MockTelemetrySource } from "./mock";
 import { ReplayTelemetrySource } from "./replay";
 import { TelemetryService } from "./service";
 import { FakePort, IRACING_RACE_START, outlineFor } from "./testing";
 
 function makeService() {
-  const events: TelemetryEvent[] = [];
+  const events: (TelemetryEvent | TelemetryContextEvent)[] = [];
   const stopped = vi.fn();
   const service = new TelemetryService({
     live: {},
@@ -42,6 +48,12 @@ describe("TelemetryService", () => {
     const seqs = port.seqs;
     expect(seqs).toEqual([...seqs].sort((a, b) => a - b));
     expect(events[0]).toEqual({ type: "status", status: "live", source: "mock", error: null });
+    // The context of the frames is sent once, not with every frame.
+    const contexts = events.filter((e) => e.type === "context");
+    expect(contexts).toHaveLength(1);
+    expect(contexts[0]?.type === "context" && contexts[0].context.carName).toEqual(
+      expect.any(String),
+    );
   });
 
   it("replays a recording end to end through the engine and publisher", async () => {
@@ -105,8 +117,43 @@ describe("TelemetryService", () => {
     expect(events).toEqual([{ type: "status", status: "waiting", source: null, error: null }]);
   });
 
+  it("passes setFuelOptions to the deriver", () => {
+    const deriver = new Deriver();
+    const spy = vi.spyOn(deriver, "setKeepFuelData");
+    const service = new TelemetryService({
+      live: {},
+      createReplay: (path, speed, loop) => ReplayTelemetrySource.fromFile(path, { speed, loop }),
+      createMock: () => new MockTelemetrySource(),
+      monoMs: () => performance.now(),
+      sendToMain: () => {},
+      onStopped: () => {},
+      deriver,
+    });
+    service.handle({ type: "setFuelOptions", keepFuelData: true }, []);
+    service.handle({ type: "setFuelOptions", keepFuelData: false }, []);
+    expect(spy.mock.calls).toEqual([[true], [false]]);
+  });
+
+  it("passes setSetupCompareOptions to the deriver", () => {
+    const deriver = new Deriver();
+    const spy = vi.spyOn(deriver, "setPinSetupBaseline");
+    const service = new TelemetryService({
+      live: {},
+      createReplay: (path, speed, loop) => ReplayTelemetrySource.fromFile(path, { speed, loop }),
+      createMock: () => new MockTelemetrySource(),
+      monoMs: () => performance.now(),
+      sendToMain: () => {},
+      onStopped: () => {},
+      deriver,
+    });
+    service.handle({ type: "setSetupCompareOptions", pinBaseline: true }, []);
+    service.handle({ type: "setSetupCompareOptions", pinBaseline: false }, []);
+    expect(spy.mock.calls).toEqual([[true], [false]]);
+  });
+
   describe("track outlines", () => {
     const KEY = "iracing_virginia-international-raceway_full-course";
+    const virCorners = cornersFor(KEY)?.corners ?? [];
 
     function serviceWithStore(stored: TrackOutline | null) {
       const store: TrackOutlineStore = {
@@ -152,16 +199,18 @@ describe("TelemetryService", () => {
       service.handle({ type: "stop" }, []);
 
       expect(replies(port)).toEqual([
-        { type: "trackOutline", requestId: 1, outline: null },
-        { type: "trackOutline", requestId: "two", outline: stored },
-        { type: "trackOutline", requestId: null, outline: null },
-        { type: "trackOutline", requestId: 4, outline: null },
-        { type: "trackOutline", requestId: 5, outline: stored },
+        { type: "trackOutline", requestId: 1, outline: null, corners: null },
+        { type: "trackOutline", requestId: "two", outline: stored, corners: virCorners },
+        { type: "trackOutline", requestId: null, outline: null, corners: null },
+        { type: "trackOutline", requestId: 4, outline: null, corners: null },
+        { type: "trackOutline", requestId: 5, outline: stored, corners: virCorners },
       ]);
+      // The corner list rides along with the outline.
+      expect(virCorners.length).toBeGreaterThan(0);
       // Frames carry the key and the flag, never the outline.
       const frames = port.sent.filter((m) => (m as { seq?: unknown }).seq !== undefined);
       const last = frames[frames.length - 1];
-      expect(last?.derived.track).toEqual({ trackKey: KEY, outlineReady: true });
+      expect(last?.derived.track).toMatchObject({ trackKey: KEY, outlineReady: true });
       expect(JSON.stringify(last)).not.toContain('"points"');
       // The reply does not disturb the frame sequence.
       expect(port.seqs.filter((s) => s !== undefined)).toEqual(
@@ -182,11 +231,15 @@ describe("TelemetryService", () => {
       await new Promise((r) => setTimeout(r, 800));
       port.raw({ type: "getTrackOutline", requestId: 9 });
       service.handle({ type: "stop" }, []);
-      expect(replies(port)).toEqual([{ type: "trackOutline", requestId: 9, outline: null }]);
+      expect(replies(port)).toEqual([
+        { type: "trackOutline", requestId: 9, outline: null, corners: null },
+      ]);
       const frames = port.sent.filter((m) => (m as { seq?: unknown }).seq !== undefined);
       expect(frames[frames.length - 1]?.derived.track).toEqual({
         trackKey: KEY,
         outlineReady: false,
+        pitExitLapDistPct: null,
+        pitExitDistanceM: null,
       });
     });
   });

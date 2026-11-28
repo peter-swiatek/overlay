@@ -5,6 +5,7 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   disableHardwareAcceleration: false,
   disableDirectComposition: false,
   opacityWorkaround: false,
+  disableNativeOcclusion: false,
 };
 
 const KEYS = Object.keys(DEFAULT_DISPLAY_SETTINGS) as (keyof DisplaySettings)[];
@@ -41,7 +42,29 @@ export function resolveDisplaySettings(
     disableHardwareAcceleration: true,
     disableDirectComposition: true,
     opacityWorkaround: true,
+    disableNativeOcclusion: true,
   };
+}
+
+export interface CommandLineSwitch {
+  name: string;
+  value?: string;
+}
+
+/**
+ * Chromium switches for the settings in effect. Hardware acceleration is not a switch
+ * (app.disableHardwareAcceleration). Every `disable-features` value must be joined in the one
+ * switch, because a second appendSwitch for the same name replaces the first.
+ */
+export function buildCommandLineSwitches(settings: DisplaySettings): CommandLineSwitch[] {
+  const switches: CommandLineSwitch[] = [];
+  if (settings.disableDirectComposition) switches.push({ name: "disable-direct-composition" });
+  const disabledFeatures: string[] = [];
+  if (settings.disableNativeOcclusion) disabledFeatures.push("CalculateNativeWinOcclusion");
+  if (disabledFeatures.length > 0) {
+    switches.push({ name: "disable-features", value: disabledFeatures.join(",") });
+  }
+  return switches;
 }
 
 export class SettingsStore {

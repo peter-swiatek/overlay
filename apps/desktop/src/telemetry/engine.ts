@@ -5,9 +5,11 @@ import {
   type SimSource,
   type TelemetryFrame,
 } from "@overlay/sim-core";
+import { EMPTY_SIM_CONTEXT, sameSimContext, type SimContext } from "../shared/layout-types";
 import type { TelemetrySourceChoice } from "../shared/telemetry-types";
 import type { FrameRecorder } from "../recorder";
 import { AutoSelector, DETECT_INTERVAL_MS, type LiveSim } from "./auto-select";
+import { simContextOf } from "./sim-context";
 import type { LiveSource, TelemetrySource } from "./source";
 
 /** Never poll a source faster than this when it had nothing new, so a stuck event cannot spin. */
@@ -29,6 +31,8 @@ export interface EngineDeps {
   createMock(): TelemetrySource;
   publish(frame: TelemetryFrame): void;
   onStatus?(status: TelemetryFrame["status"], source: SimSource | null, error: string | null): void;
+  /** Called when the (sim, car, session type) of the frames changed; empty while not live. */
+  onContext?(context: SimContext): void;
   /** Calculators to use; tests pass their own to inspect them. */
   deriver?: Deriver;
   /** Reads the clock. Defaults to Date.now, which fake timers control. */
@@ -53,6 +57,7 @@ export class TelemetryEngine {
   private detectTimer: ReturnType<typeof setInterval> | undefined;
   private lastSource: SimSource | null = null;
   private lastReported = "";
+  private lastContext: SimContext = EMPTY_SIM_CONTEXT;
   /** The source whose frames the Deriver last saw; it is reset only when this changes. */
   private lastActivated: TelemetrySource | null = null;
   private stallReported = false;
@@ -243,6 +248,11 @@ export class TelemetryEngine {
     if (reported !== this.lastReported) {
       this.lastReported = reported;
       this.deps.onStatus?.(status, status === "waiting" ? null : source, error);
+    }
+    const context = status === "live" ? simContextOf(state) : EMPTY_SIM_CONTEXT;
+    if (!sameSimContext(context, this.lastContext)) {
+      this.lastContext = context;
+      this.deps.onContext?.(context);
     }
   }
 }

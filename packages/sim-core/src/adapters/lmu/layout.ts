@@ -67,6 +67,13 @@ export const SCORING_BASE = 1632;
  * | maxPathWetness   | f64     | REST maxPathWetness 0 (dry in the whole recording)          |
  * | averagePathWetness   | f64     | REST averagePathWetness 0 (dry in the whole recording)      |
  * | serverName       | cstr 32 | REST serverName "-none-"                                    |
+ * | timeOfDay        | f32     | REST GetGameState timeOfDay within 3 s on 114 of 114 paired frames (the REST body is up to a second older); advances exactly 1.0000 s per session second; seconds after midnight, can pass 86,400 |
+ *
+ * Searched and not provable here: the wind vector (REST sessionInfo windSpeed and the public
+ * struct order put it at 244, three f64, but both were exactly 0 in the whole recording, so the
+ * offset is not proven) and `raining` above, which was also 0 throughout. Neither is decoded.
+ * The pit speed limit is nowhere: no f32/f64 near 60, 80, 50 km/h (or in m/s) exists at a fixed
+ * place in any buffer region, and no REST body names one.
  */
 export const SESSION = {
   trackName: { offset: 0, length: 64 },
@@ -88,6 +95,7 @@ export const SESSION = {
   minPathWetness: 268,
   maxPathWetness: 276,
   averagePathWetness: 332,
+  timeOfDay: 344,
   serverName: { offset: 296, length: 32 },
 } as const;
 
@@ -131,6 +139,7 @@ export const RESULTS_STREAM = {
  * | lapStartTime     | f64     | standings lapStartET                                             |
  * | worldPos       | f64 x3  | standings carPosition x, y, z                                    |
  * | carVelocity       | f64 x3  | standings carVelocity x, y, z                                    |
+ * | orientation    | f64 x9  | standings orientation matrix, three rows of three; the car's nose is minus the third column (matched the direction of motion within 10 degrees on 1,854 of 1,931 moving frames) |
  * | pitState       | u8      | standings pitState: 0 NONE, 5 EXITING (1-4 not observed: no stop) |
  * | qualification  | i32     | standings qualification                                         |
  * | timeIntoLap    | f64     | standings timeIntoLap                                            |
@@ -140,6 +149,17 @@ export const RESULTS_STREAM = {
  * | inGarageStall  | u8      | standings inGarageStall                                          |
  * | steamID        | u64     | standings steamID (0 in the recording; zeroed by redaction)      |
  * | vehicleFilename    | cstr 32 | standings vehicleFilename                                        |
+ * | fuelFraction   | u8      | standings fuelFraction x 255 exactly (value / 255 equals REST to the last digit, correlation 1.0000, 4,255 vehicle/frame pairs; found by searching every u8, f32 and f64 in the row) |
+ *
+ * The player's lap timing reads three of these (`timeIntoLap`, `lastLapTime`, `bestLapTime`) from
+ * the player's scoring row; no new offsets were needed. The scoring `flag` and `underYellow`
+ * bytes also give every car's flags (blue = 6; the other flags have no observed trigger).
+ *
+ * The scoring `fuelFraction` follows fuel, not virtual energy: in the Ferrari 499P recording it
+ * differs from `veFraction` (e.g. 0.33 fuel against 0.33..1.00 energy, mostly different), and for
+ * the player it stays within one count of fuelLitres / tankCapacityLitres in the telemetry row.
+ * (The telemetry row's own fuel for the other cars drifts by about 0.012 from the REST value, so
+ * the scoring byte is the source for all cars.)
  */
 export const VEHICLE = {
   slotId: 0,
@@ -170,6 +190,8 @@ export const VEHICLE = {
   /** f64 x3 world position in metres (the table's "pos"); y is up, the ground plane is x/z. */
   worldPos: 264,
   carVelocity: 288,
+  /** f64 x9, row-major 3x3; world = matrix * local, the nose is local -z. */
+  orientation: 336,
   pitState: 457,
   qualification: 460,
   timeIntoLap: 464,
@@ -179,7 +201,16 @@ export const VEHICLE = {
   inGarageStall: 507,
   steamID: 536,
   vehicleFilename: { offset: 544, length: 32 },
+  fuelFraction: 578,
 } as const;
+
+/**
+ * Searched and not provable (so decoded as null): an ABS-active byte. Nothing in the telemetry
+ * row was found that pulses only under heavy braking and never at throttle, so
+ * `player.absActive` stays null. Per-car track surface (off track, approaching pits) has no
+ * evidence either; only the player's own surface is derived from the in-car byte, the real-time
+ * byte and the garage-stall byte.
+ */
 
 /** Telemetry block: three count bytes, then the rows. */
 export const TELEMETRY_BASE = RESULTS_STREAM.offset + RESULTS_STREAM.length;
@@ -205,12 +236,19 @@ export const TELEMETRY = {
  * | velocity      | f64 x3  | scoring carVelocity to 3 digits; z is about -(speed) when moving      |
  * | gear          | i32     | 5 at 57 m/s in a 7 speed car; 0 in the pits (LOCAL); steering > 0 pairs with lateral accel toward the right (LOCAL) |
  * | engineRpm           | f64     | 5722 rpm at 57 m/s in 5th, below rpmLimit 8500                 |
+ * | waterTempC    | f64     | Celsius (LOCAL), not Kelvin: 60.7 on the pre-heated car before it moves and again after the garage reset, rising with running to 81.0; responds first when the driver lifts (75.1 against 77.7 a few seconds earlier while the oil kept rising) |
+ * | oilTempC      | f64     | Celsius (LOCAL): 60.8 pre-heated, lags the water while warming, then runs above it, up to 84.2; changes slowly. The two follow the engine rpm in the public rFactor 2 plugin telemetry order (rpm, water, oil, clutch rpm; the f64 at 380 equals the engine rpm while driving). Only the player's row has them; every other car reads 0 |
  * | *Input       | f64     | unfiltered pedals 0..1 and steering -1..1; brake 0.68 while the   |
  * |               |         | car decelerates (the filtered copies follow 32 bytes later)        |
  * | fuelLitres          | f64     | litres; fuelLitres / tankCapacityLitres equals standings fuelFraction (0.7843) |
  * | tankCapacityLitres  | f64     | 110 litres, the Hypercar tank                                      |
  * | pitLimiterOn  | u8      | 0 on track; 1 in the pit lane (LOCAL)                              |
  * | veFraction     | f32     | 0..1; tracks standings veFraction (0.9831 vs 0.9823 a tick later)  |
+ * | rearBrakeBias | f64     | rear share of the brake force, 0..1. REST getPlayerGarageData VM_BRAKE_BALANCE stringValue "51.0:49.0" (front:rear) equals 1 - this value on 115 of 115 paired frames; over the recording the value moves between 0.4475 and 0.49, so it includes the live brake migration |
+ * | frontCompound | cstr 18 | "Medium" until 155 s, then "Soft": REST getPlayerGarageData VM_FRONT_TIRE_COMPOUND (and every WM_COMPOUND-W_xx) says "Soft" from 155 s on, so the text follows the fitted set |
+ * | rearCompound  | cstr 18 | same as the front in the recording; REST VM_REAR_TIRE_COMPOUND "Soft"   |
+ * | frontCompoundIndex | u8 | the fitted front compound's place in the car's compound list: 1 then 0 in the same buffer as the text goes from "Medium" to "Soft" (150.2 s into the recording); over all 37 cars of every buffer one class reads Soft 0, Medium 1, Hard 2 and the other Medium 0, so it is a list position, not a kind |
+ * | rearCompoundIndex  | u8 | the same for the rear; equal to the front on every car in the recordings |
  */
 export const TELEM = {
   slotId: 0,
@@ -219,6 +257,8 @@ export const TELEM = {
   velocity: 184,
   gear: 352,
   engineRpm: 356,
+  waterTempC: 364,
+  oilTempC: 372,
   throttleInput: 388,
   brakeInput: 396,
   steeringInput: 404,
@@ -228,9 +268,48 @@ export const TELEM = {
   pitLimiterOn: 604,
   tankCapacityLitres: 608,
   veFraction: 776,
+  rearBrakeBias: 664,
+  frontCompound: { offset: 620, length: 18 },
+  rearCompound: { offset: 638, length: 18 },
+  frontCompoundIndex: 606,
+  rearCompoundIndex: 607,
+  dentSeverity: { offset: 544, count: 8 },
+  lastImpactTime: 552,
   tyresOffset: 848,
   tyreStride: 260,
 } as const;
+
+/**
+ * Body damage, in the telemetry row (offsets above). Found in Peter's 39 minute Le Mans recording,
+ * where the player crashes 475 s in and is reset to the garage at 512 s; the committed slice
+ * `lmu-damage-impacts-10s-5hz.ovfx` covers 502.5 to 512.5 s of it.
+ *
+ * | field          | type   | evidence                                                            |
+ * | -------------- | ------ | ------------------------------------------------------------------- |
+ * | lastImpactTime | f64    | session time of the last impact, seconds: 0 until the first one; each of the 21 changes of the player's value lies within -0.1..+0.2 s of the frame's currentEventTime (which moves in 0.2 s steps), and none of 7,078 non-zero samples over 37 cars is more than 0.5 s ahead of the clock; back to 0 when the car is reset to the garage |
+ * | (magnitude)    | f64    | at 560, next to the time: a size of the impact (76 to 7,100, no unit), changing with every new impact time; not decoded |
+ * | (position)     | f64 x3 | at 568: where the impact was, in the car frame (metres; the nose is -z, see below); not decoded, used to place the dent zones |
+ * | dentSeverity   | u8 x8  | 0 everywhere until a hit, then 2 in one byte per hit zone; only 0 and 2 seen (on 151,253 + 3,389 car samples), 1 is unobserved; all back to 0 on the garage reset |
+ *
+ * The eight dent bytes are zones around the car, starting at the nose. Their places come from the
+ * impact position written in the same frame as each dent (car frame, nose -z, +x is the car's
+ * left: over a lap of the clockwise Le Mans circuit the nose turns 7.0 rad toward -x, and positive
+ * steering pairs with acceleration toward -x, correlation -0.87):
+ *
+ *   zone 0 at x 0.90 z -2.66 (player) and x -0.43 z -2.68 (another car): the nose
+ *   zone 3 at x 1.00 z 1.79: the rear quarter on the left
+ *   zone 4 at x 0.29 z 2.31: the tail
+ *
+ * Read as eight 45 degree sectors going round from the nose through the left side, that is
+ * 0 front, 1 front left, 2 left, 3 rear left, 4 rear, 5 rear right, 6 right, 7 front right. Zones 1,
+ * 2, 5, 6 and 7 were never hit in the recordings; their places follow from that order.
+ *
+ * Searched and not found in the telemetry row: an aero or suspension damage value. REST
+ * RepairAndRefuel reported body aero 0.0533 and suspension 0.057 / 0.138 on the front-left and
+ * rear-left while the game was paused at 494 s; no f32 or f64 in the row held those values (or one
+ * minus them). Both come from that REST body instead (see `parseRepairDamage` in rest.ts), which
+ * the live LMU source polls every 2 s.
+ */
 
 /** Wheel order in the telemetry row: front left, front right, rear left, rear right. */
 export const TYRE_COUNT = 4;
@@ -240,13 +319,34 @@ export const TYRE_COUNT = 4;
  *
  * | field      | type   | evidence                                                              |
  * | ---------- | ------ | --------------------------------------------------------------------- |
- * | brakeTemp  | f64    | degrees Celsius, 565 on the braking player (not decoded)              |
+ * | brakeTempK | f64    | Kelvin (LOCAL): exactly 293.15 (20 C) on the cold car at the start, equal to the carcass and inner-layer values (301.15) in the garage, then 620..626 K at the front and 547 K at the rear under 0.74 brake, cooling down a straight; fronts run hotter than rears throughout |
  * | pressureKpa   | f64    | kPa, 134 front and rear within 5 kPa of each other                    |
  * | surfaceTempK      | f64 x3 | Kelvin, 325..331 after a lap; left, middle, right across the tread    |
- * | treadRemaining       | f64    | 0.9955 on a nearly new set and falling with distance: 1 = new         |
+ * | treadRemaining       | f64    | 0.9955 on a nearly new set and falling with distance: 1 = new; REST WM_COMPOUND-W_FL "83% Soft" while this reads 0.84 (LOCAL) |
+ * | carcassTempK  | f64    | Kelvin (LOCAL): one value per tyre; follows the surface temperatures slowly (no spikes under braking), 301.15 in the garage like the brakes |
+ * | innerLayerTempK | f64 x3 | Kelvin (LOCAL): left, middle, right like the surface; the same edge-to-edge pattern as the surface (e.g. 319.6 / 324.9 / 324.5 against 322.7 / 328.8 / 328.5 on the front left) without the braking spikes |
+ *
+ * | compoundIndex  | u8 | the compound on this wheel, as a place in the car's compound list like the row's frontCompoundIndex: equal to its axle's index on every wheel of all 37 cars in every buffer of the four LMU recordings (values 0, 1 and 2), and 1 then 0 on all four wheels in the buffer where the player's set went from Medium to Soft |
+ * | compoundKind   | u8 | the kind of that compound: 0 on Soft, 1 on Medium, 2 on Hard in both classes of the recording (Medium reads 1 also where its list position is 0); other values (wet) were not observed |
+ * | tyreFlat       | u8 | 1 on the rear left from the impact at 476.2 s (magnitude 5,722) until the garage reset, 0 on every other wheel; while set the wheel's pressure and tread both read 0 (the others 150 kPa and 0.85..0.96), and REST RepairAndRefuel gave that tyre 0 health and pitstop-estimate 4.5 s for tyres. Set on 59 car samples over the recording. A flat tyre and a wheel that came off can not be told apart in the recording: the byte after it never changed and is not decoded |
+ *
+ * Every set in the recordings is one compound on all four wheels, so a wheel that differs from its
+ * axle was not observed; the per-wheel bytes are read because the sim lets each wheel take its own
+ * compound (REST getPlayerGarageData has WM_COMPOUND-W_FL/FR/RL/RR next to the axle settings).
+ *
+ * The 16 bytes at 160 hold the surface name under the tyre ("ROAD", "RACEOLD"); not decoded.
  */
 export const WHEEL = {
+  brakeTempK: 24,
   pressureKpa: 120,
   surfaceTempK: 128,
   treadRemaining: 152,
+  carcassTempK: 204,
+  innerLayerTempK: 212,
+  tyreFlat: 177,
+  compoundIndex: 240,
+  compoundKind: 241,
 } as const;
+
+/** Names for the `compoundKind` values seen in the recordings; other values give no name. */
+export const COMPOUND_KIND_NAMES: readonly string[] = ["Soft", "Medium", "Hard"];

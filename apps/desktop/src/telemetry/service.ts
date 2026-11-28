@@ -1,6 +1,7 @@
-import { Deriver } from "@overlay/sim-core";
+import { cornersFor, Deriver } from "@overlay/sim-core";
 import type {
   TelemetryCommand,
+  TelemetryContextEvent,
   TelemetryEvent,
   TrackOutlineReply,
   TrackOutlineRequest,
@@ -8,10 +9,10 @@ import type {
 import { TelemetryEngine, type EngineDeps } from "./engine";
 import { TelemetryPublisher, type PortLike } from "./publisher";
 
-export interface ServiceDeps extends Omit<EngineDeps, "publish" | "onStatus"> {
+export interface ServiceDeps extends Omit<EngineDeps, "publish" | "onStatus" | "onContext"> {
   /** Reads the monotonic clock in milliseconds. */
   monoMs(): number;
-  sendToMain(event: TelemetryEvent): void;
+  sendToMain(event: TelemetryEvent | TelemetryContextEvent): void;
   /** Called after `stop`, once everything is closed; the process entry exits here. */
   onStopped(): void;
 }
@@ -32,6 +33,7 @@ export class TelemetryService {
       publish: (frame) => this.publisher.publish(frame, deps.monoMs()),
       onStatus: (status, source, error) =>
         deps.sendToMain({ type: "status", status, source, error }),
+      onContext: (context) => deps.sendToMain({ type: "context", context }),
     });
   }
 
@@ -59,6 +61,12 @@ export class TelemetryService {
         }
         break;
       }
+      case "setFuelOptions":
+        this.deriver.setKeepFuelData(command.keepFuelData === true);
+        break;
+      case "setSetupCompareOptions":
+        this.deriver.setPinSetupBaseline(command.pinBaseline === true);
+        break;
       case "stop":
         this.engine.stop();
         this.deps.onStopped();
@@ -73,10 +81,12 @@ export class TelemetryService {
     const validId = typeof requestId === "number" || typeof requestId === "string";
     const outline = this.deriver.trackOutline;
     const wanted = trackKey === undefined || trackKey === this.deriver.trackKey;
+    const sent = validId && wanted ? outline : null;
     const answer: TrackOutlineReply = {
       type: "trackOutline",
       requestId: validId ? requestId : null,
-      outline: validId && wanted ? outline : null,
+      outline: sent,
+      corners: sent === null ? null : (cornersFor(this.deriver.trackKey)?.corners ?? null),
     };
     reply(answer);
   }

@@ -4,3 +4,4 @@ export * from "./outline";
 export * from "./track-key";
 export * from "./tracker";
 export * from "./corners";
+export * from "./pit-exit";

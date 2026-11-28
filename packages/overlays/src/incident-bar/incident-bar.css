@@ -1,0 +1,80 @@
+.ib {
+  --ib-colour: var(--ov-locked-flag-yellow);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--ov-bg);
+  color: var(--ov-text);
+  font-family: var(--ov-font-family, inherit);
+  font-weight: var(--ov-font-weight, 500);
+  font-size: var(--ov-font-size, 14px);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 1 px inset border drawn above the fills, like the kit panel. */
+.ib::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--ov-border);
+  pointer-events: none;
+}
+
+.ib--yellow {
+  --ib-colour: var(--ov-locked-flag-yellow);
+}
+
+.ib--red {
+  --ib-colour: var(--ov-locked-loss);
+}
+
+/* The two fills grow inward from the edges as the incident gets closer, fading towards the label. */
+.ib-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--ib-fill, 20%);
+  opacity: 0.85;
+}
+
+.ib-fill--left {
+  left: 0;
+  background: linear-gradient(
+    90deg,
+    var(--ib-colour) 40%,
+    color-mix(in srgb, var(--ib-colour) 25%, transparent) 100%
+  );
+}
+
+.ib-fill--right {
+  right: 0;
+  background: linear-gradient(
+    270deg,
+    var(--ib-colour) 40%,
+    color-mix(in srgb, var(--ib-colour) 25%, transparent) 100%
+  );
+}
+
+.ib-label {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  padding: 0 0.5em;
+  font-size: 0.86em;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-shadow: 0 0.07em 0.14em var(--ov-locked-flag-black);
+}
+
+:root:not([data-reduced-effects="true"]) .ib-fill {
+  transition: width 100ms linear;
+}

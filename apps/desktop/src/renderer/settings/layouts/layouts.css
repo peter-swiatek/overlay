@@ -1,0 +1,179 @@
+/* Overlay groups page */
+.grp-intro {
+  margin: -8px 0 14px;
+}
+.grp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.grp-card[data-active] {
+  border-color: var(--accent);
+}
+.grp-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.grp-name {
+  margin: 0;
+  font-size: 15px;
+}
+.grp-active,
+.grp-inactive {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+.grp-active {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.grp-inactive {
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.grp-actions {
+  display: inline-flex;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+.grp-confirm,
+.grp-footer,
+.grp-car-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.grp-confirm {
+  margin-top: 10px;
+  font-size: 13px;
+}
+.grp-footer {
+  margin-bottom: 14px;
+}
+.grp-fallback {
+  margin: 10px 0 0;
+}
+.grp-block {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.grp-block-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.grp-block-title small {
+  font-weight: 400;
+  margin-left: 6px;
+}
+.grp-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.grp-chip {
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 12px;
+  cursor: pointer;
+}
+.grp-chip[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: transparent;
+  font-weight: 600;
+}
+.grp-overlays {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 4px 16px;
+  padding: 4px 0;
+}
+.grp-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  min-width: 0;
+}
+.grp-check input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+.grp-cars {
+  padding: 6px 0 2px;
+  border-top: 1px solid var(--border);
+}
+.grp-cars > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+}
+.grp-cars > summary small {
+  font-weight: 400;
+}
+.grp-cars[open] > summary {
+  margin-bottom: 8px;
+}
+.grp-car-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.grp-car-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: 13px;
+}
+.grp-car-remove {
+  font: inherit;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  cursor: pointer;
+}
+.grp-car-remove:hover {
+  color: var(--err);
+}
+.grp-input {
+  font: inherit;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+.grp-car-add .grp-input {
+  width: 240px;
+}
+.grp-name-input {
+  width: 220px;
+  font-weight: 600;
+}
+.grp-value {
+  font-weight: 600;
+}

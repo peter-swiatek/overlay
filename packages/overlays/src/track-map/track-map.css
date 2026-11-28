@@ -1,0 +1,141 @@
+/* Frameless: no panel, the window stays transparent around the map. */
+.track-map {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 4px;
+}
+
+.track-map-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.track-map-casing,
+.track-map-surface {
+  fill: none;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* The fixed colours are named in the design plan. */
+.track-map-casing {
+  stroke: rgba(10, 12, 16, 0.9);
+  stroke-width: 9.5;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.65));
+}
+
+.track-map-surface {
+  stroke: var(--ov-text);
+  stroke-width: 5.5;
+}
+
+.track-map-tick {
+  stroke-linecap: round;
+}
+
+.track-map-tick--start {
+  stroke: #ffc400;
+  stroke-width: 3;
+}
+
+.track-map-tick--sector {
+  stroke: rgba(255, 255, 255, 0.65);
+  stroke-width: 2;
+}
+
+.track-map-corner,
+.track-map-label,
+.track-map-player-label,
+.track-map-slow-label,
+.track-map-note {
+  text-anchor: middle;
+  text-shadow: 0 1px 2px #000;
+  font-variant-numeric: tabular-nums;
+}
+
+.track-map-corner {
+  fill: var(--ov-text-muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.track-map-dot {
+  stroke: #0b0d12;
+  stroke-width: 1.5;
+}
+
+.track-map-label {
+  fill: var(--ov-text);
+  font-size: 8.5px;
+  font-weight: 800;
+}
+
+.track-map-car--pit {
+  opacity: 0.5;
+}
+
+/* Races only: a 2 px ring just outside the dot's dark outline on a car that has lapped or is
+   lapping you (red) or that you have lapped (blue, and dimmed so the cars you race stand out). */
+.track-map-lap-ring {
+  fill: none;
+  stroke-width: 2;
+}
+
+.track-map-car--lap-ahead .track-map-lap-ring {
+  stroke: var(--ov-locked-lap-ahead);
+}
+
+.track-map-car--lap-behind .track-map-lap-ring {
+  stroke: var(--ov-locked-lap-behind);
+}
+
+.track-map-car--lap-behind {
+  opacity: 0.6;
+}
+
+.track-map-car--pit.track-map-car--lap-behind {
+  opacity: 0.5;
+}
+
+.track-map-player-ring {
+  fill: rgba(20, 150, 180, 0.35);
+  stroke: #38bdf8;
+  stroke-width: 2;
+}
+
+.track-map-player-dot {
+  stroke: #ffffff;
+  stroke-width: 1.5;
+}
+
+.track-map-player-label {
+  fill: #38bdf8;
+  font-size: 9.5px;
+  font-weight: 800;
+}
+
+.track-map-slow-ring {
+  fill: none;
+  stroke: var(--ov-locked-flag-yellow);
+  stroke-width: 2;
+  stroke-dasharray: 2 2;
+}
+
+.track-map-dot--slow {
+  fill: var(--ov-locked-flag-yellow);
+}
+
+.track-map-slow-label {
+  fill: var(--ov-locked-flag-yellow);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.track-map-note {
+  fill: var(--ov-text-muted);
+  font-size: 9px;
+  font-weight: 600;
+}

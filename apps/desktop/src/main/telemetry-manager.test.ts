@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { TelemetryCommand } from "../shared/telemetry-types";
+import type { SimContext } from "../shared/layout-types";
+import type { TelemetryCommand, TelemetryEvent } from "../shared/telemetry-types";
 import {
   RESTART_BASE_MS,
   RESTART_MAX_MS,
@@ -50,6 +51,8 @@ interface Harness {
   posted: { sender: object; port: unknown }[];
   timers: { fn: () => void; ms: number; cancelled: boolean }[];
   settingsChanges: TelemetrySettings[];
+  statuses: TelemetryEvent[];
+  contexts: SimContext[];
   overlays: Set<object>;
   clock: { now: number };
   window(): object;
@@ -61,6 +64,8 @@ function harness(initial: Partial<TelemetrySettings> = {}): Harness {
   const posted: Harness["posted"] = [];
   const timers: Harness["timers"] = [];
   const settingsChanges: TelemetrySettings[] = [];
+  const statuses: TelemetryEvent[] = [];
+  const contexts: SimContext[] = [];
   const overlays = new Set<object>();
   let portNo = 0;
   const clock = { now: 1000 };
@@ -90,6 +95,8 @@ function harness(initial: Partial<TelemetrySettings> = {}): Harness {
         };
       },
       onSettingsChange: (s) => settingsChanges.push(s),
+      onStatusChange: (status) => statuses.push(status),
+      onContextChange: (context) => contexts.push(context),
     },
   );
   return {
@@ -98,6 +105,8 @@ function harness(initial: Partial<TelemetrySettings> = {}): Harness {
     posted,
     timers,
     settingsChanges,
+    statuses,
+    contexts,
     overlays,
     clock,
     window: () => {
@@ -120,6 +129,63 @@ describe("TelemetryManager", () => {
       replayPath: "C:/r.ovfx",
       replaySpeed: 4,
     });
+  });
+
+  it("sends fuel options on change only and resends them after a restart", () => {
+    const h = harness();
+    h.manager.start();
+    const first = h.children[0] as FakeChild;
+    expect(first.commands("setFuelOptions")).toEqual([]);
+    h.manager.setFuelOptions({ keepFuelData: true });
+    h.manager.setFuelOptions({ keepFuelData: true });
+    expect(first.commands("setFuelOptions")).toEqual([
+      { type: "setFuelOptions", keepFuelData: true },
+    ]);
+    h.manager.setFuelOptions({ keepFuelData: false });
+    expect(first.commands("setFuelOptions")).toHaveLength(2);
+    h.manager.setFuelOptions({ keepFuelData: true });
+    first.exit();
+    h.timers[0]?.fn();
+    const second = h.children[1] as FakeChild;
+    expect(second.commands("setFuelOptions")).toEqual([
+      { type: "setFuelOptions", keepFuelData: true },
+    ]);
+    // Sent after the source, before any port.
+    expect(second.sent.map((s) => s.message.type).slice(0, 2)).toEqual([
+      "setSource",
+      "setFuelOptions",
+    ]);
+  });
+
+  it("sends Setup Compare options when they change and again to a restarted child", () => {
+    const h = harness();
+    h.manager.setSetupCompareOptions({ pinBaseline: false });
+    h.manager.start();
+    const first = h.children[0] as FakeChild;
+    expect(first.commands("setSetupCompareOptions")).toEqual([
+      { type: "setSetupCompareOptions", pinBaseline: false },
+    ]);
+    h.manager.setSetupCompareOptions({ pinBaseline: false });
+    h.manager.setSetupCompareOptions({ pinBaseline: true });
+    expect(first.commands("setSetupCompareOptions")).toEqual([
+      { type: "setSetupCompareOptions", pinBaseline: false },
+      { type: "setSetupCompareOptions", pinBaseline: true },
+    ]);
+    first.exit();
+    h.timers[0]?.fn();
+    expect(h.children[1]?.commands("setSetupCompareOptions")).toEqual([
+      { type: "setSetupCompareOptions", pinBaseline: true },
+    ]);
+  });
+
+  it("holds fuel options set before start and sends them with the child", () => {
+    const h = harness();
+    h.manager.setFuelOptions({ keepFuelData: true });
+    expect(h.children).toHaveLength(0);
+    h.manager.start();
+    expect(h.children[0]?.commands("setFuelOptions")).toEqual([
+      { type: "setFuelOptions", keepFuelData: true },
+    ]);
   });
 
   it("omits replayPath when none is set", () => {
@@ -341,5 +407,49 @@ describe("TelemetryManager", () => {
     expect(h.manager.getStatus()?.error).toBe("no file");
     h.children[0]?.exit();
     expect(h.manager.getStatus()).toBeUndefined();
+  });
+
+  it("reports each status message but not an exit", () => {
+    const h = harness();
+    h.manager.start();
+    h.children[0]?.emit({ type: "status", status: "waiting", source: null, error: null });
+    h.children[0]?.emit({ type: "status", status: "live", source: "mock", error: null });
+    h.children[0]?.emit({ type: "unrelated" });
+    h.children[0]?.exit();
+    expect(h.statuses.map((s) => s.status)).toEqual(["waiting", "live"]);
+  });
+
+  it("passes on well-formed context messages and clears the context when the process exits", () => {
+    const h = harness();
+    h.manager.start();
+    const context: SimContext = {
+      sim: "lmu",
+      carName: "Oreca 07",
+      carType: null,
+      sessionType: "race",
+      testData: false,
+    };
+    h.children[0]?.emit({ type: "context", context });
+    h.children[0]?.emit({
+      type: "context",
+      context: { sim: "rf2", carName: null, carType: null, sessionType: null, testData: false },
+    });
+    h.children[0]?.emit({
+      type: "context",
+      context: { sim: null, carName: null, carType: "kart", sessionType: null, testData: false },
+    });
+    h.children[0]?.emit({ type: "context" });
+    expect(h.contexts).toEqual([context]);
+    expect(h.manager.getContext()).toEqual(context);
+    expect(h.statuses).toEqual([]);
+    h.children[0]?.exit();
+    expect(h.contexts.at(-1)).toEqual({
+      sim: null,
+      carName: null,
+      carType: null,
+      sessionType: null,
+      testData: false,
+    });
+    expect(h.manager.getContext().sim).toBeNull();
   });
 });

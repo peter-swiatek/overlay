@@ -1,6 +1,7 @@
 import type { Car, SimState } from "../model";
 import { TrackOutlineBuilder, FULL_COVERAGE_GAP, MAX_LENGTH_ERROR } from "./builder";
 import { isTrackOutline } from "./outline";
+import { distanceAheadM, PitExitLearner, type PitExitStore } from "./pit-exit";
 import { trackKeyOf } from "./track-key";
 import type { LapResult, TrackOutline, TrackOutlineStore, TrackSample } from "./types";
 
@@ -9,14 +10,20 @@ export interface DerivedTrack {
   trackKey: string | null;
   /** True when an outline for `trackKey` can be fetched. */
   outlineReady: boolean;
+  /** Lap-distance fraction 0..1 of the pit exit, once learned on this track; null before. */
+  pitExitLapDistPct: number | null;
+  /** Metres to the pit exit ahead of the player while on pit road; null off pit road or before the exit is learned. */
+  pitExitDistanceM: number | null;
 }
 
 export function emptyDerivedTrack(): DerivedTrack {
-  return { trackKey: null, outlineReady: false };
+  return { trackKey: null, outlineReady: false, pitExitLapDistPct: null, pitExitDistanceM: null };
 }
 
 export interface TrackTrackerOptions {
   store?: TrackOutlineStore;
+  /** Where the pit-exit line of each track is kept; without it the exit is learned afresh each run. */
+  pitExits?: PitExitStore;
   now?: () => Date;
 }
 
@@ -30,6 +37,8 @@ export class TrackTracker {
   private builder: TrackOutlineBuilder | null = null;
   /** Best lap seen on this track in this run, for the 107% rule on the first timed lap. */
   private bestLapS: number | null = null;
+  private pitExit: number | null = null;
+  private readonly pitExitLearner = new PitExitLearner();
   /** The outcome of the latest finished lap, for diagnostics and tests. */
   lastLap: LapResult | null = null;
 
@@ -56,7 +65,21 @@ export class TrackTracker {
     if (key !== null && this.wantsBuild()) this.feed(key, state, player);
     // Ticks that are skipped would leave a lap with a hole in it, so the next one starts afresh.
     else this.builder?.reset();
-    return { trackKey: key, outlineReady: this.outline !== null };
+    const learned = key === null ? null : this.pitExitLearner.update(state, player, this.pitExit);
+    if (key !== null && learned !== null) {
+      this.pitExit = learned;
+      this.options.pitExits?.save(key, learned);
+    }
+    const here = player?.lapDistPct ?? null;
+    return {
+      trackKey: key,
+      outlineReady: this.outline !== null,
+      pitExitLapDistPct: this.pitExit,
+      pitExitDistanceM:
+        player?.onPitRoad === true
+          ? distanceAheadM(here, this.pitExit, state.session.trackLengthM)
+          : null,
+    };
   }
 
   private switchTrack(key: string | null, state: SimState): void {
@@ -64,6 +87,8 @@ export class TrackTracker {
     this.builder = null;
     this.bestLapS = null;
     this.lastLap = null;
+    this.pitExitLearner.reset();
+    this.pitExit = key === null ? null : (this.options.pitExits?.load(key) ?? null);
     this.outline = key === null ? null : this.loadStored(key, state.session.trackLengthM);
   }
 
